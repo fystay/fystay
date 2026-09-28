@@ -2,16 +2,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFindUnique = vi.fn();
 const mockUpsert = vi.fn();
+const mockFindMany = vi.fn();
+const mockDeleteMany = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     hotelProviderCacheEntry: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
       upsert: (...args: unknown[]) => mockUpsert(...args),
+      findMany: (...args: unknown[]) => mockFindMany(...args),
+      deleteMany: (...args: unknown[]) => mockDeleteMany(...args),
     },
   },
 }));
 
-const { withCachedAdapter, searchCacheKey, availabilityCacheKey } = await import("./cache");
+const scheduled: Array<() => Promise<void>> = [];
+const mockAfter = vi.fn((cb: () => Promise<void>) => {
+  scheduled.push(cb);
+});
+vi.mock("next/server", () => ({ after: (cb: () => Promise<void>) => mockAfter(cb) }));
+
+const { withCachedAdapter, searchCacheKey, availabilityCacheKey, pruneExpiredHotelProviderCache, PRUNE_BATCH_LIMIT } =
+  await import("./cache");
 const { createFixtureAdapter } = await import("./testFixtures");
 
 const searchParams = {
@@ -36,6 +47,11 @@ const TTL = { searchTtlMs: 60_000, availabilityTtlMs: 30_000 };
 beforeEach(() => {
   mockFindUnique.mockReset().mockResolvedValue(null);
   mockUpsert.mockReset().mockResolvedValue({});
+  mockFindMany.mockReset().mockResolvedValue([]);
+  mockDeleteMany.mockReset().mockResolvedValue({ count: 0 });
+  mockAfter.mockClear();
+  scheduled.length = 0;
+  vi.restoreAllMocks();
 });
 
 describe("cache key builders", () => {
@@ -198,5 +214,110 @@ describe("withCachedAdapter: leaves untouched", () => {
       subId: "hc_test",
     });
     expect(url).toContain("fixture-provider.invalid");
+  });
+});
+
+describe("withCachedAdapter: signal pass-through", () => {
+  it("passes the caller's AbortSignal to the underlying adapter on a cache miss", async () => {
+    const searchHotels = vi.fn().mockResolvedValue([]);
+    const getAvailability = vi.fn().mockResolvedValue([]);
+    const wrapped = withCachedAdapter(createFixtureAdapter({ searchHotels, getAvailability }), TTL);
+    const { signal } = new AbortController();
+
+    await wrapped.searchHotels(searchParams, signal);
+    await wrapped.getAvailability("ext-1", availabilityParams, signal);
+
+    expect(searchHotels).toHaveBeenCalledWith(searchParams, signal);
+    expect(getAvailability).toHaveBeenCalledWith("ext-1", availabilityParams, signal);
+  });
+});
+
+describe("pruneExpiredHotelProviderCache", () => {
+  const now = new Date("2026-11-01T12:00:00Z");
+
+  it("deletes only entries that are expired at `now`, re-checking expiry in the delete itself", async () => {
+    mockFindMany.mockResolvedValue([{ id: "a" }, { id: "b" }]);
+    mockDeleteMany.mockResolvedValue({ count: 2 });
+
+    const removed = await pruneExpiredHotelProviderCache(now);
+
+    expect(removed).toBe(2);
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { expiresAt: { lte: now } }, take: PRUNE_BATCH_LIMIT }),
+    );
+    // The expiry re-check means a row refreshed between the two queries
+    // (new expiresAt > now) is never deleted - active entries are safe.
+    expect(mockDeleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["a", "b"] }, expiresAt: { lte: now } },
+    });
+  });
+
+  it("is bounded: never asks for more than the batch limit, and honours a smaller limit", async () => {
+    await pruneExpiredHotelProviderCache(now, 5);
+    expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
+    expect(PRUNE_BATCH_LIMIT).toBeLessThanOrEqual(500);
+  });
+
+  it("does nothing (no delete at all) when nothing has expired", async () => {
+    mockFindMany.mockResolvedValue([]);
+    expect(await pruneExpiredHotelProviderCache(now)).toBe(0);
+    expect(mockDeleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("withCachedAdapter: opportunistic cleanup trigger", () => {
+  it("schedules cleanup via after() (post-response) on a cache write when the dice roll hits", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const wrapped = withCachedAdapter(createFixtureAdapter({ searchHotels: vi.fn().mockResolvedValue([]) }), TTL);
+
+    await wrapped.searchHotels(searchParams);
+
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    // Nothing ran inline - the delete only happens when the scheduled callback runs.
+    expect(mockFindMany).not.toHaveBeenCalled();
+    await scheduled[0]();
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not schedule cleanup most of the time", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const wrapped = withCachedAdapter(createFixtureAdapter({ searchHotels: vi.fn().mockResolvedValue([]) }), TTL);
+    await wrapped.searchHotels(searchParams);
+    expect(mockAfter).not.toHaveBeenCalled();
+  });
+
+  it("never schedules cleanup on a cache hit or when the provider call fails", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    mockFindUnique.mockResolvedValue({ payload: [], expiresAt: new Date(Date.now() + 60_000) });
+    const hit = withCachedAdapter(createFixtureAdapter({ searchHotels: vi.fn() }), TTL);
+    await hit.searchHotels(searchParams);
+
+    mockFindUnique.mockResolvedValue(null);
+    const failing = withCachedAdapter(createFixtureAdapter({ searchHotels: vi.fn().mockRejectedValue(new Error("down")) }), TTL);
+    await expect(failing.searchHotels(searchParams)).rejects.toThrow("down");
+
+    expect(mockAfter).not.toHaveBeenCalled();
+  });
+
+  it("swallows a cleanup failure - the scheduled pass logs and never throws", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFindMany.mockRejectedValue(new Error("db unreachable"));
+    const wrapped = withCachedAdapter(createFixtureAdapter({ searchHotels: vi.fn().mockResolvedValue([]) }), TTL);
+
+    const results = await wrapped.searchHotels(searchParams);
+    await expect(scheduled[0]()).resolves.toBeUndefined();
+
+    expect(results).toEqual([]);
+    expect(errorLog).toHaveBeenCalled();
+  });
+
+  it("still returns the result when there is no request scope for after() (e.g. scripts)", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    mockAfter.mockImplementationOnce(() => {
+      throw new Error("after() was called outside a request scope");
+    });
+    const wrapped = withCachedAdapter(createFixtureAdapter({ searchHotels: vi.fn().mockResolvedValue([]) }), TTL);
+    await expect(wrapped.searchHotels(searchParams)).resolves.toEqual([]);
   });
 });

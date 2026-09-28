@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { CacheTtlConfig } from "@/lib/hotelProviders/config";
 import type {
   AvailabilityParams,
   HotelDeal,
@@ -7,6 +9,8 @@ import type {
   HotelSearchParams,
   HotelSearchResult,
 } from "@/lib/hotelProviders/types";
+
+export type { CacheTtlConfig } from "@/lib/hotelProviders/config";
 
 /**
  * A small, provider-agnostic, DB-backed cache in front of the two provider
@@ -19,46 +23,21 @@ import type {
  * exactly the reason rateLimit.ts's own top comment already documents for
  * this codebase: FYStay runs as short-lived Vercel serverless functions,
  * each with its own process memory, so an in-process cache would reset on
- * every cold start and wouldn't agree across concurrent instances - it
- * wouldn't meaningfully reduce provider calls at all.
+ * every cold start and wouldn't agree across concurrent instances.
  *
  * Cache keys are built only from HotelSearchParams/AvailabilityParams -
- * neither type has ever had (and never should have) a userId, sessionId, or
- * subId field, so there is structurally nothing user- or attribution-
- * specific for this cache to leak between guests. A cache entry answering
- * one guest's search is exactly as valid for any other guest who searches
- * the same destination/dates/guests against the same provider.
+ * neither type has (or should ever have) a userId, sessionId, or subId
+ * field, so there is structurally nothing user- or attribution-specific for
+ * this cache to leak between guests.
+ *
+ * TTLs (config.ts): search 5 min, availability 60s by default. Availability
+ * is deliberately short because price/inventory is time-sensitive.
  */
 
-export type CacheTtlConfig = {
-  searchTtlMs: number;
-  availabilityTtlMs: number;
-};
-
-function envInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-/**
- * Search results (5 min default): a hotel list for a destination/dates
- * combination changes slowly enough that a few minutes of staleness is an
- * unremarkable trade for far fewer provider calls under real traffic.
- * Availability (1 min default) is deliberately much shorter - see this
- * file's own top comment: price and room inventory are exactly the fields
- * this codebase's own docs (HotelSearchResult's comment) already warn are
- * "last known", never guaranteed, and the hotel detail page re-checks
- * availability specifically so a guest is never shown a stale price to
- * commit to - a long availability cache would quietly undermine that same
- * guarantee this cache sits in front of. Both overridable via env for
- * production tuning - see .env.example.
- */
-export const DEFAULT_CACHE_TTL: CacheTtlConfig = {
-  searchTtlMs: envInt("HOTEL_SEARCH_CACHE_TTL_MS", 5 * 60 * 1000),
-  availabilityTtlMs: envInt("HOTEL_AVAILABILITY_CACHE_TTL_MS", 60 * 1000),
-};
+/** Chance that a cache write also schedules a cleanup pass - same approach as RateLimitHit's pruning. */
+const PRUNE_PROBABILITY = 0.05;
+/** Hard upper bound on rows deleted by one cleanup pass. */
+export const PRUNE_BATCH_LIMIT = 200;
 
 function hashParts(parts: unknown[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 40);
@@ -91,9 +70,7 @@ export function availabilityCacheKey(providerCode: string, externalId: string, p
 
 /**
  * Reads a cache entry, treating any read failure or an expired row exactly
- * like a cache miss - never lets a cache outage or an expired-but-not-yet-
- * pruned row break or slow down the guest-facing request beyond falling
- * through to the real provider call.
+ * like a cache miss - a cache outage degrades to calling the provider.
  */
 async function getCached<T>(cacheKey: string, now: Date): Promise<T | null> {
   try {
@@ -107,11 +84,57 @@ async function getCached<T>(cacheKey: string, now: Date): Promise<T | null> {
 }
 
 /**
- * Writes a cache entry. Only ever called by the wrappers below after a
- * provider call has already succeeded - there is no code path that reaches
- * this function with an error response, so a failed provider call can never
- * be cached as if it were a successful one. A write failure is logged and
- * swallowed: the guest already has their (uncached) result regardless.
+ * Deletes at most `limit` expired entries. Two small indexed queries, never
+ * an unbounded DELETE. The delete re-checks `expiresAt <= now`, so a row
+ * that was refreshed (upserted with a new expiry) between the two queries
+ * is left alone - an entry that is still valid is never deleted. Returns
+ * how many rows were removed.
+ */
+export async function pruneExpiredHotelProviderCache(
+  now: Date = new Date(),
+  limit: number = PRUNE_BATCH_LIMIT,
+): Promise<number> {
+  const expired = await prisma.hotelProviderCacheEntry.findMany({
+    where: { expiresAt: { lte: now } },
+    select: { id: true },
+    orderBy: { expiresAt: "asc" },
+    take: limit,
+  });
+  if (expired.length === 0) return 0;
+  const result = await prisma.hotelProviderCacheEntry.deleteMany({
+    where: { id: { in: expired.map((row) => row.id) }, expiresAt: { lte: now } },
+  });
+  return result.count;
+}
+
+/**
+ * On ~5% of cache writes (each write is a cache miss, so it adds at most one
+ * row), schedules one bounded cleanup pass via Next's after(), which runs
+ * once the response has been sent - the guest never waits on it. Each pass
+ * removes up to PRUNE_BATCH_LIMIT rows, so expected cleanup capacity (~10
+ * rows per miss) far exceeds growth (1 row per miss) and expired rows can't
+ * accumulate. Outside a request scope (scripts, tests) after() throws and
+ * the pass is simply skipped; any cleanup failure is logged, never thrown.
+ */
+function maybeSchedulePrune(): void {
+  if (Math.random() >= PRUNE_PROBABILITY) return;
+  try {
+    after(async () => {
+      try {
+        await pruneExpiredHotelProviderCache();
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  } catch {
+    // Not inside a request - nothing to schedule against.
+  }
+}
+
+/**
+ * Writes a cache entry. Only ever called after a provider call has already
+ * succeeded, so a failed provider call can never be cached as if it were a
+ * successful one. A write failure is logged and swallowed.
  */
 async function setCached(cacheKey: string, providerCode: string, payload: unknown, ttlMs: number, now: Date): Promise<void> {
   try {
@@ -123,34 +146,35 @@ async function setCached(cacheKey: string, providerCode: string, payload: unknow
     });
   } catch (err) {
     console.error(err);
+    return;
   }
+  maybeSchedulePrune();
 }
 
 /**
  * Wraps searchHotels and getAvailability with the cache above; leaves
  * getHotelDetails and createDeepLink untouched. Wired in once, in
- * registry.ts, alongside withResilientAdapter - the cache sits outside the
- * resilience layer (a cache hit skips the timeout/retry machinery entirely,
- * since there's no provider call to time out or retry).
+ * registry.ts, outside withResilientAdapter - a cache hit skips the
+ * timeout/retry machinery entirely, since there's no provider call.
  */
-export function withCachedAdapter(adapter: HotelProviderAdapter, ttl: CacheTtlConfig = DEFAULT_CACHE_TTL): HotelProviderAdapter {
+export function withCachedAdapter(adapter: HotelProviderAdapter, ttl: CacheTtlConfig): HotelProviderAdapter {
   return {
     ...adapter,
-    async searchHotels(params: HotelSearchParams): Promise<HotelSearchResult[]> {
+    async searchHotels(params: HotelSearchParams, signal?: AbortSignal): Promise<HotelSearchResult[]> {
       const now = new Date();
       const key = searchCacheKey(adapter.code, params);
       const cached = await getCached<HotelSearchResult[]>(key, now);
       if (cached) return cached;
-      const results = await adapter.searchHotels(params);
+      const results = await adapter.searchHotels(params, signal);
       await setCached(key, adapter.code, results, ttl.searchTtlMs, now);
       return results;
     },
-    async getAvailability(externalId: string, params: AvailabilityParams): Promise<HotelDeal[]> {
+    async getAvailability(externalId: string, params: AvailabilityParams, signal?: AbortSignal): Promise<HotelDeal[]> {
       const now = new Date();
       const key = availabilityCacheKey(adapter.code, externalId, params);
       const cached = await getCached<HotelDeal[]>(key, now);
       if (cached) return cached;
-      const deals = await adapter.getAvailability(externalId, params);
+      const deals = await adapter.getAvailability(externalId, params, signal);
       await setCached(key, adapter.code, deals, ttl.availabilityTtlMs, now);
       return deals;
     },

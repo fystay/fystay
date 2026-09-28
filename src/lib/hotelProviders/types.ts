@@ -33,9 +33,16 @@ export interface HotelProviderAdapter {
   /** Whether this provider is known to report bookings/commission back (a postback URL, a reporting API) - see AffiliateConversion's own schema comment on why this stays false until that access is actually confirmed. */
   readonly supportsConversionTracking: boolean;
 
-  searchHotels(params: HotelSearchParams): Promise<HotelSearchResult[]>;
+  /*
+   * The optional `signal` on the three network-facing methods is aborted by
+   * resilience.ts when an attempt times out or the overall call budget runs
+   * out. An adapter that makes network calls should pass it to fetch() so
+   * the underlying request is actually cancelled; one that does no I/O
+   * (mock) can ignore it.
+   */
+  searchHotels(params: HotelSearchParams, signal?: AbortSignal): Promise<HotelSearchResult[]>;
 
-  getHotelDetails(externalId: string): Promise<HotelDetails>;
+  getHotelDetails(externalId: string, signal?: AbortSignal): Promise<HotelDetails>;
 
   /**
    * Re-checks live deals/rooms for one hotel against exact dates - always
@@ -46,7 +53,7 @@ export interface HotelProviderAdapter {
    * outcomes the caller needs to tell apart (see HotelProviderAdapterError
    * for the latter).
    */
-  getAvailability(externalId: string, params: AvailabilityParams): Promise<HotelDeal[]>;
+  getAvailability(externalId: string, params: AvailabilityParams, signal?: AbortSignal): Promise<HotelDeal[]>;
 
   /**
    * Builds the exact outbound URL for one click - pure string
@@ -177,5 +184,32 @@ export class HotelProviderTimeoutError extends HotelProviderAdapterError {
   constructor(timeoutMs: number) {
     super(`Provider call timed out after ${timeoutMs}ms`, { retryable: true });
     this.name = "HotelProviderTimeoutError";
+  }
+}
+
+export type ProviderNotOperationalReason =
+  | "not_registered"
+  | "not_active"
+  | "fixture_in_production"
+  | "not_live_listed"
+  | "invalid_configuration";
+
+/**
+ * Thrown by every method of the locked adapter registry.ts returns for a
+ * provider that fails the activation rule (see evaluateProviderActivation).
+ * Non-retryable, and a HotelProviderAdapterError so every existing caller
+ * already maps it to its generic guest-facing "unavailable" message. The
+ * message names only the provider code and reason; any underlying detail
+ * (e.g. an invalid env var) travels in `cause` for server-side logs only.
+ */
+export class HotelProviderNotOperationalError extends HotelProviderAdapterError {
+  readonly providerCode: string;
+  readonly reason: ProviderNotOperationalReason;
+
+  constructor(providerCode: string, reason: ProviderNotOperationalReason, cause?: unknown) {
+    super(`Hotel provider "${providerCode}" is not operational (${reason})`, { retryable: false, cause });
+    this.name = "HotelProviderNotOperationalError";
+    this.providerCode = providerCode;
+    this.reason = reason;
   }
 }

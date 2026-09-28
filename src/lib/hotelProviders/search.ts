@@ -25,7 +25,7 @@
 import { cookies, headers } from "next/headers";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getHotelProviderAdapter } from "@/lib/hotelProviders/registry";
+import { evaluateProviderActivation, getOperationalHotelProviderAdapter } from "@/lib/hotelProviders/registry";
 import {
   HotelProviderAdapterError,
   type AvailabilityParams,
@@ -226,7 +226,11 @@ async function recordSearchEvent(
  * provider take down a page that has other, working results to show.
  */
 export async function searchHotels(params: HotelSearchParams): Promise<HotelSearchOutcome> {
-  const providers = await prisma.hotelProvider.findMany({ where: { status: "ACTIVE" } });
+  // ACTIVE in the database is necessary but not sufficient - the registry's
+  // activation rule (e.g. mock is never operational in production; an
+  // external provider must be live-listed) decides which ones may be queried.
+  const activeProviders = await prisma.hotelProvider.findMany({ where: { status: "ACTIVE" } });
+  const providers = activeProviders.filter((provider) => evaluateProviderActivation(provider).operational);
   if (providers.length === 0) {
     return {
       status: "unavailable",
@@ -244,7 +248,7 @@ export async function searchHotels(params: HotelSearchParams): Promise<HotelSear
   let failureCount = 0;
 
   for (const provider of providers) {
-    const adapter = getHotelProviderAdapter(provider.code);
+    const adapter = getOperationalHotelProviderAdapter(provider);
     try {
       const results = await adapter.searchHotels(params);
       await recordSearchEvent(provider, params, results.length, identity);
@@ -368,7 +372,10 @@ export async function getHotelForBooking(slug: string): Promise<HotelLookupOutco
   });
   if (!cached || !cached.active) return { status: "not_found" };
 
-  const adapter = getHotelProviderAdapter(cached.provider.code);
+  // A provider that fails the activation rule gets a locked adapter whose
+  // methods throw HotelProviderNotOperationalError - handled below exactly
+  // like any other provider failure.
+  const adapter = getOperationalHotelProviderAdapter(cached.provider);
   try {
     const details = await adapter.getHotelDetails(cached.externalId);
     return {
@@ -401,17 +408,23 @@ export async function getHotelAvailability(
   externalId: string,
   params: AvailabilityParams,
 ): Promise<HotelAvailabilityOutcome> {
-  const adapter = getHotelProviderAdapter(providerCode);
+  const unavailable: HotelAvailabilityOutcome = {
+    status: "unavailable",
+    message: "We couldn't check live availability for this hotel. Please try again shortly.",
+  };
+  // Read the provider's current status so the activation rule applies here
+  // too, rather than trusting a code passed in by the caller.
+  const provider = await prisma.hotelProvider.findUnique({
+    where: { code: providerCode },
+    select: { code: true, status: true },
+  });
+  if (!provider) return unavailable;
+  const adapter = getOperationalHotelProviderAdapter(provider);
   try {
     const deals = await adapter.getAvailability(externalId, params);
     return { status: "ok", deals };
   } catch (err) {
-    if (err instanceof HotelProviderAdapterError) {
-      return {
-        status: "unavailable",
-        message: "We couldn't check live availability for this hotel. Please try again shortly.",
-      };
-    }
+    if (err instanceof HotelProviderAdapterError) return unavailable;
     throw err;
   }
 }

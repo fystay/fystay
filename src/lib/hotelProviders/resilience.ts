@@ -1,120 +1,128 @@
 import type { HotelProviderAdapter } from "@/lib/hotelProviders/types";
 import { HotelProviderAdapterError, HotelProviderTimeoutError } from "@/lib/hotelProviders/types";
+import type { ResilienceConfig } from "@/lib/hotelProviders/config";
+
+export type { ResilienceConfig } from "@/lib/hotelProviders/config";
 
 /**
- * Provider-agnostic timeout + bounded-retry wrapper around the three async
- * HotelProviderAdapter methods (searchHotels/getHotelDetails/getAvailability
- * - never createDeepLink, which HotelProviderAdapter's own contract
- * documents as a synchronous, pure string builder with no I/O to time out or
- * retry). Deliberately knows nothing about any specific provider: it only
- * ever inspects HotelProviderAdapterError.retryable, the exact flag every
- * adapter (mock, booking_com, and any future one) already sets for this
- * purpose. Wired in once, in registry.ts, so every existing call site
- * (search.ts, the redirect route) gets this behaviour automatically without
- * importing or knowing about this module at all.
+ * Provider-agnostic timeout, cancellation, bounded retry and overall budget
+ * around the three network-facing HotelProviderAdapter methods (never
+ * createDeepLink, a synchronous pure string builder). Knows nothing about any
+ * specific provider - it only reads HotelProviderAdapterError.retryable.
+ *
+ * Rules (defaults from config.ts: 4000ms per attempt, 3 attempts, 10000ms
+ * total budget, 200ms/400ms backoff):
+ *   - The total budget always wins. Each attempt's timeout is the smaller of
+ *     timeoutMs and whatever budget remains.
+ *   - A retry happens only if the failure is retryable, attempts remain, the
+ *     caller hasn't aborted, and after the backoff at least minAttemptMs of
+ *     budget would still remain.
+ *   - When an attempt times out, its AbortSignal is aborted (reason: the
+ *     HotelProviderTimeoutError), so an adapter that passes the signal to
+ *     fetch() genuinely cancels the request. An adapter that ignores the
+ *     signal can't be forcibly stopped by JavaScript - its result is simply
+ *     discarded - so network-facing adapters must honour it.
+ *
+ * Worst case with the defaults is ~10 seconds for one provider call, never
+ * 3 x 4 seconds plus backoff: 4000ms timeout, 200ms backoff, 4000ms timeout,
+ * 400ms backoff, then a final attempt capped at the ~1400ms of budget left.
+ * Fast retryable failures (e.g. an immediate 503) can still use all 3
+ * attempts, since they consume almost none of the budget.
  */
-
-export type ResilienceConfig = {
-  /** How long a single attempt is allowed to run before it's treated as a timeout. */
-  timeoutMs: number;
-  /** Total attempts, including the first - e.g. 3 means "try once, then up to 2 retries". */
-  maxAttempts: number;
-  /** Delay before the first retry; each subsequent retry doubles this, capped at maxDelayMs. */
-  baseDelayMs: number;
-  maxDelayMs: number;
-};
-
-function envInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-/**
- * Defaults: 8s per attempt and up to 2 retries is generous enough for a
- * real third-party hotel API (search/availability calls routinely take
- * 1-3s) without leaving a guest staring at a spinner for the ~24s a naive
- * "always retry to the limit" policy could otherwise cost on a fully-down
- * provider. Backoff starts at 200ms (imperceptible) and caps at 2s (still
- * fast enough that three attempts finish well inside typical page-load
- * patience). Overridable via env for production tuning without a code
- * change - see .env.example. baseDelayMs/maxDelayMs are intentionally not
- * env-configurable: they're internal tuning, not an operational limit
- * anyone needs to change without also reconsidering the timeout/attempts
- * budget alongside them.
- */
-export const DEFAULT_RESILIENCE_CONFIG: ResilienceConfig = {
-  timeoutMs: envInt("HOTEL_PROVIDER_TIMEOUT_MS", 8000),
-  maxAttempts: envInt("HOTEL_PROVIDER_MAX_ATTEMPTS", 3),
-  baseDelayMs: 200,
-  maxDelayMs: 2000,
-};
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Races `fn` against a timer, rejecting with HotelProviderTimeoutError if the timer wins first. Never leaves the timer running past whichever settles first. */
-function withTimeout<T>(fn: () => Promise<T>, timeoutMs: number): Promise<T> {
+/**
+ * One attempt: gives `fn` a fresh AbortSignal, aborts it when the attempt
+ * times out (or when the caller's own signal aborts), and always clears the
+ * timer and listener however the attempt settles - including when `fn`
+ * throws synchronously instead of returning a rejected promise.
+ */
+function runAttempt<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  callerSignal?: AbortSignal,
+): Promise<T> {
+  const controller = new AbortController();
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new HotelProviderTimeoutError(timeoutMs)), timeoutMs);
-    fn().then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err) => {
-        clearTimeout(timer);
-        reject(err);
-      },
+    let settled = false;
+    const finish = (settle: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callerSignal?.removeEventListener("abort", onCallerAbort);
+      settle();
+    };
+    const timer = setTimeout(() => {
+      const timeoutError = new HotelProviderTimeoutError(timeoutMs);
+      controller.abort(timeoutError);
+      finish(() => reject(timeoutError));
+    }, timeoutMs);
+    function onCallerAbort() {
+      controller.abort(callerSignal?.reason);
+      finish(() => reject(callerSignal?.reason));
+    }
+
+    if (callerSignal?.aborted) {
+      onCallerAbort();
+      return;
+    }
+    callerSignal?.addEventListener("abort", onCallerAbort, { once: true });
+
+    let pending: Promise<T>;
+    try {
+      pending = Promise.resolve(fn(controller.signal));
+    } catch (err) {
+      finish(() => reject(err));
+      return;
+    }
+    pending.then(
+      (value) => finish(() => resolve(value)),
+      (err) => finish(() => reject(err)),
     );
   });
 }
 
 /**
- * Runs `fn` under a timeout, retrying only when the failure is a
- * HotelProviderAdapterError with retryable: true (a timeout always
- * qualifies - see HotelProviderTimeoutError). Anything else - a
- * non-retryable adapter error (e.g. missing/invalid credentials) or a
- * genuinely unexpected bug that isn't even a HotelProviderAdapterError -
- * propagates immediately on the first attempt, exactly as it did before
- * this wrapper existed, so every existing "re-throw unexpected errors"
- * behaviour in search.ts is unaffected.
+ * Runs `fn` under the rules in this file's top comment. A non-retryable
+ * adapter error (e.g. missing credentials) or a genuinely unexpected error
+ * that isn't a HotelProviderAdapterError at all propagates on the first
+ * attempt, unchanged.
  */
-export async function withRetry<T>(fn: () => Promise<T>, config: ResilienceConfig = DEFAULT_RESILIENCE_CONFIG): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
+export async function withRetry<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  config: ResilienceConfig,
+  callerSignal?: AbortSignal,
+): Promise<T> {
+  const deadline = Date.now() + config.totalBudgetMs;
+  for (let attempt = 1; ; attempt++) {
+    const remaining = deadline - Date.now();
+    const attemptTimeoutMs = Math.max(1, Math.min(config.timeoutMs, remaining));
     try {
-      return await withTimeout(fn, config.timeoutMs);
+      return await runAttempt(fn, attemptTimeoutMs, callerSignal);
     } catch (err) {
-      lastError = err;
       const retryable = err instanceof HotelProviderAdapterError && err.retryable;
-      const attemptsRemain = attempt < config.maxAttempts;
-      if (!retryable || !attemptsRemain) throw err;
-      const backoff = Math.min(config.baseDelayMs * 2 ** (attempt - 1), config.maxDelayMs);
-      await delay(backoff);
+      if (!retryable || attempt >= config.maxAttempts || callerSignal?.aborted) throw err;
+      const backoffMs = Math.min(config.baseDelayMs * 2 ** (attempt - 1), config.maxDelayMs);
+      if (deadline - Date.now() - backoffMs < config.minAttemptMs) throw err;
+      await delay(backoffMs);
     }
   }
-  // Unreachable (the loop above always either returns or throws), but
-  // satisfies TypeScript's control-flow analysis without an `as never`.
-  throw lastError;
 }
 
 /**
- * Wraps every async method of `adapter` in withRetry, leaving `code`,
- * `name`, the capability flags, and createDeepLink completely untouched.
- * This is the one function registry.ts calls - nothing else in the app
- * needs to know this wrapper exists.
+ * Wraps every network-facing method of `adapter` in withRetry, leaving
+ * `code`, `name`, the capability flags, and createDeepLink untouched. Called
+ * only from registry.ts.
  */
-export function withResilientAdapter(
-  adapter: HotelProviderAdapter,
-  config: ResilienceConfig = DEFAULT_RESILIENCE_CONFIG,
-): HotelProviderAdapter {
+export function withResilientAdapter(adapter: HotelProviderAdapter, config: ResilienceConfig): HotelProviderAdapter {
   return {
     ...adapter,
-    searchHotels: (params) => withRetry(() => adapter.searchHotels(params), config),
-    getHotelDetails: (externalId) => withRetry(() => adapter.getHotelDetails(externalId), config),
-    getAvailability: (externalId, params) => withRetry(() => adapter.getAvailability(externalId, params), config),
+    searchHotels: (params, signal) => withRetry((s) => adapter.searchHotels(params, s), config, signal),
+    getHotelDetails: (externalId, signal) => withRetry((s) => adapter.getHotelDetails(externalId, s), config, signal),
+    getAvailability: (externalId, params, signal) =>
+      withRetry((s) => adapter.getAvailability(externalId, params, s), config, signal),
   };
 }

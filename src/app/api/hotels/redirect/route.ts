@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
 import { resolveAffiliateHotelForRedirect } from "@/lib/hotelProviders/search";
-import { getHotelProviderAdapter } from "@/lib/hotelProviders/registry";
+import { evaluateProviderActivation, getOperationalHotelProviderAdapter } from "@/lib/hotelProviders/registry";
 import { HotelProviderAdapterError } from "@/lib/hotelProviders/types";
 import { computeClickSubId, isAllowedDeepLinkUrl } from "@/lib/hotelProviders/click";
 import {
@@ -96,18 +96,14 @@ export const GET = withApiErrorHandling(async function GET(request: Request) {
 
   const hotel = await resolveAffiliateHotelForRedirect(hotelSlug);
   if (!hotel || !hotel.active) return safeFallback();
-  if (hotel.provider.status !== "ACTIVE" || !hotel.provider.supportsDeepLink) return safeFallback();
+  if (!hotel.provider.supportsDeepLink) return safeFallback();
+  // The registry's activation rule covers a non-ACTIVE provider, a code with
+  // no registered adapter, mock on a production deployment, and an external
+  // provider that isn't live-listed - all fall back safely, before any click
+  // is recorded.
+  if (!evaluateProviderActivation(hotel.provider).operational) return safeFallback();
 
-  let adapter;
-  try {
-    adapter = getHotelProviderAdapter(hotel.provider.code);
-  } catch {
-    // A HotelProvider row exists with no matching registered adapter -
-    // shouldn't happen outside a seeding mistake, but this route's job is
-    // to fail safe, not to assume the database is always internally
-    // consistent.
-    return safeFallback();
-  }
+  const adapter = getOperationalHotelProviderAdapter(hotel.provider);
 
   const rawParams = Object.fromEntries(url.searchParams.entries());
   const stayWindow = parseOptionalStayWindow(rawParams) ?? defaultStayWindow();

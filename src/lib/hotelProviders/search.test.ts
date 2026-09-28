@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { HotelProviderAdapterError, HotelProviderTimeoutError } from "./types";
+import { HotelProviderAdapterError, HotelProviderNotOperationalError, HotelProviderTimeoutError } from "./types";
 
 const mockHotelProviderFindMany = vi.fn();
+const mockHotelProviderFindUnique = vi.fn();
 const mockAffiliateSearchFindFirst = vi.fn();
 const mockAffiliateSearchCreate = vi.fn();
 const mockAffiliateHotelFindMany = vi.fn();
@@ -10,7 +11,10 @@ const mockTransaction = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    hotelProvider: { findMany: (...args: unknown[]) => mockHotelProviderFindMany(...args) },
+    hotelProvider: {
+      findMany: (...args: unknown[]) => mockHotelProviderFindMany(...args),
+      findUnique: (...args: unknown[]) => mockHotelProviderFindUnique(...args),
+    },
     affiliateSearch: {
       findFirst: (...args: unknown[]) => mockAffiliateSearchFindFirst(...args),
       create: (...args: unknown[]) => mockAffiliateSearchCreate(...args),
@@ -35,9 +39,14 @@ vi.mock("next/headers", () => ({
   headers: vi.fn().mockResolvedValue({ get: () => null }),
 }));
 
+// The registry is mocked so these tests isolate search.ts's own handling;
+// the activation rule itself is covered by registry.test.ts. The mock is
+// keyed by provider.code, matching the real getOperationalHotelProviderAdapter.
 const mockGetHotelProviderAdapter = vi.fn();
+const mockEvaluateProviderActivation = vi.fn();
 vi.mock("@/lib/hotelProviders/registry", () => ({
-  getHotelProviderAdapter: (...args: unknown[]) => mockGetHotelProviderAdapter(...args),
+  getOperationalHotelProviderAdapter: (provider: { code: string }) => mockGetHotelProviderAdapter(provider.code),
+  evaluateProviderActivation: (...args: unknown[]) => mockEvaluateProviderActivation(...args),
 }));
 
 const { searchHotels, getHotelForBooking, getHotelAvailability } = await import("./search");
@@ -75,6 +84,8 @@ beforeEach(() => {
   mockAffiliateHotelFindUnique.mockReset();
   mockTransaction.mockReset().mockResolvedValue([]);
   mockGetHotelProviderAdapter.mockReset();
+  mockEvaluateProviderActivation.mockReset().mockReturnValue({ operational: true });
+  mockHotelProviderFindUnique.mockReset().mockResolvedValue({ code: "mock", status: "ACTIVE" });
 });
 
 describe("searchHotels", () => {
@@ -243,5 +254,91 @@ describe("getHotelAvailability", () => {
   it("returns ok with the adapter's deals on success, including a genuinely empty (sold out) list", async () => {
     mockGetHotelProviderAdapter.mockReturnValue(fakeAdapter({ getAvailability: vi.fn().mockResolvedValue([]) }));
     expect(await getHotelAvailability("mock", "ext", availabilityParams)).toEqual({ status: "ok", deals: [] });
+  });
+});
+
+describe("provider activation gate (search.ts side)", () => {
+  it("never queries an ACTIVE provider that fails the activation rule, and reports search unavailable when none pass", async () => {
+    mockHotelProviderFindMany.mockResolvedValue([{ id: "p1", code: "booking_com", name: "Booking.com", status: "ACTIVE" }]);
+    mockEvaluateProviderActivation.mockReturnValue({ operational: false, reason: "not_live_listed" });
+
+    const outcome = await searchHotels(stayWindowParams);
+
+    expect(outcome).toEqual({
+      status: "unavailable",
+      message: "Hotel search isn't available right now. Please try again later.",
+    });
+    expect(mockGetHotelProviderAdapter).not.toHaveBeenCalled();
+    expect(mockAffiliateSearchCreate).not.toHaveBeenCalled();
+  });
+
+  it("queries only the operational providers when some ACTIVE ones fail the rule", async () => {
+    mockHotelProviderFindMany.mockResolvedValue([
+      { id: "p1", code: "mock", name: "Mock", status: "ACTIVE" },
+      { id: "p2", code: "booking_com", name: "Booking.com", status: "ACTIVE" },
+    ]);
+    mockEvaluateProviderActivation.mockImplementation((p: { code: string }) =>
+      p.code === "mock" ? { operational: true } : { operational: false, reason: "not_live_listed" },
+    );
+    mockGetHotelProviderAdapter.mockReturnValue(fakeAdapter({ searchHotels: vi.fn().mockResolvedValue([]) }));
+
+    await searchHotels(stayWindowParams);
+
+    expect(mockGetHotelProviderAdapter).toHaveBeenCalledTimes(1);
+    expect(mockGetHotelProviderAdapter).toHaveBeenCalledWith("mock");
+  });
+
+  it("getHotelForBooking reports unavailable (not a crash) when the provider is locked by the gate", async () => {
+    mockAffiliateHotelFindUnique.mockResolvedValue({
+      slug: "x",
+      active: true,
+      externalId: "ext",
+      provider: { code: "mock", name: "Mock", status: "ACTIVE" },
+    });
+    mockGetHotelProviderAdapter.mockReturnValue(
+      fakeAdapter({
+        getHotelDetails: vi.fn().mockRejectedValue(new HotelProviderNotOperationalError("mock", "fixture_in_production")),
+      }),
+    );
+    expect(await getHotelForBooking("x")).toEqual({
+      status: "unavailable",
+      message: "This hotel's details aren't available right now. Please try again shortly.",
+    });
+  });
+
+  it("getHotelAvailability reports unavailable without calling any adapter when the provider row doesn't exist", async () => {
+    mockHotelProviderFindUnique.mockResolvedValue(null);
+    const outcome = await getHotelAvailability("gone", "ext", {
+      checkIn: stayWindowParams.checkIn,
+      checkOut: stayWindowParams.checkOut,
+      adults: 2,
+      children: 0,
+      rooms: 1,
+    });
+    expect(outcome.status).toBe("unavailable");
+    expect(mockGetHotelProviderAdapter).not.toHaveBeenCalled();
+  });
+});
+
+describe("invalid configuration: guest-facing path stays generic", () => {
+  it("maps an invalid_configuration lock to the normal unavailable message, with no config details", async () => {
+    mockHotelProviderFindMany.mockResolvedValue([{ id: "p1", code: "mock", name: "Mock", status: "ACTIVE" }]);
+    const configDetail = new Error('HOTEL_PROVIDER_MAX_ATTEMPTS="0.5" is not a positive whole number (allowed: 1-10).');
+    mockGetHotelProviderAdapter.mockReturnValue(
+      fakeAdapter({
+        searchHotels: vi.fn().mockRejectedValue(new HotelProviderNotOperationalError("mock", "invalid_configuration", configDetail)),
+      }),
+    );
+
+    const outcome = await searchHotels(stayWindowParams);
+
+    expect(outcome).toEqual({
+      status: "unavailable",
+      message: "We couldn't reach our hotel search partner. Please try again shortly.",
+    });
+    const serialized = JSON.stringify(outcome);
+    expect(serialized).not.toContain("HOTEL_PROVIDER");
+    expect(serialized).not.toContain("0.5");
+    expect(serialized).not.toContain("invalid_configuration");
   });
 });

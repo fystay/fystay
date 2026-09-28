@@ -7,8 +7,10 @@ unset, or (even once they're set) because the request/response shapes and
 deep-link format haven't been confirmed against Booking.com's live API. No
 `HotelProvider` row with `code: "booking_com"` is ever seeded, and
 `LIVE_HOTEL_PROVIDER_CODES` (`src/lib/hotelProviders/registry.ts`) does not
-list it. This document is what has to happen, in order, before any of that
-changes - it is not a description of current behaviour.
+list it - so the registry refuses it at runtime even if its row were set
+`ACTIVE` and credentials were present. Section 5 describes that activation
+mechanism exactly as the code enforces it today; the rest of this document
+is what has to happen, in order, before Booking.com can be activated.
 
 This runbook covers connecting *any* real hotel provider through the
 existing `HotelProviderAdapter` abstraction. Booking.com is used as the
@@ -96,7 +98,10 @@ In the order they'd actually need implementing:
 
 1. **`src/lib/hotelProviders/providers/bookingCom.ts`** - replace each
    `notYetConfirmed(...)` call with a real implementation, following the
-   confirmed schemas exactly. `getBookingComCredentials()` stays as-is.
+   confirmed schemas exactly. `getBookingComCredentials()` stays as-is. Each
+   network method must pass the `signal` argument it receives to `fetch()`,
+   so a timed-out or over-budget call is genuinely cancelled rather than
+   left running in the background.
 2. **`src/lib/hotelProviders/click.ts`** - add `"booking_com"` to
    `ALLOWED_DEEP_LINK_HOSTS` with the confirmed real host(s), *only* once
    `createDeepLink()` is implemented and manually verified to only ever
@@ -106,14 +111,15 @@ In the order they'd actually need implementing:
    `status: "INACTIVE"` initially - creating the row is not the same as
    going live (see Section 5).
 4. **`src/lib/hotelProviders/registry.ts`** - add `"booking_com"` to
-   `LIVE_HOTEL_PROVIDER_CODES`. This is the second, independent gate (see
-   Section 5) - do this only after Section 6's testing checklist passes in
-   full against the sandbox.
-5. **Tuning**: revisit `HOTEL_PROVIDER_TIMEOUT_MS`,
-   `HOTEL_PROVIDER_MAX_ATTEMPTS`, and the two cache TTL env vars against
-   Booking.com's actual confirmed latency/rate-limit numbers from Section 2
-   - the shipped defaults are generic placeholders, not tuned to any real
-   provider.
+   `LIVE_HOTEL_PROVIDER_CODES`. This is the code-level authorisation the
+   registry enforces at runtime (see Section 5) - do this only after
+   Section 6's testing checklist passes in full against the sandbox.
+5. **Tuning**: revisit `HOTEL_PROVIDER_TIMEOUT_MS` (default 4000),
+   `HOTEL_PROVIDER_MAX_ATTEMPTS` (default 3),
+   `HOTEL_PROVIDER_TOTAL_BUDGET_MS` (default 10000), and the two cache TTL
+   env vars against Booking.com's actual confirmed latency/rate-limit numbers
+   from Section 2 - the shipped defaults are generic placeholders, not tuned
+   to any real provider. Invalid values fail closed (see Section 8).
 6. No changes needed anywhere else: `search.ts`, the redirect route, the
    admin dashboard, and every UI component already call through the
    `HotelProviderAdapter` abstraction and the resilience/cache wrappers -
@@ -121,26 +127,57 @@ In the order they'd actually need implementing:
 
 ---
 
-## 5. Going live is two deliberate, independent switches - never one
+## 5. How a provider becomes operational (enforced in code)
 
-A provider must never become "live" just because credentials happen to be
-set. Two separate things both have to be true:
+Every provider call in the app obtains its adapter through
+`getOperationalHotelProviderAdapter` in `src/lib/hotelProviders/registry.ts`,
+which applies `evaluateProviderActivation` at runtime. A provider that fails
+the rule gets a locked adapter: every method throws
+`HotelProviderNotOperationalError` and the real adapter is never called.
+Search skips it, the detail page shows "unavailable", and the redirect route
+falls back to `/hotels` before recording any click.
 
-1. `HotelProvider.status = "ACTIVE"` in the database (controls whether
-   `search.ts` will actually query it), **and**
-2. The provider's code is added to `LIVE_HOTEL_PROVIDER_CODES` in
-   `registry.ts` (an independent, code-level acknowledgement that this
-   provider's adapter is genuinely implemented and tested, not just that
-   someone flipped a database flag).
+**The rule**, in the order the code checks it:
 
-Flipping only one of these does nothing by itself - flipping the DB status
-without the registry entry doesn't change any application behavior beyond a
-cosmetic dashboard signal; the registry constant is read by nothing that
-gates traffic today, but is kept as the documented, load-bearing convention
-this codebase uses to answer "is this genuinely live" without trusting the
-database alone. Do not remove or repurpose this constant to "simplify"
-things - it is the single place a future audit checks to answer "could a
-provider have gone live by accident."
+1. The code has a registered adapter in `registry.ts`.
+2. The `HotelProvider` row's `status` is `ACTIVE`. `INACTIVE` and
+   `COMING_SOON` are never operational.
+3. If it is a fixture provider (`FIXTURE_HOTEL_PROVIDER_CODES`, currently
+   only `mock`): operational in development and preview, **never** when
+   `VERCEL_ENV=production`, even if someone also lists it as live.
+4. Otherwise it is an external provider: operational only if its code is in
+   `LIVE_HOTEL_PROVIDER_CODES`.
+5. Once operational, the adapter still enforces its own readiness. For
+   example `booking_com` throws until credentials are set and its endpoints
+   have been confirmed and implemented.
+
+**What each piece does:**
+
+| Piece | What it does | What it does *not* do |
+|---|---|---|
+| `HotelProvider.status` (database) | Must be `ACTIVE` for any provider to operate. Can be flipped without a deploy, so it is the quick off switch. | Cannot make an external provider operational by itself, and cannot make `mock` operational in production. |
+| `LIVE_HOTEL_PROVIDER_CODES` (code) | Explicitly authorises an external provider. Changing it requires a code change and deploy. Frozen at runtime. | Cannot make a provider operational while its database status isn't `ACTIVE`. Has no effect on fixture providers. |
+| `FIXTURE_HOTEL_PROVIDER_CODES` (code) | Marks demo providers (`mock`) that may run outside production only. | Nothing in production - a fixture provider can never operate there. |
+| Provider credentials (env vars) | Let an operational adapter authenticate to its provider. | **Never** make a provider operational on their own. |
+
+**What makes `mock` usable:** its row is `ACTIVE` (the dev seed does this;
+the seed refuses to run in production) and the deployment is not
+production.
+
+**What makes an external provider usable:** its adapter is registered, its
+row is `ACTIVE`, its code is in `LIVE_HOTEL_PROVIDER_CODES`, and its adapter's
+own readiness checks pass. On a production deployment an external provider
+is the only kind that can serve traffic.
+
+**Before `booking_com` can be activated**, all of these must be true:
+Sections 2 and 3 are confirmed from Booking.com's own documentation;
+Section 4 steps 1-3 are implemented; every Section 6 check has passed against
+the sandbox; production credentials are set in production only; its
+`HotelProvider` row is set to `ACTIVE`; and `"booking_com"` is added to
+`LIVE_HOTEL_PROVIDER_CODES` as its own reviewed change.
+
+The rule is covered by `registry.test.ts`, including tests that fail if the
+runtime check is removed.
 
 ---
 
@@ -163,6 +200,9 @@ until every one of these has passed against sandbox first):
 - [ ] A live sandbox click: confirm the generated deep link resolves to a
   real Booking.com sandbox page, and that `AffiliateClick.deepLinkUrl`
   matches exactly what was followed.
+- [ ] Cancellation confirmed: force a slow sandbox response past the
+  per-attempt timeout and confirm the underlying HTTP request is aborted
+  (the adapter passes the `signal` through to `fetch()`).
 - [ ] Rate-limit behavior confirmed: intentionally exceed the documented
   rate limit against sandbox and confirm the adapter surfaces a retryable
   `HotelProviderAdapterError`, not a crash or a silently-wrong result.
@@ -178,10 +218,10 @@ until every one of these has passed against sandbox first):
 - [ ] Manual review: confirm no credential, sandbox/production host, or
   real guest PII ever appears in a log line (see Security below).
 
-Only once every box above is checked against sandbox does flipping both
-switches in Section 5 - with production credentials - become appropriate.
-Do that as its own deliberate, reviewed change, not bundled into an
-unrelated feature commit.
+Only once every box above is checked against sandbox does activating the
+provider as described in Section 5 - with production credentials - become
+appropriate. Do that as its own deliberate, reviewed change, not bundled
+into an unrelated feature commit.
 
 ---
 
@@ -216,14 +256,26 @@ unrelated feature commit.
 
 ## 8. What Phase 12 already built, ready for a real provider to use for free
 
-- **Timeout + retry** (`src/lib/hotelProviders/resilience.ts`): wraps
-  every adapter automatically via `registry.ts` - a real provider gets
-  this with zero extra code.
-- **Caching** (`src/lib/hotelProviders/cache.ts`): same - automatic via
+- **Timeout, cancellation, retry and overall budget**
+  (`src/lib/hotelProviders/resilience.ts`): wraps every operational adapter
+  automatically via `registry.ts`. Defaults: 4000ms per attempt, up to 3
+  attempts, 10000ms total budget, 200ms/400ms backoff. The total budget
+  always wins - each attempt is capped at the budget remaining, and a retry
+  only starts if the failure is retryable and the backoff plus a useful
+  attempt still fit. Worst case for one provider call is therefore about 10
+  seconds (4000ms, 200ms, 4000ms, 400ms, then a final ~1400ms attempt), not
+  3 x 4 seconds. Each attempt gets its own `AbortSignal`, aborted on timeout.
+- **Caching** (`src/lib/hotelProviders/cache.ts`): automatic via
   `registry.ts`, provider-scoped cache keys, safe TTLs for price/inventory
-  data.
-- **`LIVE_HOTEL_PROVIDER_CODES`**: the deliberate go-live gate described in
-  Section 5.
+  data. Expired rows are removed by a bounded cleanup pass (at most 200
+  rows) that about 5% of cache writes schedule to run after the response
+  is sent.
+- **Configuration validation** (`src/lib/hotelProviders/config.ts`): every
+  tuning env var must be a positive whole number within its documented
+  range. An invalid value fails closed - the detail is logged server-side
+  and the provider call returns the generic "unavailable" state to guests.
+- **The activation gate**: `evaluateProviderActivation` /
+  `getOperationalHotelProviderAdapter`, described in Section 5.
 
 None of this required, or should ever require, a single Booking.com-shaped
 conditional anywhere in the application.

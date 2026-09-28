@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { seedDemoData } from "@/lib/demoSeed";
+import { isProductionSeedRefused } from "@/lib/productionSeedGuard";
 
 /**
  * One-off: populates the demo host/guest/listings/reviews/trip-extras
@@ -39,6 +40,12 @@ async function handle(request: Request) {
   const providedDigest = createHash("sha256").update(provided).digest();
   if (!timingSafeEqual(expectedDigest, providedDigest)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Checked after the secret, so an unauthenticated caller sees the same 401
+  // as before and learns nothing about the deployment.
+  if (isProductionSeedRefused()) {
+    return NextResponse.json({ error: "Demo seeding is disabled in production." }, { status: 403 });
   }
 
   const summary = await seedDemoData(prisma);

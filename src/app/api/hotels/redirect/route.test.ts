@@ -194,6 +194,44 @@ describe("GET /api/hotels/redirect - missing/invalid records", () => {
   });
 });
 
+describe("GET /api/hotels/redirect - provider activation gate", () => {
+  it("falls back safely and records no click for the mock provider on a production deployment", async () => {
+    const originalEnv = { ...process.env };
+    process.env.VERCEL_ENV = "production";
+    try {
+      const res = await GET(req("hotel=the-grand-lodge-blackpool&checkIn=2026-10-15&checkOut=2026-10-17"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/hotels");
+      expect(res.headers.get("location")).not.toContain("mock-hotel-provider.invalid");
+      expect(mockAffiliateClickCreate).not.toHaveBeenCalled();
+    } finally {
+      process.env = originalEnv;
+    }
+  });
+
+  it("still redirects to the mock provider on a preview deployment", async () => {
+    const originalEnv = { ...process.env };
+    process.env.VERCEL_ENV = "preview";
+    try {
+      const res = await GET(req("hotel=the-grand-lodge-blackpool&checkIn=2026-10-15&checkOut=2026-10-17"));
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toContain("mock-hotel-provider.invalid");
+    } finally {
+      process.env = originalEnv;
+    }
+  });
+
+  it("falls back before recording a click for an ACTIVE external provider that isn't live-listed", async () => {
+    mockAffiliateHotelFindUnique.mockResolvedValue(
+      activeMockHotelRow({ provider: { id: MOCK_PROVIDER_ID, code: "booking_com", status: "ACTIVE", supportsDeepLink: true } }),
+    );
+    const res = await GET(req("hotel=some-booking-com-hotel"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/hotels");
+    expect(mockAffiliateClickCreate).not.toHaveBeenCalled();
+  });
+});
+
 describe("GET /api/hotels/redirect - rate limiting", () => {
   it("returns 429 and never touches the database when rate limited", async () => {
     mockCheckRateLimit.mockResolvedValue({ allowed: false, remaining: 0, resetAt: new Date() });
