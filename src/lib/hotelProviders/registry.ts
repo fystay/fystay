@@ -4,6 +4,7 @@ import { mockHotelProviderAdapter } from "@/lib/hotelProviders/providers/mock";
 import { bookingComAdapter } from "@/lib/hotelProviders/providers/bookingCom";
 import { withResilientAdapter } from "@/lib/hotelProviders/resilience";
 import { withCachedAdapter } from "@/lib/hotelProviders/cache";
+import { withValidatedAdapter } from "@/lib/hotelProviders/validation";
 import { resolveHotelProviderConfig } from "@/lib/hotelProviders/config";
 import { isProductionDeployment, type EnvSource } from "@/lib/deploymentEnvironment";
 
@@ -35,6 +36,28 @@ export const FIXTURE_HOTEL_PROVIDER_CODES: readonly string[] = Object.freeze(["m
  * Frozen so nothing can add to it at runtime.
  */
 export const LIVE_HOTEL_PROVIDER_CODES: readonly string[] = Object.freeze([]);
+
+export type RegisteredHotelProvider = Pick<
+  HotelProviderAdapter,
+  "code" | "name" | "supportsSearch" | "supportsDeepLink" | "supportsClickTracking" | "supportsConversionTracking"
+>;
+
+/**
+ * Read-only description of every registered adapter - identity and declared
+ * capability flags only, never the adapter itself (so nothing outside this
+ * file can call a provider without going through the activation gate).
+ * Used by the operator tooling in prisma/hotel-provider.ts.
+ */
+export function listRegisteredHotelProviders(): RegisteredHotelProvider[] {
+  return Object.values(ADAPTERS).map((adapter) => ({
+    code: adapter.code,
+    name: adapter.name,
+    supportsSearch: adapter.supportsSearch,
+    supportsDeepLink: adapter.supportsDeepLink,
+    supportsClickTracking: adapter.supportsClickTracking,
+    supportsConversionTracking: adapter.supportsConversionTracking,
+  }));
+}
 
 export type ProviderActivationContext = {
   adapters: Readonly<Record<string, HotelProviderAdapter>>;
@@ -115,8 +138,10 @@ function lockedAdapter(code: string, reason: ProviderNotOperationalReason, cause
  * evaluateProviderActivation, and returns either:
  *   - a locked adapter whose methods throw HotelProviderNotOperationalError
  *     (the real adapter is never touched), or
- *   - the real adapter wrapped in caching(resilience(...)) - cache outermost,
- *     so a cache hit never reaches the timeout/retry layer.
+ *   - the real adapter wrapped in caching(resilience(validation(...))) -
+ *     cache outermost, so a cache hit never reaches the timeout/retry layer;
+ *     validation innermost, so nothing the adapter returns is retried,
+ *     cached or persisted before it has passed validation.ts.
  *
  * Invalid tuning configuration (config.ts) also fails closed here: the full
  * detail is logged server-side and the adapter is locked with reason
@@ -142,5 +167,5 @@ export function getOperationalHotelProviderAdapter(
   }
 
   const adapter = context.adapters[provider.code];
-  return withCachedAdapter(withResilientAdapter(adapter, config.resilience), config.cache);
+  return withCachedAdapter(withResilientAdapter(withValidatedAdapter(adapter), config.resilience), config.cache);
 }

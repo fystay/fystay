@@ -5,8 +5,8 @@ import { notFound, redirect } from "next/navigation";
 import { AlertTriangle, CalendarCheck, ExternalLink, Home, MapPin, Sparkles, Star } from "lucide-react";
 import {
   destinationSlugFor,
-  getHotelAvailability,
   getHotelForBooking,
+  loadHotelDetailPageData,
   recordHotelDetailView,
 } from "@/lib/hotelProviders/search";
 import {
@@ -94,8 +94,13 @@ export default async function HotelDetailPage({
 }) {
   const { destination, hotelSlug } = await params;
   const resolvedSearchParams = await searchParams;
+  const stayWindow = parseOptionalStayWindow(resolvedSearchParams) ?? defaultStayWindow();
+  const guestCounts = parseOptionalGuestCounts(resolvedSearchParams) ?? DEFAULT_GUEST_COUNTS;
 
-  const outcome = await getHotel(hotelSlug);
+  // Live details and live availability are fetched in parallel (see
+  // loadHotelDetailPageData) - details through the same cache()d getHotel
+  // generateMetadata uses, so the provider is asked for them once.
+  const outcome = await loadHotelDetailPageData(hotelSlug, { ...stayWindow, ...guestCounts }, getHotel);
   if (outcome.status === "not_found") notFound();
 
   if (outcome.status === "unavailable") {
@@ -108,7 +113,7 @@ export default async function HotelDetailPage({
     );
   }
 
-  const { hotel } = outcome;
+  const { hotel, availability: availabilityOutcome } = outcome;
   const canonicalDestination = destinationSlugFor(hotel.details.city);
   if (destination !== canonicalDestination) {
     const query = new URLSearchParams();
@@ -119,11 +124,7 @@ export default async function HotelDetailPage({
     redirect(`/hotels/${canonicalDestination}/${hotel.slug}${qs ? `?${qs}` : ""}`);
   }
 
-  const stayWindow = parseOptionalStayWindow(resolvedSearchParams) ?? defaultStayWindow();
-  const guestCounts = parseOptionalGuestCounts(resolvedSearchParams) ?? DEFAULT_GUEST_COUNTS;
-
-  const [availabilityOutcome, evExecOffering] = await Promise.all([
-    getHotelAvailability(hotel.providerCode, hotel.externalId, { ...stayWindow, ...guestCounts }),
+  const [evExecOffering] = await Promise.all([
     // The EV Exec cross-sell (Phase 9) - a completely separate lookup from
     // everything else on this page: it never touches AffiliateHotel/
     // AffiliateClick/AffiliateConversion, and its own analytics events
@@ -134,7 +135,7 @@ export default async function HotelDetailPage({
     // the non-canonical URL (immediately redirected, never actually shown
     // this page) doesn't get double-counted alongside the canonical render
     // they land on next. Its result is discarded (void) - it must come
-    // last in this array so the two names above line up positionally.
+    // last in this array so the name above lines up positionally.
     recordHotelDetailView(hotel, hotel.details.city),
   ]);
 

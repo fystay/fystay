@@ -23,6 +23,7 @@
  *      that surfaces it again.
  */
 import { cookies, headers } from "next/headers";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { evaluateProviderActivation, getOperationalHotelProviderAdapter } from "@/lib/hotelProviders/registry";
@@ -34,6 +35,7 @@ import {
   type HotelSearchParams,
   type HotelSearchResult,
 } from "@/lib/hotelProviders/types";
+import { logHotelProviderEvent, logProviderFailure } from "@/lib/hotelProviders/providerLog";
 import { buildHotelSlugBase, ensureUniqueSlug, slugify } from "@/lib/hotelSlug";
 import { VISITOR_ID_COOKIE } from "@/lib/visitorId";
 
@@ -47,24 +49,87 @@ export type HotelSearchOutcome =
   | { status: "ok"; results: HotelSearchCard[] }
   | { status: "unavailable"; message: string };
 
+const MAX_UPSERT_ATTEMPTS = 3;
+
+function isUniqueConstraintViolation(err: unknown): err is Prisma.PrismaClientKnownRequestError {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+}
+
+function constraintTarget(err: Prisma.PrismaClientKnownRequestError): string | null {
+  const target = err.meta?.target;
+  if (Array.isArray(target)) return target.map(String).join(",");
+  return typeof target === "string" ? target : null;
+}
+
 /**
- * Batches the slug-uniqueness check into one query per provider search
- * call (findMany + a Set), rather than one query per hotel - the search
- * results this runs against are a handful of rows, never worth N+1 queries.
+ * Caches search results into AffiliateHotel, safe under concurrent cache
+ * misses. Two requests for the same brand-new hotels (or two different
+ * hotels competing for the same slug) can both see "not there yet" and both
+ * try to insert; the loser's batch transaction fails atomically with P2002
+ * (AffiliateHotel's @@unique([providerId, externalId]) / slug @unique -
+ * nothing partial is ever committed), and is simply re-run: the re-run's
+ * lookup now sees the winner's rows and slugs, so it updates instead of
+ * inserting, or picks the next free slug. Bounded; if every attempt still
+ * conflicts, it falls back to a read-only lookup of whatever rows exist, and
+ * searchHotels already skips any result left without a slug - the guest
+ * gets the hotels that were cached rather than an error page. Any other
+ * database error propagates unchanged.
+ *
+ * Exported for the local-Postgres concurrency verification; app code calls
+ * it only through searchHotels below.
  */
-async function upsertAffiliateHotels(
+export async function upsertAffiliateHotels(
+  providerId: string,
+  results: HotelSearchResult[],
+): Promise<Map<string, string>> {
+  for (let attempt = 1; attempt <= MAX_UPSERT_ATTEMPTS; attempt++) {
+    try {
+      return await writeAffiliateHotels(providerId, results);
+    } catch (err) {
+      if (!isUniqueConstraintViolation(err)) throw err;
+      const exhausted = attempt === MAX_UPSERT_ATTEMPTS;
+      logHotelProviderEvent(exhausted ? "error" : "warn", "hotel_provider.upsert_conflict", {
+        providerId,
+        attempt,
+        maxAttempts: MAX_UPSERT_ATTEMPTS,
+        target: constraintTarget(err),
+        exhausted,
+      });
+    }
+  }
+  const rows = await prisma.affiliateHotel.findMany({
+    where: { providerId, externalId: { in: results.map((r) => r.externalId) } },
+    select: { externalId: true, slug: true },
+  });
+  return new Map(rows.map((row) => [row.externalId, row.slug]));
+}
+
+/**
+ * One attempt of the write above. Batches the slug-uniqueness check into
+ * one query per provider search call (findMany + a Set), rather than one
+ * query per hotel - the search results this runs against are a handful of
+ * rows, never worth N+1 queries.
+ */
+async function writeAffiliateHotels(
   providerId: string,
   results: HotelSearchResult[],
 ): Promise<Map<string, string>> {
   const resultByExternalId = new Map(results.map((r) => [r.externalId, r]));
   const externalIds = results.map((r) => r.externalId);
+  // Concurrent transactions over the same hotels must take their row and
+  // unique-key locks in one consistent order, or they can deadlock (40P01)
+  // instead of simply conflicting: updates go in id order, inserts in
+  // externalId order.
   const existing = await prisma.affiliateHotel.findMany({
     where: { providerId, externalId: { in: externalIds } },
     select: { id: true, externalId: true, slug: true },
+    orderBy: { id: "asc" },
   });
   const existingByExternalId = new Map(existing.map((row) => [row.externalId, row]));
 
-  const toCreate = results.filter((r) => !existingByExternalId.has(r.externalId));
+  const toCreate = results
+    .filter((r) => !existingByExternalId.has(r.externalId))
+    .sort((a, b) => (a.externalId < b.externalId ? -1 : a.externalId > b.externalId ? 1 : 0));
   const candidateBases = toCreate.map((r) => buildHotelSlugBase(r.name, r.city));
   const potentiallyTaken =
     candidateBases.length > 0
@@ -249,6 +314,7 @@ export async function searchHotels(params: HotelSearchParams): Promise<HotelSear
 
   for (const provider of providers) {
     const adapter = getOperationalHotelProviderAdapter(provider);
+    const startedAt = Date.now();
     try {
       const results = await adapter.searchHotels(params);
       await recordSearchEvent(provider, params, results.length, identity);
@@ -261,6 +327,12 @@ export async function searchHotels(params: HotelSearchParams): Promise<HotelSear
       }
     } catch (err) {
       if (!(err instanceof HotelProviderAdapterError)) throw err;
+      logProviderFailure({
+        operation: "search",
+        providerCode: provider.code,
+        error: err,
+        durationMs: Date.now() - startedAt,
+      });
       failureCount++;
       await recordSearchEvent(provider, params, null, identity);
     }
@@ -376,6 +448,7 @@ export async function getHotelForBooking(slug: string): Promise<HotelLookupOutco
   // methods throw HotelProviderNotOperationalError - handled below exactly
   // like any other provider failure.
   const adapter = getOperationalHotelProviderAdapter(cached.provider);
+  const startedAt = Date.now();
   try {
     const details = await adapter.getHotelDetails(cached.externalId);
     return {
@@ -390,6 +463,13 @@ export async function getHotelForBooking(slug: string): Promise<HotelLookupOutco
     };
   } catch (err) {
     if (err instanceof HotelProviderAdapterError) {
+      logProviderFailure({
+        operation: "details",
+        providerCode: cached.provider.code,
+        error: err,
+        durationMs: Date.now() - startedAt,
+        externalId: cached.externalId,
+      });
       return {
         status: "unavailable",
         message: "This hotel's details aren't available right now. Please try again shortly.",
@@ -403,15 +483,17 @@ export type HotelAvailabilityOutcome =
   | { status: "ok"; deals: HotelDeal[] }
   | { status: "unavailable"; message: string };
 
+const AVAILABILITY_UNAVAILABLE: HotelAvailabilityOutcome = {
+  status: "unavailable",
+  message: "We couldn't check live availability for this hotel. Please try again shortly.",
+};
+
 export async function getHotelAvailability(
   providerCode: string,
   externalId: string,
   params: AvailabilityParams,
 ): Promise<HotelAvailabilityOutcome> {
-  const unavailable: HotelAvailabilityOutcome = {
-    status: "unavailable",
-    message: "We couldn't check live availability for this hotel. Please try again shortly.",
-  };
+  const unavailable = AVAILABILITY_UNAVAILABLE;
   // Read the provider's current status so the activation rule applies here
   // too, rather than trusting a code passed in by the caller.
   const provider = await prisma.hotelProvider.findUnique({
@@ -420,13 +502,68 @@ export async function getHotelAvailability(
   });
   if (!provider) return unavailable;
   const adapter = getOperationalHotelProviderAdapter(provider);
+  const startedAt = Date.now();
   try {
     const deals = await adapter.getAvailability(externalId, params);
     return { status: "ok", deals };
   } catch (err) {
-    if (err instanceof HotelProviderAdapterError) return unavailable;
+    if (err instanceof HotelProviderAdapterError) {
+      logProviderFailure({
+        operation: "availability",
+        providerCode: provider.code,
+        error: err,
+        durationMs: Date.now() - startedAt,
+        externalId,
+      });
+      return unavailable;
+    }
     throw err;
   }
+}
+
+export type HotelDetailPageData =
+  | { status: "not_found" }
+  | { status: "unavailable"; message: string }
+  | { status: "ok"; hotel: HotelForBooking; availability: HotelAvailabilityOutcome };
+
+/**
+ * Everything the hotel detail page needs from the provider, with the two
+ * provider calls run in parallel rather than one after the other - so the
+ * page's worst case is one provider budget (~10s by default), not two.
+ *
+ * A database-only lookup comes first: an unknown or inactive slug is
+ * not_found before any provider call, exactly as before, and availability is
+ * only requested when the hotel's provider passes the activation rule. Then
+ * live details and live availability are fetched concurrently. If details
+ * fail the page shows its "unavailable" state as before (the availability
+ * result is simply unused).
+ *
+ * `loadDetails` is getHotelForBooking by default; the page passes its own
+ * React-cache()d wrapper so generateMetadata and the page share one details
+ * call per request.
+ */
+export async function loadHotelDetailPageData(
+  slug: string,
+  params: AvailabilityParams,
+  loadDetails: (slug: string) => Promise<HotelLookupOutcome> = getHotelForBooking,
+): Promise<HotelDetailPageData> {
+  const row = await prisma.affiliateHotel.findUnique({
+    where: { slug },
+    select: { active: true, externalId: true, provider: { select: { code: true, status: true } } },
+  });
+  if (!row || !row.active) return { status: "not_found" };
+
+  const operational = evaluateProviderActivation(row.provider).operational;
+  const [lookup, availability] = await Promise.all([
+    loadDetails(slug),
+    operational ? getHotelAvailability(row.provider.code, row.externalId, params) : Promise.resolve(null),
+  ]);
+  if (lookup.status !== "ok") return lookup;
+  return {
+    status: "ok",
+    hotel: lookup.hotel,
+    availability: availability ?? AVAILABILITY_UNAVAILABLE,
+  };
 }
 
 /** The `[destination]` URL segment a hotel's card/detail link should use - always derived from the hotel's own city, never the raw search query, so two different searches that surface the same hotel always agree on one canonical URL. */

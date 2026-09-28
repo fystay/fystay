@@ -290,6 +290,76 @@ describe("withRetry: overall budget", () => {
   });
 });
 
+describe("withRetry: cancellation during retry backoff", () => {
+  const BACKOFF_CONFIG: ResilienceConfig = {
+    timeoutMs: 1000,
+    maxAttempts: 3,
+    totalBudgetMs: 60_000,
+    baseDelayMs: 5000,
+    maxDelayMs: 5000,
+    minAttemptMs: 10,
+  };
+
+  it("rejects promptly with the caller's abort reason while waiting to retry, starts no further attempt, and leaves no timer or listener behind", async () => {
+    vi.useFakeTimers();
+    try {
+      const caller = new AbortController();
+      const removeSpy = vi.spyOn(caller.signal, "removeEventListener");
+      const fn = vi.fn(async () => {
+        throw new HotelProviderAdapterError("503", { retryable: true });
+      });
+      const pending = withRetry(fn, BACKOFF_CONFIG, caller.signal);
+      const settled = pending.catch((err: unknown) => err);
+      // Let the first attempt fail and the 5s backoff begin.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(1);
+
+      const reason = new Error("guest navigated away");
+      caller.abort(reason);
+      // No timer advance: the abort alone must settle the call.
+      expect(await settled).toBe(reason);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+      // Both the attempt's and the backoff's abort listeners were removed.
+      expect(removeSpy.mock.calls.filter(([type]) => type === "abort").length).toBeGreaterThanOrEqual(1);
+
+      // Running every remaining timer can't start another attempt.
+      await vi.runAllTimersAsync();
+      expect(fn).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears the backoff's abort listener when the wait completes normally, so retries still happen as before", async () => {
+    vi.useFakeTimers();
+    try {
+      const caller = new AbortController();
+      const addSpy = vi.spyOn(caller.signal, "addEventListener");
+      const removeSpy = vi.spyOn(caller.signal, "removeEventListener");
+      let calls = 0;
+      const fn = vi.fn(async () => {
+        calls++;
+        if (calls === 1) throw new HotelProviderAdapterError("503", { retryable: true });
+        return "ok";
+      });
+      const pending = withRetry(fn, BACKOFF_CONFIG, caller.signal);
+      await vi.advanceTimersByTimeAsync(5000);
+      await expect(pending).resolves.toBe("ok");
+      expect(fn).toHaveBeenCalledTimes(2);
+      // Every abort listener added (2 attempts + 1 backoff) was removed again.
+      const added = addSpy.mock.calls.filter(([type]) => type === "abort").length;
+      const removed = removeSpy.mock.calls.filter(([type]) => type === "abort").length;
+      expect(added).toBe(3);
+      expect(removed).toBe(added);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("withRetry: synchronous throws", () => {
   it("retries a retryable error thrown synchronously (not as a rejected promise)", async () => {
     let calls = 0;

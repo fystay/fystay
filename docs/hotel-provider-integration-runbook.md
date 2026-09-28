@@ -106,10 +106,10 @@ In the order they'd actually need implementing:
    `ALLOWED_DEEP_LINK_HOSTS` with the confirmed real host(s), *only* once
    `createDeepLink()` is implemented and manually verified to only ever
    return URLs on that host.
-3. **Database**: seed (or have an admin create via `/api/admin/*` tooling,
-   if built) a real `HotelProvider` row with `code: "booking_com"` and
-   `status: "INACTIVE"` initially - creating the row is not the same as
-   going live (see Section 5).
+3. **Database**: create the `HotelProvider` row with the operator CLI
+   (`npm run db:hotel-provider -- create booking_com`, see Section 5). It is
+   always created `INACTIVE` - creating the row is not the same as going
+   live.
 4. **`src/lib/hotelProviders/registry.ts`** - add `"booking_com"` to
    `LIVE_HOTEL_PROVIDER_CODES`. This is the code-level authorisation the
    registry enforces at runtime (see Section 5) - do this only after
@@ -179,6 +179,31 @@ the sandbox; production credentials are set in production only; its
 The rule is covered by `registry.test.ts`, including tests that fail if the
 runtime check is removed.
 
+**Operator tooling for `HotelProvider` rows** (`prisma/hotel-provider.ts`,
+logic in `src/lib/hotelProviders/providerAdmin.ts`). A terminal command run
+with the target database's own `DATABASE_URL` - deliberately not an HTTP
+endpoint or admin page:
+
+```
+npm run db:hotel-provider -- list
+npm run db:hotel-provider -- create <code> [--apply --confirm-host=<host>]
+npm run db:hotel-provider -- set-status <code> <ACTIVE|INACTIVE|COMING_SOON> [--apply --confirm-host=<host>]
+```
+
+- `list` shows every registered adapter and database row, with the
+  activation decision for both non-production and production (the tool
+  can't know which deployment a database serves).
+- `create` only accepts registered codes, always creates the row
+  `INACTIVE`, and copies the name and capability flags from the adapter.
+- `set-status` prints the resulting decision, including when `ACTIVE` still
+  won't make a provider operational (not live-listed, or a fixture in
+  production).
+- Every write is a dry run unless `--apply` is given, and `--apply` also
+  requires `--confirm-host` to match the `DATABASE_URL` host exactly. The
+  host and database name are printed; credentials never are.
+- There is no delete and no flag editing. `LIVE_HOTEL_PROVIDER_CODES` is
+  unaffected - the tool cannot make an external provider operational.
+
 ---
 
 ## 6. Testing - what must pass before a provider can be marked live
@@ -241,10 +266,19 @@ into an unrelated feature commit.
   `.env.example` documents every variable name with an empty value only.
   Rotate `BOOKING_COM_API_KEY` per Booking.com's own 12-month
   recommendation once live.
-- **Logging restrictions**: `console.error` calls throughout this package
-  (search.ts, cache.ts, resilience.ts) log `Error` objects, which must
-  never be constructed with a credential or full request payload embedded
-  in the message. Review any new adapter code for this before merging.
+- **Logging restrictions**: every provider failure is logged through
+  `src/lib/hotelProviders/providerLog.ts` as one JSON line built from named
+  fields only (operation, provider code, outcome, error class, retryable,
+  status code, not-operational reason, validation issue paths/codes,
+  duration, the provider's hotel id). It never logs an error's message,
+  cause or stack, the provider's response, or anything about the guest
+  (search text, dates, guest counts, user/session id, IP, cookies, the
+  deep-link URL). Adapter error messages should still never contain a
+  credential or payload, since other code (e.g. `withApiErrorHandling`)
+  may log unexpected errors in full. Log events: `hotel_provider.call_failed`,
+  `hotel_provider.response_items_dropped`, `hotel_provider.upsert_conflict`,
+  `hotel_provider.deep_link_refused`. Malformed responses are also reported
+  to Sentry when `SENTRY_DSN` is set.
 - **PII considerations**: `AffiliateClick` already stores `ipAddress`,
   `userAgent`, and (for logged-in users) `userId` - this predates Phase 12
   and is unchanged by it. A real provider's error responses or logs must
@@ -277,5 +311,62 @@ into an unrelated feature commit.
 - **The activation gate**: `evaluateProviderActivation` /
   `getOperationalHotelProviderAdapter`, described in Section 5.
 
+Phase 14 added:
+
+- **Response validation** (`src/lib/hotelProviders/validation.ts`): every
+  adapter result is checked against FYStay's own domain types before it can
+  be retried, cached or written to `AffiliateHotel`. Invalid search results
+  or deals (and repeated `externalId`s) are dropped and logged; the whole
+  response is rejected, non-retryably, when it isn't an array, exceeds its
+  size limit (200 results / 100 deals), or had items but none were valid.
+  Details are all-or-nothing and must be for the hotel requested. Unknown
+  fields are stripped. A real adapter only has to map its provider's
+  payload into those types to get this for free.
+- **Failure logging** (`providerLog.ts`): see Section 7.
+- **Concurrent upserts**: `upsertAffiliateHotels` retries a lost
+  `P2002` race (bounded, then falls back to the rows that exist) and takes
+  its locks in a consistent order so concurrent writers can't deadlock.
+- **Cancellable backoff**: a caller abort during the wait between retries
+  takes effect immediately.
+- **Parallel detail page**: live details and live availability are fetched
+  concurrently after a database-only lookup, so the page's worst case is one
+  provider budget (~10s by default) rather than two.
+
 None of this required, or should ever require, a single Booking.com-shaped
 conditional anywhere in the application.
+
+---
+
+## 9. Go-live check: function execution time on Vercel
+
+Provider calls run inside the page's serverless function, so the function's
+maximum duration must exceed the worst-case provider time plus database
+work. With the default tuning:
+
+| Path | Provider calls | Worst case |
+|---|---|---|
+| `/hotels/[destination]/[hotelSlug]` | details and availability, in parallel | ~10s + DB |
+| `/hotels` (search results) | one `searchHotels` per operational provider, **sequentially** | ~10s x providers + DB |
+| `/api/hotels/redirect` | none (`createDeepLink` is synchronous) | DB only |
+
+`HOTEL_PROVIDER_TOTAL_BUDGET_MS` can be raised to 120s, and each extra
+operational provider adds a full budget to search - both must stay inside
+the function limit.
+
+**Not yet verified (Phase 14):** the project's effective default and maximum
+function duration. The Vercel connector could read the team, project,
+region (`iad1`) and deployments, but not the plan, whether Fluid compute is
+enabled, or the function-duration setting, so no `maxDuration` was added to
+either hotel page. Comments elsewhere in this codebase assume a 10s default
+and 60s Hobby ceiling; that predates Fluid compute and must not be relied on.
+
+Before going live with a real provider:
+
+1. In the Vercel dashboard (Project -> Settings -> Functions, and the team's
+   plan), record the plan, whether Fluid compute is on, and the default and
+   maximum function duration.
+2. If the default is below the worst case above plus a safety margin, add
+   `export const maxDuration = <seconds>` to the affected `page.tsx`, no
+   higher than the verified maximum.
+3. Re-check this whenever the tuning env vars change or a second provider
+   becomes operational.

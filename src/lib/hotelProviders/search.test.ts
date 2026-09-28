@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import { HotelProviderAdapterError, HotelProviderNotOperationalError, HotelProviderTimeoutError } from "./types";
 
 const mockHotelProviderFindMany = vi.fn();
@@ -49,7 +50,7 @@ vi.mock("@/lib/hotelProviders/registry", () => ({
   evaluateProviderActivation: (...args: unknown[]) => mockEvaluateProviderActivation(...args),
 }));
 
-const { searchHotels, getHotelForBooking, getHotelAvailability } = await import("./search");
+const { searchHotels, getHotelForBooking, getHotelAvailability, loadHotelDetailPageData } = await import("./search");
 
 const stayWindowParams = {
   destination: "Blackpool",
@@ -317,6 +318,335 @@ describe("provider activation gate (search.ts side)", () => {
     });
     expect(outcome.status).toBe("unavailable");
     expect(mockGetHotelProviderAdapter).not.toHaveBeenCalled();
+  });
+});
+
+describe("concurrent AffiliateHotel upsert (P2002 race)", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    return () => {
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+    };
+  });
+
+  function uniqueViolation(target: string[] = ["slug"]) {
+    return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+      code: "P2002",
+      clientVersion: "test",
+      meta: { target },
+    });
+  }
+
+  const hotel = (externalId: string, name = "The Grand Lodge") => ({
+    externalId,
+    name,
+    city: "Blackpool",
+    country: "UK",
+    facilities: [],
+    currency: "GBP",
+    priceCents: 10000,
+  });
+
+  function setUpSearch(results: ReturnType<typeof hotel>[]) {
+    mockHotelProviderFindMany.mockResolvedValue([{ id: "p1", code: "mock", name: "Mock" }]);
+    mockGetHotelProviderAdapter.mockReturnValue(fakeAdapter({ searchHotels: vi.fn().mockResolvedValue(results) }));
+  }
+
+  async function createdExternalIds(transactionCall: number): Promise<string[]> {
+    const ops = (await Promise.all(mockTransaction.mock.calls[transactionCall][0] as Promise<{ data: { externalId?: string } }>[]));
+    return ops.map((op) => op.data.externalId).filter((id): id is string => Boolean(id));
+  }
+
+  it("re-runs the write after losing the race, updating the winner's rows instead of failing the search", async () => {
+    setUpSearch([hotel("ext-1")]);
+    mockTransaction.mockRejectedValueOnce(uniqueViolation(["providerId", "externalId"])).mockResolvedValueOnce([]);
+    mockAffiliateHotelFindMany
+      .mockResolvedValueOnce([]) // attempt 1: existing
+      .mockResolvedValueOnce([]) // attempt 1: taken slugs
+      .mockResolvedValueOnce([{ id: "row-1", externalId: "ext-1", slug: "the-grand-lodge-blackpool" }]); // attempt 2: winner's row
+
+    const outcome = await searchHotels(stayWindowParams);
+
+    expect(outcome.status).toBe("ok");
+    if (outcome.status === "ok") expect(outcome.results.map((r) => r.slug)).toEqual(["the-grand-lodge-blackpool"]);
+    expect(mockTransaction).toHaveBeenCalledTimes(2);
+    // The second attempt updated the existing row rather than inserting again.
+    expect(await createdExternalIds(1)).toEqual([]);
+    const conflict = JSON.parse(warnSpy.mock.calls[0][0] as string);
+    expect(conflict).toMatchObject({
+      event: "hotel_provider.upsert_conflict",
+      attempt: 1,
+      maxAttempts: 3,
+      target: "providerId,externalId",
+      exhausted: false,
+    });
+  });
+
+  it("picks the next free slug on retry when a different hotel won the same slug", async () => {
+    setUpSearch([hotel("ext-2")]);
+    mockTransaction.mockRejectedValueOnce(uniqueViolation(["slug"])).mockResolvedValueOnce([]);
+    mockAffiliateHotelFindMany
+      .mockResolvedValueOnce([]) // attempt 1: existing
+      .mockResolvedValueOnce([]) // attempt 1: taken slugs
+      .mockResolvedValueOnce([]) // attempt 2: existing - still not ours
+      .mockResolvedValueOnce([{ slug: "the-grand-lodge-blackpool" }]); // attempt 2: the other hotel now holds the base slug
+
+    const outcome = await searchHotels(stayWindowParams);
+
+    expect(outcome.status).toBe("ok");
+    if (outcome.status === "ok") expect(outcome.results[0].slug).toBe("the-grand-lodge-blackpool-2");
+  });
+
+  it("never throws when every attempt conflicts: falls back to the rows that exist and skips the rest", async () => {
+    setUpSearch([hotel("ext-a", "Alpha House"), hotel("ext-b", "Beta House")]);
+    mockTransaction.mockRejectedValue(uniqueViolation());
+    mockAffiliateHotelFindMany.mockImplementation(async (args: { select?: { id?: boolean } }) =>
+      // The final read-only fallback selects no id; only ext-a made it in.
+      args.select?.id ? [] : [{ externalId: "ext-a", slug: "alpha-house-blackpool" }],
+    );
+
+    const outcome = await searchHotels(stayWindowParams);
+
+    expect(outcome.status).toBe("ok");
+    if (outcome.status === "ok") {
+      expect(outcome.results.map((r) => r.externalId)).toEqual(["ext-a"]);
+      expect(outcome.results[0].slug).toBe("alpha-house-blackpool");
+    }
+    expect(mockTransaction).toHaveBeenCalledTimes(3);
+    const exhausted = (errorSpy.mock.calls as unknown[][])
+      .map(([line]): Record<string, unknown> => JSON.parse(line as string))
+      .find((record) => record.event === "hotel_provider.upsert_conflict");
+    expect(exhausted).toMatchObject({ attempt: 3, exhausted: true });
+  });
+
+  it("does not retry or swallow any other database error", async () => {
+    setUpSearch([hotel("ext-1")]);
+    const dbDown = new Prisma.PrismaClientKnownRequestError("Foreign key constraint failed", {
+      code: "P2003",
+      clientVersion: "test",
+    });
+    mockTransaction.mockRejectedValue(dbDown);
+
+    await expect(searchHotels(stayWindowParams)).rejects.toBe(dbDown);
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes locks in a consistent order (existing rows by id, new rows by externalId) so concurrent writers conflict rather than deadlock", async () => {
+    setUpSearch([hotel("ext-c", "Gamma"), hotel("ext-a", "Alpha"), hotel("ext-b", "Beta")]);
+    mockAffiliateHotelFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+    await searchHotels(stayWindowParams);
+
+    expect(mockAffiliateHotelFindMany.mock.calls[0][0]).toMatchObject({ orderBy: { id: "asc" } });
+    expect(await createdExternalIds(0)).toEqual(["ext-a", "ext-b", "ext-c"]);
+  });
+});
+
+describe("loadHotelDetailPageData (detail page: details and availability in parallel)", () => {
+  const availabilityParams = { checkIn: stayWindowParams.checkIn, checkOut: stayWindowParams.checkOut, adults: 2, children: 0, rooms: 1 };
+  const okLookup = {
+    status: "ok" as const,
+    hotel: {
+      slug: "x",
+      providerCode: "mock",
+      providerName: "Mock",
+      externalId: "ext-1",
+      details: { externalId: "ext-1", name: "Hotel", city: "Blackpool", country: "UK", photos: [], facilities: [] },
+    },
+  };
+  const deal = { name: "Room", currency: "GBP", priceCents: 1000 };
+
+  function activeRow() {
+    mockAffiliateHotelFindUnique.mockResolvedValue({ active: true, externalId: "ext-1", provider: { code: "mock", status: "ACTIVE" } });
+  }
+
+  it("returns not_found for an unknown slug without calling the provider at all", async () => {
+    mockAffiliateHotelFindUnique.mockResolvedValue(null);
+    const loadDetails = vi.fn();
+    expect(await loadHotelDetailPageData("nope", availabilityParams, loadDetails)).toEqual({ status: "not_found" });
+    expect(loadDetails).not.toHaveBeenCalled();
+    expect(mockGetHotelProviderAdapter).not.toHaveBeenCalled();
+  });
+
+  it("returns not_found for an inactive (suppressed) hotel without calling the provider at all", async () => {
+    mockAffiliateHotelFindUnique.mockResolvedValue({ active: false, externalId: "ext-1", provider: { code: "mock", status: "ACTIVE" } });
+    const loadDetails = vi.fn();
+    expect(await loadHotelDetailPageData("x", availabilityParams, loadDetails)).toEqual({ status: "not_found" });
+    expect(loadDetails).not.toHaveBeenCalled();
+    expect(mockGetHotelProviderAdapter).not.toHaveBeenCalled();
+  });
+
+  it("runs details and availability concurrently: two 1s calls finish in 1s, not 2s", async () => {
+    vi.useFakeTimers();
+    try {
+      activeRow();
+      const loadDetails = vi.fn(() => new Promise<typeof okLookup>((resolve) => setTimeout(() => resolve(okLookup), 1000)));
+      const getAvailability = vi.fn(() => new Promise((resolve) => setTimeout(() => resolve([deal]), 1000)));
+      mockGetHotelProviderAdapter.mockReturnValue(fakeAdapter({ getAvailability }));
+
+      let settled: unknown = null;
+      const pending = loadHotelDetailPageData("x", availabilityParams, loadDetails).then((value) => {
+        settled = value;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      // Both provider calls are in flight before either has finished.
+      expect(loadDetails).toHaveBeenCalledTimes(1);
+      expect(getAvailability).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      await pending;
+      expect(settled).toEqual({ status: "ok", hotel: okLookup.hotel, availability: { status: "ok", deals: [deal] } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns the details' unavailable state unchanged when details fail, even if availability succeeded", async () => {
+    activeRow();
+    const unavailable = { status: "unavailable" as const, message: "This hotel's details aren't available right now. Please try again shortly." };
+    mockGetHotelProviderAdapter.mockReturnValue(fakeAdapter({ getAvailability: vi.fn().mockResolvedValue([deal]) }));
+    expect(await loadHotelDetailPageData("x", availabilityParams, vi.fn().mockResolvedValue(unavailable))).toEqual(unavailable);
+  });
+
+  it("keeps the availability unavailable message when only availability fails", async () => {
+    activeRow();
+    mockGetHotelProviderAdapter.mockReturnValue(
+      fakeAdapter({ getAvailability: vi.fn().mockRejectedValue(new HotelProviderTimeoutError(4000)) }),
+    );
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const outcome = await loadHotelDetailPageData("x", availabilityParams, vi.fn().mockResolvedValue(okLookup)).finally(() =>
+      warnSpy.mockRestore(),
+    );
+    expect(outcome).toEqual({
+      status: "ok",
+      hotel: okLookup.hotel,
+      availability: { status: "unavailable", message: "We couldn't check live availability for this hotel. Please try again shortly." },
+    });
+  });
+
+  it("never requests availability for a provider that fails the activation rule", async () => {
+    activeRow();
+    mockEvaluateProviderActivation.mockReturnValue({ operational: false, reason: "fixture_in_production" });
+    const unavailable = { status: "unavailable" as const, message: "This hotel's details aren't available right now. Please try again shortly." };
+    const loadDetails = vi.fn().mockResolvedValue(unavailable);
+
+    expect(await loadHotelDetailPageData("x", availabilityParams, loadDetails)).toEqual(unavailable);
+    expect(loadDetails).toHaveBeenCalledWith("x");
+    expect(mockHotelProviderFindUnique).not.toHaveBeenCalled();
+    expect(mockGetHotelProviderAdapter).not.toHaveBeenCalled();
+  });
+
+  it("re-throws an unexpected availability error rather than hiding it", async () => {
+    activeRow();
+    const bug = new Error("unexpected bug");
+    mockGetHotelProviderAdapter.mockReturnValue(fakeAdapter({ getAvailability: vi.fn().mockRejectedValue(bug) }));
+    await expect(loadHotelDetailPageData("x", availabilityParams, vi.fn().mockResolvedValue(okLookup))).rejects.toThrow(bug);
+  });
+});
+
+describe("provider failure logging", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    return () => {
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+    };
+  });
+
+  function loggedRecords(): Record<string, unknown>[] {
+    return [...warnSpy.mock.calls, ...errorSpy.mock.calls]
+      .map(([line]) => (typeof line === "string" && line.startsWith("{") ? JSON.parse(line) : null))
+      .filter((record): record is Record<string, unknown> => record?.event === "hotel_provider.call_failed");
+  }
+
+  it("search: logs exactly one structured line per failed provider, and the guest message is unchanged", async () => {
+    mockHotelProviderFindMany.mockResolvedValue([{ id: "p1", code: "mock", name: "Mock" }]);
+    mockGetHotelProviderAdapter.mockReturnValue(
+      fakeAdapter({
+        searchHotels: vi.fn().mockRejectedValue(new HotelProviderAdapterError("secret upstream text", { retryable: true, statusCode: 503 })),
+      }),
+    );
+
+    const outcome = await searchHotels(stayWindowParams);
+
+    expect(outcome).toEqual({
+      status: "unavailable",
+      message: "We couldn't reach our hotel search partner. Please try again shortly.",
+    });
+    const records = loggedRecords();
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      operation: "search",
+      providerCode: "mock",
+      outcome: "adapter_error",
+      retryable: true,
+      statusCode: 503,
+    });
+    expect(typeof records[0].durationMs).toBe("number");
+    const allText = JSON.stringify([...warnSpy.mock.calls, ...errorSpy.mock.calls]);
+    expect(allText).not.toContain("secret upstream text");
+    // Nothing about the guest's own search is logged.
+    expect(allText).not.toContain("Blackpool");
+  });
+
+  it("details: logs one line with the provider's hotel id and the timeout outcome", async () => {
+    mockAffiliateHotelFindUnique.mockResolvedValue({
+      slug: "x",
+      active: true,
+      externalId: "ext-9",
+      provider: { code: "mock", name: "Mock" },
+    });
+    mockGetHotelProviderAdapter.mockReturnValue(
+      fakeAdapter({ getHotelDetails: vi.fn().mockRejectedValue(new HotelProviderTimeoutError(4000)) }),
+    );
+
+    expect((await getHotelForBooking("x")).status).toBe("unavailable");
+    const records = loggedRecords();
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ operation: "details", outcome: "timeout", externalId: "ext-9" });
+  });
+
+  it("availability: logs one line, and a non-retryable error is logged at error level", async () => {
+    mockGetHotelProviderAdapter.mockReturnValue(
+      fakeAdapter({
+        getAvailability: vi.fn().mockRejectedValue(new HotelProviderAdapterError("bad creds", { retryable: false })),
+      }),
+    );
+    const outcome = await getHotelAvailability("mock", "ext-2", {
+      checkIn: stayWindowParams.checkIn,
+      checkOut: stayWindowParams.checkOut,
+      adults: 2,
+      children: 0,
+      rooms: 1,
+    });
+
+    expect(outcome).toEqual({
+      status: "unavailable",
+      message: "We couldn't check live availability for this hotel. Please try again shortly.",
+    });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(loggedRecords()[0]).toMatchObject({ operation: "availability", outcome: "adapter_error", externalId: "ext-2" });
+  });
+
+  it("does not log anything for a successful call", async () => {
+    mockGetHotelProviderAdapter.mockReturnValue(fakeAdapter({ getAvailability: vi.fn().mockResolvedValue([]) }));
+    await getHotelAvailability("mock", "ext", {
+      checkIn: stayWindowParams.checkIn,
+      checkOut: stayWindowParams.checkOut,
+      adults: 2,
+      children: 0,
+      rooms: 1,
+    });
+    expect(loggedRecords()).toHaveLength(0);
   });
 });
 

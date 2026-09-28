@@ -194,6 +194,63 @@ describe("GET /api/hotels/redirect - missing/invalid records", () => {
   });
 });
 
+describe("GET /api/hotels/redirect - failure logging", () => {
+  it("logs one structured deep_link failure line (no message, no guest data) when createDeepLink throws an adapter error, and still falls back safely", async () => {
+    const { mockHotelProviderAdapter } = await import("@/lib/hotelProviders/providers/mock");
+    const { HotelProviderAdapterError } = await import("@/lib/hotelProviders/types");
+    const deepLinkSpy = vi.spyOn(mockHotelProviderAdapter, "createDeepLink").mockImplementation(() => {
+      throw new HotelProviderAdapterError("affiliate id aid=SECRET123 rejected", { retryable: false });
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await GET(req("hotel=the-grand-lodge-blackpool&checkIn=2026-10-15&checkOut=2026-10-17"));
+      expect(res.headers.get("location")).toContain("/hotels");
+      expect(mockAffiliateClickCreate).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      const record = JSON.parse(errorSpy.mock.calls[0][0] as string);
+      expect(record).toMatchObject({
+        event: "hotel_provider.call_failed",
+        operation: "deep_link",
+        providerCode: "mock",
+        outcome: "adapter_error",
+        externalId: "mock:blackpool:0",
+      });
+      const text = JSON.stringify(errorSpy.mock.calls);
+      expect(text).not.toContain("SECRET123");
+      expect(text).not.toContain("2026-10-15");
+    } finally {
+      deepLinkSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("refuses a deep link outside the provider's allowlist and logs only its host, never the full URL", async () => {
+    const { mockHotelProviderAdapter } = await import("@/lib/hotelProviders/providers/mock");
+    const deepLinkSpy = vi
+      .spyOn(mockHotelProviderAdapter, "createDeepLink")
+      .mockReturnValue("https://evil.example.com/steal?subId=abc123&aid=SECRET123");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await GET(req("hotel=the-grand-lodge-blackpool"));
+      expect(res.headers.get("location")).toContain("/hotels");
+      expect(res.headers.get("location")).not.toContain("evil.example.com");
+      expect(mockAffiliateClickCreate).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(errorSpy.mock.calls[0][0] as string)).toEqual({
+        event: "hotel_provider.deep_link_refused",
+        providerCode: "mock",
+        host: "evil.example.com",
+      });
+      const text = JSON.stringify(errorSpy.mock.calls);
+      expect(text).not.toContain("SECRET123");
+      expect(text).not.toContain("abc123");
+    } finally {
+      deepLinkSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+});
+
 describe("GET /api/hotels/redirect - provider activation gate", () => {
   it("falls back safely and records no click for the mock provider on a production deployment", async () => {
     const originalEnv = { ...process.env };

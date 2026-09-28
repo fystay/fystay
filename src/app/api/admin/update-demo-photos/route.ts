@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { updateDemoListingCoverPhotos } from "@/lib/demoSeed";
+import { isProductionSeedRefused } from "@/lib/productionSeedGuard";
 
 /**
  * One-off sibling of /api/admin/seed-demo-data: retro-fits the current
@@ -27,6 +28,14 @@ async function handle(request: Request) {
   const providedDigest = createHash("sha256").update(provided).digest();
   if (!timingSafeEqual(expectedDigest, providedDigest)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Same production rule as seed-demo-data (checked after the secret, so an
+  // unauthenticated caller learns nothing about the environment): this
+  // overwrites cover photos on any listing whose title matches a demo title,
+  // which must never happen to a real production catalogue by accident.
+  if (isProductionSeedRefused()) {
+    return NextResponse.json({ error: "Demo photo updates are disabled in production." }, { status: 403 });
   }
 
   const results = await updateDemoListingCoverPhotos(prisma);

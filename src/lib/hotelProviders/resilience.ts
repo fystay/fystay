@@ -17,6 +17,8 @@ export type { ResilienceConfig } from "@/lib/hotelProviders/config";
  *   - A retry happens only if the failure is retryable, attempts remain, the
  *     caller hasn't aborted, and after the backoff at least minAttemptMs of
  *     budget would still remain.
+ *   - A caller abort takes effect immediately, whether it lands during an
+ *     attempt or during the backoff wait before the next one.
  *   - When an attempt times out, its AbortSignal is aborted (reason: the
  *     HotelProviderTimeoutError), so an adapter that passes the signal to
  *     fetch() genuinely cancels the request. An adapter that ignores the
@@ -30,8 +32,27 @@ export type { ResilienceConfig } from "@/lib/hotelProviders/config";
  * attempts, since they consume almost none of the budget.
  */
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * The backoff wait between attempts. Rejects with the caller's abort reason
+ * as soon as `signal` aborts (or immediately if it already has), exactly as
+ * an abort during an attempt does, and always clears its timer and listener.
+ */
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 /**
@@ -107,7 +128,7 @@ export async function withRetry<T>(
       if (!retryable || attempt >= config.maxAttempts || callerSignal?.aborted) throw err;
       const backoffMs = Math.min(config.baseDelayMs * 2 ** (attempt - 1), config.maxDelayMs);
       if (deadline - Date.now() - backoffMs < config.minAttemptMs) throw err;
-      await delay(backoffMs);
+      await delay(backoffMs, callerSignal);
     }
   }
 }

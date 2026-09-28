@@ -8,6 +8,7 @@ import { resolveAffiliateHotelForRedirect } from "@/lib/hotelProviders/search";
 import { evaluateProviderActivation, getOperationalHotelProviderAdapter } from "@/lib/hotelProviders/registry";
 import { HotelProviderAdapterError } from "@/lib/hotelProviders/types";
 import { computeClickSubId, isAllowedDeepLinkUrl } from "@/lib/hotelProviders/click";
+import { logHotelProviderEvent, logProviderFailure } from "@/lib/hotelProviders/providerLog";
 import {
   DEFAULT_GUEST_COUNTS,
   defaultStayWindow,
@@ -68,6 +69,14 @@ import { SITE_URL } from "@/lib/seo";
 
 function safeFallback(): NextResponse {
   return NextResponse.redirect(new URL("/hotels", SITE_URL));
+}
+
+function deepLinkHost(url: string): string {
+  try {
+    return new URL(url).host || "(none)";
+  } catch {
+    return "(unparseable)";
+  }
 }
 
 /** Only ever stores a path from this exact request's own origin - a referrer from elsewhere isn't "which FYStay page this click came from" (this column's whole purpose), so it's discarded rather than stored as an arbitrary, unbounded external string. */
@@ -143,7 +152,15 @@ export const GET = withApiErrorHandling(async function GET(request: Request) {
       subId,
     });
   } catch (err) {
-    if (err instanceof HotelProviderAdapterError) return safeFallback();
+    if (err instanceof HotelProviderAdapterError) {
+      logProviderFailure({
+        operation: "deep_link",
+        providerCode: hotel.provider.code,
+        error: err,
+        externalId: hotel.externalId,
+      });
+      return safeFallback();
+    }
     throw err;
   }
 
@@ -152,9 +169,12 @@ export const GET = withApiErrorHandling(async function GET(request: Request) {
     // allowlist - never follow it. This should be unreachable (see
     // click.ts's own comment on ALLOWED_DEEP_LINK_HOSTS); if it ever
     // fires, it's a bug in that adapter, not anything this request did.
-    console.error(
-      `Refusing to redirect to a disallowed host for provider "${hotel.provider.code}": ${deepLinkUrl}`,
-    );
+    // Only the host is logged - the full URL carries this click's subId
+    // and query string, which the diagnosis doesn't need.
+    logHotelProviderEvent("error", "hotel_provider.deep_link_refused", {
+      providerCode: hotel.provider.code,
+      host: deepLinkHost(deepLinkUrl),
+    });
     return safeFallback();
   }
 

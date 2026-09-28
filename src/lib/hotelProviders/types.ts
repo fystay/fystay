@@ -187,6 +187,31 @@ export class HotelProviderTimeoutError extends HotelProviderAdapterError {
   }
 }
 
+/** Where and what kind of validation failure - never the offending value itself. */
+export type ProviderResponseIssue = { path: string; code: string };
+
+/**
+ * Thrown by src/lib/hotelProviders/validation.ts when an adapter hands back
+ * data that breaks this file's contract (wrong shape, out-of-range values,
+ * too many items, every item invalid, or details for a different hotel).
+ * Non-retryable - a malformed payload is deterministic, retrying won't fix
+ * it - and a HotelProviderAdapterError, so every existing caller already
+ * maps it to its generic guest-facing "unavailable" message. The message is
+ * fixed; `issues` carries only paths and zod issue codes, never the values
+ * the provider sent, so it is safe to log.
+ */
+export class HotelProviderInvalidResponseError extends HotelProviderAdapterError {
+  readonly operation: "search" | "details" | "availability";
+  readonly issues: readonly ProviderResponseIssue[];
+
+  constructor(operation: "search" | "details" | "availability", issues: readonly ProviderResponseIssue[]) {
+    super(`Provider returned a malformed ${operation} response`, { retryable: false });
+    this.name = "HotelProviderInvalidResponseError";
+    this.operation = operation;
+    this.issues = issues;
+  }
+}
+
 export type ProviderNotOperationalReason =
   | "not_registered"
   | "not_active"

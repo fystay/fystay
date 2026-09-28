@@ -15,7 +15,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:backfill-coordinates": "tsx prisma/backfill-coordinates.ts",
-    "db:seed-editorial": "tsx prisma/seed-editorial.ts"
+    "db:seed-editorial": "tsx prisma/seed-editorial.ts",
+    "db:hotel-provider": "tsx prisma/hotel-provider.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
