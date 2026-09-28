@@ -88,6 +88,12 @@ const title = "Local Accommodation in Blackpool & the Fylde Coast";
 const description =
   "Search and book independent apartments, cottages and guest houses across Blackpool and the Fylde Coast. Real local hosts, genuine reviews, secure booking.";
 
+// Per-user and database-backed throughout (auth() in MarketplaceSections,
+// live listing counts), so the page was already rendered per request - this
+// just stops `next build` from starting its database queries before
+// discovering that. Same reasoning as sitemap.ts.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title,
   description,

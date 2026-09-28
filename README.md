@@ -203,6 +203,15 @@ variables:
   disclosure on a site taking real bookings and payments; all three are required together, or the
   Terms and Privacy pages simply omit the section rather than showing a placeholder to guests.
 
+**Preview deployments never use the production database.** Every database and Supabase value
+above (`DATABASE_URL`, `DIRECT_URL`, `PMS_HOST_SCOPED_DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`) is scoped to the **Production** environment only, and **Preview**
+gets its own values from a separate `fystay-preview` Supabase project holding demo data only,
+plus its own `AUTH_SECRET`. This is enforced, not just a convention: a non-production Vercel
+deployment whose credentials identify the production project refuses to build (`next.config.ts`)
+and refuses to connect (`src/lib/prisma.ts`, `src/lib/storage.ts`) - see
+`src/lib/databaseIdentity.ts`. `next build` itself never connects to any database.
+
 After setting `DATABASE_URL`/`DIRECT_URL`, run `npx prisma migrate deploy` once from your machine
 (with those same two variables in your local `.env`) to create the schema on the real database.
 

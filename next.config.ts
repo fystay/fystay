@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
+import { assertNoProductionDatabaseOutsideProduction } from "./src/lib/databaseIdentity";
+
+// A preview deployment configured with production database or Supabase
+// credentials fails here, before anything compiles, so it never goes live.
+// src/lib/prisma.ts repeats the check at runtime.
+assertNoProductionDatabaseOutsideProduction();
 
 const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
   {

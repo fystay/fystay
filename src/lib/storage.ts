@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { assertNoProductionDatabaseOutsideProduction } from "@/lib/databaseIdentity";
 
 const LISTING_PHOTOS_BUCKET = "listing-photos";
 const AVATARS_BUCKET = "avatars";
@@ -8,6 +9,10 @@ function getStorageClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceRoleKey) return null;
+
+  // The service-role key bypasses RLS on the whole project - a preview
+  // deployment must never write with production's (see databaseIdentity.ts).
+  assertNoProductionDatabaseOutsideProduction();
 
   return createClient(url, serviceRoleKey, {
     auth: { persistSession: false },

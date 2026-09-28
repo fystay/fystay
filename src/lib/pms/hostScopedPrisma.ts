@@ -1,11 +1,16 @@
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { BUILD_TIME_DATABASE_URL, isNextProductionBuild } from "@/lib/databaseIdentity";
 
 const globalForHostScopedPrisma = globalThis as unknown as {
   pmsHostScopedPrisma: PrismaClient | undefined;
 };
 
-const hostScopedDatabaseUrl = process.env.PMS_HOST_SCOPED_DATABASE_URL;
+// Same build-time rule as src/lib/prisma.ts: `next build` never connects.
+const hostScopedDatabaseUrl =
+  process.env.PMS_HOST_SCOPED_DATABASE_URL && isNextProductionBuild()
+    ? BUILD_TIME_DATABASE_URL
+    : process.env.PMS_HOST_SCOPED_DATABASE_URL;
 
 const hostScopedClient = hostScopedDatabaseUrl
   ? (globalForHostScopedPrisma.pmsHostScopedPrisma ??
