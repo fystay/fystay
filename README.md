@@ -378,6 +378,8 @@ src/components/            Shared UI (forms, booking widget, listing card, navba
 | `npm run test:watch`  | Run unit tests in watch mode          |
 | `npm run test:e2e`    | Run Playwright end-to-end tests       |
 | `npm run db:migrate`  | Run Prisma migrations                |
+| `npm run db:manifest` | Record new migrations in `prisma/migration-manifest.json` (commit it with the migration) |
+| `npm run db:check-migrations` | CI's check that no committed migration was edited, renamed or deleted |
 | `npm run db:seed`     | Seed the database                    |
 | `npm run db:backfill-coordinates` | One-off: backfill listing lat/lng from address |
 | `npm run db:seed-editorial` | Migrate Local Guide/Local Knowledge content into `EditorialRecommendation` rows |

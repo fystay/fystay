@@ -87,10 +87,14 @@ jobs:
           for required in \
             prisma/schema.prisma \
             prisma/migrations/migration_lock.toml \
+            prisma/migration-manifest.json \
             src/lib/databaseIdentity.ts \
             src/lib/migrationSafety/history.ts \
             src/lib/migrationSafety/productionTarget.ts \
+            src/lib/migrationSafety/manifest.ts \
+            src/lib/migrationSafety/migrationFiles.ts \
             scripts/db/productionDatabase.ts \
+            scripts/db/check-migration-manifest.ts \
             scripts/db/verify-production-target.ts \
             scripts/db/check-migration-history.ts \
             scripts/db/check-production-health.ts; do
@@ -141,6 +145,11 @@ jobs:
 
       - name: Unit-test the migration safety checks
         run: npx vitest run src/lib/migrationSafety src/lib/databaseIdentity.test.ts
+
+      - name: Check the migrations match the manifest
+        # Files vs manifest here; the history check below then compares
+        # production's recorded checksums against these same files.
+        run: npm run db:check-migrations
 
       # --- 3. Preflight against production: read-only -------------------------
 

@@ -18,6 +18,24 @@ code keeps working against the migrated schema (expand/contract): add columns
 and tables first, and drop or rename only in a later release once no deployed
 code uses the old shape. That's also what keeps Vercel's instant rollback safe.
 
+## Adding a migration
+
+1. `npx prisma migrate dev --name <change>` against your **local** database.
+2. `npm run db:manifest` - appends the new migration to
+   `prisma/migration-manifest.json`.
+3. Commit both together. The manifest diff is how a reviewer sees that a
+   migration is being added.
+
+Committed migrations are immutable: never edit, rename or delete one - write a
+new migration instead. CI (`npm run db:check-migrations`, in `ci.yml`) fails
+if the repository and manifest disagree - an edited, renamed, deleted or
+unlisted migration, a file added to an existing one, or a changed
+`migration_lock.toml`. It also fails if anything that existed at the base
+commit (the push's previous head, or a pull request's base) changed, or if the
+manifest was rewritten rather than appended to. `npm run db:manifest` refuses
+to record an edit. The production workflow runs the same manifest check, and
+then compares production's recorded checksums with those files.
+
 ## Running it
 
 1. GitHub -> Actions -> **Production database migration** -> **Run workflow**.
@@ -38,6 +56,7 @@ started run is never cancelled.
 |---|---|---|
 | Validate / check out / verify the commit | no | the SHA isn't a full SHA, doesn't exist, isn't on the branch the workflow was run from, lacks the schema, migrations or these check scripts, or its build command would migrate |
 | Unit-test the safety checks | no | that commit's own checks fail their tests |
+| Check the migrations match the manifest | no | any migration file differs from `prisma/migration-manifest.json` |
 | Verify the target is production | read-only | `PROD_DIRECT_URL` doesn't name project `wzatjhyfwtmxdxfmurkm` on port 5432 (session pooler or direct - not the 6543 transaction pooler), or the server isn't database `postgres` on PostgreSQL 17 with Supabase's `authenticator` role and `auth` schema, the enabled `ensure_rls` event trigger, and production's history fingerprint (the retired row below) |
 | History check (before) | read-only | a migration is failed/unresolved; an applied migration was edited (checksum differs from the file); a migration is applied but missing from the commit (other than the retired one); a rolled-back migration was never re-applied; a pending migration is older than one already applied; two migrations share a timestamp |
 | `prisma migrate status` | read-only | never - informational, because it exits 1 whenever anything is pending |

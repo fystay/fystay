@@ -8,6 +8,10 @@ import {
   productionDatabaseRefusal,
 } from "./databaseIdentity";
 
+// storage.ts imports "server-only", which throws outside a React server
+// build; the runtime-wiring tests below import the real module.
+vi.mock("server-only", () => ({}));
+
 const PROD = PRODUCTION_SUPABASE_PROJECT_REF;
 const PREVIEW = "previewprojectref000";
 const PASSWORD = "s3cret-password-value";
@@ -150,8 +154,6 @@ describe("assertNoProductionDatabaseOutsideProduction", () => {
 // The real modules, not just the pure function: on Vercel, serverless
 // functions don't re-evaluate next.config.ts, so these are the runtime layer.
 describe("runtime wiring on a misconfigured preview deployment", () => {
-  vi.mock("server-only", () => ({}));
-
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();

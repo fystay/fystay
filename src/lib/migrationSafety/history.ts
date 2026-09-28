@@ -58,7 +58,8 @@ export type HistoryReport = {
   resolvedFailures: string[];
 };
 
-const MIGRATION_NAME = /^\d{14}_[A-Za-z0-9_]+$/;
+/** <14-digit UTC timestamp>_<name> - what `prisma migrate dev` creates. */
+export const MIGRATION_NAME = /^\d{14}_[A-Za-z0-9_]+$/;
 
 export function evaluateMigrationHistory(
   rows: readonly MigrationHistoryRow[],
