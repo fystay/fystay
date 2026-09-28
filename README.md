@@ -212,8 +212,12 @@ deployment whose credentials identify the production project refuses to build (`
 and refuses to connect (`src/lib/prisma.ts`, `src/lib/storage.ts`) - see
 `src/lib/databaseIdentity.ts`. `next build` itself never connects to any database.
 
-After setting `DATABASE_URL`/`DIRECT_URL`, run `npx prisma migrate deploy` once from your machine
-(with those same two variables in your local `.env`) to create the schema on the real database.
+**Production migrations run only through the manually approved "Production database migration"
+GitHub Actions workflow** (`.github/workflows/db-migrate-production.yml`), never from a build or
+a laptop: run it for a commit, then promote that commit's Vercel deployment. See
+[docs/production-database-migrations.md](docs/production-database-migrations.md). A new,
+non-production database (a preview project, local Postgres) is created with
+`npx prisma migrate deploy` against that database's own direct connection.
 
 ## Photo uploads
 
@@ -338,7 +342,8 @@ one, and free/open sources cover every field the Local Guide needs today.
   database role (`fystay_pms_host_scoped`) whose RLS policies key off the calling host's id. This
   is additive and optional - the app works identically without it, relying on ownership checks
   alone, exactly as every other feature does. To turn it on against a real database:
-  1. Run the migration (`prisma migrate deploy` picks it up automatically).
+  1. Run the migration (in production, via the production migration workflow - see
+     [docs/production-database-migrations.md](docs/production-database-migrations.md)).
   2. Set a real password for the role it creates - never put this in source control:
      `ALTER ROLE fystay_pms_host_scoped WITH PASSWORD '<a-real-generated-secret>';`
   3. Set `PMS_HOST_SCOPED_DATABASE_URL` to that role's connection string (same host/port/database

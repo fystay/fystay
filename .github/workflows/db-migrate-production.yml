@@ -1,0 +1,244 @@
+# Production database migration - the only way migrations reach production.
+#
+# Manual only: never runs on push, and nothing in the Vercel build can reach
+# it (the build is plain `next build`, which never connects to a database).
+# Release order: this workflow for commit X, then promote X's Vercel
+# deployment. Runbook: docs/production-database-migrations.md.
+#
+# Deliberately boring:
+#   - one job, in the protected `production` Environment, so every run waits
+#     for a required reviewer before it can see PROD_DIRECT_URL;
+#   - runs exactly the commit SHA it's given, or nothing;
+#   - proves the target is production, read-only, before touching it;
+#   - never runs `prisma migrate resolve`, `migrate reset` or `migrate dev`,
+#     and never rolls back: on any failure it stops and a human decides.
+
+name: Production database migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Full 40-character commit SHA to migrate from (must be on the branch you run this from)"
+        required: true
+        type: string
+      drift_check:
+        description: "After migrating: 'report' shows schema drift as a warning; 'enforce' fails the run on it"
+        required: true
+        type: choice
+        options:
+          - report
+          - enforce
+        default: report
+
+permissions:
+  contents: read
+
+# One production migration at a time, and a queued run never cancels one
+# that has started.
+concurrency:
+  group: production-database-migration
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  migrate:
+    name: Migrate production to ${{ inputs.sha }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+
+    steps:
+      # --- 1. The commit: exactly the one requested, or stop -----------------
+
+      - name: Validate the requested SHA
+        env:
+          REQUESTED_SHA: ${{ inputs.sha }}
+        run: |
+          if [[ ! "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::'sha' must be a full 40-character lowercase commit SHA - not a branch, tag or short SHA."
+            exit 1
+          fi
+
+      - name: Check out the requested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify the checked-out commit
+        env:
+          REQUESTED_SHA: ${{ inputs.sha }}
+          DISPATCH_SHA: ${{ github.sha }}
+          DISPATCH_REF: ${{ github.ref_name }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+
+          git cat-file -e "${REQUESTED_SHA}^{commit}" 2>/dev/null || fail "Commit $REQUESTED_SHA doesn't exist in this repository."
+          [[ "$(git rev-parse HEAD)" == "$REQUESTED_SHA" ]] || fail "Checked-out HEAD isn't $REQUESTED_SHA."
+          git merge-base --is-ancestor "$REQUESTED_SHA" "$DISPATCH_SHA" \
+            || fail "$REQUESTED_SHA isn't on '$DISPATCH_REF' (at $DISPATCH_SHA). Run this workflow from the branch that contains it."
+
+          for required in \
+            prisma/schema.prisma \
+            prisma/migrations/migration_lock.toml \
+            src/lib/databaseIdentity.ts \
+            src/lib/migrationSafety/history.ts \
+            src/lib/migrationSafety/productionTarget.ts \
+            scripts/db/productionDatabase.ts \
+            scripts/db/verify-production-target.ts \
+            scripts/db/check-migration-history.ts \
+            scripts/db/check-production-health.ts; do
+            [[ -f "$required" ]] || fail "$REQUESTED_SHA is missing $required - it predates this workflow's safety checks."
+          done
+
+          grep -Eq '^provider = "postgresql"$' prisma/migrations/migration_lock.toml \
+            || fail "prisma/migrations/migration_lock.toml isn't for postgresql."
+          grep -Eq 'provider *= *"postgresql"' prisma/schema.prisma \
+            || fail "prisma/schema.prisma's datasource isn't postgresql."
+
+          migration_count=0
+          latest_migration=""
+          for dir in prisma/migrations/*/; do
+            [[ -f "${dir}migration.sql" ]] || fail "${dir} has no migration.sql."
+            migration_count=$((migration_count + 1))
+            latest_migration="$(basename "$dir")"
+          done
+          (( migration_count > 0 )) || fail "No migrations in prisma/migrations."
+
+          # Phase 1 invariant: a build of this commit can never migrate on its own.
+          node -e '
+            const build = require("./package.json").scripts.build;
+            const vercel = require("./vercel.json").buildCommand;
+            if (/migrate/.test(build) || /migrate/.test(vercel ?? "")) process.exit(1);
+          ' || fail "This commit's build command runs migrations."
+
+          {
+            echo "### Commit"
+            echo ""
+            echo "- SHA: \`$REQUESTED_SHA\` (on \`$DISPATCH_REF\`)"
+            echo "- Subject: $(git log -1 --format=%s "$REQUESTED_SHA")"
+            echo "- Migrations in commit: $migration_count (latest: \`$latest_migration\`)"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit verified: $REQUESTED_SHA, $migration_count migrations."
+
+      # --- 2. Tooling from that commit, with no secret in scope ----------------
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit-test the migration safety checks
+        run: npx vitest run src/lib/migrationSafety src/lib/databaseIdentity.test.ts
+
+      # --- 3. Preflight against production: read-only -------------------------
+
+      - name: Verify the target is the production database
+        env:
+          PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+        run: npx tsx scripts/db/verify-production-target.ts
+
+      - name: Check migration history before deploying
+        env:
+          PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+        run: npx tsx scripts/db/check-migration-history.ts --before-deploy
+
+      - name: Prisma migration status (informational)
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+        run: |
+          # Exits 1 whenever a migration is pending - the normal case here - so
+          # the history check above is the gate, not this exit code.
+          set +e
+          npx prisma migrate status
+          status=$?
+          set -e
+          echo "prisma migrate status exited $status (informational before deploy)."
+
+      # --- 4. The one write ----------------------------------------------------
+
+      - name: Deploy migrations
+        timeout-minutes: 15
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+        run: npx prisma migrate deploy
+
+      # --- 5. Postflight: read-only; a failure here is an alarm, not a rollback -
+
+      - name: Prisma migration status after deploying
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+        run: npx prisma migrate status
+
+      - name: Check migration history after deploying
+        env:
+          PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+        run: npx tsx scripts/db/check-migration-history.ts --after-deploy
+
+      - name: Check production schema health
+        env:
+          PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+        run: npx tsx scripts/db/check-production-health.ts
+
+      - name: Check schema drift (${{ inputs.drift_check }})
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+          DRIFT_MODE: ${{ inputs.drift_check }}
+        run: |
+          # Production (read through the datasource URL, never on the command
+          # line) against this commit's schema.prisma. Prisma ignores objects it
+          # doesn't model - the ensure_rls event trigger, rls_auto_enable(), RLS
+          # policies, roles - so those never count as drift.
+          drift_file="$RUNNER_TEMP/drift.txt"
+          set +e
+          npx prisma migrate diff \
+            --from-schema-datasource prisma/schema.prisma \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code > "$drift_file"
+          code=$?
+          set -e
+          cat "$drift_file"
+
+          case "$code" in
+            0)
+              echo "No drift: production matches schema.prisma."
+              printf "### Schema drift\n\nNone - production matches \`schema.prisma\`.\n\n" >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              printf "### Schema drift (%s mode)\n\n\`\`\`\n%s\n\`\`\`\n\n" "$DRIFT_MODE" "$(cat "$drift_file")" >> "$GITHUB_STEP_SUMMARY"
+              if [[ "$DRIFT_MODE" == "enforce" ]]; then
+                echo "::error::Production differs from schema.prisma (details above)."
+                exit 1
+              fi
+              echo "::warning::Production differs from schema.prisma (details above). Report mode - not failing the run."
+              ;;
+            *)
+              echo "::error::prisma migrate diff couldn't run (exit $code)."
+              exit 1
+              ;;
+          esac
+
+      - name: Next step
+        env:
+          REQUESTED_SHA: ${{ inputs.sha }}
+        run: |
+          {
+            echo "### Next"
+            echo ""
+            echo "Production is migrated to \`$REQUESTED_SHA\`. Now promote that commit's Vercel deployment to production."
+          } >> "$GITHUB_STEP_SUMMARY"
