@@ -57,13 +57,12 @@ test("guest can leave a review for a completed stay", async ({ page }) => {
     // A stay that already checked out lives under the "Past trips" tab, not
     // the default "Upcoming" one.
     await page.getByRole("tab", { name: /Past trips/ }).click();
-    // Within that tab, bookings are ordered by most recent check-out first,
-    // and this fixture's check-out (7 days ago) is more recent than any
-    // other spec's past-dated fixture, so it's always the first row.
-    // (Filtering by "Leave a review" text would go stale the moment that
-    // text disappears post-submission, and filtering by listing title alone
-    // can match another booking of the same listing, e.g. the seeded demo review.)
-    await page.locator(".p-4").first().getByRole("button", { name: "Leave a review" }).click();
+    // This booking's own card, found by its unique reference - not by
+    // position (the seed has its own, more recent past stays for this guest)
+    // and not by "Leave a review" text (gone once submitted) or listing title
+    // (shared with other bookings of the same listing).
+    const thisBooking = page.locator(".p-4").filter({ hasText: `Booking #${booking.reference}` });
+    await thisBooking.getByRole("button", { name: "Leave a review" }).click();
 
     // Scoped to the overall rating: each optional category picker
     // (Cleanliness, Accuracy, ...) has its own identically-labelled radios.
@@ -71,7 +70,7 @@ test("guest can leave a review for a completed stay", async ({ page }) => {
     await page.locator("textarea").fill(comment);
     await page.getByRole("button", { name: "Submit review" }).click();
 
-    await expect(page.locator(".p-4").first().getByText("You reviewed this stay")).toBeVisible();
+    await expect(thisBooking.getByText("You reviewed this stay")).toBeVisible();
 
     await page.goto(`/listings/${listing.id}`);
     await expect(page.getByText(comment)).toBeVisible();

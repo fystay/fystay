@@ -70,6 +70,35 @@ test("browse-by-category sections only appear once real data supports them", asy
       },
     });
 
+    // Two listings clear MIN_LISTINGS_PER_SECTION, but the homepage only
+    // shows the MAX_CITY_SECTIONS busiest cities - so how many the fixture
+    // city needs depends on the catalogue, not a fixed number. One more than
+    // the busiest other city right now ranks it first; with two sections
+    // shown, a concurrent spec's fixture can at most tie it, never push it out.
+    const otherCities = await prisma.listing.groupBy({
+      by: ["city"],
+      where: { published: true, city: { not: fixtureCity } },
+      _count: { _all: true },
+    });
+    const needed = Math.max(0, ...otherCities.map((c) => c._count._all)) + 1;
+    const extras = await Promise.all(
+      Array.from({ length: Math.max(0, needed - 2) }, (_, i) =>
+        prisma.listing.create({
+          data: {
+            title: `E2E fixture: extra stay ${i + 1}, same fixture city`,
+            description: "Temporary listing created for this test.",
+            city: fixtureCity,
+            country: "England",
+            pricePerNightCents: 7000,
+            maxGuests: 2,
+            photos: [],
+            amenities: ["Wifi"],
+            hostId: host.id,
+          },
+        }),
+      ),
+    );
+
     try {
       await page.goto("/");
       await expect(page.getByRole("heading", { name: `Popular in ${fixtureCity}` })).toBeVisible();
@@ -80,7 +109,7 @@ test("browse-by-category sections only appear once real data supports them", asy
       await page.goto(`/search?city=${encodeURIComponent(fixtureCity)}`);
       await expect(page.getByRole("heading", { name: `Popular in ${fixtureCity}` })).toHaveCount(0);
     } finally {
-      await prisma.listing.delete({ where: { id: second.id } });
+      await prisma.listing.deleteMany({ where: { id: { in: [second.id, ...extras.map((e) => e.id)] } } });
     }
   } finally {
     await prisma.listing.delete({ where: { id: first.id } });

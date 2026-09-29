@@ -33,6 +33,8 @@ async function fixtureListing(overrides: Partial<Listing> & { title: string }) {
       amenities: overrides.amenities ?? ["Wifi"],
       photos: [],
       published: overrides.published ?? true,
+      latitude: overrides.latitude,
+      longitude: overrides.longitude,
       hostId: host.id,
     },
   });
@@ -160,23 +162,41 @@ test("sorting by price low to high genuinely reorders results", async ({ page })
 test("list/map view toggle switches the results presentation without losing filters", async ({
   page,
 }) => {
-  await page.goto("/search?city=Blackpool");
-  await expect(page.getByRole("button", { name: "Map" })).toBeVisible();
+  // A city only this test uses, so the search matches exactly this one
+  // geocoded fixture however many real listings the seed has in any town.
+  const city = `E2E Map City ${Date.now()}`;
+  const listing = await fixtureListing({
+    title: `E2E fixture: map pin in ${city}`,
+    city,
+    latitude: 53.8175,
+    longitude: -3.0357,
+  });
 
-  await page.getByRole("button", { name: "Map" }).click();
-  await page.waitForURL(/view=map/);
-  // A real interactive map now renders here (see ListingsMap /
-  // src/lib/geocoding.ts) rather than the old "coming soon" placeholder -
-  // .leaflet-container is Leaflet's own root element, and this listing's
-  // pin is a real marker for it, not a city-count list.
-  await expect(page.locator(".leaflet-container")).toBeVisible();
-  await expect(page.locator(".leaflet-marker-icon")).toHaveCount(1);
+  try {
+    await page.goto(`/search?city=${encodeURIComponent(city)}`);
+    await expect(page.getByRole("button", { name: "Map" })).toBeVisible();
 
-  await page.getByRole("button", { name: "List" }).click();
-  await page.waitForURL((url) => !url.search.includes("view=map"));
-  await expect(
-    page.getByText("Seafront apartment overlooking Blackpool promenade"),
-  ).toBeVisible();
+    await page.getByRole("button", { name: "Map" }).click();
+    await page.waitForURL(/view=map/);
+    // A real interactive map now renders here (see ListingsMap /
+    // src/lib/geocoding.ts) rather than the old "coming soon" placeholder -
+    // .leaflet-container is Leaflet's own root element, and this listing's
+    // pin is a real marker for it, not a city-count list.
+    await expect(page.locator(".leaflet-container")).toBeVisible();
+    await expect(page.locator(".leaflet-marker-icon")).toHaveCount(1);
+
+    await page.getByRole("button", { name: "List" }).click();
+    await page.waitForURL((url) => !url.search.includes("view=map"));
+    await expect(page.getByText(listing.title)).toBeVisible();
+    // The city filter survived the round trip: still in the URL, and a real
+    // Blackpool listing is still filtered out.
+    expect(new URL(page.url()).searchParams.get("city")).toBe(city);
+    await expect(
+      page.getByText("Seafront apartment overlooking Blackpool promenade"),
+    ).toHaveCount(0);
+  } finally {
+    await prisma.listing.delete({ where: { id: listing.id } });
+  }
 });
 
 test.afterAll(async () => {

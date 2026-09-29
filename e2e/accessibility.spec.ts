@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { PrismaClient } from "@prisma/client";
+import { FYLDE_COAST_DESTINATIONS } from "../src/lib/destinations";
+import { TOWN_COORDINATES } from "../src/lib/geocoding";
 
 // Playwright's test process doesn't load .env the way `next dev` does.
 // CI sets these vars directly instead of via a .env file, so don't fail
@@ -67,7 +69,19 @@ test.describe("accessibility", () => {
   });
 
   test("a destination page has no serious a11y violations", async ({ page }) => {
-    const town = await prisma.localTown.findFirstOrThrow();
+    // LocalTown rows are created by the app itself on first local-data read
+    // (ensureTownsSeeded), not by the seed - so a fresh CI database has none
+    // before any destination page is visited. Upsert exactly the one row the
+    // app would create for the first geocoded destination, from the same
+    // source; never overwrite a row that already exists.
+    const destination = FYLDE_COAST_DESTINATIONS.find((d) => TOWN_COORDINATES[d.searchCity.toLowerCase()]);
+    if (!destination) throw new Error("No geocoded destination to build a LocalTown fixture from");
+    const coordinates = TOWN_COORDINATES[destination.searchCity.toLowerCase()];
+    const town = await prisma.localTown.upsert({
+      where: { slug: destination.slug },
+      create: { slug: destination.slug, name: destination.name, ...coordinates },
+      update: {},
+    });
     await page.goto(`/destinations/${town.slug}`);
     await expectNoSeriousViolations(page, "Destination page");
   });

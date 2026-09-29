@@ -69,7 +69,18 @@ test.describe("reviews and ratings", () => {
     // one-shot sweep at suite start is a much smaller footprint than
     // teaching every test its own crash-recovery logic, and is safe since
     // nothing legitimate is ever titled this way.
-    await prisma.listing.deleteMany({ where: { title: { startsWith: "E2E fixture: reviews listing " } } });
+    //
+    // Only fixtures older than an hour, though: with fullyParallel, every
+    // worker (and every retry's fresh worker) runs this beforeAll, so an
+    // unbounded sweep deleted listings other workers' tests were still using
+    // mid-test - cascading to their bookings and reviews. A leftover from a
+    // killed earlier run is always far older than anything in flight now.
+    await prisma.listing.deleteMany({
+      where: {
+        title: { startsWith: "E2E fixture: reviews listing " },
+        createdAt: { lt: new Date(Date.now() - 60 * 60 * 1000) },
+      },
+    });
   });
 
   test.afterAll(async () => {
