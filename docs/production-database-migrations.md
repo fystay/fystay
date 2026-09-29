@@ -40,7 +40,8 @@ then compares production's recorded checksums with those files.
 
 1. GitHub -> Actions -> **Production database migration** -> **Run workflow**.
 2. "Use workflow from": the branch that contains the commit.
-3. `sha`: the full 40-character SHA - not a branch name or short SHA.
+3. `sha`: the full 40-character SHA - not a branch name or short SHA. Stray
+   spaces or line breaks (a phone's paste often adds one) are ignored.
 4. `drift_check`: `report` (default) or `enforce` - see *Drift check* below.
 5. The run waits for a required reviewer on the `production` Environment.
    **Reviewer: check the SHA in the run's title before approving** - the

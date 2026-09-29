@@ -55,25 +55,31 @@ jobs:
     steps:
       # --- 1. The commit: exactly the one requested, or stop -----------------
 
+      # Every later step uses steps.sha.outputs.sha, never the raw input: a
+      # phone's paste adds a trailing space, which would otherwise fail this
+      # check or reach the checkout.
       - name: Validate the requested SHA
+        id: sha
         env:
           REQUESTED_SHA: ${{ inputs.sha }}
         run: |
+          REQUESTED_SHA="${REQUESTED_SHA//[[:space:]]/}"
           if [[ ! "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::'sha' must be a full 40-character lowercase commit SHA - not a branch, tag or short SHA."
             exit 1
           fi
+          echo "sha=$REQUESTED_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Check out the requested commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.sha }}
+          ref: ${{ steps.sha.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Verify the checked-out commit
         env:
-          REQUESTED_SHA: ${{ inputs.sha }}
+          REQUESTED_SHA: ${{ steps.sha.outputs.sha }}
           DISPATCH_SHA: ${{ github.sha }}
           DISPATCH_REF: ${{ github.ref_name }}
         run: |
@@ -244,7 +250,7 @@ jobs:
 
       - name: Next step
         env:
-          REQUESTED_SHA: ${{ inputs.sha }}
+          REQUESTED_SHA: ${{ steps.sha.outputs.sha }}
         run: |
           {
             echo "### Next"
