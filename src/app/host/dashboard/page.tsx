@@ -238,16 +238,17 @@ export default async function HostDashboardPage({
                   referenceDate: now,
                 });
                 return (
-                  <HostListingRow
-                    key={listing.id}
-                    listing={listing}
-                    stats={{
-                      avgRating: averageRating(listing.reviews),
-                      reviewCount: listing.reviews.length,
-                      occupancyRate: listingOccupancy,
-                      revenueThisMonthCents: revenue.thisMonthCents,
-                    }}
-                  />
+                  <li key={listing.id}>
+                    <HostListingRow
+                      listing={listing}
+                      stats={{
+                        avgRating: averageRating(listing.reviews),
+                        reviewCount: listing.reviews.length,
+                        occupancyRate: listingOccupancy,
+                        revenueThisMonthCents: revenue.thisMonthCents,
+                      }}
+                    />
+                  </li>
                 );
               })}
             </ul>

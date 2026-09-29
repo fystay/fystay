@@ -96,6 +96,13 @@
 
   --color-ink: var(--color-ink);
 
+  /* Secondary text. Tailwind's own stone-500 (#79716b) was chosen against
+     white, where it reads at 4.8:1; on the warm grounds above it drops to
+     4.3:1 (--background) and 4.0:1 (--surface-muted), below WCAG AA's 4.5:1
+     for body text. The same hue and saturation, slightly darker, clears
+     both: 5.1:1 and 4.7:1. */
+  --color-stone-500: #6d6661;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   /* Both the wordmark and every page heading now share the same display

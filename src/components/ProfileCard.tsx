@@ -103,6 +103,7 @@ export function ProfileCard({
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={handleAvatarChange}
+            aria-label="Profile photo"
             className="sr-only"
           />
         </div>

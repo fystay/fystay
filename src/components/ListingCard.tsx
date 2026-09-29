@@ -216,7 +216,7 @@ export function ListingCard({
         )}
 
         {dealLabel && (
-          <span className="absolute left-2.5 top-2.5 z-10 rounded-full bg-accent-500 px-2.5 py-1 text-xs font-semibold text-white shadow-[var(--shadow-card)]">
+          <span className="absolute left-2.5 top-2.5 z-10 rounded-full bg-accent-500 px-2.5 py-1 text-xs font-semibold text-ink shadow-[var(--shadow-card)]">
             {dealLabel}
           </span>
         )}
