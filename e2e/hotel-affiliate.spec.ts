@@ -98,27 +98,19 @@ test.describe("hotel affiliate: search -> results -> detail -> redirect", () => 
     expect(redirectHref).toContain("hotel=");
 
     // mock-hotel-provider.invalid is an IANA-reserved TLD that deliberately
-    // never resolves (see mock.ts's own comment) - by the time a failed
-    // navigation's own page.url() is read, Chromium has usually already
-    // replaced it with its own chrome-error:// page, so intercept the
-    // request itself instead: that fires before DNS resolution is even
-    // attempted, and capturing it here means this test never needs the
-    // request to actually succeed.
+    // never resolves (see mock.ts's own comment), so read the deep link from
+    // the redirect route's own 302 in the popup rather than from where the
+    // popup ends up. Not by routing the provider URL: a route handler isn't
+    // reliably called for a redirect's target (Chromium's headless shell,
+    // which CI runs, never calls it), which left this test waiting forever.
     const context = page.context();
-    let resolveCapturedUrl!: (url: string) => void;
-    const capturedUrlPromise = new Promise<string>((resolve) => {
-      resolveCapturedUrl = resolve;
-    });
-    await context.route("https://mock-hotel-provider.invalid/**", async (route) => {
-      resolveCapturedUrl(route.request().url());
-      await route.abort();
-    });
-
-    const [popup, capturedUrl] = await Promise.all([
+    const [popup, redirectResponse] = await Promise.all([
       context.waitForEvent("page"),
-      capturedUrlPromise,
+      context.waitForEvent("response", (response) => response.url().includes("/api/hotels/redirect?")),
       bookNowLink.click(),
     ]);
+    expect(redirectResponse.status()).toBe(302);
+    const capturedUrl = redirectResponse.headers()["location"];
     expect(capturedUrl).toContain("https://mock-hotel-provider.invalid/deeplink/");
     await popup.close().catch(() => {});
 
