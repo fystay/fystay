@@ -26,7 +26,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    // E2E_PRODUCTION_SERVER=1 serves an existing `npm run build` with
+    // `next start` (what CI does): no on-demand compilation, so tests measure
+    // the app rather than dev-server compile times. Unset, local runs keep
+    // using the dev server.
+    command: process.env.E2E_PRODUCTION_SERVER ? "npm run start" : "npm run dev",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
