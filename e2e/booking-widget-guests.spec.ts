@@ -26,11 +26,14 @@ test("booking widget's guest picker matches the listing's capacity and pet polic
     await page.goto(`/listings/${notPetFriendly.id}`);
     await page.getByRole("button", { name: /Guests/ }).click();
     await expect(page.getByText("Adults")).toBeVisible();
-    await expect(page.getByText("Pets", { exact: true })).toHaveCount(0);
+    // Scoped to the picker: the listing's own facts list shows "Pets: Allowed"
+    // for a pet-friendly place, which isn't what this test is about.
+    const pickerPanel = page.locator("#guest-picker-panel");
+    await expect(pickerPanel.getByText("Pets", { exact: true })).toHaveCount(0);
 
     await page.goto(`/listings/${petFriendly.id}`);
     await page.getByRole("button", { name: /Guests/ }).click();
-    await expect(page.getByText("Pets", { exact: true })).toBeVisible();
+    await expect(pickerPanel.getByText("Pets", { exact: true })).toBeVisible();
     await expect(
       page.getByText(`This place has a maximum of ${petFriendly.maxGuests} guests.`),
     ).toBeVisible();

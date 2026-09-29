@@ -95,6 +95,7 @@ test.describe("favourites / wishlist", () => {
       await page.fill("#name", "New Favourite Fan");
       await page.fill("#email", email);
       await page.fill("#password", "newfanpass123");
+      await page.getByRole("checkbox", { name: /I agree to/ }).check();
       await page.getByRole("button", { name: "Sign up" }).click();
 
       await page.waitForURL(new RegExp(`/listings/${listing.id}$`));

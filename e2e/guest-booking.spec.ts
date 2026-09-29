@@ -91,7 +91,10 @@ test("guest can log in, book a listing, and see it in their trips", async ({ pag
     page.getByRole("button", { name: "Reserve your stay" }).click(),
   ]);
 
-  await page.waitForURL(/\/checkout\//, { timeout: 15_000 });
+  // Instant Book goes through the optional airport-transfer step first.
+  await page.waitForURL(/\/checkout\/[^/]+\/transfer$/, { timeout: 15_000 });
+  await page.getByRole("link", { name: "Skip for now" }).click();
+  await page.waitForURL(/\/checkout\/[^/]+$/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Confirm and pay" })).toBeVisible();
   // Name/email are prefilled from the account; only phone is missing.
   await page.fill("#guestPhone", "07700 900123");

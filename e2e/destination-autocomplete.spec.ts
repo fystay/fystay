@@ -94,7 +94,7 @@ test("shows a clear fallback when nothing matches", async ({ page }) => {
   await page.goto("/");
   await page.locator("#search-city").fill("Zzzznotarealplace999");
 
-  await expect(page.getByText("No destinations or hotels found")).toBeVisible();
+  await expect(page.getByText("No destinations, places or hotels found")).toBeVisible();
   await expect(page.getByText(/Try a city, town, region or hotel name/)).toBeVisible();
 });
 

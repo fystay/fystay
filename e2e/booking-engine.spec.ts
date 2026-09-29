@@ -127,7 +127,10 @@ test.describe("booking engine", () => {
       page.waitForResponse((r) => r.url().includes("/api/bookings") && r.request().method() === "POST"),
       page.getByRole("button", { name: "Reserve your stay" }).click(),
     ]);
-    await page.waitForURL(/\/checkout\//, { timeout: 15_000 });
+    // Instant Book goes through the optional airport-transfer step first.
+    await page.waitForURL(/\/checkout\/[^/]+\/transfer$/, { timeout: 15_000 });
+    await page.getByRole("link", { name: "Skip for now" }).click();
+    await page.waitForURL(/\/checkout\/[^/]+$/, { timeout: 15_000 });
 
     await expect(page.getByText("Cleaning fee")).toBeVisible();
     await expect(page.getByText("Total (GBP)")).toBeVisible();
