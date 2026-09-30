@@ -101,9 +101,9 @@ guest's payment now, and immediately sends the provider (EV Exec first) a
 structured booking-request email with every detail their own form would
 have asked for (name, contact, pickup/drop-off, dates, party size) -
 reusing the existing Resend-based notification pattern
-(`src/lib/notificationEmails.ts`) rather than inventing a new one. The data
-model already tracks a `BookingExtra.fulfillmentStatus`
-(`PENDING_PROVIDER` -> `CONFIRMED_BY_PROVIDER` / `PROVIDER_DECLINED`) so
+(`src/lib/notificationEmails.ts`) rather than inventing a new one. Since
+Phase 3 the data model tracks `BookingExtra.fulfillmentStatus`
+(`PENDING` -> `SENDING` -> `SENT` -> `CONFIRMED`, or `FAILED`) so
 swapping in a real API later is a fulfillment-layer change only, never a
 schema or checkout change.
 
@@ -170,9 +170,32 @@ automate in Phase 1.
 - Real-time availability/pricing from providers instead of FYStay-set
   fixed prices, where a provider's API supports it.
 
+**Built (infrastructure):**
+
+- `BookingExtra.fulfillmentStatus` (+ reference, last error, attempt
+  count, confirmed-at) and `ExtraProvider.integration`, migration
+  `20260930120000_add_trip_extra_fulfillment`. The migration backfills:
+  extras whose email went out become `SENT`; paid extras whose email never
+  went out become `FAILED` so they show up for a retry.
+- `src/lib/tripExtraFulfillment.ts`: the adapter interface, a registry
+  keyed by `ExtraProvider.integration`, and `email` (Phase 1's email) as
+  the first adapter. An unknown integration fails closed as `FAILED`.
+  `fulfillBookingExtra` claims the row first, so the payment path hands a
+  job over at most once; only an admin retry re-attempts a `FAILED` or
+  stuck handoff.
+- `/admin/extras` "Fulfilment" list with **Retry handoff** and **Mark
+  confirmed** (with the provider's reference), via
+  `POST /api/admin/extras/fulfillment/[id]`.
+
+**Adding a real provider API** = one new adapter file registered in
+`tripExtraFulfillment.ts`, its credentials behind a configuration-presence
+check, and that provider's `integration` set to its code. Not built yet:
+no provider has an API today. Real-time provider pricing is also still
+open (it needs a provider API to exist first).
+
 ## Status
 
-Phase 1 is being built now (see the repo's task list for granular
-progress). This document should be updated as decisions change - it is the
+Phases 1 and 2 are done; Phase 3's fulfillment infrastructure is built
+(see above), with no real provider API connected yet. This document should be updated as decisions change - it is the
 source of truth for *why* this feature exists and what was actually asked
 for, not just what got built.

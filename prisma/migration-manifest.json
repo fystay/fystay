@@ -254,6 +254,12 @@
       "files": {
         "migration.sql": "b274d774091fc41f22b8c4ba5b98e98f80a47a07c3c9a035601bda9173171dc9"
       }
+    },
+    {
+      "name": "20260930120000_add_trip_extra_fulfillment",
+      "files": {
+        "migration.sql": "c068d17c30e734f544365f256a2893a66f7b5cbb6b7dbdeb3d76b75e654c85d6"
+      }
     }
   ],
   "retired": [

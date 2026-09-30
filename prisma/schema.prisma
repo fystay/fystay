@@ -1448,6 +1448,24 @@ enum BookingExtraStatus {
   REFUNDED
 }
 
+// Where a paid BookingExtra's handoff to its provider has got to - the
+// contract docs/trip-extras-roadmap.md's Phase 3 puts every provider
+// integration behind (src/lib/tripExtraFulfillment.ts). Independent of
+// BookingExtraStatus: payment succeeding and the provider actually
+// accepting the job are different things. PENDING = paid, not handed off
+// yet; SENDING = one attempt has claimed it (so a retried webhook can't
+// send it twice); SENT = the provider has it, not yet confirmed; CONFIRMED
+// = the provider confirmed (automatically via an API adapter, or an admin
+// recording the email/phone confirmation); FAILED = the handoff failed and
+// needs a retry or manual follow-up.
+enum ExtraFulfillmentStatus {
+  PENDING
+  SENDING
+  SENT
+  CONFIRMED
+  FAILED
+}
+
 // A business FYStay resells add-ons for - EV Exec (airport transfers) is
 // the first. Deliberately not a User: these are FYStay's own commercial
 // partners, not accounts that log in to the platform, at least in this
@@ -1471,6 +1489,11 @@ model ExtraProvider {
   // nothing yet links a guest to it directly.
   notificationEmail String
   bookingFormUrl    String?
+  // Which fulfillment adapter hands this provider's paid jobs over (see
+  // src/lib/tripExtraFulfillment.ts's registry). "email" - the Phase 1
+  // behavior - until the provider has a real API adapter; an unknown code
+  // fails closed (FAILED, visible on /admin/extras), never silently.
+  integration       String        @default("email")
   active            Boolean       @default(true)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -1540,6 +1563,15 @@ model BookingExtra {
   // going out are two different things worth tracking separately.
   sentToProviderAt DateTime?
 
+  // Phase 3 fulfillment contract - see ExtraFulfillmentStatus. Reference is
+  // the provider's own booking id/confirmation code once known; error is
+  // the last failure's reason, shown to admins (never guests).
+  fulfillmentStatus      ExtraFulfillmentStatus @default(PENDING)
+  fulfillmentReference   String?
+  fulfillmentError       String?
+  fulfillmentAttempts    Int                    @default(0)
+  fulfillmentConfirmedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1553,6 +1585,7 @@ model BookingExtra {
 
   @@index([bookingId])
   @@index([offeringId])
+  @@index([fulfillmentStatus])
 }
 
 // A bank-initiated chargeback (Stripe's own "dispute" object) against a

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Building2, Ticket } from "lucide-react";
+import { Building2, Send, Ticket } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -12,7 +12,9 @@ import { ToggleExtraActiveButton } from "@/components/admin/ToggleExtraActiveBut
 import { EditExtraProviderDialog } from "@/components/admin/EditExtraProviderDialog";
 import { EditExtraOfferingDialog } from "@/components/admin/EditExtraOfferingDialog";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { ExtraFulfillmentActions } from "@/components/admin/ExtraFulfillmentActions";
 import { formatPrice } from "@/lib/format";
+import { isFulfillmentStuck } from "@/lib/tripExtraFulfillment";
 
 export const metadata: Metadata = { title: "Trip extras", robots: { index: false } };
 
@@ -20,6 +22,17 @@ const CATEGORY_LABELS: Record<string, string> = {
   AIRPORT_TRANSFER: "Airport transfer",
   ATTRACTION_TICKET: "Attraction ticket",
   CAR_HIRE: "Car hire",
+};
+
+const FULFILLMENT_BADGES: Record<
+  string,
+  { label: string; variant: "neutral" | "brand" | "success" | "warning" | "danger" }
+> = {
+  PENDING: { label: "Not handed over", variant: "neutral" },
+  SENDING: { label: "Handing over", variant: "brand" },
+  SENT: { label: "Sent - awaiting confirmation", variant: "warning" },
+  CONFIRMED: { label: "Confirmed", variant: "success" },
+  FAILED: { label: "Handoff failed", variant: "danger" },
 };
 
 /**
@@ -34,10 +47,31 @@ export default async function AdminExtrasPage() {
   if (!session?.user) redirect("/login?callbackUrl=/admin/extras");
   if (session.user.role !== "ADMIN") redirect("/");
 
-  const providers = await prisma.extraProvider.findMany({
-    include: { offerings: { orderBy: { createdAt: "asc" } } },
-    orderBy: { createdAt: "asc" },
-  });
+  const fulfillmentInclude = {
+    offering: { select: { name: true, provider: { select: { name: true } } } },
+    booking: { select: { guestName: true, checkIn: true } },
+  } as const;
+  // Everything still needing attention (not yet confirmed) first, oldest
+  // payment first, then the most recent confirmed ones for context.
+  const [providers, openExtras, confirmedExtras] = await Promise.all([
+    prisma.extraProvider.findMany({
+      include: { offerings: { orderBy: { createdAt: "asc" } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.bookingExtra.findMany({
+      where: { status: "PAID", fulfillmentStatus: { not: "CONFIRMED" } },
+      include: fulfillmentInclude,
+      orderBy: { paidAt: "asc" },
+      take: 100,
+    }),
+    prisma.bookingExtra.findMany({
+      where: { status: "PAID", fulfillmentStatus: "CONFIRMED" },
+      include: fulfillmentInclude,
+      orderBy: { fulfillmentConfirmedAt: "desc" },
+      take: 10,
+    }),
+  ]);
+  const paidExtras = [...openExtras, ...confirmedExtras];
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
@@ -66,6 +100,55 @@ export default async function AdminExtrasPage() {
       </div>
 
       <div className="mt-8">
+        <SectionHeading icon={Send}>Fulfilment</SectionHeading>
+        <p className="mt-1 text-sm text-stone-500">
+          Paid extras and whether the provider has them. Failed handoffs need a retry or a call
+          to the provider.
+        </p>
+        {paidExtras.length === 0 ? (
+          <p className="mt-3 text-sm text-stone-500">No paid extras yet.</p>
+        ) : (
+          <div className="mt-3 flex flex-col gap-2">
+            {paidExtras.map((extra) => {
+              const badge = FULFILLMENT_BADGES[extra.fulfillmentStatus];
+              const stuck = isFulfillmentStuck(extra);
+              return (
+                <Card key={extra.id}>
+                  <CardContent className="flex flex-wrap items-start justify-between gap-3 p-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium text-foreground">{extra.offering.name}</p>
+                        <Badge variant={badge.variant}>{stuck ? "Stuck handing over" : badge.label}</Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-stone-500">
+                        {extra.offering.provider.name} · {extra.booking.guestName ?? "Guest"} · check-in{" "}
+                        {extra.booking.checkIn.toLocaleDateString("en-GB")} ·{" "}
+                        <span className="tabular-nums">{formatPrice(extra.priceCents)}</span> · attempts{" "}
+                        <span className="tabular-nums">{extra.fulfillmentAttempts}</span>
+                      </p>
+                      {extra.fulfillmentReference && (
+                        <p className="mt-1 text-sm text-stone-600">
+                          Provider reference: <span className="font-mono">{extra.fulfillmentReference}</span>
+                        </p>
+                      )}
+                      {extra.fulfillmentStatus === "FAILED" && extra.fulfillmentError && (
+                        <p className="mt-1 text-sm text-red-700">{extra.fulfillmentError}</p>
+                      )}
+                    </div>
+                    <ExtraFulfillmentActions
+                      bookingExtraId={extra.id}
+                      canRetry={extra.fulfillmentStatus === "PENDING" || extra.fulfillmentStatus === "FAILED" || stuck}
+                      canConfirm={extra.fulfillmentStatus === "SENT" || extra.fulfillmentStatus === "FAILED"}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8">
         <SectionHeading icon={Building2}>Providers</SectionHeading>
         {providers.length === 0 ? (
           <p className="mt-3 text-sm text-stone-500">No providers yet.</p>
@@ -81,7 +164,9 @@ export default async function AdminExtrasPage() {
                         <Badge variant="brand">{CATEGORY_LABELS[provider.category] ?? provider.category}</Badge>
                         {!provider.active && <Badge variant="neutral">Deactivated</Badge>}
                       </div>
-                      <p className="mt-1 text-sm text-stone-500">{provider.notificationEmail}</p>
+                      <p className="mt-1 text-sm text-stone-500">
+                        {provider.notificationEmail} · handoff by {provider.integration}
+                      </p>
                       {provider.bookingFormUrl && (
                         <a
                           href={provider.bookingFormUrl}

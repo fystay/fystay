@@ -6,10 +6,8 @@ import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { tripExtraPurchaseError } from "@/lib/tripExtras";
-import {
-  sendTripExtraGuestConfirmationEmail,
-  sendTripExtraProviderEmail,
-} from "@/lib/notificationEmails";
+import { sendTripExtraGuestConfirmationEmail } from "@/lib/notificationEmails";
+import { fulfillBookingExtra } from "@/lib/tripExtraFulfillment";
 
 /**
  * Lists what's available to add to this booking (see
@@ -325,9 +323,9 @@ async function claimBookingExtraSlot(
 
 /**
  * Shared by both the dev-mode (no Stripe keys) fallback above and the real
- * Stripe webhook: sends the provider their booking-request email and the
- * guest their receipt, and records whether the provider email actually
- * went out. Exported so the webhook route can call the exact same logic
+ * Stripe webhook: hands the job to the provider (through its fulfillment
+ * adapter, which records the outcome on fulfillmentStatus) and sends the
+ * guest their receipt. Exported so the webhook route can call the exact same logic
  * rather than duplicating it.
  */
 export async function notifyTripExtraPaid(bookingExtraId: string): Promise<void> {
@@ -354,15 +352,12 @@ export async function notifyTripExtraPaid(bookingExtraId: string): Promise<void>
     bookingUrl: `${baseUrl}/bookings/${bookingExtra.bookingId}`,
   };
 
-  const sentToProvider = await sendTripExtraProviderEmail(ctx);
+  // The provider handoff goes through the fulfillment adapter for this
+  // provider (src/lib/tripExtraFulfillment.ts), which records its outcome
+  // on fulfillmentStatus and claims the row first, so a retried webhook
+  // can't hand the same job over twice.
+  await fulfillBookingExtra(bookingExtraId);
   await sendTripExtraGuestConfirmationEmail(ctx);
-
-  if (sentToProvider) {
-    await prisma.bookingExtra.update({
-      where: { id: bookingExtraId },
-      data: { sentToProviderAt: new Date() },
-    });
-  }
 
   // The one point both the dev-mode fallback and the real Stripe webhook
   // funnel through on a successful purchase (see this function's own doc
