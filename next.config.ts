@@ -27,7 +27,19 @@ if (supabaseUrl) {
   }
 }
 
+// Vercel Preview has no NEXT_PUBLIC_BASE_URL of its own, so links built from
+// it (emails, Stripe return URLs, redirects) would fall back to localhost.
+// Use the branch's stable preview URL instead. Only applies to a Vercel
+// preview build with no explicit value, so Production, local and CI builds
+// keep reading NEXT_PUBLIC_BASE_URL exactly as before.
+const vercelPreviewHost = process.env.VERCEL_BRANCH_URL ?? process.env.VERCEL_URL;
+const previewBaseUrl =
+  !process.env.NEXT_PUBLIC_BASE_URL && process.env.VERCEL_ENV === "preview" && vercelPreviewHost
+    ? `https://${vercelPreviewHost}`
+    : undefined;
+
 const nextConfig: NextConfig = {
+  ...(previewBaseUrl ? { env: { NEXT_PUBLIC_BASE_URL: previewBaseUrl } } : {}),
   images: { remotePatterns },
   // Content-Security-Policy is set per-request (with a nonce) in src/proxy.ts;
   // these are the headers that don't need to vary per request.
