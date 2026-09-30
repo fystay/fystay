@@ -25,6 +25,11 @@ const HOTEL = "20260924191043_add_hotel_affiliate_system";
 const CACHE = "20260925061447_add_hotel_provider_cache";
 const RETIRED = RETIRED_MIGRATIONS[0];
 
+// The migrations production had at the 2026-09-28 recovery (CACHE was the
+// newest). These tests model that snapshot, so a migration added since
+// doesn't change what they describe.
+const RECOVERED: LocalMigration[] = LOCAL.filter((m) => m.name <= CACHE);
+
 let clock = Date.UTC(2026, 7, 27);
 function row(name: string, checksum: string, state: "applied" | "failed" | "rolledBack" = "applied"): MigrationHistoryRow {
   clock += 60_000;
@@ -50,7 +55,7 @@ function checksumOf(name: string): string {
  */
 function productionHistory(): MigrationHistoryRow[] {
   const rows: MigrationHistoryRow[] = [];
-  for (const migration of LOCAL) {
+  for (const migration of RECOVERED) {
     if (migration.name === HOTEL) {
       rows.push(row(RETIRED.name, RETIRED.checksum));
       rows.push(row(HOTEL, migration.checksum, "rolledBack"));
@@ -65,7 +70,7 @@ describe("evaluateMigrationHistory - production's real, recovered history", () =
     const history = productionHistory();
     expect(history).toHaveLength(44);
 
-    const report = evaluateMigrationHistory(history, LOCAL);
+    const report = evaluateMigrationHistory(history, RECOVERED);
     expect(report.problems).toEqual([]);
     expect(report.pending).toEqual([]);
     expect(report.appliedCount).toBe(43);
@@ -75,14 +80,14 @@ describe("evaluateMigrationHistory - production's real, recovered history", () =
 
   it("lists a new migration as pending, and nothing else", () => {
     const next = { name: "20261001000000_add_something", checksum: "a".repeat(64) };
-    const report = evaluateMigrationHistory(productionHistory(), [...LOCAL, next]);
+    const report = evaluateMigrationHistory(productionHistory(), [...RECOVERED, next]);
     expect(report.problems).toEqual([]);
     expect(report.pending).toEqual([next.name]);
   });
 
   it("lists a migration whose row was removed as pending (the Phase 3 rehearsal state)", () => {
     const history = productionHistory().filter((r) => r.migrationName !== CACHE);
-    const report = evaluateMigrationHistory(history, LOCAL);
+    const report = evaluateMigrationHistory(history, RECOVERED);
     expect(report.problems).toEqual([]);
     expect(report.pending).toEqual([CACHE]);
   });
@@ -91,20 +96,20 @@ describe("evaluateMigrationHistory - production's real, recovered history", () =
 describe("evaluateMigrationHistory - what makes a deploy unsafe", () => {
   it("stops on an unresolved failed migration, and never suggests fixing it automatically", () => {
     const history = [...productionHistory(), row("20261001000000_broken", "b".repeat(64), "failed")];
-    const [problem] = evaluateMigrationHistory(history, LOCAL).problems;
+    const [problem] = evaluateMigrationHistory(history, RECOVERED).problems;
     expect(problem).toContain("20261001000000_broken");
     expect(problem).toContain("never runs `prisma migrate resolve`");
   });
 
   it("stops when an applied migration was edited afterwards (prisma migrate status misses this)", () => {
-    const edited = LOCAL.map((m) => (m.name === CACHE ? { ...m, checksum: "c".repeat(64) } : m));
+    const edited = RECOVERED.map((m) => (m.name === CACHE ? { ...m, checksum: "c".repeat(64) } : m));
     const problems = evaluateMigrationHistory(productionHistory(), edited).problems;
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain(`"${CACHE}" was modified after it was applied`);
   });
 
   it("stops when an applied migration is missing from the commit (renamed, deleted, or wrong commit)", () => {
-    const withoutCache = LOCAL.filter((m) => m.name !== CACHE);
+    const withoutCache = RECOVERED.filter((m) => m.name !== CACHE);
     const problems = evaluateMigrationHistory(productionHistory(), withoutCache).problems;
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain(`"${CACHE}" is applied in the database but missing`);
@@ -114,21 +119,21 @@ describe("evaluateMigrationHistory - what makes a deploy unsafe", () => {
     const tampered = productionHistory().map((r) =>
       r.migrationName === RETIRED.name ? { ...r, checksum: "d".repeat(64) } : r,
     );
-    const problems = evaluateMigrationHistory(tampered, LOCAL).problems;
+    const problems = evaluateMigrationHistory(tampered, RECOVERED).problems;
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain(RETIRED.name);
   });
 
   it("stops when a pending migration is older than one already applied", () => {
     const late = { name: "20260101000000_backdated", checksum: "e".repeat(64) };
-    const problems = evaluateMigrationHistory(productionHistory(), [...LOCAL, late]).problems;
+    const problems = evaluateMigrationHistory(productionHistory(), [...RECOVERED, late]).problems;
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain(`"${late.name}" is pending but older than "${CACHE}"`);
   });
 
   it("stops on a rolled-back migration that was never re-applied and isn't in the commit", () => {
     const history = [...productionHistory(), row("20261001000000_abandoned", "f".repeat(64), "rolledBack")];
-    const problems = evaluateMigrationHistory(history, LOCAL).problems;
+    const problems = evaluateMigrationHistory(history, RECOVERED).problems;
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain("neither re-applied nor present");
   });
@@ -136,20 +141,20 @@ describe("evaluateMigrationHistory - what makes a deploy unsafe", () => {
   it("treats a rolled-back migration that is still in the commit as pending, to be re-applied", () => {
     const history = productionHistory().filter((r) => !(r.migrationName === CACHE && r.finishedAt));
     history.push(row(CACHE, checksumOf(CACHE), "rolledBack"));
-    const report = evaluateMigrationHistory(history, LOCAL);
+    const report = evaluateMigrationHistory(history, RECOVERED);
     expect(report.problems).toEqual([]);
     expect(report.pending).toEqual([CACHE]);
   });
 
   it("stops on a migration recorded as applied twice", () => {
     const history = [...productionHistory(), row(CACHE, checksumOf(CACHE))];
-    expect(evaluateMigrationHistory(history, LOCAL).problems[0]).toContain("applied more than once");
+    expect(evaluateMigrationHistory(history, RECOVERED).problems[0]).toContain("applied more than once");
   });
 
   it("stops on two migrations sharing a timestamp, or a badly named directory", () => {
     const clash = { name: `${CACHE.slice(0, 14)}_other`, checksum: "1".repeat(64) };
     const odd = { name: "not-a-migration", checksum: "2".repeat(64) };
-    const problems = evaluateMigrationHistory(productionHistory(), [...LOCAL, clash, odd]).problems;
+    const problems = evaluateMigrationHistory(productionHistory(), [...RECOVERED, clash, odd]).problems;
     expect(problems.some((p) => p.includes("share a timestamp"))).toBe(true);
     expect(problems.some((p) => p.includes('"not-a-migration" isn\'t named'))).toBe(true);
   });

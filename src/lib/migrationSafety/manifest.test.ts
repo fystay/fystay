@@ -257,7 +257,11 @@ describe("migration immutability - the retained 20260924190352 production-histor
   });
 
   it("the manifest's migrations still satisfy Phase 3's history check on production's recovered history", () => {
-    const local = manifestOf(REPO_ROOT).migrations.map((entry) => ({ name: entry.name, checksum: entry.files["migration.sql"] }));
+    // Production's recovered history ended at the hotel provider cache
+    // migration; later migrations aren't part of that snapshot.
+    const local = manifestOf(REPO_ROOT)
+      .migrations.filter((entry) => entry.name <= "20260925061447_add_hotel_provider_cache")
+      .map((entry) => ({ name: entry.name, checksum: entry.files["migration.sql"] }));
     const hotel = "20260924191043_add_hotel_affiliate_system";
     let clock = Date.UTC(2026, 7, 27);
     const row = (name: string, checksum: string, rolledBack = false): MigrationHistoryRow => {
