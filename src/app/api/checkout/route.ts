@@ -9,6 +9,14 @@ import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/st
 import { applyDiscountsToApplicationFee, discountedAccommodationCents } from "@/lib/pricing";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
+import { isBookingHoldActive, isRequestedRangeStillAvailable } from "@/lib/availability";
+
+/**
+ * Just over Stripe's 30-minute minimum Checkout Session lifetime - the
+ * extra minute keeps clock skew between us and Stripe from tipping a request
+ * under the minimum.
+ */
+const CHECKOUT_SESSION_TTL_SECONDS = 31 * 60;
 
 const checkoutSchema = z.object({
   bookingId: z.string().min(1),
@@ -63,6 +71,31 @@ async function postHandler(request: Request) {
     return NextResponse.json(
       { error: "This booking is still awaiting host approval" },
       { status: 403 },
+    );
+  }
+
+  // The booking only holds its dates for a short window (see
+  // blockingBookingWhere). A guest returning after it lapsed may only pay if
+  // nobody else has taken the dates since; otherwise the booking is released
+  // so they can pick new dates instead of paying for a stay that's gone.
+  if (
+    !isBookingHoldActive(booking) &&
+    !(await isRequestedRangeStillAvailable(prisma, {
+      listingId: booking.listingId,
+      roomTypeId: booking.roomTypeId,
+      roomsBooked: booking.roomsBooked,
+      excludeBookingId: booking.id,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+    }))
+  ) {
+    await prisma.booking.updateMany({
+      where: { id: booking.id, status: "PENDING" },
+      data: { status: "CANCELLED" },
+    });
+    return NextResponse.json(
+      { error: "Sorry, these dates were booked by someone else while your hold expired. Please choose new dates." },
+      { status: 409 },
     );
   }
 
@@ -239,6 +272,10 @@ async function postHandler(request: Request) {
     line_items: lineItems,
     ...(discounts && { discounts }),
     metadata: { bookingId: booking.id },
+    // About Stripe's shortest allowed lifetime, instead of its 24-hour default, so
+    // an abandoned payment page can't be completed long after the date hold
+    // ended. The webhook re-checks availability as the final safeguard.
+    expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_SECONDS,
     success_url: `${confirmationUrl}?success=1`,
     cancel_url: `${baseUrl}/checkout/${booking.id}?cancelled=1`,
     payment_intent_data: {
@@ -247,12 +284,13 @@ async function postHandler(request: Request) {
     },
   });
 
-  // Conditional on stripeSessionId still being unset: if a concurrent
-  // request already attached a different session in the moment between our
-  // read above and this write, that session is the one the guest should
-  // actually pay through, not the one this request just created.
+  // Conditional on stripeSessionId still being what we read (unset, or an
+  // earlier session that expired unpaid): if a concurrent request already
+  // attached a different session in the moment between our read above and
+  // this write, that session is the one the guest should actually pay
+  // through, not the one this request just created.
   const attached = await prisma.booking.updateMany({
-    where: { id: booking.id, stripeSessionId: null },
+    where: { id: booking.id, stripeSessionId: booking.stripeSessionId },
     data: {
       stripeSessionId: checkoutSession.id,
       hostPaidViaConnect: true,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isBookingHoldActive,
   blockingBookingWhere,
   blockingRanges,
   isRangeAvailable,
@@ -224,5 +225,28 @@ describe("stayLengthError", () => {
     expect(stayLengthError(1, { minNights: 3, maxNights: 2 })).toBe(
       "This listing requires a minimum stay of 3 nights",
     );
+  });
+});
+
+describe("isBookingHoldActive", () => {
+  const now = new Date("2026-10-01T12:00:00Z");
+  const minutesAgo = (m: number) => new Date(now.getTime() - m * 60 * 1000);
+
+  it("holds an instant-book booking for the hold window from creation, then lets it lapse", () => {
+    const base = { status: "PENDING", approvalStatus: "NONE", hostRespondedAt: null };
+    expect(isBookingHoldActive({ ...base, createdAt: minutesAgo(10) }, now)).toBe(true);
+    expect(isBookingHoldActive({ ...base, createdAt: minutesAgo(PENDING_BOOKING_HOLD_MINUTES + 1) }, now)).toBe(false);
+  });
+
+  it("times an approved request's hold from the host's approval", () => {
+    const base = { status: "PENDING", approvalStatus: "APPROVED", createdAt: minutesAgo(600) };
+    expect(isBookingHoldActive({ ...base, hostRespondedAt: minutesAgo(5) }, now)).toBe(true);
+    expect(isBookingHoldActive({ ...base, hostRespondedAt: minutesAgo(PENDING_BOOKING_HOLD_MINUTES + 1) }, now)).toBe(false);
+  });
+
+  it("never treats a cancelled booking as holding dates", () => {
+    expect(
+      isBookingHoldActive({ status: "CANCELLED", approvalStatus: "NONE", createdAt: now, hostRespondedAt: null }, now),
+    ).toBe(false);
   });
 });

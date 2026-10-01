@@ -54,6 +54,35 @@ export function blockingBookingWhere(now: Date = new Date()) {
   };
 }
 
+/**
+ * Whether this PENDING booking still holds its dates right now - the same
+ * rule as blockingBookingWhere, for a booking already loaded. Checkout uses
+ * it to notice a hold that lapsed while the guest was away.
+ */
+export function isBookingHoldActive(
+  booking: {
+    status: string;
+    approvalStatus: string;
+    createdAt: Date;
+    hostRespondedAt: Date | null;
+  },
+  now: Date = new Date(),
+): boolean {
+  if (booking.status === "CONFIRMED") return true;
+  if (booking.status !== "PENDING") return false;
+  const holdMs = PENDING_BOOKING_HOLD_MINUTES * 60 * 1000;
+  if (booking.approvalStatus === "NONE") {
+    return now.getTime() - booking.createdAt.getTime() <= holdMs;
+  }
+  if (booking.approvalStatus === "AWAITING") {
+    return now.getTime() - booking.createdAt.getTime() <= REQUEST_HOLD_HOURS * 60 * 60 * 1000;
+  }
+  if (booking.approvalStatus === "APPROVED" && booking.hostRespondedAt) {
+    return now.getTime() - booking.hostRespondedAt.getTime() <= holdMs;
+  }
+  return false;
+}
+
 export function rangesOverlap(
   aStart: Date,
   aEnd: Date,

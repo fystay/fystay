@@ -236,6 +236,33 @@ export async function sendBookingRequestRespondedEmail(
 }
 
 /**
+ * Sent when a guest's payment arrives after their hold on the dates lapsed
+ * and someone else booked them in the meantime - the booking is cancelled
+ * and the payment refunded in full rather than double-booking the property.
+ */
+export async function sendBookingUnavailableRefundedEmail(
+  ctx: BookingEmailContext,
+  refundCents: number,
+): Promise<void> {
+  const resend = getResendClient();
+  if (!resend || !ctx.guestEmail) return;
+
+  await resend.emails.send({
+    from: EMAIL_FROM,
+    to: ctx.guestEmail,
+    subject: `Booking not completed: ${escapeHtml(ctx.listingTitle)}`,
+    html: `
+      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
+      <p>Your payment came through after your hold on these dates had expired, and the dates had been booked by someone else in the meantime. We've cancelled this booking and refunded your payment of ${formatPrice(refundCents)} in full. Refunds usually reach your card within 5-10 working days.</p>
+      <p><strong>${escapeHtml(ctx.listingTitle)}</strong><br>
+      ${stayLine(ctx)}<br>
+      Reference: ${escapeHtml(ctx.reference)}</p>
+      <p>Sorry for the inconvenience. If you have any questions, contact us at ${SUPPORT_EMAIL}.</p>
+    `,
+  });
+}
+
+/**
  * Sent to the guest once their booking enters the security-deposit
  * authorization window (see needsDepositAuthorization in
  * securityDeposit.ts) - a real card hold, not a charge, so the wording is

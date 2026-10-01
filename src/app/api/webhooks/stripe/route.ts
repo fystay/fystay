@@ -9,7 +9,9 @@ import { awardReferralBonusIfEligible } from "@/lib/referral";
 import { depositClaimDeadline } from "@/lib/securityDeposit";
 import { pushBookingReservation } from "@/lib/pms/sync";
 import { notifyTripExtraPaid } from "@/app/api/bookings/[id]/extras/route";
-import { sendDisputeAlertEmail } from "@/lib/notificationEmails";
+import { sendBookingUnavailableRefundedEmail, sendDisputeAlertEmail } from "@/lib/notificationEmails";
+import { isRequestedRangeStillAvailable } from "@/lib/availability";
+import { refundAcrossPayments } from "@/lib/connectRefunds";
 import { evidenceDueByDate, mapStripeDisputeStatus } from "@/lib/paymentDisputes";
 import type Stripe from "stripe";
 
@@ -23,19 +25,116 @@ function isCheckoutSessionPaid(session: Stripe.Checkout.Session): boolean {
 }
 
 /**
+ * Payments that must not confirm a booking are refunded in full instead:
+ * - the booking was cancelled before the payment landed (the guest cancelled
+ *   with a payment page still open), so there's no stay to pay for;
+ * - the booking is still PENDING but someone else took its dates after its
+ *   hold lapsed (a guest finishing an old payment page late) - the last line
+ *   of defence against a double booking.
+ * Returns true when the payment was handled this way (or already had been,
+ * on a redelivered event), so the caller must not confirm the booking.
+ */
+async function refundIfNotConfirmable(bookingId: string, checkoutSession: Stripe.Checkout.Session): Promise<boolean> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { listing: { include: { host: true } } },
+  });
+  if (!booking || booking.status === "CONFIRMED" || booking.status === "COMPLETED") return false;
+
+  const paymentIntentId =
+    typeof checkoutSession.payment_intent === "string"
+      ? checkoutSession.payment_intent
+      : (checkoutSession.payment_intent?.id ?? null);
+
+  if (booking.status === "CANCELLED") {
+    // A redelivery of a payment this function already refunded.
+    if (booking.paymentStatus === "REFUNDED" && booking.stripePaymentIntentId === paymentIntentId) return true;
+  } else {
+    const stillAvailable = await isRequestedRangeStillAvailable(prisma, {
+      listingId: booking.listingId,
+      roomTypeId: booking.roomTypeId,
+      roomsBooked: booking.roomsBooked,
+      excludeBookingId: booking.id,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+    });
+    if (stillAvailable) return false;
+  }
+  const paidCents = checkoutSession.amount_total ?? booking.totalPriceCents;
+  const stripe = getStripeClient();
+  if (stripe && paymentIntentId) {
+    await refundAcrossPayments(
+      stripe,
+      [{ paymentIntentId, viaConnect: booking.hostPaidViaConnect }],
+      paidCents,
+    );
+  }
+
+  const cancelled = await prisma.booking.updateMany({
+    where: { id: booking.id, status: { in: ["PENDING", "CANCELLED"] } },
+    data: {
+      status: "CANCELLED",
+      paymentStatus: "REFUNDED",
+      paidAt: new Date(),
+      refundedAt: new Date(),
+      refundedAmountCents: paidCents,
+      stripePaymentIntentId: paymentIntentId,
+    },
+  });
+  if (cancelled.count > 0 && booking.status === "PENDING" && booking.creditAppliedCents > 0) {
+    await prisma.user.update({
+      where: { id: booking.guestId },
+      data: { creditBalanceCents: { increment: booking.creditAppliedCents } },
+    });
+  }
+  console.warn("Payment refunded instead of confirming the booking", {
+    bookingId: booking.id,
+    paymentIntentId,
+    reason: booking.status === "CANCELLED" ? "booking_cancelled" : "dates_taken",
+  });
+
+  if (cancelled.count > 0 && booking.status === "PENDING") {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    await sendBookingUnavailableRefundedEmail(
+      {
+        reference: booking.reference,
+        listingTitle: booking.listing.title,
+        city: booking.listing.city,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        nights: booking.nights,
+        guests: booking.guests,
+        totalPriceCents: booking.totalPriceCents,
+        guestName: booking.guestName,
+        guestEmail: booking.guestEmail,
+        hostName: booking.listing.host.name,
+        hostEmail: booking.listing.host.email,
+        bookingUrl: `${baseUrl}/bookings/${booking.id}`,
+      },
+      paidCents,
+    );
+  }
+  return true;
+}
+
+/**
  * Confirms a booking once its Checkout Session is paid - shared by
  * checkout.session.completed (card payments) and
  * checkout.session.async_payment_succeeded (delayed payment methods).
  */
 async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Checkout.Session): Promise<void> {
+  if (await refundIfNotConfirmable(bookingId, checkoutSession)) return;
+
   // Stripe's own docs are explicit that a webhook endpoint must tolerate
   // the same event arriving more than once (a retry after a slow 200, or
   // just an occasional genuine duplicate). Scoping the update to bookings
   // not already CONFIRMED makes a redelivery a pure no-op instead of
   // re-sending the guest and host their confirmation email a second (or
   // third) time for a booking that was already confirmed the first time.
+  // Only a PENDING booking is confirmed. A CANCELLED one is never brought
+  // back: refundIfNotConfirmable above has already refunded its payment.
   const { count } = await prisma.booking.updateMany({
-    where: { id: bookingId, status: { not: "CONFIRMED" } },
+    where: { id: bookingId, status: "PENDING" },
     data: {
       status: "CONFIRMED",
       paymentStatus: "PAID",
@@ -290,10 +389,12 @@ async function postHandler(request: Request) {
     // offered on a booking that's already CONFIRMED - depositStatus simply
     // stays AWAITING_AUTHORIZATION so the guest or the daily cron can
     // start a fresh session.
+    // Only the booking's current session counts: a guest who restarted
+    // checkout after this one expired is paying through a newer session.
     const bookingId = event.data.object.metadata?.bookingId;
     if (bookingId) {
       await prisma.booking.updateMany({
-        where: { id: bookingId, status: "PENDING" },
+        where: { id: bookingId, status: "PENDING", stripeSessionId: event.data.object.id },
         data: { status: "CANCELLED" },
       });
     }
