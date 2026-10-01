@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { formatPrice } from "@/lib/format";
-import { splitByHostShare } from "@/lib/pricing";
-import { isConnectReady } from "@/lib/stripeConnect";
+import { splitBookingChange } from "@/lib/pricing";
+import { bookingFieldsAfterChange } from "@/lib/changeRequests";
+import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
 
 export async function POST(
   _request: Request,
@@ -51,8 +52,13 @@ export async function POST(
     });
   }
 
-  const connectReady = isConnectReady(changeRequest.booking.listing.host);
-  const { platformShareCents: applicationFeeCents } = splitByHostShare(
+  // Same rule as the original booking's checkout: the extra payment is a
+  // destination charge, so the host's share reaches them automatically, and
+  // it can't be taken at all unless their Connect account can receive it.
+  if (!(await verifyHostPaymentReady(changeRequest.booking.listing.host))) {
+    return NextResponse.json({ error: HOST_NOT_PAYMENT_READY_MESSAGE }, { status: 409 });
+  }
+  const { platformShareCents: applicationFeeCents } = splitBookingChange(
     changeRequest.priceDeltaCents,
     changeRequest.booking,
   );
@@ -75,20 +81,18 @@ export async function POST(
     metadata: { changeRequestId: changeRequest.id },
     success_url: `${baseUrl}/bookings?success=1`,
     cancel_url: `${baseUrl}/bookings`,
-    ...(connectReady && {
-      payment_intent_data: {
-        application_fee_amount: applicationFeeCents,
-        transfer_data: { destination: changeRequest.booking.listing.host.stripeConnectAccountId! },
-      },
-    }),
+    payment_intent_data: {
+      application_fee_amount: applicationFeeCents,
+      transfer_data: { destination: changeRequest.booking.listing.host.stripeConnectAccountId! },
+    },
   });
 
   await prisma.bookingChangeRequest.update({
     where: { id: requestId },
     data: {
       stripeSessionId: checkoutSession.id,
-      hostPaidViaConnect: connectReady,
-      applicationFeeCents: connectReady ? applicationFeeCents : null,
+      hostPaidViaConnect: true,
+      applicationFeeCents,
     },
   });
 
@@ -110,12 +114,8 @@ export async function applyApprovedChange(requestId: string) {
     }),
     prisma.booking.update({
       where: { id: changeRequest.bookingId },
-      data: {
-        checkIn: changeRequest.requestedCheckIn,
-        checkOut: changeRequest.requestedCheckOut,
-        guests: changeRequest.requestedGuests,
-        totalPriceCents: changeRequest.booking.totalPriceCents + changeRequest.priceDeltaCents,
-      },
+      data: bookingFieldsAfterChange(changeRequest.booking, changeRequest),
     }),
   ]);
 }
+

@@ -74,9 +74,10 @@ export default async function HostPayoutsPage({
           {ready ? (
             <>
               <p className="text-sm text-stone-600">
-                Guest payments now pay out to your bank account automatically, minus FYStay&apos;s
-                service fee - you don&apos;t need to do anything else. Bookings taken before you
-                connected settled to FYStay directly and aren&apos;t affected.
+                Your listings can take bookings. For each one you receive your full nightly price
+                and cleaning fee automatically - FYStay&apos;s service fee is paid by the guest on
+                top - and Stripe pays it out to your bank account. You don&apos;t need to do
+                anything else.
               </p>
               <a
                 href="/api/host/stripe/dashboard"
@@ -89,8 +90,11 @@ export default async function HostPayoutsPage({
           ) : (
             <>
               <p className="text-sm text-stone-600">
+                <strong className="font-semibold text-foreground">
+                  Guests can&apos;t book your listings until this is complete.
+                </strong>{" "}
                 {started
-                  ? "Stripe still needs a few more details before payouts can start."
+                  ? "Stripe still needs a few more details before you can be paid."
                   : "FYStay uses Stripe to pay hosts directly and securely - we never see or store your bank details."}
               </p>
               <ul className="flex flex-col gap-1.5 text-sm text-stone-600">

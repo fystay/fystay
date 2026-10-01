@@ -19,6 +19,7 @@ import { computeBookingPricing } from "@/lib/pricing";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
 import type { StaySelection } from "@/lib/stayQuery";
+import { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
 
 export type HotelRoomTypeSummary = {
   id: string;
@@ -47,6 +48,8 @@ type Props = {
   instantBook: boolean;
   /** The stay the guest searched for (see parseStaySelection), so dates and guests open already selected. */
   initialSelection?: StaySelection;
+  /** false when the host can't take a paid booking yet (Stripe payouts not set up) - see hostAcceptsPaidBookings. */
+  acceptsPaidBookings?: boolean;
 };
 
 function Stepper({
@@ -111,6 +114,7 @@ export function HotelBookingWidget({
   cancellationPolicy,
   instantBook,
   initialSelection,
+  acceptsPaidBookings = true,
 }: Props) {
   const [range, setRange] = useState<DateRange | undefined>(() =>
     initialSelection?.checkIn && initialSelection.checkOut
@@ -173,6 +177,11 @@ export function HotelBookingWidget({
 
         <div className="mt-5 flex flex-col gap-4 border-t border-border-subtle pt-5">
           <p className="text-sm font-semibold text-foreground">Choose a room type</p>
+          {!acceptsPaidBookings && (
+            <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+              {HOST_NOT_PAYMENT_READY_MESSAGE}
+            </p>
+          )}
           {roomTypes.map((roomType) => (
             <RoomTypeBookingCard
               key={roomType.id}
@@ -186,6 +195,7 @@ export function HotelBookingWidget({
               instantBook={instantBook}
               initialGuests={searchedGuests}
               loginHref={loginHref}
+              bookable={acceptsPaidBookings}
             />
           ))}
         </div>
@@ -225,6 +235,7 @@ function RoomTypeBookingCard({
   instantBook,
   initialGuests,
   loginHref,
+  bookable,
 }: {
   listingId: string;
   roomType: HotelRoomTypeSummary;
@@ -236,6 +247,7 @@ function RoomTypeBookingCard({
   instantBook: boolean;
   initialGuests: number | null;
   loginHref: string;
+  bookable: boolean;
 }) {
   const router = useRouter();
   const [roomsBooked, setRoomsBooked] = useState(1);
@@ -519,7 +531,7 @@ function RoomTypeBookingCard({
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
       <div className="mt-3">
-        {!isLoggedIn ? (
+        {!bookable ? null : !isLoggedIn ? (
           <Button
             onClick={() => router.push(loginHref)}
             size="sm"

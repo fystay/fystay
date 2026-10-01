@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
+import { splitBookingChange } from "@/lib/pricing";
+import { bookingFieldsAfterChange } from "@/lib/changeRequests";
+import { refundChangeDifference } from "@/lib/connectRefunds";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
 
 const respondSchema = z.object({ action: z.enum(["approve", "decline"]) });
@@ -78,10 +81,18 @@ export async function POST(
   if (changeRequest.priceDeltaCents < 0) {
     const stripe = getStripeClient();
     if (stripe && changeRequest.booking.stripePaymentIntentId) {
-      await stripe.refunds.create({
-        payment_intent: changeRequest.booking.stripePaymentIntentId,
-        amount: Math.abs(changeRequest.priceDeltaCents),
-      });
+      // A shorter stay: the guest gets the difference back, and the host's
+      // accommodation share and FYStay's fee share of it come back out of
+      // each side exactly (not out of FYStay's balance alone).
+      const { platformShareCents } = splitBookingChange(changeRequest.priceDeltaCents, changeRequest.booking);
+      await refundChangeDifference(
+        stripe,
+        {
+          paymentIntentId: changeRequest.booking.stripePaymentIntentId,
+          viaConnect: changeRequest.booking.hostPaidViaConnect,
+        },
+        { refundCents: Math.abs(changeRequest.priceDeltaCents), platformShareCents: Math.abs(platformShareCents) },
+      );
     }
   }
 
@@ -96,12 +107,7 @@ export async function POST(
     }),
     prisma.booking.update({
       where: { id: changeRequest.bookingId },
-      data: {
-        checkIn: changeRequest.requestedCheckIn,
-        checkOut: changeRequest.requestedCheckOut,
-        guests: changeRequest.requestedGuests,
-        totalPriceCents: changeRequest.booking.totalPriceCents + changeRequest.priceDeltaCents,
-      },
+      data: bookingFieldsAfterChange(changeRequest.booking, changeRequest),
     }),
   ]);
 

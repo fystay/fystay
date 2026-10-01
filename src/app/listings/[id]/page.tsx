@@ -53,13 +53,21 @@ import { getFeaturedOffering } from "@/lib/travelAddons";
 import { formatPrice } from "@/lib/format";
 import { isSuspended } from "@/lib/suspension";
 import { parseStaySelection } from "@/lib/stayQuery";
+import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 
 const getListing = cache(async (id: string) => {
   return prisma.listing.findUnique({
     where: { id },
     include: {
       host: {
-        select: { name: true, image: true, createdAt: true, identityVerificationStatus: true },
+        select: {
+          name: true,
+          image: true,
+          createdAt: true,
+          identityVerificationStatus: true,
+          stripeConnectChargesEnabled: true,
+          stripeConnectPayoutsEnabled: true,
+        },
       },
       bookings: {
         where: blockingBookingWhere(),
@@ -481,6 +489,7 @@ export default async function ListingDetailPage({
               cancellationPolicy={cancellationPolicy}
               instantBook={listing.instantBook}
               initialSelection={staySelection}
+              acceptsPaidBookings={hostAcceptsPaidBookings(listing.host)}
             />
           ) : (
             <BookingWidget
@@ -517,6 +526,7 @@ export default async function ListingDetailPage({
               cancellationPolicy={cancellationPolicy}
               instantBook={listing.instantBook}
               initialSelection={staySelection}
+              acceptsPaidBookings={hostAcceptsPaidBookings(listing.host)}
             />
           )}
 

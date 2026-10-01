@@ -4,7 +4,7 @@ import {
   computeBookingPricing,
   GUEST_SERVICE_FEE_RATE,
   resolveLengthOfStayDiscount,
-  splitByHostShare,
+  splitBookingChange,
 } from "./pricing";
 
 describe("computeBookingPricing", () => {
@@ -110,29 +110,55 @@ describe("resolveLengthOfStayDiscount", () => {
   });
 });
 
-describe("splitByHostShare", () => {
-  const booking = { nightlyPriceCents: 27000, cleaningFeeCents: 3000, totalPriceCents: 33000 };
+describe("splitBookingChange", () => {
+  // A 3-night stay at £100/night: £300 accommodation + £30 FYStay fee.
+  const threeNights = {
+    totalPriceCents: 33000,
+    cleaningFeeCents: 0,
+    serviceFeeCents: 3000,
+    taxCents: 0,
+    creditAppliedCents: 0,
+    promoDiscountCents: 0,
+  };
 
-  it("splits an amount in the same proportion as the booking's own nightly+cleaning vs total", () => {
-    const result = splitByHostShare(11000, booking);
-    // (27000 + 3000) / 33000 = 10/11 host share.
-    expect(result.hostShareCents).toBe(10000);
-    expect(result.platformShareCents).toBe(1000);
+  it("gives the host the accommodation and FYStay the fee when a 3-night stay gains a night", () => {
+    // 4 nights: £400 + £40 = £440, so the guest owes £110 more.
+    const extra = computeBookingPricing({ nights: 4, pricePerNightCents: 10000 }).totalPriceCents - 33000;
+    expect(splitBookingChange(extra, threeNights)).toEqual({ hostShareCents: 10000, platformShareCents: 1000 });
   });
 
-  it("always sums back to the original amount, even after rounding", () => {
-    const result = splitByHostShare(101, booking);
-    expect(result.hostShareCents + result.platformShareCents).toBe(101);
+  it("splits an extra £100 on a multi-night stay by the 10% fee rule, not by one night's price", () => {
+    const result = splitBookingChange(10000, threeNights);
+    expect(result).toEqual({ hostShareCents: 9091, platformShareCents: 909 });
   });
 
-  it("gives the host share the entire amount when the booking has no total to prorate against", () => {
-    const result = splitByHostShare(5000, { ...booking, totalPriceCents: 0 });
-    expect(result).toEqual({ hostShareCents: 5000, platformShareCents: 0 });
+  it("leaves cleaning fees with the host side unchanged - only accommodation moves", () => {
+    const withCleaning = { ...threeNights, cleaningFeeCents: 3000, totalPriceCents: 36000 };
+    expect(splitBookingChange(11000, withCleaning)).toEqual({ hostShareCents: 10000, platformShareCents: 1000 });
   });
 
-  it("never produces a negative platform share, since host revenue never exceeds the total", () => {
-    const result = splitByHostShare(4999, booking);
-    expect(result.platformShareCents).toBeGreaterThanOrEqual(0);
+  it("splits a refund for a shortened stay the same way, as negative shares", () => {
+    expect(splitBookingChange(-11000, threeNights)).toEqual({ hostShareCents: -10000, platformShareCents: -1000 });
+  });
+
+  it("reads the current accommodation from the totals, so a second change after a first is still right", () => {
+    // After gaining a night: total £440, fee £40.
+    const afterFirstChange = { ...threeNights, totalPriceCents: 44000, serviceFeeCents: 4000 };
+    expect(splitBookingChange(11000, afterFirstChange)).toEqual({ hostShareCents: 10000, platformShareCents: 1000 });
+  });
+
+  it("ignores FYStay-funded discounts when working out the accommodation amount", () => {
+    const discounted = { ...threeNights, promoDiscountCents: 2000, totalPriceCents: 31000 };
+    expect(splitBookingChange(11000, discounted)).toEqual({ hostShareCents: 10000, platformShareCents: 1000 });
+  });
+
+  it("always sums back to the difference and never gives FYStay more than it", () => {
+    for (const delta of [1, 7, 101, 999, 12345, -1, -101, -12345]) {
+      const { hostShareCents, platformShareCents } = splitBookingChange(delta, threeNights);
+      expect(hostShareCents + platformShareCents).toBe(delta);
+      expect(Math.abs(platformShareCents)).toBeLessThanOrEqual(Math.abs(delta));
+      expect(Math.sign(platformShareCents) * Math.sign(delta)).not.toBe(-1);
+    }
   });
 });
 

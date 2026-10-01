@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
-import { isConnectReady } from "@/lib/stripeConnect";
+import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
 import { applyDiscountsToApplicationFee } from "@/lib/pricing";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
@@ -180,13 +180,15 @@ async function postHandler(request: Request) {
     });
   }
 
-  // Only route the payout straight to the host if their Connect account can
-  // actually receive one right now - never just because they have an
-  // account id, since that alone can mean onboarding is still incomplete.
-  // A host who isn't ready yet still gets bookings and gets paid; the money
-  // simply sits in FYStay's own Stripe balance until they connect, the same
-  // as before Connect existed, rather than blocking the booking outright.
-  const connectReady = isConnectReady(booking.listing.host);
+  // Every paid booking is a destination charge: the host's share moves to
+  // their Connect account as part of the payment and FYStay keeps its
+  // service fee as the application fee. A host whose account can't receive
+  // that right now (none, onboarding unfinished, or restricted - re-checked
+  // live with Stripe here) can't take a payment at all, so no guest money
+  // ever sits in FYStay's balance waiting to be paid out by hand.
+  if (!(await verifyHostPaymentReady(booking.listing.host))) {
+    return NextResponse.json({ error: HOST_NOT_PAYMENT_READY_MESSAGE }, { status: 409 });
+  }
   // A referral credit and a promo code's discount (see referral.ts and
   // promoCode.ts) are both a marketing cost FYStay bears, not the host -
   // see applyDiscountsToApplicationFee's own comment for why their combined
@@ -236,12 +238,10 @@ async function postHandler(request: Request) {
     metadata: { bookingId: booking.id },
     success_url: `${confirmationUrl}?success=1`,
     cancel_url: `${baseUrl}/checkout/${booking.id}?cancelled=1`,
-    ...(connectReady && {
-      payment_intent_data: {
-        application_fee_amount: applicationFeeCents,
-        transfer_data: { destination: booking.listing.host.stripeConnectAccountId! },
-      },
-    }),
+    payment_intent_data: {
+      application_fee_amount: applicationFeeCents,
+      transfer_data: { destination: booking.listing.host.stripeConnectAccountId! },
+    },
   });
 
   // Conditional on stripeSessionId still being unset: if a concurrent
@@ -252,8 +252,8 @@ async function postHandler(request: Request) {
     where: { id: booking.id, stripeSessionId: null },
     data: {
       stripeSessionId: checkoutSession.id,
-      hostPaidViaConnect: connectReady,
-      applicationFeeCents: connectReady ? applicationFeeCents : null,
+      hostPaidViaConnect: true,
+      applicationFeeCents,
     },
   });
 

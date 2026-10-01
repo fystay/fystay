@@ -1,5 +1,6 @@
 import type { PrismaClient, Booking } from "@prisma/client";
 import { getStripeClient } from "@/lib/stripe";
+import { bookingPayments, refundAcrossPayments } from "@/lib/connectRefunds";
 import { previewCancellation, type CancellationPreview } from "@/lib/cancellationPolicy";
 import { sendBookingCancelledEmails } from "@/lib/notificationEmails";
 import { pushBookingCancellation } from "@/lib/pms/sync";
@@ -52,20 +53,18 @@ export async function cancelBookingAndRefund(
 
   const stripe = getStripeClient();
   if (stripe && wasPaid && refund.refundCents > 0 && booking.stripePaymentIntentId) {
-    await stripe.refunds.create({
-      payment_intent: booking.stripePaymentIntentId,
-      amount: refund.refundCents,
-      // Only meaningful (and only accepted by Stripe) on a payment that
-      // actually carried a transfer to the host's Connect account - see
-      // Booking.hostPaidViaConnect. Reverses the same proportion of the
-      // host's payout and platform fee as is being refunded to the guest,
-      // rather than leaving a cancelled booking's money split unwound only
-      // on FYStay's side.
-      ...(booking.hostPaidViaConnect && {
-        reverse_transfer: true,
-        refund_application_fee: true,
-      }),
+    // totalPriceCents includes any paid date changes, which were separate
+    // payments - so the refund is spread across all of them rather than
+    // asked of the original payment alone (which Stripe would reject if it
+    // came to more than that payment). Each destination-charge payment
+    // reverses the same proportion of the host's payout and FYStay's fee
+    // as it refunds - see Booking.hostPaidViaConnect and connectRefunds.ts.
+    const changeRequests = await prisma.bookingChangeRequest.findMany({
+      where: { bookingId: booking.id, paidAt: { not: null } },
+      select: { stripeSessionId: true, paidAt: true, hostPaidViaConnect: true },
     });
+    const payments = await bookingPayments(stripe, { ...booking, changeRequests });
+    await refundAcrossPayments(stripe, payments, refund.refundCents);
   }
 
   const paymentStatus = !wasPaid

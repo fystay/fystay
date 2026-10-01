@@ -86,3 +86,43 @@ export async function refreshConnectAccountStatus(accountId: string) {
   await prisma.user.update({ where: { stripeConnectAccountId: accountId }, data: flags });
   return flags;
 }
+
+export { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
+
+/**
+ * Whether a host can take a *paid* booking right now: only once their
+ * Connect account can receive their share automatically, so a guest's
+ * payment never sits in FYStay's balance waiting to be paid out by hand.
+ * With no Stripe key configured (local development, CI) bookings confirm
+ * without a real payment and there's nothing to route, so this doesn't
+ * apply - a production deployment refuses payment without a key anyway
+ * (see allowsUnpaidConfirmation).
+ */
+export function hostAcceptsPaidBookings(host: {
+  stripeConnectChargesEnabled: boolean;
+  stripeConnectPayoutsEnabled: boolean;
+}): boolean {
+  return !getStripeClient() || isConnectReady(host);
+}
+
+/**
+ * The same check, re-read live from Stripe right before taking a payment
+ * (Stripe's go-live guidance: re-check capability status before every
+ * payment, since an account can become restricted at any time). Fails
+ * closed - an error reading the account means no payment.
+ */
+export async function verifyHostPaymentReady(host: {
+  stripeConnectAccountId: string | null;
+  stripeConnectChargesEnabled: boolean;
+  stripeConnectPayoutsEnabled: boolean;
+}): Promise<boolean> {
+  if (!getStripeClient()) return true;
+  if (!host.stripeConnectAccountId) return false;
+  try {
+    const flags = await refreshConnectAccountStatus(host.stripeConnectAccountId);
+    return flags ? isConnectReady(flags) : false;
+  } catch (error) {
+    console.error("Couldn't verify host Connect status before payment", { error });
+    return false;
+  }
+}

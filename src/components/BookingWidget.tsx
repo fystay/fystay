@@ -22,6 +22,7 @@ import {
 } from "@/lib/pricing";
 import { isPetFriendly, totalOccupants, type GuestCounts } from "@/lib/search";
 import type { StaySelection } from "@/lib/stayQuery";
+import { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
 
 type Props = {
   listingId: string;
@@ -41,6 +42,8 @@ type Props = {
   /** false means this listing is request-to-book: a guest submits a request and the host must accept it before any payment is offered. */
   instantBook: boolean;  /** The stay the guest searched for (see parseStaySelection), so the widget opens with it already selected. */
   initialSelection?: StaySelection;
+  /** false when the host can't take a paid booking yet (Stripe payouts not set up) - see hostAcceptsPaidBookings. */
+  acceptsPaidBookings?: boolean;
 };
 
 /** Guest counts from a search, trimmed to what this listing can actually host. */
@@ -71,6 +74,7 @@ export function BookingWidget({
   cancellationPolicy,
   instantBook,
   initialSelection,
+  acceptsPaidBookings = true,
 }: Props) {
   const router = useRouter();
   const [range, setRange] = useState<DateRange | undefined>(() =>
@@ -441,7 +445,11 @@ export function BookingWidget({
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-        {!isLoggedIn ? (
+        {!acceptsPaidBookings ? (
+          <p role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+            {HOST_NOT_PAYMENT_READY_MESSAGE}
+          </p>
+        ) : !isLoggedIn ? (
           <Button
             onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(listingUrlWithSelection())}`)}
             size="lg"

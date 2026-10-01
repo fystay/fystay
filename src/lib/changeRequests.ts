@@ -1,4 +1,5 @@
-import { computeBookingPricing } from "@/lib/pricing";
+import { computeBookingPricing, splitBookingChange } from "@/lib/pricing";
+import { nightsBetween } from "@/lib/availability";
 
 export type CancellableBooking = {
   status: string;
@@ -55,4 +56,27 @@ export function computePriceDeltaCents(params: {
     monthlyDiscountPercent,
   });
   return totalPriceCents - currentTotalPriceCents;
+}
+
+/**
+ * The booking's stay and price fields once a change is applied - shared by
+ * a paid change (applyApprovedChange in the pay route) and a refunded or
+ * no-cost one (respond/route.ts). The
+ * service fee moves by FYStay's share of the difference and the night count
+ * follows the new dates, so the booking's own breakdown stays true for any
+ * later change, refund or receipt.
+ */
+export function bookingFieldsAfterChange(
+  booking: Parameters<typeof splitBookingChange>[1],
+  change: { requestedCheckIn: Date; requestedCheckOut: Date; requestedGuests: number; priceDeltaCents: number },
+) {
+  const { platformShareCents } = splitBookingChange(change.priceDeltaCents, booking);
+  return {
+    checkIn: change.requestedCheckIn,
+    checkOut: change.requestedCheckOut,
+    nights: nightsBetween(change.requestedCheckIn, change.requestedCheckOut),
+    guests: change.requestedGuests,
+    totalPriceCents: booking.totalPriceCents + change.priceDeltaCents,
+    serviceFeeCents: booking.serviceFeeCents + platformShareCents,
+  };
 }

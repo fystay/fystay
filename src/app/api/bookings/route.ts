@@ -22,6 +22,7 @@ import { sendBookingRequestReceivedEmail } from "@/lib/notificationEmails";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { isSuspended } from "@/lib/suspension";
 import { heldRepeatBookingWhere } from "@/lib/heldBooking";
+import { HOST_NOT_PAYMENT_READY_MESSAGE, hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 
 // Exactly one of listingId (every non-hotel booking, unchanged) or
 // roomTypeId (a HOTEL listing's room type, with roomsBooked defaulting to
@@ -305,7 +306,7 @@ async function createListingBooking(
   const listing = await tx.listing.findUnique({
     where: { id: listingId },
     include: {
-      host: { select: { name: true, email: true } },
+      host: { select: { name: true, email: true, stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true } },
       bookings: {
         where: blockingBookingWhere(),
         select: { checkIn: true, checkOut: true },
@@ -324,6 +325,9 @@ async function createListingBooking(
   }
   if (listing.hostId === guestId) {
     throw new BookingRequestError(403, "You can't book your own listing");
+  }
+  if (!hostAcceptsPaidBookings(listing.host)) {
+    throw new BookingRequestError(409, HOST_NOT_PAYMENT_READY_MESSAGE);
   }
   if (guests > listing.maxGuests) {
     throw new BookingRequestError(400, `This listing sleeps up to ${listing.maxGuests} guests`);
@@ -430,7 +434,7 @@ async function createRoomTypeBooking(
   const roomType = await tx.roomType.findUnique({
     where: { id: roomTypeId },
     include: {
-      listing: { include: { host: { select: { name: true, email: true } } } },
+      listing: { include: { host: { select: { name: true, email: true, stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true } } } },
       bookings: {
         where: { ...blockingBookingWhere(), checkIn: { lt: checkOut }, checkOut: { gt: checkIn } },
         select: { checkIn: true, checkOut: true, roomsBooked: true },
@@ -450,6 +454,9 @@ async function createRoomTypeBooking(
   }
   if (listing.hostId === guestId) {
     throw new BookingRequestError(403, "You can't book your own listing");
+  }
+  if (!hostAcceptsPaidBookings(listing.host)) {
+    throw new BookingRequestError(409, HOST_NOT_PAYMENT_READY_MESSAGE);
   }
   if (guests > roomType.maxGuests * roomsBooked) {
     throw new BookingRequestError(

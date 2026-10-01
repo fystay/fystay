@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { averageRating } from "@/lib/reviews";
 import { computeOccupancyRate, summarizeEarnings } from "@/lib/hostStats";
 import { expireStaleBookingRequests } from "@/lib/bookingLifecycle";
-import { isConnectReady } from "@/lib/stripeConnect";
+import { hostAcceptsPaidBookings, isConnectReady } from "@/lib/stripeConnect";
 import { formatPrice } from "@/lib/format";
 import { HostListingRow } from "@/components/HostListingRow";
 import { NeedsAttention, type AttentionItem } from "@/components/host/NeedsAttention";
@@ -71,7 +71,8 @@ export default async function HostDashboardPage({
     {
       key: "payouts",
       label: "Connect payouts",
-      description: "Link a Stripe account so guest payments pay you out directly.",
+      description:
+        "Required before guests can book: set up your Stripe account so each booking pays you out automatically.",
       href: "/host/payouts",
       cta: host.stripeConnectAccountId ? "Finish onboarding" : "Connect with Stripe",
       done: payoutsReady,
@@ -194,6 +195,21 @@ export default async function HostDashboardPage({
       </div>
 
       <OnboardingChecklist steps={onboardingSteps} />
+
+      {listings.length > 0 && !hostAcceptsPaidBookings(host) && (
+        <div
+          role="alert"
+          className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900"
+        >
+          <p>
+            <strong className="font-semibold">Guests can&apos;t book your listings yet.</strong> Finish
+            setting up your Stripe account so bookings can pay you out automatically.
+          </p>
+          <Link href="/host/payouts" className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
+            {host.stripeConnectAccountId ? "Finish Stripe setup" : "Set up Stripe payouts"}
+          </Link>
+        </div>
+      )}
 
       {listings.length === 0 ? null : (
         <>

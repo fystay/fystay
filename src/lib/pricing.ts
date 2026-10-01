@@ -96,16 +96,6 @@ export function computeBookingPricing(params: {
 }
 
 /**
- * Splits an arbitrary charge against an existing booking (currently only the
- * extra payment for an approved date/guest change - see
- * src/app/api/bookings/[id]/change-requests/[requestId]/pay/route.ts) into a
- * host share and a platform share, in the same proportion as the booking's
- * own nightly+cleaning vs total split. priceDeltaCents itself doesn't carry
- * its own fee breakdown, so this reuses the same "every line moves together"
- * assumption already applied to refunds (see hostRevenueCents in
- * hostStats.ts) - just applied to a charge instead of a refund.
- */
-/**
  * Referral credit and a promo code's discount (see referral.ts and
  * promoCode.ts) are both FYStay's own marketing cost, not the host's to
  * bear - so together they come out of the platform's own
@@ -120,15 +110,63 @@ export function applyDiscountsToApplicationFee(
   return Math.max(0, grossApplicationFeeCents - discountsCents);
 }
 
-export function splitByHostShare(
-  amountCents: number,
-  booking: { nightlyPriceCents: number; cleaningFeeCents: number; totalPriceCents: number },
+export type ChangeSplitBooking = {
+  totalPriceCents: number;
+  cleaningFeeCents: number;
+  serviceFeeCents: number;
+  taxCents: number;
+  creditAppliedCents: number;
+  promoDiscountCents: number;
+};
+
+/**
+ * Splits a booking change's price difference (extra owed, or refunded when
+ * negative) into the host's accommodation share and FYStay's service-fee
+ * share, using computeBookingPricing itself - the same rule that priced the
+ * booking - rather than a separate approximation.
+ *
+ * A change only moves the accommodation amount (more or fewer nights);
+ * cleaning, tax and discounts are per stay and don't move with it. So the
+ * new accommodation amount is the one whose accommodation + service fee
+ * covers the booking's current accommodation + fee + the difference, and
+ * FYStay's share is how much the service fee moves with it. The current
+ * accommodation is read from the booking's own totals rather than
+ * nights x nightly price, so it stays correct after earlier changes too.
+ */
+export function splitBookingChange(
+  deltaCents: number,
+  booking: ChangeSplitBooking,
 ): { hostShareCents: number; platformShareCents: number } {
-  if (booking.totalPriceCents <= 0) {
-    return { hostShareCents: amountCents, platformShareCents: 0 };
+  const currentAccommodationCents =
+    booking.totalPriceCents +
+    booking.creditAppliedCents +
+    booking.promoDiscountCents -
+    booking.cleaningFeeCents -
+    booking.serviceFeeCents -
+    booking.taxCents;
+  const targetCents = currentAccommodationCents + booking.serviceFeeCents + deltaCents;
+  const serviceFeeFor = (accommodationCents: number) =>
+    computeBookingPricing({ nights: 1, pricePerNightCents: accommodationCents }).serviceFeeCents;
+
+  // fee = round(accommodation * rate), so accommodation + fee is
+  // non-decreasing and steps by 1-2p: an exact match is within a few pence
+  // of the straight division. Closest match wins if rounding skips over it.
+  const estimate = Math.max(0, Math.round(targetCents / (1 + GUEST_SERVICE_FEE_RATE)));
+  let newAccommodationCents = estimate;
+  let bestGap = Infinity;
+  for (let candidate = Math.max(0, estimate - 3); candidate <= estimate + 3; candidate++) {
+    const gap = Math.abs(candidate + serviceFeeFor(candidate) - targetCents);
+    if (gap < bestGap) {
+      bestGap = gap;
+      newAccommodationCents = candidate;
+    }
   }
-  const hostFraction =
-    (booking.nightlyPriceCents + booking.cleaningFeeCents) / booking.totalPriceCents;
-  const hostShareCents = Math.round(amountCents * hostFraction);
-  return { hostShareCents, platformShareCents: amountCents - hostShareCents };
+
+  const rawPlatformShare = serviceFeeFor(newAccommodationCents) - booking.serviceFeeCents;
+  // Never more than the difference itself, in either direction.
+  const platformShareCents =
+    deltaCents >= 0
+      ? Math.min(Math.max(rawPlatformShare, 0), deltaCents)
+      : Math.max(Math.min(rawPlatformShare, 0), deltaCents);
+  return { hostShareCents: deltaCents - platformShareCents, platformShareCents };
 }
