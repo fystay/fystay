@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { CircleUserRound, Home, Menu } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PRIMARY_NAV_LINKS } from "@/lib/primaryNav";
@@ -11,7 +12,29 @@ import { PRIMARY_NAV_LINKS } from "@/lib/primaryNav";
  * two separate top-right links - one control reads as calmer and more
  * considered than a permanently-visible pair of competing CTAs.
  */
+/** Pages that are themselves the login/sign-up flow - never sent back to. */
+const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
+
 export function GuestMenu() {
+  const pathname = usePathname();
+  const router = useRouter();
+  // Logging in or signing up from the menu returns the guest to the page
+  // they were on (with its query, e.g. a listing's selected dates) rather
+  // than the homepage. The href carries the path for no-JS/new-tab use;
+  // the click handler adds the live query string.
+  const returnable = pathname && !AUTH_PAGES.some((page) => pathname.startsWith(page)) && pathname !== "/";
+  function authHref(page: "/login" | "/register", path: string = pathname ?? "/") {
+    return returnable ? `${page}?callbackUrl=${encodeURIComponent(path)}` : page;
+  }
+  function goToAuth(page: "/login" | "/register") {
+    return (event: React.MouseEvent<HTMLAnchorElement>) => {
+      setOpen(false);
+      if (!returnable || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      event.preventDefault();
+      router.push(authHref(page, `${window.location.pathname}${window.location.search}`));
+    };
+  }
+
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -95,15 +118,15 @@ export function GuestMenu() {
             <div className="my-1 border-t border-border-subtle" />
           </div>
           <Link
-            href="/register"
-            onClick={() => setOpen(false)}
+            href={authHref("/register")}
+            onClick={goToAuth("/register")}
             className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 hover:text-brand-800"
           >
             Sign up
           </Link>
           <Link
-            href="/login"
-            onClick={() => setOpen(false)}
+            href={authHref("/login")}
+            onClick={goToAuth("/login")}
             className="block rounded-lg px-3 py-2.5 text-sm text-stone-700 hover:bg-brand-50"
           >
             Log in
