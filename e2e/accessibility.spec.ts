@@ -48,6 +48,15 @@ async function expectNoSeriousViolations(page: Page, label: string) {
 }
 
 test.describe("accessibility", () => {
+  // Sections fade in (Reveal / .reveal-visible). If axe runs mid-fade it
+  // measures text at partial opacity and reports a contrast failure that no
+  // user ever sees - e.g. stone-500 at 5.09:1 read as 3.51:1. Under reduced
+  // motion everything renders at its final colours straight away, so the
+  // check is deterministic and still covers every element.
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+  });
+
   test("homepage has no serious a11y violations", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Got it" }).click().catch(() => {});
