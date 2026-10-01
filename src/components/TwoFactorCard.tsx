@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/Input";
 
 type Step = "idle" | "enrolling" | "backup-codes" | "disabling";
 
-export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
+/** `configured`: whether this deployment can offer 2FA at all (its encryption key is set) - same pattern as PhoneVerificationCard. */
+export function TwoFactorCard({ initialEnabled, configured }: { initialEnabled: boolean; configured: boolean }) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [step, setStep] = useState<Step>("idle");
   const [loading, setLoading] = useState(false);
@@ -104,6 +105,8 @@ export function TwoFactorCard({ initialEnabled }: { initialEnabled: boolean }) {
                 <ShieldOff className="h-4 w-4" />
                 Turn off
               </Button>
+            ) : !configured ? (
+              <p className="text-sm text-stone-500">Two-factor authentication isn&apos;t available right now.</p>
             ) : (
               <Button size="sm" className="self-start" onClick={handleStartEnroll} loading={loading}>
                 <ShieldCheck className="h-4 w-4" />

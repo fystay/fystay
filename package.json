@@ -18,7 +18,8 @@
     "db:seed-editorial": "tsx prisma/seed-editorial.ts",
     "db:hotel-provider": "tsx prisma/hotel-provider.ts",
     "db:manifest": "tsx scripts/db/update-migration-manifest.ts",
-    "db:check-migrations": "tsx scripts/db/check-migration-manifest.ts"
+    "db:check-migrations": "tsx scripts/db/check-migration-manifest.ts",
+    "admin:grant": "tsx scripts/admin/grant-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

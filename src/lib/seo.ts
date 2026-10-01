@@ -13,7 +13,12 @@ export const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:30
 
 export const SITE_NAME = "FYStay";
 
-export const SUPPORT_EMAIL = "support@fystay.co.uk";
+// Public contact addresses. Each can be set per deployment once the real
+// mail domain exists; the defaults are the addresses the site has always
+// shown. NEXT_PUBLIC_ so the client-side support widget sees the same value.
+export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@fystay.co.uk";
+export const PRIVACY_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_EMAIL || "privacy@fystay.co.uk";
+export const LEGAL_EMAIL = process.env.NEXT_PUBLIC_LEGAL_EMAIL || "legal@fystay.co.uk";
 
 /**
  * A page's <title>/description already need to be page-specific for users

@@ -9,6 +9,11 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 const SALT = "fystay-two-factor-secret";
 
+/** Whether 2FA can be offered at all on this deployment - see getKey. */
+export function isTwoFactorConfigured(): boolean {
+  return Boolean(process.env.TWO_FACTOR_ENCRYPTION_KEY);
+}
+
 function getKey(): Buffer {
   const secret = process.env.TWO_FACTOR_ENCRYPTION_KEY;
   if (!secret) {

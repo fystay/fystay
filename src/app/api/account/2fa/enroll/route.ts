@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildTotpUri, generateTotpSecret } from "@/lib/twoFactor";
-import { encryptTwoFactorSecret } from "@/lib/twoFactorCrypto";
+import { encryptTwoFactorSecret, isTwoFactorConfigured } from "@/lib/twoFactorCrypto";
 
 /**
  * Starts (or restarts) 2FA enrollment: generates a fresh secret, stores it
@@ -17,6 +17,12 @@ import { encryptTwoFactorSecret } from "@/lib/twoFactorCrypto";
 export async function POST() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isTwoFactorConfigured()) {
+    return NextResponse.json(
+      { error: "Two-factor authentication isn't available right now." },
+      { status: 503 },
+    );
+  }
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },

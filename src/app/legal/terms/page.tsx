@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalPageLayout, LegalSection } from "@/components/legal/LegalPageLayout";
-import { getCompanyInfo } from "@/lib/companyInfo";
-import { pageMetadata } from "@/lib/seo";
+import { describeOperator, getCompanyInfo } from "@/lib/companyInfo";
+import { LEGAL_EMAIL, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Terms and Conditions",
@@ -29,10 +29,7 @@ export default function TermsPage() {
           FYStay.
         </p>
         {company && (
-          <p>
-            FYStay is operated by {company.legalName} (company number {company.companyNumber}),
-            registered office at {company.registeredAddress}.
-          </p>
+          <p>FYStay is operated by {describeOperator(company)}.</p>
         )}
       </LegalSection>
 
@@ -131,8 +128,8 @@ export default function TermsPage() {
       <LegalSection heading="11. Contact us">
         <p>
           Questions about these terms can be sent to{" "}
-          <a href="mailto:legal@fystay.co.uk" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
-            legal@fystay.co.uk
+          <a href={`mailto:${LEGAL_EMAIL}`} className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
+            {LEGAL_EMAIL}
           </a>
           .
         </p>

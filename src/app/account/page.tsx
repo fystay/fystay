@@ -12,6 +12,7 @@ import { ProfileCard } from "@/components/ProfileCard";
 import { EmailChangeCard } from "@/components/EmailChangeCard";
 import { SecuritySessionsCard } from "@/components/SecuritySessionsCard";
 import { TwoFactorCard } from "@/components/TwoFactorCard";
+import { isTwoFactorConfigured } from "@/lib/twoFactorCrypto";
 
 export const metadata: Metadata = { title: "Account", robots: { index: false } };
 
@@ -69,7 +70,12 @@ export default async function AccountPage() {
           verifiedPhone={user.phoneVerifiedAt ? user.phone : null}
           configured={isPhoneVerificationConfigured()}
         />
-        {hasPassword && <TwoFactorCard initialEnabled={Boolean(user.twoFactorEnabledAt)} />}
+        {hasPassword && (
+          <TwoFactorCard
+            initialEnabled={Boolean(user.twoFactorEnabledAt)}
+            configured={isTwoFactorConfigured()}
+          />
+        )}
         <SecuritySessionsCard />
         <PrivacyDataCard />
       </div>

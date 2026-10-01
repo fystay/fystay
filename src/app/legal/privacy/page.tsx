@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalPageLayout, LegalSection } from "@/components/legal/LegalPageLayout";
-import { getCompanyInfo } from "@/lib/companyInfo";
-import { pageMetadata, SITE_URL } from "@/lib/seo";
+import { describeOperator, getCompanyInfo } from "@/lib/companyInfo";
+import { PRIVACY_EMAIL, SITE_URL, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Privacy Policy",
@@ -23,16 +23,13 @@ export default function PrivacyPolicyPage() {
           for independent accommodation on the Fylde Coast. This policy explains what personal
           data we collect, why, and the rights you have over it under UK GDPR and the Data
           Protection Act 2018. For questions or to exercise any of the rights below, contact{" "}
-          <a href="mailto:privacy@fystay.co.uk" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
-            privacy@fystay.co.uk
+          <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
+            {PRIVACY_EMAIL}
           </a>
           .
         </p>
         {company && (
-          <p>
-            The data controller is {company.legalName} (company number {company.companyNumber}),
-            registered office at {company.registeredAddress}.
-          </p>
+          <p>The data controller is {describeOperator(company)}.</p>
         )}
       </LegalSection>
 
@@ -130,8 +127,8 @@ export default function PrivacyPolicyPage() {
         </ul>
         <p>
           To exercise any of these, email{" "}
-          <a href="mailto:privacy@fystay.co.uk" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
-            privacy@fystay.co.uk
+          <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
+            {PRIVACY_EMAIL}
           </a>
           . We&apos;ll respond within one month.
         </p>

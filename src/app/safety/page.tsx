@@ -1,5 +1,5 @@
 import { CreditCard, Flag, HeartPulse, ShieldCheck, Star } from "lucide-react";
-import { pageMetadata } from "@/lib/seo";
+import { SUPPORT_EMAIL, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Safety information",
@@ -65,8 +65,8 @@ export default function SafetyPage() {
       <p className="mt-10 text-sm text-stone-500">
         If something feels wrong about a listing, a booking, or a message from another user,
         contact us straight away at{" "}
-        <a href="mailto:support@fystay.co.uk" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
-          support@fystay.co.uk
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
+          {SUPPORT_EMAIL}
         </a>
         .
       </p>

@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { HelpCircle, Mail, MessageCircle, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { SUPPORT_EMAIL } from "@/lib/seo";
 
-const SUPPORT_EMAIL = "support@fystay.co.uk";
 
 /**
  * An honest "message us" entry point, not a fake live chat - FYStay has no
