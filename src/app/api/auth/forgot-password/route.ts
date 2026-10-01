@@ -5,6 +5,7 @@ import { getResendClient, EMAIL_FROM } from "@/lib/email";
 import { generateResetToken } from "@/lib/passwordReset";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { isLocalEnvironment } from "@/lib/deploymentEnvironment";
 
 const forgotPasswordSchema = z.object({ email: z.string().email() });
 
@@ -34,6 +35,16 @@ async function postHandler(request: Request) {
     return rateLimitedResponse(emailLimit.allowed ? ipLimit : emailLimit);
   }
 
+  // A reset link is a credential, so it may only ever travel by email. Off a
+  // developer's own machine, email being unavailable means no link at all -
+  // answered with the same generic response as an unknown address, before
+  // looking the address up, so this can't reveal who has an account either.
+  const resend = getResendClient();
+  if (!resend && !isLocalEnvironment()) {
+    console.error("Password reset requested but email isn't configured (RESEND_API_KEY) - no link sent.");
+    return NextResponse.json(genericResponse);
+  }
+
   const user = await prisma.user.findUnique({
     where: { email: normalizedEmail },
   });
@@ -58,10 +69,9 @@ async function postHandler(request: Request) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-  const resend = getResendClient();
   if (!resend) {
-    // Resend isn't configured (e.g. local dev without an API key). Return
-    // the link directly so the flow can still be exercised end to end.
+    // Local dev/tests only (checked above): return the link directly so the
+    // flow can still be exercised end to end without an email provider.
     return NextResponse.json({ ...genericResponse, resetUrl, devMode: true });
   }
 

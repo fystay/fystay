@@ -6,6 +6,7 @@ import { getResendClient, EMAIL_FROM } from "@/lib/email";
 import { generateEmailChangeToken } from "@/lib/emailChange";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { isLocalEnvironment } from "@/lib/deploymentEnvironment";
 
 const requestEmailChangeSchema = z.object({ newEmail: z.string().email() });
 
@@ -57,6 +58,19 @@ async function postHandler(request: Request) {
     return NextResponse.json({ error: "That email address is already in use." }, { status: 409 });
   }
 
+  // The confirmation link is the proof the person controls the new inbox,
+  // so it may only ever travel by email. Off a developer's own machine,
+  // email being unavailable means email changes are unavailable - never
+  // that the link comes back in this response.
+  const resend = getResendClient();
+  if (!resend && !isLocalEnvironment()) {
+    console.error("Email change requested but email isn't configured (RESEND_API_KEY) - no link sent.");
+    return NextResponse.json(
+      { error: "Changing your email isn't available right now. Please try again later." },
+      { status: 503 },
+    );
+  }
+
   const { token, tokenHash, expiresAt } = generateEmailChangeToken();
   await prisma.emailChangeToken.create({
     data: { userId: session.user.id, newEmail, tokenHash, expiresAt },
@@ -73,10 +87,9 @@ async function postHandler(request: Request) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
   const confirmUrl = `${baseUrl}/account/email-change/confirm?token=${token}`;
 
-  const resend = getResendClient();
   if (!resend) {
-    // Resend isn't configured (e.g. local dev) - return the link directly
-    // so the flow can still be exercised end to end.
+    // Local dev/tests only (checked above): return the link directly so the
+    // flow can still be exercised end to end without an email provider.
     return NextResponse.json({ ok: true, confirmUrl, devMode: true });
   }
 

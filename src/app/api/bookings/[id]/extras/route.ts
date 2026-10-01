@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { getStripeClient } from "@/lib/stripe";
+import { allowsUnpaidConfirmation, getStripeClient } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { tripExtraPurchaseError } from "@/lib/tripExtras";
 import { sendTripExtraGuestConfirmationEmail } from "@/lib/notificationEmails";
@@ -111,6 +111,16 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   }
 
   const stripe = getStripeClient();
+  // Same rule as the main checkout: a missing STRIPE_SECRET_KEY on a
+  // production deployment means payments aren't available, never that the
+  // extra is free. Refused before anything is claimed, so nothing is marked
+  // paid and the provider is never told about an unpaid order.
+  if (!stripe && !allowsUnpaidConfirmation()) {
+    return NextResponse.json(
+      { error: "Online payment isn't available yet, so this extra can't be booked. Please try again later." },
+      { status: 503 },
+    );
+  }
   const guestNotes = parsed.data.guestNotes ?? null;
 
   // The eligibility check (has this already been paid for?) and claiming a
@@ -133,10 +143,10 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   }
 
   if (claim.kind === "dev_paid") {
-    // Stripe isn't configured (e.g. local dev without keys) - the claim
-    // step already confirmed this row directly, the same fallback the main
-    // booking checkout uses, so this feature stays fully exercisable
-    // without real Stripe keys.
+    // Stripe isn't configured on a non-production deployment (local dev,
+    // CI, preview - production is refused above) - the claim step already
+    // confirmed this row directly, the same fallback the main booking
+    // checkout uses, so this feature stays exercisable without real keys.
     await notifyTripExtraPaid(claim.extraId);
     return NextResponse.json({ devMode: true, paid: true });
   }
