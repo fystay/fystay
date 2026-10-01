@@ -922,36 +922,3 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
     extrasProvidersUpserted: 3,
   };
 }
-
-/**
- * Retro-fits the current TOWN_COVER_PHOTOS onto whichever DEMO_LISTINGS
- * rows already exist in an environment seeded before those covers existed
- * (seedDemoData only ever inserts missing listings, never updates ones
- * that are already there, so a plain reseed doesn't pick up a later cover-
- * photo change). Matched by exact title against DEMO_LISTINGS - not just
- * city - so this only ever touches the specific demo rows it created,
- * never a real host's listing that happens to share a town. Only the
- * first photo (the cover) is replaced; the rest are left as-is.
- */
-export async function updateDemoListingCoverPhotos(
-  prisma: PrismaClient,
-): Promise<{ title: string; updated: boolean }[]> {
-  const results: { title: string; updated: boolean }[] = [];
-  for (const listing of DEMO_LISTINGS) {
-    const cover = TOWN_COVER_PHOTOS[listing.city];
-    if (!cover) continue;
-
-    const existing = await prisma.listing.findFirst({ where: { title: listing.title } });
-    if (!existing) {
-      results.push({ title: listing.title, updated: false });
-      continue;
-    }
-
-    await prisma.listing.update({
-      where: { id: existing.id },
-      data: { photos: [cover, ...existing.photos.slice(1)] },
-    });
-    results.push({ title: listing.title, updated: true });
-  }
-  return results;
-}
