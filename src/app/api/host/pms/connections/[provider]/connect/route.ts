@@ -7,6 +7,7 @@ import { parseProvider } from "@/lib/pms/routeHelpers";
 import { encryptPmsCredentials } from "@/lib/pms/crypto";
 import { PmsAdapterError } from "@/lib/pms/types";
 import { SITE_URL } from "@/lib/seo";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 function callbackUrl(provider: string): string {
   return `${SITE_URL}/api/host/pms/connections/${provider.toLowerCase()}/callback`;
@@ -21,7 +22,7 @@ function callbackUrl(provider: string): string {
  * (SuperControl) the host's entered credentials are verified with one real
  * call and, if valid, stored immediately - no redirect needed.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: providerParam } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -99,3 +100,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
 
   return NextResponse.json({ connected: true });
 }
+
+export const POST = withApiErrorHandling(postHandler);

@@ -12,6 +12,7 @@ import { httpUrlSchema } from "@/lib/validation";
 import { geocodeListing } from "@/lib/geocoding";
 import { paginateListings, parsePageParam } from "@/lib/listingSearch";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const LISTINGS_API_PAGE_SIZE = 24;
 
@@ -111,7 +112,7 @@ const createListingSchema = z
     }
   });
 
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const { searchParams } = new URL(request.url);
   const city = searchParams.get("city")?.trim();
   const guests = searchParams.get("guests");
@@ -215,7 +216,7 @@ export async function GET(request: Request) {
   });
 }
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user || session.user.role !== "HOST") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -275,3 +276,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ listing: withCoordinates }, { status: 201 });
 }
+
+export const GET = withApiErrorHandling(getHandler);
+export const POST = withApiErrorHandling(postHandler);

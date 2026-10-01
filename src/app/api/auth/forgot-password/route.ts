@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getResendClient, EMAIL_FROM } from "@/lib/email";
 import { generateResetToken } from "@/lib/passwordReset";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const forgotPasswordSchema = z.object({ email: z.string().email() });
 
@@ -13,7 +14,7 @@ const genericResponse = {
   message: "If an account exists for that email, we've sent a password reset link.",
 };
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const body = await request.json();
   const parsed = forgotPasswordSchema.safeParse(body);
   if (!parsed.success) {
@@ -73,3 +74,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json(genericResponse);
 }
+
+export const POST = withApiErrorHandling(postHandler);

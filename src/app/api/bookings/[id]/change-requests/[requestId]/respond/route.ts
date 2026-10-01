@@ -7,10 +7,11 @@ import { splitBookingChange } from "@/lib/pricing";
 import { bookingFieldsAfterChange } from "@/lib/changeRequests";
 import { refundChangeDifference } from "@/lib/connectRefunds";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const respondSchema = z.object({ action: z.enum(["approve", "decline"]) });
 
-export async function POST(
+async function postHandler(
   request: Request,
   { params }: { params: Promise<{ id: string; requestId: string }> },
 ) {
@@ -113,3 +114,5 @@ export async function POST(
 
   return NextResponse.json({ changeRequest: updatedRequest });
 }
+
+export const POST = withApiErrorHandling(postHandler);

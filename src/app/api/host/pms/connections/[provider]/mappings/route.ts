@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { withHostScope } from "@/lib/pms/hostScopedPrisma";
 import { parseProvider } from "@/lib/pms/routeHelpers";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const upsertMappingSchema = z.object({
   externalRoomId: z.string().min(1),
@@ -12,7 +13,7 @@ const upsertMappingSchema = z.object({
 });
 
 /** Creates or updates which FYStay listing (or, for a HOTEL listing, which of its room types) a PMS room maps to - upserted on (connectionId, externalRoomId), so re-submitting the same PMS room just updates its target rather than creating a second mapping. */
-export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: providerParam } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -74,3 +75,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json({ mapping: result.mapping }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

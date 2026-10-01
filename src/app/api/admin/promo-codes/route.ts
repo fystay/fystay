@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { normalizePromoCode } from "@/lib/promoCode";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const createPromoCodeSchema = z
   .object({
@@ -19,7 +20,7 @@ const createPromoCodeSchema = z
   });
 
 /** Platform-wide marketing codes - created only by an ADMIN, never a host (see PromoCode's own schema comment). */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -64,3 +65,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ promoCode }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

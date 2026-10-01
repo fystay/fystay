@@ -11,6 +11,7 @@ import {
   stayLengthError,
 } from "@/lib/availability";
 import { canRequestBookingChange, computePriceDeltaCents } from "@/lib/changeRequests";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const createChangeRequestSchema = z.object({
   checkIn: z.string().min(1),
@@ -18,7 +19,7 @@ const createChangeRequestSchema = z.object({
   guests: z.number().int().min(1),
 });
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -148,3 +149,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ changeRequest }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

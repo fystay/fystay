@@ -4,13 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { checkVerificationCode, isPhoneVerificationConfigured, isValidE164Phone } from "@/lib/phoneVerification";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const verifyCodeSchema = z.object({
   phone: z.string().min(1),
   code: z.string().min(1).max(10),
 });
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,3 +54,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ verified: true });
 }
+
+export const POST = withApiErrorHandling(postHandler);

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { httpUrlSchema } from "@/lib/validation";
 import { recomputeListingAggregatesFromRoomTypes } from "@/lib/roomTypeAggregates";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const createRoomTypeSchema = z.object({
   name: z.string().min(1).max(100),
@@ -18,7 +19,7 @@ const createRoomTypeSchema = z.object({
 });
 
 /** A host adding a new room type to their own HOTEL listing. */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -58,3 +59,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ roomType }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

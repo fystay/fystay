@@ -3,13 +3,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canRespondToReview } from "@/lib/reviews";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const respondSchema = z.object({
   response: z.string().trim().min(1).max(2000),
 });
 
 /** A host's public reply to a review left on one of their listings. */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -43,3 +44,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ review: updated });
 }
+
+export const POST = withApiErrorHandling(postHandler);

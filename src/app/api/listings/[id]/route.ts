@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { httpUrlSchema } from "@/lib/validation";
 import { geocodeListing } from "@/lib/geocoding";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const updateListingSchema = z
   .object({
@@ -61,7 +62,7 @@ const updateListingSchema = z
     { message: "Maximum stay can't be shorter than the minimum stay" },
   );
 
-export async function GET(
+async function getHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -84,7 +85,7 @@ export async function GET(
   return NextResponse.json({ listing });
 }
 
-export async function PATCH(
+async function patchHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -199,7 +200,7 @@ export async function PATCH(
   return NextResponse.json({ listing: updated });
 }
 
-export async function DELETE(
+async function deleteHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -221,3 +222,7 @@ export async function DELETE(
 
   return NextResponse.json({ ok: true });
 }
+
+export const GET = withApiErrorHandling(getHandler);
+export const PATCH = withApiErrorHandling(patchHandler);
+export const DELETE = withApiErrorHandling(deleteHandler);

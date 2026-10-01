@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canReviewBooking } from "@/lib/reviews";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const categoryRating = z.number().int().min(1).max(5).optional();
 
@@ -21,7 +22,7 @@ const createReviewSchema = z.object({
   valueRating: categoryRating,
 });
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -81,3 +82,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ review }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

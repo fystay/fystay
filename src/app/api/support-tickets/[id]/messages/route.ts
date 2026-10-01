@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { isTicketOpener } from "@/lib/supportTickets";
 import { createTicketMessage } from "@/app/api/support-tickets/route";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const replySchema = z.object({
   body: z.string().trim().min(1, "Write a message first.").max(4000, "Message is too long."),
@@ -18,7 +19,7 @@ const replySchema = z.object({
  * (isAdminReply: false) and let it reopen a RESOLVED/CLOSED ticket, per
  * nextStatusAfterMessage.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -65,3 +66,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     { status: 201 },
   );
 }
+
+export const POST = withApiErrorHandling(postHandler);

@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { previewMessage } from "@/lib/messaging";
 import { nextStatusAfterMessage } from "@/lib/supportTickets";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Adds a message to an existing ticket and applies whatever status change
@@ -49,7 +50,7 @@ const openTicketSchema = z.object({
  * role can open one; the first message is written in the same transaction so
  * a ticket is never created empty.
  */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
 }
 
 /** The current user's own tickets - every one they opened, newest activity first. */
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -137,3 +138,6 @@ export async function GET() {
     })),
   });
 }
+
+export const POST = withApiErrorHandling(postHandler);
+export const GET = withApiErrorHandling(getHandler);

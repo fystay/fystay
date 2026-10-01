@@ -8,13 +8,14 @@ import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { tripExtraPurchaseError } from "@/lib/tripExtras";
 import { sendTripExtraGuestConfirmationEmail } from "@/lib/notificationEmails";
 import { fulfillBookingExtra } from "@/lib/tripExtraFulfillment";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Lists what's available to add to this booking (see
  * docs/trip-extras-roadmap.md) alongside anything already purchased, so the
  * "Complete your trip" UI has everything it needs in one call.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -74,7 +75,7 @@ const purchaseSchema = z.object({
  * marks it paid and fires the provider/guest emails, the same separation
  * the main booking checkout already uses.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -388,3 +389,6 @@ export async function notifyTripExtraPaid(bookingExtraId: string): Promise<void>
     });
   }
 }
+
+export const GET = withApiErrorHandling(getHandler);
+export const POST = withApiErrorHandling(postHandler);

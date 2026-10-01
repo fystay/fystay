@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { httpUrlSchema } from "@/lib/validation";
 import { recomputeListingAggregatesFromRoomTypes } from "@/lib/roomTypeAggregates";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const updateRoomTypeSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -33,7 +34,7 @@ async function loadOwnedRoomType(
   return { roomType };
 }
 
-export async function PATCH(
+async function patchHandler(
   request: Request,
   { params }: { params: Promise<{ id: string; roomTypeId: string }> },
 ) {
@@ -69,7 +70,7 @@ export async function PATCH(
   return NextResponse.json({ roomType: updated });
 }
 
-export async function DELETE(
+async function deleteHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string; roomTypeId: string }> },
 ) {
@@ -118,3 +119,6 @@ export async function DELETE(
 
   return NextResponse.json({ ok: true });
 }
+
+export const PATCH = withApiErrorHandling(patchHandler);
+export const DELETE = withApiErrorHandling(deleteHandler);

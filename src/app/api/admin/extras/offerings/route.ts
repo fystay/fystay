@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const createOfferingSchema = z.object({
   providerId: z.string().min(1),
@@ -15,7 +16,7 @@ const createOfferingSchema = z.object({
 });
 
 /** One bookable, priced Trip Extra under a provider - see ExtraOffering's own schema comment. ADMIN-only. */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -61,3 +62,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ offering }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

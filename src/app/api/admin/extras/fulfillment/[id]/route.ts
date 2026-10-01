@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { confirmBookingExtraFulfillment, fulfillBookingExtra } from "@/lib/tripExtraFulfillment";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 // "retry" re-runs the provider's adapter (only a FAILED or stuck handoff
 // can be claimed - see fulfillBookingExtra); "confirm" records the
@@ -15,7 +16,7 @@ const fulfillmentActionSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -65,3 +66,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   return NextResponse.json({ fulfillmentStatus: outcome.status });
 }
+
+export const POST = withApiErrorHandling(postHandler);

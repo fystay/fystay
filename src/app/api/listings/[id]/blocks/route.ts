@@ -9,6 +9,7 @@ import {
   isRoomTypeRangeAvailable,
 } from "@/lib/availability";
 import { isValidBlockRange } from "@/lib/availabilityBlocks";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const createBlockSchema = z.object({
   startDate: z.string().min(1),
@@ -18,7 +19,7 @@ const createBlockSchema = z.object({
 });
 
 /** A host manually closing a date range on their own listing's calendar. */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -133,3 +134,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ block }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 // Deliberately excludes code/discountType/discountValue - every issued
 // booking has already snapshotted its own discount (see
@@ -16,7 +17,7 @@ const updatePromoCodeSchema = z.object({
   expiresAt: z.string().nullable().optional(),
 });
 
-export async function PATCH(
+async function patchHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -67,3 +68,5 @@ export async function PATCH(
 
   return NextResponse.json({ promoCode: updated });
 }
+
+export const PATCH = withApiErrorHandling(patchHandler);

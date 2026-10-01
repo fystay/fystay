@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { cancelBookingAndRefund } from "@/lib/bookingCancellation";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const adminCancelSchema = z.object({
   reason: z.string().trim().min(3, "Give a short reason for this cancellation").max(500),
@@ -33,7 +34,7 @@ const adminCancelSchema = z.object({
  * this deployment's server logs, and a real persisted audit log is a
  * reasonable near-term addition once schema changes aren't contended.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -84,3 +85,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ booking: updated, refund });
 }
+
+export const POST = withApiErrorHandling(postHandler);

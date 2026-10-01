@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { createTicketMessage } from "@/app/api/support-tickets/route";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const replySchema = z.object({
   body: z.string().trim().min(1, "Write a reply first.").max(4000, "Message is too long."),
@@ -13,7 +14,7 @@ const replySchema = z.object({
  * its own, so an admin can leave a closing note and mark it resolved in the
  * same visit without the reply itself flipping it back open.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -48,3 +49,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     { status: 201 },
   );
 }
+
+export const POST = withApiErrorHandling(postHandler);

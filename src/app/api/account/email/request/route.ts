@@ -5,10 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { getResendClient, EMAIL_FROM } from "@/lib/email";
 import { generateEmailChangeToken } from "@/lib/emailChange";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const requestEmailChangeSchema = z.object({ newEmail: z.string().email() });
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -88,3 +89,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withApiErrorHandling(postHandler);

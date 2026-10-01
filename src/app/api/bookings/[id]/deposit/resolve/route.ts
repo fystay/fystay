@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { sendDepositResolvedEmail } from "@/lib/notificationEmails";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const resolveSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("release") }),
@@ -22,7 +23,7 @@ const resolveSchema = z.discriminatedUnion("action", [
  * wrong, not because of an agreed price, so the guest is owed an
  * explanation for what they'll see on their card statement.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -106,3 +107,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ status: "captured" });
 }
+
+export const POST = withApiErrorHandling(postHandler);

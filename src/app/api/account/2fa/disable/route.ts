@@ -4,11 +4,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAndConsumeBackupCode, verifyTotpCode } from "@/lib/twoFactor";
 import { decryptTwoFactorSecret } from "@/lib/twoFactorCrypto";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const disableSchema = z.object({ code: z.string().min(6).max(11) });
 
 /** Turns 2FA off - requires a current code (TOTP or a backup code) as proof, the same way changing a password requires the current one, so a hijacked-but-still-logged-in session can't silently strip an account's second factor. */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -47,3 +48,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ disabled: true });
 }
+
+export const POST = withApiErrorHandling(postHandler);

@@ -4,11 +4,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { generateBackupCodes, hashBackupCodes, verifyTotpCode } from "@/lib/twoFactor";
 import { decryptTwoFactorSecret } from "@/lib/twoFactorCrypto";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const verifySchema = z.object({ code: z.string().min(6).max(6) });
 
 /** Completes enrollment: proves the user can produce a real code from the pending secret, then actually turns 2FA on and issues one-time backup codes (shown to the client exactly once - only their hashes are ever stored). */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -43,3 +44,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ enabled: true, backupCodes });
 }
+
+export const POST = withApiErrorHandling(postHandler);

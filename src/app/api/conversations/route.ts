@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { otherParticipant, previewMessage } from "@/lib/messaging";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Creates a Message and bumps its Conversation's updatedAt in one
@@ -36,7 +37,7 @@ const startConversationSchema = z.object({
  * arbitrary user id, which would otherwise make this an unsolicited-message
  * vector.
  */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
  * list row (see previewMessage) and an unread count computed from messages
  * the *other* participant sent that this viewer hasn't opened yet.
  */
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -162,3 +163,6 @@ export async function GET() {
     }),
   });
 }
+
+export const POST = withApiErrorHandling(postHandler);
+export const GET = withApiErrorHandling(getHandler);

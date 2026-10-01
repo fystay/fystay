@@ -5,13 +5,14 @@ import { auth } from "@/auth";
 import { isConversationParticipant } from "@/lib/messaging";
 import { createMessage } from "@/app/api/conversations/route";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const replySchema = z.object({
   body: z.string().trim().min(1, "Write a message first.").max(4000, "Message is too long."),
 });
 
 /** A reply into an existing conversation - either participant, in either direction. */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -58,3 +59,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     { status: 201 },
   );
 }
+
+export const POST = withApiErrorHandling(postHandler);

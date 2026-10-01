@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const suspendListingSchema = z.object({
   suspended: z.boolean(),
@@ -19,7 +20,7 @@ const suspendListingSchema = z.object({
  * host (and any admin) can still open its detail page to see why - see
  * src/app/listings/[id]/page.tsx.
  */
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -58,3 +59,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     },
   });
 }
+
+export const PATCH = withApiErrorHandling(patchHandler);

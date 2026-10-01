@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(100),
@@ -16,7 +17,7 @@ const updateProfileSchema = z.object({
  * accepting phone too would let someone silently overwrite a verified
  * number with an unverified one).
  */
-export async function PATCH(request: Request) {
+async function patchHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -42,3 +43,5 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const PATCH = withApiErrorHandling(patchHandler);

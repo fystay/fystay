@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getResendClient, EMAIL_FROM } from "@/lib/email";
 import { hashEmailChangeToken, isEmailChangeTokenValid } from "@/lib/emailChange";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const confirmEmailChangeSchema = z.object({ token: z.string().min(1) });
 
@@ -14,7 +15,7 @@ const confirmEmailChangeSchema = z.object({ token: z.string().min(1) });
  * confirmation link is just as likely to be opened from a different
  * browser/device than the one the change was requested from.
  */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const body = await request.json();
   const parsed = confirmEmailChangeSchema.safeParse(body);
   if (!parsed.success) {
@@ -108,3 +109,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, newEmail: record.newEmail });
 }
+
+export const POST = withApiErrorHandling(postHandler);

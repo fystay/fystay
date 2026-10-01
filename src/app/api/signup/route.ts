@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
 import { generateReferralCode, REFERRAL_CREDIT_CENTS } from "@/lib/referral";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Please enter your name.").max(100, "Name is too long."),
@@ -21,7 +22,7 @@ const signupSchema = z.object({
   termsAccepted: z.literal(true, "You must agree to the Terms and Privacy Policy."),
 });
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   // Keyed by IP, not email: the existing-account check below already stops
   // any one email being reused, so what needs capping here is a single
   // source spinning up many *different* accounts (spam signups, or probing
@@ -97,3 +98,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ error: "Could not create account" }, { status: 500 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

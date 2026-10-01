@@ -26,6 +26,11 @@ export function withApiErrorHandling<Args extends unknown[], R extends Response>
     try {
       return await handler(...args);
     } catch (error) {
+      // request.json() on a malformed body throws a SyntaxError - that's the
+      // client's mistake, not ours, so it's a 400 and not reported to Sentry.
+      if (error instanceof SyntaxError) {
+        return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+      }
       console.error(error);
       Sentry.captureException(error);
       return NextResponse.json(

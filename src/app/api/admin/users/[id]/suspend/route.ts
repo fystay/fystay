@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const suspendUserSchema = z.object({
   suspended: z.boolean(),
@@ -17,7 +18,7 @@ const suspendUserSchema = z.object({
  * account, blocked from authenticating entirely (see AccountSuspendedError
  * in src/auth.ts) until an admin lifts it.
  */
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -73,3 +74,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     user: { id: updated.id, suspendedAt: updated.suspendedAt, suspendedReason: updated.suspendedReason },
   });
 }
+
+export const PATCH = withApiErrorHandling(patchHandler);

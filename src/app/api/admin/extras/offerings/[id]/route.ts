@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 // Deliberately excludes providerId and category: moving an offering to a
 // different provider or category is a bigger structural change than an
@@ -18,7 +19,7 @@ const updateOfferingSchema = z.object({
   features: z.array(z.string().trim().min(1).max(80)).max(10).optional(),
 });
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -69,3 +70,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   return NextResponse.json({ offering: updated });
 }
+
+export const PATCH = withApiErrorHandling(patchHandler);

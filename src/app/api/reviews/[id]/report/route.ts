@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canReportReview } from "@/lib/reviews";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const REPORT_REASONS = ["spam", "offensive", "not_genuine", "other"] as const;
 
@@ -18,7 +19,7 @@ const reportSchema = z.object({
  * surfacing it in an admin queue is a later moderation feature, not built
  * here, but the report itself is real and persisted now.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -78,3 +79,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ report }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

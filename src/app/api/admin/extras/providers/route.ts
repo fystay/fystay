@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const createProviderSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
@@ -16,7 +17,7 @@ const createProviderSchema = z.object({
  * as promo codes: these are FYStay's own commercial partners, not
  * something a host manages.
  */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,3 +54,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ provider }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

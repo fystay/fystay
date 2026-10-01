@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { sendBookingRequestRespondedEmail } from "@/lib/notificationEmails";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const respondSchema = z.object({ action: z.enum(["approve", "decline"]) });
 
@@ -14,7 +15,7 @@ const respondSchema = z.object({ action: z.enum(["approve", "decline"]) });
  * than a change to an existing one, since a request never had a payment to
  * unwind in the first place.
  */
-export async function POST(
+async function postHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -128,3 +129,5 @@ export async function POST(
 
   return NextResponse.json({ status: "approved" });
 }
+
+export const POST = withApiErrorHandling(postHandler);

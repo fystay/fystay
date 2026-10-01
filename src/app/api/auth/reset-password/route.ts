@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashResetToken, isResetTokenValid } from "@/lib/passwordReset";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1),
@@ -12,7 +13,7 @@ const resetPasswordSchema = z.object({
     .max(72, "Password is too long."),
 });
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const body = await request.json();
   const parsed = resetPasswordSchema.safeParse(body);
   if (!parsed.success) {
@@ -50,3 +51,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withApiErrorHandling(postHandler);
