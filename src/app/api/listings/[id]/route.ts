@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { httpUrlSchema } from "@/lib/validation";
 import { geocodeListing } from "@/lib/geocoding";
+import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 
 const updateListingSchema = z
   .object({
@@ -67,13 +68,16 @@ export async function GET(
   const { id } = await params;
   const listing = await prisma.listing.findUnique({
     where: { id },
+    // This endpoint needs no login - see PRIVATE_LISTING_FIELDS.
+    omit: PRIVATE_LISTING_FIELDS,
     include: { host: { select: { id: true, name: true } } },
   });
 
-  // Unpublished listings are only ever visible via host-management routes
-  // (dashboard, edit page), never through this public endpoint. Matches
-  // the listing detail page, which 404s the same way regardless of viewer.
-  if (!listing || !listing.published) {
+  // Unpublished or suspended listings are only ever visible via
+  // host-management routes (dashboard, edit page), never through this public
+  // endpoint. Matches the listing detail page, which 404s the same way
+  // regardless of viewer.
+  if (!listing || !listing.published || listing.suspendedAt) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

@@ -23,7 +23,7 @@ export default async function ManageIntegrationPage({
   const { provider: providerParam } = await params;
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/host/integrations");
-  if (session.user.role !== "HOST") redirect("/");
+  if (session.user.role !== "HOST") redirect("/host");
 
   const provider = parseProvider(providerParam);
   if (!provider) notFound();

@@ -23,6 +23,7 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { isSuspended } from "@/lib/suspension";
 import { heldRepeatBookingWhere } from "@/lib/heldBooking";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, hostAcceptsPaidBookings } from "@/lib/stripeConnect";
+import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 
 // Exactly one of listingId (every non-hotel booking, unchanged) or
 // roomTypeId (a HOTEL listing's room type, with roomsBooked defaulting to
@@ -52,7 +53,7 @@ async function getHandler() {
 
   const bookings = await prisma.booking.findMany({
     where: { guestId: session.user.id },
-    include: { listing: true },
+    include: { listing: { omit: PRIVATE_LISTING_FIELDS } },
     orderBy: { createdAt: "desc" },
   });
 

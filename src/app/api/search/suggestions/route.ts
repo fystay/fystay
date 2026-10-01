@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     const [destinations, matchingListings] = await Promise.all([
       Promise.resolve(rankDestinations(cities, query, MAX_RESULTS_PER_GROUP)),
       prisma.listing.findMany({
-        where: { published: true, title: { contains: query, mode: "insensitive" } },
+        where: { published: true, suspendedAt: null, title: { contains: query, mode: "insensitive" } },
         select: { id: true, title: true, city: true, country: true, photos: true },
         take: 20,
       }),

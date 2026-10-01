@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BecomeHostButton } from "@/components/BecomeHostButton";
 import {
   Camera,
   Handshake,
@@ -88,9 +89,20 @@ const STEPS = [
 export default async function BecomeAHostPage() {
   const session = await auth();
   const isHost = session?.user?.role === "HOST";
+  // A signed-in guest upgrades this same account rather than registering a
+  // second one (see /api/account/become-host).
+  const isGuest = session?.user?.role === "GUEST";
 
   const ctaHref = isHost ? "/host/listings/new" : "/register?role=host";
   const ctaLabel = isHost ? "Add a new listing" : "List your property";
+  const cta = (className: string) =>
+    isGuest ? (
+      <BecomeHostButton className={className}>{ctaLabel}</BecomeHostButton>
+    ) : (
+      <Link href={ctaHref} className={className}>
+        {ctaLabel}
+      </Link>
+    );
 
   return (
     <div className="flex-1">
@@ -111,9 +123,7 @@ export default async function BecomeAHostPage() {
             reach guests who are already looking for a stay right here.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href={ctaHref} className={cn(buttonVariants({ size: "lg" }), "bg-white text-brand-800 hover:bg-white/90")}>
-              {ctaLabel}
-            </Link>
+            {cta(cn(buttonVariants({ size: "lg" }), "bg-white text-brand-800 hover:bg-white/90"))}
             <Link
               href="#how-it-works"
               className={cn(
@@ -184,9 +194,7 @@ export default async function BecomeAHostPage() {
           <p className="mt-2 text-sm text-stone-500">
             It takes a few minutes to create a listing, and you choose when to publish it.
           </p>
-          <Link href={ctaHref} className={cn(buttonVariants({ size: "lg" }), "mt-6")}>
-            {ctaLabel}
-          </Link>
+          {cta(cn(buttonVariants({ size: "lg" }), "mt-6"))}
         </div>
       </section>
     </div>

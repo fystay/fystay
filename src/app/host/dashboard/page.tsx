@@ -36,7 +36,7 @@ export default async function HostDashboardPage({
   const { page: pageParam } = await searchParams;
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/host/dashboard");
-  if (session.user.role !== "HOST") redirect("/");
+  if (session.user.role !== "HOST") redirect("/host");
 
   await expireStaleBookingRequests(prisma, { hostId: session.user.id });
 

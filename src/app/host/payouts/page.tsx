@@ -21,7 +21,7 @@ export default async function HostPayoutsPage({
   const { onboarding, error } = await searchParams;
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/host/payouts");
-  if (session.user.role !== "HOST") redirect("/");
+  if (session.user.role !== "HOST") redirect("/host");
 
   let host = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
 

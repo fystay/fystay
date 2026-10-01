@@ -18,7 +18,7 @@ export default async function HostIntegrationsPage({
   const { pms_connected, pms_error } = await searchParams;
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/host/integrations");
-  if (session.user.role !== "HOST") redirect("/");
+  if (session.user.role !== "HOST") redirect("/host");
 
   const connections = await withHostScope(session.user.id, (tx) =>
     tx.pmsConnection.findMany({

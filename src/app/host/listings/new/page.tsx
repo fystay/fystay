@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default async function NewListingPage() {
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/host/listings/new");
-  if (session.user.role !== "HOST") redirect("/");
+  if (session.user.role !== "HOST") redirect("/host");
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">

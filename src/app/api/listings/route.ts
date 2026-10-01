@@ -11,6 +11,7 @@ import {
 import { httpUrlSchema } from "@/lib/validation";
 import { geocodeListing } from "@/lib/geocoding";
 import { paginateListings, parsePageParam } from "@/lib/listingSearch";
+import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 
 const LISTINGS_API_PAGE_SIZE = 24;
 
@@ -140,6 +141,8 @@ export async function GET(request: Request) {
       ...(minPrice ? { pricePerNightCents: { gte: Number(minPrice) } } : {}),
       ...(maxPrice ? { pricePerNightCents: { lte: Number(maxPrice) } } : {}),
     },
+    // Public search: never return arrival details, feed tokens or addresses.
+    omit: PRIVATE_LISTING_FIELDS,
     include: {
       bookings: {
         where: blockingBookingWhere(),

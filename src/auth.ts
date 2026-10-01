@@ -272,11 +272,14 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
       // request no matter how many places call it.
       const current = await prisma.user.findUnique({
         where: { id: token.id as string },
-        select: { sessionVersion: true, suspendedAt: true, deletedAt: true },
+        select: { role: true, sessionVersion: true, suspendedAt: true, deletedAt: true },
       });
       if (!current || current.deletedAt || isSuspended(current) || current.sessionVersion !== token.sessionVersion) {
         return null;
       }
+      // The role is re-read too, so a guest who starts hosting (see
+      // /api/account/become-host) gets host access without signing out.
+      token.role = current.role;
       return token;
     },
     session({ session, token }) {
