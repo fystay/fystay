@@ -103,7 +103,8 @@ export async function generateMetadata({
   // A suspended listing gets no metadata/indexing, the same as an
   // unpublished one - it may still 200 for its own host below, but that's
   // not a page search engines (or link previews) should ever surface.
-  if (!listing || !listing.published || isSuspended(listing)) return {};
+  if (!listing || !listing.published) return {};
+  if (isSuspended(listing)) return { robots: { index: false, follow: false } };
 
   const title = withCity(listing.title, listing.city);
   const description = `${PROPERTY_TYPE_LABEL[listing.propertyType]} in ${listing.city}, ${listing.country} - ${listing.bedrooms} bedroom${listing.bedrooms === 1 ? "" : "s"}, sleeps ${listing.maxGuests}, from ${formatPrice(listing.pricePerNightCents)}/night. ${listing.description.slice(0, 110)}`;

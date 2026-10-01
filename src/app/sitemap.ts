@@ -33,7 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // request.
   const listings = await prisma.listing
     .findMany({
-      where: { published: true },
+      where: { published: true, suspendedAt: null },
       select: { id: true, updatedAt: true },
     })
     .catch(() => []);
