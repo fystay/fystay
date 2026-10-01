@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { createIdentityVerificationSession } from "@/lib/identity";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Starts (or restarts) a Stripe Identity check for the signed-in user and
@@ -41,7 +42,7 @@ export async function POST() {
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const verificationSession = await createIdentityVerificationSession(stripe, {
     userId: session.user.id,
     returnUrl: `${baseUrl}/account`,

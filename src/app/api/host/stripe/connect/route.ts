@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { hostConnectAccountParams } from "@/lib/stripeConnect";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Starts (or resumes) a host's Stripe onboarding as a Connect recipient
@@ -18,7 +19,7 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const stripe = getStripeClient();
   if (!stripe) {
     return NextResponse.redirect(`${baseUrl}/host/payouts?error=stripe_not_configured`);

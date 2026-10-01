@@ -15,6 +15,7 @@ import {
   sendTransferUpsellEmail,
 } from "@/lib/notificationEmails";
 import { getActiveOfferingByCategory } from "@/lib/travelAddons";
+import { BASE_URL } from "@/lib/baseUrl";
 
 function addDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -39,7 +40,7 @@ async function getHandler(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const now = new Date();
 
   const arrivalCandidates = await prisma.booking.findMany({

@@ -9,6 +9,7 @@ import {
   needsDepositAuthorization,
 } from "@/lib/securityDeposit";
 import { sendDepositAuthorizationRequestEmail, sendDepositResolvedEmail } from "@/lib/notificationEmails";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Daily housekeeping for security deposits (see src/lib/securityDeposit.ts
@@ -36,7 +37,7 @@ async function getHandler(request: Request) {
     return NextResponse.json({ error: "Stripe is not configured" }, { status: 501 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
 
   const awaitingAuthorization = await prisma.booking.findMany({
     where: { status: "CONFIRMED", depositStatus: "AWAITING_AUTHORIZATION" },

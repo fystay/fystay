@@ -7,6 +7,7 @@ import { REFERRAL_CREDIT_CENTS } from "@/lib/referral";
 import { formatPrice } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ReferralShareCard } from "@/components/ReferralShareCard";
+import { BASE_URL } from "@/lib/baseUrl";
 
 export const metadata: Metadata = { title: "Refer a friend", robots: { index: false } };
 
@@ -26,7 +27,7 @@ export default async function ReferPage() {
   });
 
   const friendsBooked = user.referrals.filter((r) => r.referralBonusAwarded).length;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const referralLink = `${baseUrl}/register?ref=${user.referralCode}`;
 
   return (

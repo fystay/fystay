@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { createDepositCheckoutSession, needsDepositAuthorization } from "@/lib/securityDeposit";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Guest-triggered version of the same authorization the daily
@@ -58,7 +59,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const checkoutSession = await createDepositCheckoutSession(stripe, {
     bookingId: booking.id,
     depositCents: booking.securityDepositCents,

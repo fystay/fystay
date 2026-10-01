@@ -25,6 +25,7 @@ import { heldRepeatBookingWhere } from "@/lib/heldBooking";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { parseStayDate, todayStayDate } from "@/lib/stayDates";
+import { BASE_URL } from "@/lib/baseUrl";
 
 // Exactly one of listingId (every non-hotel booking, unchanged) or
 // roomTypeId (a HOTEL listing's room type, with roomsBooked defaulting to
@@ -174,7 +175,7 @@ async function postHandler(request: Request) {
       const { booking, listingTitle, city, host } = result;
 
       if (booking.approvalStatus === "AWAITING") {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+        const baseUrl = BASE_URL;
         await sendBookingRequestReceivedEmail(
           {
             reference: booking.reference,

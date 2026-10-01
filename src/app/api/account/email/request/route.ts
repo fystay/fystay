@@ -7,6 +7,7 @@ import { generateEmailChangeToken } from "@/lib/emailChange";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isLocalEnvironment } from "@/lib/deploymentEnvironment";
+import { BASE_URL } from "@/lib/baseUrl";
 
 const requestEmailChangeSchema = z.object({ newEmail: z.string().email() });
 
@@ -84,7 +85,7 @@ async function postHandler(request: Request) {
     where: { OR: [{ expiresAt: { lt: new Date() } }, { usedAt: { not: null } }] },
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const confirmUrl = `${baseUrl}/account/email-change/confirm?token=${token}`;
 
   if (!resend) {

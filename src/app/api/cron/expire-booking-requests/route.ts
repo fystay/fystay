@@ -4,6 +4,7 @@ import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
 import { expireStaleBookingRequests } from "@/lib/bookingLifecycle";
 import { sendBookingRequestRespondedEmail } from "@/lib/notificationEmails";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Daily backstop for request-to-book requests (see Listing.instantBook)
@@ -20,7 +21,7 @@ async function getHandler(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const expired = await expireStaleBookingRequests(prisma);
 
   for (const booking of expired) {

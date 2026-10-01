@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { sendBookingRequestRespondedEmail } from "@/lib/notificationEmails";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { BASE_URL } from "@/lib/baseUrl";
 
 const respondSchema = z.object({ action: z.enum(["approve", "decline"]) });
 
@@ -49,7 +50,7 @@ async function postHandler(
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const emailCtx = {
     reference: booking.reference,
     listingTitle: booking.listing.title,

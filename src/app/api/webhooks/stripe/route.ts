@@ -14,6 +14,7 @@ import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { refundAcrossPayments } from "@/lib/connectRefunds";
 import { evidenceDueByDate, mapStripeDisputeStatus } from "@/lib/paymentDisputes";
 import type Stripe from "stripe";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Whether a completed Checkout Session has actually been paid. "unpaid" is
@@ -94,7 +95,7 @@ async function refundIfNotConfirmable(bookingId: string, checkoutSession: Stripe
   });
 
   if (cancelled.count > 0 && booking.status === "PENDING") {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    const baseUrl = BASE_URL;
     await sendBookingUnavailableRefundedEmail(
       {
         reference: booking.reference,
@@ -152,7 +153,7 @@ async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Che
       include: { listing: { include: { host: true } } },
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    const baseUrl = BASE_URL;
     await sendBookingConfirmedEmails({
       reference: booking.reference,
       listingTitle: booking.listing.title,
@@ -229,7 +230,7 @@ async function upsertPaymentDispute(dispute: Stripe.Dispute): Promise<void> {
   });
 
   if (!existing) {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    const baseUrl = BASE_URL;
     await sendDisputeAlertEmail({
       amountCents: dispute.amount,
       reason: dispute.reason,

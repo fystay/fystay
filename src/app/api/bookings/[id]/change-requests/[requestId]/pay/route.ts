@@ -8,6 +8,7 @@ import { bookingFieldsAfterChange } from "@/lib/changeRequests";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { refundAcrossPayments } from "@/lib/connectRefunds";
+import { BASE_URL } from "@/lib/baseUrl";
 
 export async function POST(
   _request: Request,
@@ -53,7 +54,7 @@ export async function POST(
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const stripe = getStripeClient();
 
   if (!stripe) {

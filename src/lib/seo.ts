@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Small shared constants/helpers for page metadata - split out so the same
  * site URL and brand name aren't re-declared (and liable to drift) across
  * layout.tsx, sitemap.ts, robots.ts and every page that builds its own
- * canonical/OG URLs. Deliberately limited to metadata concerns: functional
- * code (email links, redirect URLs) keeps its own NEXT_PUBLIC_BASE_URL
- * fallback rather than depending on this file.
+ * canonical/OG URLs. SITE_URL is the same normalised origin functional code
+ * (email links, redirect URLs) takes from src/lib/baseUrl.ts.
  */
 
-export const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+export const SITE_URL = BASE_URL;
 
 export const SITE_NAME = "FYStay";
 

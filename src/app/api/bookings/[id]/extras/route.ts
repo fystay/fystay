@@ -9,6 +9,7 @@ import { tripExtraPurchaseError } from "@/lib/tripExtras";
 import { sendTripExtraGuestConfirmationEmail } from "@/lib/notificationEmails";
 import { fulfillBookingExtra } from "@/lib/tripExtraFulfillment";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Lists what's available to add to this booking (see
@@ -179,7 +180,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Payments are not configured" }, { status: 500 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const bookingUrl = `${baseUrl}/bookings/${booking.id}`;
 
   // claim.extraId is already known at this point (the row was claimed
@@ -348,7 +349,7 @@ export async function notifyTripExtraPaid(bookingExtraId: string): Promise<void>
     },
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const ctx = {
     guestName: bookingExtra.booking.guestName,
     guestEmail: bookingExtra.booking.guestEmail,

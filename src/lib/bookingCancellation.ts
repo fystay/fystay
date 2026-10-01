@@ -4,6 +4,7 @@ import { bookingPayments, refundAcrossPayments } from "@/lib/connectRefunds";
 import { previewCancellation, type CancellationPreview } from "@/lib/cancellationPolicy";
 import { sendBookingCancelledEmails } from "@/lib/notificationEmails";
 import { pushBookingCancellation } from "@/lib/pms/sync";
+import { BASE_URL } from "@/lib/baseUrl";
 
 export type CancellableBooking = Booking & {
   listing: {
@@ -93,7 +94,7 @@ export async function cancelBookingAndRefund(
   // checkout.session.completed webhook does that), so there's nothing to
   // cancel there either.
   if (booking.status === "CONFIRMED") {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    const baseUrl = BASE_URL;
     await sendBookingCancelledEmails(
       {
         reference: booking.reference,

@@ -1,6 +1,7 @@
 import type { ExtraCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendTripExtraProviderEmail } from "@/lib/notificationEmails";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Trip Extras Phase 3 (docs/trip-extras-roadmap.md): every provider handoff
@@ -150,7 +151,7 @@ export async function fulfillBookingExtra(
 
   const provider = extra.offering.provider;
   const adapter = getFulfillmentAdapter(provider.integration);
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
 
   let result: FulfillmentResult;
   if (!adapter) {

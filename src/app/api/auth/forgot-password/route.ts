@@ -6,6 +6,7 @@ import { generateResetToken } from "@/lib/passwordReset";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isLocalEnvironment } from "@/lib/deploymentEnvironment";
+import { BASE_URL } from "@/lib/baseUrl";
 
 const forgotPasswordSchema = z.object({ email: z.string().email() });
 
@@ -66,7 +67,7 @@ async function postHandler(request: Request) {
     where: { OR: [{ expiresAt: { lt: new Date() } }, { usedAt: { not: null } }] },
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
   if (!resend) {

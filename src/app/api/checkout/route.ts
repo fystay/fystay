@@ -10,6 +10,7 @@ import { applyDiscountsToApplicationFee, discountedAccommodationCents } from "@/
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
 import { isBookingHoldActive, isRequestedRangeStillAvailable } from "@/lib/availability";
+import { BASE_URL } from "@/lib/baseUrl";
 
 /**
  * Just over Stripe's 30-minute minimum Checkout Session lifetime - the
@@ -114,7 +115,7 @@ async function postHandler(request: Request) {
     });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = BASE_URL;
   const confirmationUrl = `${baseUrl}/bookings/${booking.id}/confirmation`;
   const stripe = getStripeClient();
 

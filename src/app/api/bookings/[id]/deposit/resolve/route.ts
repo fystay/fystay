@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { sendDepositResolvedEmail } from "@/lib/notificationEmails";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { BASE_URL } from "@/lib/baseUrl";
 
 const resolveSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("release") }),
@@ -74,7 +75,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     guestEmail: booking.guestEmail,
     hostName: booking.listing.host.name,
     hostEmail: booking.listing.host.email,
-    bookingUrl: `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/bookings/${booking.id}`,
+    bookingUrl: `${BASE_URL}/bookings/${booking.id}`,
   };
 
   if (parsed.data.action === "release") {
