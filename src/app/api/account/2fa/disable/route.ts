@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyAndConsumeBackupCode, verifyTotpCode } from "@/lib/twoFactor";
 import { decryptTwoFactorSecret } from "@/lib/twoFactorCrypto";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 
 const disableSchema = z.object({ code: z.string().min(6).max(11) });
 
@@ -12,6 +13,15 @@ const disableSchema = z.object({ code: z.string().min(6).max(11) });
 async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // A 6-digit code is only a second factor if it can't be guessed: without
+  // a cap, a hijacked session could brute-force its way through this check.
+  const limit = await checkRateLimit({
+    key: `2fa-disable:${session.user.id}`,
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!limit.allowed) return rateLimitedResponse(limit);
 
   const body = await request.json().catch(() => null);
   const parsed = disableSchema.safeParse(body);
