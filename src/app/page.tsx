@@ -477,12 +477,28 @@ export default async function Home() {
           below is the only top spacing this section needs. */}
       <div className="relative z-50 -mt-5 rounded-t-[28px] bg-background pt-px sm:-mt-6 sm:rounded-t-[36px] lg:-mt-3">
       <div className="mx-auto w-full max-w-6xl flex-1 px-6 pb-8">
-        <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-2 border-b border-border-subtle pb-4 text-xs font-medium text-stone-600 sm:mt-8 sm:flex sm:flex-wrap sm:items-center sm:justify-start sm:gap-x-6 sm:gap-y-2 sm:pb-6 sm:text-sm sm:font-normal">
-          {TRUST_STRIP.map(({ icon: Icon, label }) => (
-            <span key={label} className="flex items-center gap-1.5 whitespace-nowrap">
-              <Icon className="h-3.5 w-3.5 shrink-0 text-brand-600 sm:h-4 sm:w-4" aria-hidden />
-              {label}
-            </span>
+        {/* Phones: a 2x2 grid split by hairlines - one down the middle, and
+            one under each top-row item that stops short of it. sm and up:
+            the original single row. */}
+        <div className="mt-4 grid grid-cols-2 border-b border-border-subtle text-sm text-stone-600 sm:mt-8 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 sm:pb-6">
+          {TRUST_STRIP.map(({ icon: Icon, label }, index) => (
+            <div
+              key={label}
+              className={
+                index % 2 === 0
+                  ? "border-r border-border-subtle pr-4 sm:border-r-0 sm:pr-0"
+                  : "pl-4 sm:pl-0"
+              }
+            >
+              <span
+                className={`flex items-center gap-2.5 whitespace-nowrap py-3 sm:gap-1.5 sm:py-0 ${
+                  index < 2 ? "border-b border-border-subtle sm:border-b-0" : ""
+                }`}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0 text-brand-600 sm:h-4 sm:w-4" aria-hidden />
+                {label}
+              </span>
+            </div>
           ))}
         </div>
 
