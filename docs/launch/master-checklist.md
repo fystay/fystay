@@ -149,6 +149,8 @@ a secret or link, and none treats an unconfigured service as success.
 
 | Item | Commit |
 |---|---|
+| Accessibility CI check made deterministic (fade-in race that failed CI on `4bc67b5`; real contrast 5.09:1, not a UI bug) | `4625d57` |
+| Launch docs (this checklist, runbook, env reference, legal drafts) | `54480f9` |
 | Admin listing moderation page | `0137da1` |
 | Base URL trailing-slash normalisation (sitemap/canonical/email/Stripe links) | `65bf640` |
 | Privacy policy names every data processor, conditional on configuration | `2d4ea9c` |
