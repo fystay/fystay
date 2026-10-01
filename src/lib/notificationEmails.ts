@@ -74,10 +74,10 @@ export async function sendBookingConfirmedEmails(ctx: BookingEmailContext): Prom
       resend.emails.send({
         from: EMAIL_FROM,
         to: ctx.guestEmail,
-        subject: `Booking confirmed: ${escapeHtml(ctx.listingTitle)}`,
+        subject: `Booking confirmed: ${ctx.listingTitle}`,
         html: `
           <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-          <p>Your booking is confirmed - see you in ${ctx.city}.</p>
+          <p>Your booking is confirmed - see you in ${escapeHtml(ctx.city)}.</p>
           <p><strong>${escapeHtml(ctx.listingTitle)}</strong><br>
           ${stayLine(ctx)}<br>
           Total paid: ${formatPrice(ctx.totalPriceCents)}<br>
@@ -92,7 +92,7 @@ export async function sendBookingConfirmedEmails(ctx: BookingEmailContext): Prom
     resend.emails.send({
       from: EMAIL_FROM,
       to: ctx.hostEmail,
-      subject: `New booking: ${escapeHtml(ctx.listingTitle)}`,
+      subject: `New booking: ${ctx.listingTitle}`,
       html: `
         <p>Hi ${escapeHtml(ctx.hostName)},</p>
         <p>You have a new confirmed booking for <strong>${escapeHtml(ctx.listingTitle)}</strong>.</p>
@@ -131,7 +131,7 @@ export async function sendBookingCancelledEmails(
       resend.emails.send({
         from: EMAIL_FROM,
         to: ctx.guestEmail,
-        subject: `Booking cancelled: ${escapeHtml(ctx.listingTitle)}`,
+        subject: `Booking cancelled: ${ctx.listingTitle}`,
         html: `
           <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
           <p>Your booking has been cancelled.</p>
@@ -149,7 +149,7 @@ export async function sendBookingCancelledEmails(
     resend.emails.send({
       from: EMAIL_FROM,
       to: ctx.hostEmail,
-      subject: `Booking cancelled: ${escapeHtml(ctx.listingTitle)}`,
+      subject: `Booking cancelled: ${ctx.listingTitle}`,
       html: `
         <p>Hi ${escapeHtml(ctx.hostName)},</p>
         <p>A guest has cancelled their booking for <strong>${escapeHtml(ctx.listingTitle)}</strong>, and those dates are open again.</p>
@@ -181,7 +181,7 @@ export async function sendBookingRequestReceivedEmail(
   await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.hostEmail,
-    subject: `Booking request: ${escapeHtml(ctx.listingTitle)}`,
+    subject: `Booking request: ${ctx.listingTitle}`,
     html: `
       <p>Hi ${escapeHtml(ctx.hostName)},</p>
       <p>${escapeHtml(ctx.guestName ?? "A guest")} would like to book <strong>${escapeHtml(ctx.listingTitle)}</strong>.</p>
@@ -211,8 +211,8 @@ export async function sendBookingRequestRespondedEmail(
 
   const subject =
     outcome === "approved"
-      ? `Request approved: ${escapeHtml(ctx.listingTitle)}`
-      : `Request not approved: ${escapeHtml(ctx.listingTitle)}`;
+      ? `Request approved: ${ctx.listingTitle}`
+      : `Request not approved: ${ctx.listingTitle}`;
   const bodyLine =
     outcome === "approved"
       ? `Great news - ${escapeHtml(ctx.hostName)} approved your request. Complete payment to confirm your stay.`
@@ -250,7 +250,7 @@ export async function sendBookingUnavailableRefundedEmail(
   await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
-    subject: `Booking not completed: ${escapeHtml(ctx.listingTitle)}`,
+    subject: `Booking not completed: ${ctx.listingTitle}`,
     html: `
       <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
       <p>Your payment came through after your hold on these dates had expired, and the dates had been booked by someone else in the meantime. We've cancelled this booking and refunded your payment of ${formatPrice(refundCents)} in full. Refunds usually reach your card within 5-10 working days.</p>
@@ -279,7 +279,7 @@ export async function sendDepositAuthorizationRequestEmail(
   await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
-    subject: `Action needed: authorize your security deposit for ${escapeHtml(ctx.listingTitle)}`,
+    subject: `Action needed: authorize your security deposit for ${ctx.listingTitle}`,
     html: `
       <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
       <p>Your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong> is coming up. This listing requires a
@@ -315,17 +315,17 @@ export async function sendArrivalReminderEmail(
   if (!resend || !ctx.guestEmail) return;
 
   const detailLines = [
-    details.address && `<strong>Address:</strong> ${details.address}`,
-    details.checkInTime && `<strong>Check-in:</strong> ${details.checkInTime}`,
-    details.checkInInstructions && `<strong>Getting in:</strong> ${details.checkInInstructions}`,
+    details.address && `<strong>Address:</strong> ${escapeHtml(details.address)}`,
+    details.checkInTime && `<strong>Check-in:</strong> ${escapeHtml(details.checkInTime)}`,
+    details.checkInInstructions && `<strong>Getting in:</strong> ${escapeHtml(details.checkInInstructions)}`,
     details.wifiNetwork &&
-      `<strong>Wifi:</strong> ${details.wifiNetwork}${details.wifiPassword ? ` / ${details.wifiPassword}` : ""}`,
+      `<strong>Wifi:</strong> ${escapeHtml(details.wifiNetwork)}${details.wifiPassword ? ` / ${escapeHtml(details.wifiPassword)}` : ""}`,
   ].filter(Boolean);
 
   await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
-    subject: `Your stay at ${escapeHtml(ctx.listingTitle)} is coming up`,
+    subject: `Your stay at ${ctx.listingTitle} is coming up`,
     html: `
       <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
       <p>Just a heads-up that your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong> is coming up.</p>
@@ -352,7 +352,7 @@ export async function sendReviewRequestEmail(ctx: BookingEmailContext, reviewUrl
   await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
-    subject: `How was your stay at ${escapeHtml(ctx.listingTitle)}?`,
+    subject: `How was your stay at ${ctx.listingTitle}?`,
     html: `
       <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
       <p>We hope you had a great time at <strong>${escapeHtml(ctx.listingTitle)}</strong>. Other guests find your
@@ -414,8 +414,8 @@ export async function sendDepositResolvedEmail(
 
   const subject =
     outcome.outcome === "released"
-      ? `Your security deposit has been released: ${escapeHtml(ctx.listingTitle)}`
-      : `Your security deposit was claimed: ${escapeHtml(ctx.listingTitle)}`;
+      ? `Your security deposit has been released: ${ctx.listingTitle}`
+      : `Your security deposit was claimed: ${ctx.listingTitle}`;
   const bodyLine =
     outcome.outcome === "released"
       ? `Your ${formatPrice(outcome.depositCents)} security deposit hold has been released in full - nothing was claimed.`
@@ -471,10 +471,10 @@ export async function sendTripExtraProviderEmail(ctx: TripExtraEmailContext): Pr
     subject: `New booking request: ${ctx.offeringName}`,
     html: `
       <p>Hi ${escapeHtml(ctx.providerName)},</p>
-      <p>FYStay has a new paid booking request for <strong>${ctx.offeringName}</strong>
+      <p>FYStay has a new paid booking request for <strong>${escapeHtml(ctx.offeringName)}</strong>
       (${formatPrice(ctx.priceCents)}, already paid).</p>
       <p><strong>Guest:</strong> ${escapeHtml(ctx.guestName ?? "Not given")}<br>
-      <strong>Contact:</strong> ${ctx.guestEmail ?? "Not given"}<br>
+      <strong>Contact:</strong> ${escapeHtml(ctx.guestEmail ?? "Not given")}<br>
       <strong>Stay:</strong> ${escapeHtml(ctx.listingTitle)}, ${dateRange(ctx.checkIn, ctx.checkOut)}</p>
       ${ctx.guestNotes ? `<p><strong>Guest notes:</strong> ${escapeHtml(ctx.guestNotes)}</p>` : ""}
       <p>Please confirm this directly with the guest.</p>
@@ -499,7 +499,7 @@ export async function sendTripExtraGuestConfirmationEmail(ctx: TripExtraEmailCon
     subject: `You're all set: ${ctx.offeringName}`,
     html: `
       <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>Your <strong>${ctx.offeringName}</strong> (${formatPrice(ctx.priceCents)}) is booked and paid for
+      <p>Your <strong>${escapeHtml(ctx.offeringName)}</strong> (${formatPrice(ctx.priceCents)}) is booked and paid for
       as part of your trip to <strong>${escapeHtml(ctx.listingTitle)}</strong>.</p>
       <p>${escapeHtml(ctx.providerName)} has been sent your booking request and will be in touch directly to confirm
       the details with you.</p>
