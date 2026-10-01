@@ -159,10 +159,23 @@ async function postHandler(request: Request) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch {
+  // Stripe signs events from FYStay's own account and events from hosts'
+  // connected accounts (account.updated) with two different endpoint
+  // secrets - an endpoint with "Listen to events on Connected accounts" is
+  // separate in Stripe - so both are accepted when the second is set.
+  const secrets = [webhookSecret, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter(
+    (secret): secret is string => Boolean(secret),
+  );
+  let event: Stripe.Event | undefined;
+  for (const secret of secrets) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+      break;
+    } catch {
+      // try the next configured secret
+    }
+  }
+  if (!event) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
