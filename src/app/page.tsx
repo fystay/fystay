@@ -41,10 +41,10 @@ import { cn } from "@/lib/cn";
 // "Why FYStay?" section further down (see TRUST_POINTS below, which this
 // doesn't replace - that section keeps its own full descriptions).
 const TRUST_STRIP = [
-  { icon: Zap, label: "Instant Book on most stays" },
-  { icon: Lock, label: "Secure Stripe checkout" },
-  { icon: Users, label: "Local Fylde Coast hosts" },
-  { icon: RotateCcw, label: "Free cancellation available" },
+  { icon: Zap, label: "Instant Book" },
+  { icon: Lock, label: "Stripe checkout" },
+  { icon: Users, label: "Local hosts" },
+  { icon: RotateCcw, label: "Free cancellation" },
 ];
 
 const TRUST_POINTS = [
@@ -477,10 +477,10 @@ export default async function Home() {
           below is the only top spacing this section needs. */}
       <div className="relative z-50 -mt-5 rounded-t-[28px] bg-background pt-px sm:-mt-6 sm:rounded-t-[36px] lg:-mt-3">
       <div className="mx-auto w-full max-w-6xl flex-1 px-6 pb-8">
-        <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 border-b border-border-subtle pb-6 text-sm text-stone-600 sm:flex sm:flex-wrap sm:items-center sm:justify-start sm:gap-x-6 sm:gap-y-2">
+        <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-2 border-b border-border-subtle pb-4 text-xs font-medium text-stone-600 sm:mt-8 sm:flex sm:flex-wrap sm:items-center sm:justify-start sm:gap-x-6 sm:gap-y-2 sm:pb-6 sm:text-sm sm:font-normal">
           {TRUST_STRIP.map(({ icon: Icon, label }) => (
-            <span key={label} className="flex items-center gap-1.5">
-              <Icon className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />
+            <span key={label} className="flex items-center gap-1.5 whitespace-nowrap">
+              <Icon className="h-3.5 w-3.5 shrink-0 text-brand-600 sm:h-4 sm:w-4" aria-hidden />
               {label}
             </span>
           ))}
