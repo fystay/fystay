@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
 import { syncListingIcalImport } from "@/lib/icalSync";
 
@@ -7,15 +8,6 @@ import { syncListingIcalImport } from "@/lib/icalSync";
 // own maxDuration comment for the same "stay inside Vercel Hobby's 60s
 // ceiling" reasoning.
 export const maxDuration = 60;
-
-/** Same trust model as refresh-local-data's isAuthorizedCronRequest - see that file for the full reasoning. */
-function isAuthorizedCronRequest(request: Request): boolean {
-  if (request.headers.get("x-vercel-cron")) return true;
-
-  const secret = process.env.ICAL_SYNC_CRON_SECRET;
-  if (!secret) return false;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 type ListingSyncResult = {
   listingId: string;
@@ -34,7 +26,7 @@ type ListingSyncResult = {
  * every other listing's sync in the same run.
  */
 async function getHandler(request: Request) {
-  if (!isAuthorizedCronRequest(request)) {
+  if (!isAuthorizedCronRequest(request, process.env.ICAL_SYNC_CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

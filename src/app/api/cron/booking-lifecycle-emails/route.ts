@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
 import {
   ARRIVAL_REMINDER_WINDOW_DAYS,
@@ -21,15 +22,6 @@ function addDays(date: Date, days: number): Date {
   return result;
 }
 
-/** Same trust model as sync-ical-imports' own isAuthorizedCronRequest - see that file for the full reasoning. */
-function isAuthorizedCronRequest(request: Request): boolean {
-  if (request.headers.get("x-vercel-cron")) return true;
-
-  const secret = process.env.BOOKING_LIFECYCLE_CRON_SECRET;
-  if (!secret) return false;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 /**
  * Daily sweep for the two proactive guest emails this app doesn't otherwise
  * send: an arrival reminder a couple of days before check-in, and a review
@@ -43,7 +35,7 @@ function isAuthorizedCronRequest(request: Request): boolean {
  * of the run.
  */
 async function getHandler(request: Request) {
-  if (!isAuthorizedCronRequest(request)) {
+  if (!isAuthorizedCronRequest(request, process.env.BOOKING_LIFECYCLE_CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
 import { runConnectionSync } from "@/lib/pms/sync";
 
@@ -7,15 +8,6 @@ import { runConnectionSync } from "@/lib/pms/sync";
 // every connected PMS connection - same "stay inside Vercel Hobby's 60s
 // ceiling" reasoning as the other cron/sync routes in this codebase.
 export const maxDuration = 60;
-
-/** Same trust model as sync-ical-imports' own isAuthorizedCronRequest - see that file for the full reasoning. */
-function isAuthorizedCronRequest(request: Request): boolean {
-  if (request.headers.get("x-vercel-cron")) return true;
-
-  const secret = process.env.PMS_RECONCILE_CRON_SECRET;
-  if (!secret) return false;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 type ConnectionSyncResult = {
   connectionId: string;
@@ -39,7 +31,7 @@ type ConnectionSyncResult = {
  * same resilience pattern as sync-ical-imports.
  */
 async function getHandler(request: Request) {
-  if (!isAuthorizedCronRequest(request)) {
+  if (!isAuthorizedCronRequest(request, process.env.PMS_RECONCILE_CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

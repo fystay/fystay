@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
 import { ensureTownsSeeded } from "@/lib/localData/seedTowns";
 import { getTownWeather } from "@/lib/localData/weather";
@@ -11,28 +12,6 @@ import { getTownEvents } from "@/lib/localData/events";
 // (free-tier) ceiling of 60s, which the "keep this at £0" brief calls for
 // staying inside rather than needing a Pro plan just to run this route.
 export const maxDuration = 60;
-
-/**
- * True for either caller this route is meant to trust:
- *  - Vercel's own Cron feature, which stamps every scheduled invocation
- *    with this header - not attached by any other request, and not
- *    something a Cron Job needs LOCAL_DATA_CRON_SECRET configured to send,
- *    so pointing vercel.json's cron at this path works with zero extra
- *    setup.
- *  - anyone else who knows LOCAL_DATA_CRON_SECRET (see .env.example) -
- *    for manually triggering a refresh, or scheduling it from somewhere
- *    other than Vercel Cron.
- * Neither configured (no header, no secret set) means refuse outright
- * rather than silently allowing an unauthenticated caller to spend the
- * app's Overpass/Ticketmaster usage.
- */
-function isAuthorizedCronRequest(request: Request): boolean {
-  if (request.headers.get("x-vercel-cron")) return true;
-
-  const secret = process.env.LOCAL_DATA_CRON_SECRET;
-  if (!secret) return false;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 type TownRefreshResult = {
   townSlug: string;
@@ -59,7 +38,7 @@ type TownRefreshResult = {
  * anything.
  */
 async function getHandler(request: Request) {
-  if (!isAuthorizedCronRequest(request)) {
+  if (!isAuthorizedCronRequest(request, process.env.LOCAL_DATA_CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

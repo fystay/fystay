@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
 import { expireStaleBookingRequests } from "@/lib/bookingLifecycle";
 import { sendBookingRequestRespondedEmail } from "@/lib/notificationEmails";
-
-/** Same trust model as refresh-local-data's isAuthorizedCronRequest - see that file for the full reasoning. */
-function isAuthorizedCronRequest(request: Request): boolean {
-  if (request.headers.get("x-vercel-cron")) return true;
-
-  const secret = process.env.BOOKING_REQUEST_CRON_SECRET;
-  if (!secret) return false;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 /**
  * Daily backstop for request-to-book requests (see Listing.instantBook)
@@ -24,7 +16,7 @@ function isAuthorizedCronRequest(request: Request): boolean {
  * meantime.
  */
 async function getHandler(request: Request) {
-  if (!isAuthorizedCronRequest(request)) {
+  if (!isAuthorizedCronRequest(request, process.env.BOOKING_REQUEST_CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
