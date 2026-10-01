@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { BellRing } from "lucide-react";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatStayDate } from "@/lib/format";
 import { ChangeRequestActions } from "@/components/ChangeRequestActions";
 import { BookingRequestActions } from "@/components/BookingRequestActions";
 import { Card } from "@/components/ui/Card";
@@ -79,8 +79,8 @@ export function NeedsAttention({ requests }: { requests: AttentionItem[] }) {
                   <Link href={`/listings/${request.listingId}`} className="hover:text-brand-700">
                     {request.listingTitle}
                   </Link>{" "}
-                  · New dates: {request.requestedCheckIn.toLocaleDateString()} –{" "}
-                  {request.requestedCheckOut.toLocaleDateString()} · {request.requestedGuests} guest
+                  · New dates: {formatStayDate(request.requestedCheckIn)} –{" "}
+                  {formatStayDate(request.requestedCheckOut)} · {request.requestedGuests} guest
                   {request.requestedGuests > 1 ? "s" : ""}
                 </p>
                 {request.priceDeltaCents !== 0 && (
@@ -111,7 +111,7 @@ export function NeedsAttention({ requests }: { requests: AttentionItem[] }) {
                   <Link href={`/listings/${request.listingId}`} className="hover:text-brand-700">
                     {request.listingTitle}
                   </Link>{" "}
-                  · {request.checkIn.toLocaleDateString()} – {request.checkOut.toLocaleDateString()}{" "}
+                  · {formatStayDate(request.checkIn)} – {formatStayDate(request.checkOut)}{" "}
                   · {request.guests} guest{request.guests > 1 ? "s" : ""}
                 </p>
                 <p className="text-sm text-stone-600">Total: {formatPrice(request.totalPriceCents)}</p>

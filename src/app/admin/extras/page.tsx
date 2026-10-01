@@ -13,7 +13,7 @@ import { EditExtraProviderDialog } from "@/components/admin/EditExtraProviderDia
 import { EditExtraOfferingDialog } from "@/components/admin/EditExtraOfferingDialog";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ExtraFulfillmentActions } from "@/components/admin/ExtraFulfillmentActions";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatStayDate } from "@/lib/format";
 import { isFulfillmentStuck } from "@/lib/tripExtraFulfillment";
 
 export const metadata: Metadata = { title: "Trip extras", robots: { index: false } };
@@ -122,7 +122,7 @@ export default async function AdminExtrasPage() {
                       </div>
                       <p className="mt-1 text-sm text-stone-500">
                         {extra.offering.provider.name} · {extra.booking.guestName ?? "Guest"} · check-in{" "}
-                        {extra.booking.checkIn.toLocaleDateString("en-GB")} ·{" "}
+                        {formatStayDate(extra.booking.checkIn)} ·{" "}
                         <span className="tabular-nums">{formatPrice(extra.priceCents)}</span> · attempts{" "}
                         <span className="tabular-nums">{extra.fulfillmentAttempts}</span>
                       </p>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CalendarDays, ImageOff, MessageSquare, PencilLine, Star } from "lucide-react";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatStayDate } from "@/lib/format";
 import { DeleteListingButton } from "@/components/DeleteListingButton";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -196,8 +196,8 @@ export function HostListingRow({
                   <li key={booking.id} className="flex flex-col gap-1.5">
                     <div className="flex flex-wrap items-center gap-2">
                       <span>
-                        {booking.checkIn.toLocaleDateString()} –{" "}
-                        {booking.checkOut.toLocaleDateString()} · {booking.guests} guest
+                        {formatStayDate(booking.checkIn)} –{" "}
+                        {formatStayDate(booking.checkOut)} · {booking.guests} guest
                         {booking.guests > 1 ? "s" : ""} · {formatPrice(booking.totalPriceCents)}
                       </span>
                       <Badge variant={bookingStatusVariant[booking.status]}>{booking.status}</Badge>
@@ -206,8 +206,8 @@ export function HostListingRow({
 
                     {approvedRequest && (
                       <p className="text-xs text-stone-500">
-                        Originally {approvedRequest.originalCheckIn.toLocaleDateString()} –{" "}
-                        {approvedRequest.originalCheckOut.toLocaleDateString()} ·{" "}
+                        Originally {formatStayDate(approvedRequest.originalCheckIn)} –{" "}
+                        {formatStayDate(approvedRequest.originalCheckOut)} ·{" "}
                         {approvedRequest.originalGuests} guest
                         {approvedRequest.originalGuests > 1 ? "s" : ""} ·{" "}
                         {formatPrice(approvedRequest.originalTotalPriceCents)} &rarr; now{" "}

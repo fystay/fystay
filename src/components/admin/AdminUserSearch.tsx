@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
+import { formatDate } from "@/lib/format";
 
 const ROLE_VARIANT: Record<string, BadgeProps["variant"]> = {
   ADMIN: "brand",
@@ -105,7 +106,7 @@ export function AdminUserSearch() {
                         <td className="px-4 py-3 tabular-nums text-stone-700">{user._count.bookings}</td>
                         <td className="px-4 py-3 tabular-nums text-stone-700">{user._count.listings}</td>
                         <td className="px-4 py-3 text-stone-500">
-                          {new Date(user.createdAt).toLocaleDateString()}
+                          {formatDate(user.createdAt)}
                         </td>
                       </tr>
                     ))}

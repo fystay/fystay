@@ -11,7 +11,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Field, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { formatPrice } from "@/lib/format";
+import { formatDate, formatPrice, formatStayDate } from "@/lib/format";
 
 export type AuthorizedDeposit = {
   bookingId: string;
@@ -110,10 +110,10 @@ function DepositRow({ deposit, onResolved }: { deposit: AuthorizedDeposit; onRes
           <Link href={`/listings/${deposit.listingId}`} className="hover:text-brand-700">
             {deposit.listingTitle}
           </Link>{" "}
-          · {deposit.checkIn.toLocaleDateString()} – {deposit.checkOut.toLocaleDateString()}
+          · {formatStayDate(deposit.checkIn)} – {formatStayDate(deposit.checkOut)}
         </p>
         <p className="text-xs text-stone-500">
-          Releases automatically {deposit.depositClaimDeadline.toLocaleDateString()} unless you file a claim
+          Releases automatically {formatDate(deposit.depositClaimDeadline)} unless you file a claim
         </p>
       </div>
       <div className="flex items-center gap-2">

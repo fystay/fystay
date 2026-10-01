@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatStayDate } from "@/lib/format";
 
 export function ChangeRequestStatus({
   bookingId,
@@ -70,7 +70,7 @@ export function ChangeRequestStatus({
     window.location.href = data.url;
   }
 
-  const dateLabel = `${requestedCheckIn.toLocaleDateString()} – ${requestedCheckOut.toLocaleDateString()} · ${requestedGuests} guest${requestedGuests > 1 ? "s" : ""}`;
+  const dateLabel = `${formatStayDate(requestedCheckIn)} – ${formatStayDate(requestedCheckOut)} · ${requestedGuests} guest${requestedGuests > 1 ? "s" : ""}`;
   const newTotalPriceCents = originalTotalPriceCents + priceDeltaCents;
 
   const priceSummary = priceDeltaCents !== 0 && (

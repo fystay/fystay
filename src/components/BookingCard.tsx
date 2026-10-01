@@ -7,7 +7,7 @@ import { Check, ImageOff } from "lucide-react";
 import { trackAddonEvent } from "@/lib/analytics";
 import { useViewOnce } from "@/hooks/useViewOnce";
 import { travelAddonHref } from "@/lib/travelAddons";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatStayDate } from "@/lib/format";
 import { canReviewBooking } from "@/lib/reviews";
 import { canCancelBooking, canRequestBookingChange } from "@/lib/changeRequests";
 import { previewCancellation, type CancellationPolicyKind } from "@/lib/cancellationPolicy";
@@ -176,7 +176,7 @@ export function BookingCard({
               {booking.listing.city}, {booking.listing.country}
             </p>
             <p className="text-sm text-stone-500">
-              {booking.checkIn.toLocaleDateString()} – {booking.checkOut.toLocaleDateString()} ·{" "}
+              {formatStayDate(booking.checkIn)} – {formatStayDate(booking.checkOut)} ·{" "}
               {booking.guests} guest{booking.guests > 1 ? "s" : ""}
             </p>
             <p className="text-xs text-stone-500">Booking #{booking.reference}</p>

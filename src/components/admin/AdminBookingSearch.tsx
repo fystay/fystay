@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatStayDate } from "@/lib/format";
 
 // Mirrors the JSON shape of GET /api/admin/bookings, not the Prisma type
 // directly - dates arrive as ISO strings once they've crossed a fetch.
@@ -121,7 +121,7 @@ export function AdminBookingSearch() {
                           <div className="text-xs text-stone-500">{booking.listing.host.email}</div>
                         </td>
                         <td className="px-4 py-3 text-stone-700">
-                          {new Date(booking.checkIn).toLocaleDateString()}
+                          {formatStayDate(booking.checkIn)}
                         </td>
                         <td className="px-4 py-3 tabular-nums text-stone-700">
                           {formatPrice(booking.totalPriceCents)}

@@ -22,6 +22,7 @@ import { needsDepositAuthorization } from "@/lib/securityDeposit";
 import { DepositStatusCard } from "@/components/DepositStatusCard";
 import { TripExtrasCard } from "@/components/TripExtrasCard";
 import type { BadgeProps } from "@/components/ui/Badge";
+import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Booking details", robots: { index: false } };
 
@@ -221,7 +222,7 @@ export default async function BookingDetailPage({
                 </p>
                 <p className="text-sm text-brand-800">
                   You won&apos;t be charged unless they accept. They have until{" "}
-                  {booking.requestExpiresAt?.toLocaleString()} to respond.
+                  {booking.requestExpiresAt ? formatDateTime(booking.requestExpiresAt) : ""} to respond.
                 </p>
               </>
             )}

@@ -5,7 +5,7 @@ import { BedDouble, CalendarCheck2, PoundSterling, Ticket, Users } from "lucide-
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { summarizeExtrasRevenue, summarizePlatformFinancials } from "@/lib/adminSummary";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatStayDate } from "@/lib/format";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { StatCard } from "@/components/host/StatCard";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -183,7 +183,7 @@ export default async function AdminOverviewPage() {
                           {booking.listing.title}
                         </td>
                         <td className="px-4 py-3 text-stone-700">{booking.guestName ?? "—"}</td>
-                        <td className="px-4 py-3 text-stone-700">{booking.checkIn.toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-stone-700">{formatStayDate(booking.checkIn)}</td>
                         <td className="px-4 py-3 tabular-nums text-stone-700">
                           {formatPrice(booking.totalPriceCents)}
                         </td>

@@ -178,7 +178,7 @@ export default async function HostDashboardPage({
             {listings.length} listing{listings.length === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/host/integrations" className={cn(buttonVariants({ variant: "outline" }))}>
             <Plug className="h-4 w-4" />
             Integrations

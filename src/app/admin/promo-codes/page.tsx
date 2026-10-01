@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { PromoCodeForm } from "@/components/admin/PromoCodeForm";
 import { TogglePromoCodeButton } from "@/components/admin/TogglePromoCodeButton";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { formatPrice } from "@/lib/format";
+import { formatDate, formatPrice } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Promo codes", robots: { index: false } };
 
@@ -89,7 +89,7 @@ export default async function AdminPromoCodesPage() {
                             {promoCode.maxRedemptions !== null ? ` / ${promoCode.maxRedemptions}` : ""}
                           </td>
                           <td className="px-4 py-3 text-stone-700">
-                            {promoCode.expiresAt ? promoCode.expiresAt.toLocaleDateString() : "Never"}
+                            {promoCode.expiresAt ? formatDate(promoCode.expiresAt) : "Never"}
                           </td>
                           <td className="px-4 py-3">
                             {!promoCode.active ? (

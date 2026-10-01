@@ -17,7 +17,7 @@ import {
   summarizeAffiliateFunnel,
   summarizeConversionRevenue,
 } from "@/lib/hotelAffiliateSummary";
-import { formatPrice } from "@/lib/format";
+import { formatDateTime, formatPrice, formatStayDate } from "@/lib/format";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { StatCard } from "@/components/host/StatCard";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -268,13 +268,13 @@ export default async function HotelAffiliateAnalyticsPage() {
                           <td className="px-4 py-3 text-stone-700">{click.destination ?? "—"}</td>
                           <td className="px-4 py-3 text-stone-700">
                             {click.checkIn && click.checkOut
-                              ? `${click.checkIn.toLocaleDateString()} – ${click.checkOut.toLocaleDateString()}`
+                              ? `${formatStayDate(click.checkIn)} – ${formatStayDate(click.checkOut)}`
                               : "—"}
                           </td>
                           <td className="max-w-[140px] truncate px-4 py-3 font-mono text-xs text-stone-500">
                             {click.subId}
                           </td>
-                          <td className="px-4 py-3 text-stone-700">{click.createdAt.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-stone-700">{formatDateTime(click.createdAt)}</td>
                           <td className="px-4 py-3">
                             {conversion ? (
                               <Badge variant={CONVERSION_STATUS_VARIANT[conversion.status] ?? "neutral"}>
@@ -320,7 +320,7 @@ export default async function HotelAffiliateAnalyticsPage() {
                         <td className="px-4 py-3 text-stone-700">{search.destination}</td>
                         <td className="px-4 py-3 text-stone-700">{search.provider?.name ?? "—"}</td>
                         <td className="px-4 py-3 text-stone-700">
-                          {search.checkIn.toLocaleDateString()} – {search.checkOut.toLocaleDateString()}
+                          {formatStayDate(search.checkIn)} – {formatStayDate(search.checkOut)}
                         </td>
                         <td className="px-4 py-3 text-stone-700">
                           {search.adults + search.children} guest{search.adults + search.children === 1 ? "" : "s"},{" "}
@@ -329,7 +329,7 @@ export default async function HotelAffiliateAnalyticsPage() {
                         <td className="px-4 py-3 tabular-nums text-stone-700">
                           {search.resultCount ?? "—"}
                         </td>
-                        <td className="px-4 py-3 text-stone-700">{search.createdAt.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-stone-700">{formatDateTime(search.createdAt)}</td>
                       </tr>
                     ))}
                   </tbody>

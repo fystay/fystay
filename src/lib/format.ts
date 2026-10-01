@@ -28,3 +28,46 @@ export function formatProviderPrice(cents: number, currencyCode: string): string
     return `${currencyCode} ${(cents / 100).toFixed(0)}`;
   }
 }
+
+// Dates render identically on the server and in the browser - formatting
+// with the runtime's own locale and timezone (toLocaleDateString()) gave a US
+// server and a UK browser different text, which broke hydration and showed
+// guests ambiguous dates like 01/10/2026.
+
+/** Check-in/check-out dates are stored as UTC midnight, so they format in UTC. */
+const stayDateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+export function formatStayDate(date: Date | string): string {
+  return stayDateFormatter.format(new Date(date));
+}
+
+const ukDateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "Europe/London",
+});
+
+/** A moment in time (a deadline, a creation date), shown as its UK date. */
+export function formatDate(date: Date | string): string {
+  return ukDateFormatter.format(new Date(date));
+}
+
+const ukDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/London",
+});
+
+/** A moment in time with its UK clock time. */
+export function formatDateTime(date: Date | string): string {
+  return ukDateTimeFormatter.format(new Date(date));
+}
