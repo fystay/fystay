@@ -23,6 +23,7 @@ import {
 import { isPetFriendly, totalOccupants, type GuestCounts } from "@/lib/search";
 import type { StaySelection } from "@/lib/stayQuery";
 import { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
+import { stayDateToLocal, toStayDateString } from "@/lib/stayDates";
 
 type Props = {
   listingId: string;
@@ -107,8 +108,8 @@ export function BookingWidget({
   const parsedBookedRanges = useMemo(
     () =>
       bookedRanges.map((r) => ({
-        checkIn: new Date(r.checkIn),
-        checkOut: new Date(r.checkOut),
+        checkIn: stayDateToLocal(r.checkIn),
+        checkOut: stayDateToLocal(r.checkOut),
       })),
     [bookedRanges],
   );
@@ -141,8 +142,8 @@ export function BookingWidget({
 
   const availabilityChecked = Boolean(
     checkedSelection &&
-      range?.from?.toISOString() === checkedSelection.checkIn &&
-      range?.to?.toISOString() === checkedSelection.checkOut &&
+      (range?.from && toStayDateString(range.from)) === checkedSelection.checkIn &&
+      (range?.to && toStayDateString(range.to)) === checkedSelection.checkOut &&
       guests === checkedSelection.guests,
   );
 
@@ -162,12 +163,12 @@ export function BookingWidget({
     buildParams: () =>
       range?.from && range?.to
         ? new URLSearchParams({
-            checkIn: range.from.toISOString(),
-            checkOut: range.to.toISOString(),
+            checkIn: toStayDateString(range.from),
+            checkOut: toStayDateString(range.to),
             guests: String(guests),
           })
         : null,
-    selectionKey: `${range?.from?.toISOString()}|${range?.to?.toISOString()}|${guests}`,
+    selectionKey: `${(range?.from && toStayDateString(range.from))}|${(range?.to && toStayDateString(range.to))}|${guests}`,
   });
 
   function isSelectionValid(): boolean {
@@ -198,8 +199,8 @@ export function BookingWidget({
     setChecking(true);
     try {
       const params = new URLSearchParams({
-        checkIn: range.from.toISOString(),
-        checkOut: range.to.toISOString(),
+        checkIn: toStayDateString(range.from),
+        checkOut: toStayDateString(range.to),
         guests: String(guests),
       });
       const res = await fetch(`/api/listings/${listingId}/availability?${params}`);
@@ -213,8 +214,8 @@ export function BookingWidget({
       }
 
       setCheckedSelection({
-        checkIn: range.from.toISOString(),
-        checkOut: range.to.toISOString(),
+        checkIn: toStayDateString(range.from),
+        checkOut: toStayDateString(range.to),
         guests,
       });
       toast.success("Good news — those dates are available.");
@@ -244,8 +245,8 @@ export function BookingWidget({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           listingId,
-          checkIn: range.from.toISOString(),
-          checkOut: range.to.toISOString(),
+          checkIn: toStayDateString(range.from),
+          checkOut: toStayDateString(range.to),
           guests,
           promoCode: promoCodeToSubmit,
         }),

@@ -10,6 +10,7 @@ import {
 } from "@/lib/availability";
 import { isValidBlockRange } from "@/lib/availabilityBlocks";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { parseStayDate } from "@/lib/stayDates";
 
 const createBlockSchema = z.object({
   startDate: z.string().min(1),
@@ -55,9 +56,9 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
-  const startDate = new Date(parsed.data.startDate);
-  const endDate = new Date(parsed.data.endDate);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+  const startDate = parseStayDate(parsed.data.startDate);
+  const endDate = parseStayDate(parsed.data.endDate);
+  if (!startDate || !endDate) {
     return NextResponse.json({ error: "Invalid dates" }, { status: 400 });
   }
   if (!isValidBlockRange(startDate, endDate)) {

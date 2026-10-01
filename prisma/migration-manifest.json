@@ -260,6 +260,12 @@
       "files": {
         "migration.sql": "c068d17c30e734f544365f256a2893a66f7b5cbb6b7dbdeb3d76b75e654c85d6"
       }
+    },
+    {
+      "name": "20261001160000_normalize_stay_dates_to_utc_midnight",
+      "files": {
+        "migration.sql": "63c082ea26d744977f4185fe71257b11d19bb04c5eac4b9ff4c2500ce78e1467"
+      }
     }
   ],
   "retired": [

@@ -12,6 +12,7 @@ import {
 } from "@/lib/availability";
 import { canRequestBookingChange, computePriceDeltaCents } from "@/lib/changeRequests";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { parseStayDate } from "@/lib/stayDates";
 
 const createChangeRequestSchema = z.object({
   checkIn: z.string().min(1),
@@ -35,9 +36,9 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
-  const checkIn = new Date(parsed.data.checkIn);
-  const checkOut = new Date(parsed.data.checkOut);
-  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+  const checkIn = parseStayDate(parsed.data.checkIn);
+  const checkOut = parseStayDate(parsed.data.checkOut);
+  if (!checkIn || !checkOut) {
     return NextResponse.json({ error: "Invalid dates" }, { status: 400 });
   }
 

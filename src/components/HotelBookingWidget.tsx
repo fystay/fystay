@@ -20,6 +20,7 @@ import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
 import type { StaySelection } from "@/lib/stayQuery";
 import { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
+import { toStayDateString } from "@/lib/stayDates";
 
 export type HotelRoomTypeSummary = {
   id: string;
@@ -278,8 +279,8 @@ function RoomTypeBookingCard({
 
   const availabilityChecked = Boolean(
     checkedSelection &&
-      range?.from?.toISOString() === checkedSelection.checkIn &&
-      range?.to?.toISOString() === checkedSelection.checkOut &&
+      (range?.from && toStayDateString(range.from)) === checkedSelection.checkIn &&
+      (range?.to && toStayDateString(range.to)) === checkedSelection.checkOut &&
       guests === checkedSelection.guests &&
       roomsBooked === checkedSelection.roomsBooked,
   );
@@ -300,14 +301,14 @@ function RoomTypeBookingCard({
     buildParams: () =>
       range?.from && range?.to
         ? new URLSearchParams({
-            checkIn: range.from.toISOString(),
-            checkOut: range.to.toISOString(),
+            checkIn: toStayDateString(range.from),
+            checkOut: toStayDateString(range.to),
             guests: String(guests),
             roomTypeId: roomType.id,
             roomsBooked: String(roomsBooked),
           })
         : null,
-    selectionKey: `${range?.from?.toISOString()}|${range?.to?.toISOString()}|${guests}|${roomsBooked}`,
+    selectionKey: `${(range?.from && toStayDateString(range.from))}|${(range?.to && toStayDateString(range.to))}|${guests}|${roomsBooked}`,
   });
 
   function updateRoomsBooked(next: number) {
@@ -325,8 +326,8 @@ function RoomTypeBookingCard({
     setChecking(true);
     try {
       const params = new URLSearchParams({
-        checkIn: range.from.toISOString(),
-        checkOut: range.to.toISOString(),
+        checkIn: toStayDateString(range.from),
+        checkOut: toStayDateString(range.to),
         guests: String(guests),
         roomTypeId: roomType.id,
         roomsBooked: String(roomsBooked),
@@ -342,8 +343,8 @@ function RoomTypeBookingCard({
       }
 
       setCheckedSelection({
-        checkIn: range.from.toISOString(),
-        checkOut: range.to.toISOString(),
+        checkIn: toStayDateString(range.from),
+        checkOut: toStayDateString(range.to),
         guests,
         roomsBooked,
       });
@@ -372,8 +373,8 @@ function RoomTypeBookingCard({
         body: JSON.stringify({
           roomTypeId: roomType.id,
           roomsBooked,
-          checkIn: range.from.toISOString(),
-          checkOut: range.to.toISOString(),
+          checkIn: toStayDateString(range.from),
+          checkOut: toStayDateString(range.to),
           guests,
           promoCode: promoCodeToSubmit,
         }),

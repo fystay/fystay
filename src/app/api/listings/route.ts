@@ -12,6 +12,7 @@ import { httpUrlSchema } from "@/lib/validation";
 import { geocodeListing } from "@/lib/geocoding";
 import { paginateListings, parsePageParam } from "@/lib/listingSearch";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
+import { parseStayDate } from "@/lib/stayDates";
 import { withApiErrorHandling } from "@/lib/apiError";
 
 const LISTINGS_API_PAGE_SIZE = 24;
@@ -174,8 +175,8 @@ async function getHandler(request: Request) {
     take: 500,
   });
 
-  const checkIn = checkInParam ? new Date(checkInParam) : null;
-  const checkOut = checkOutParam ? new Date(checkOutParam) : null;
+  const checkIn = checkInParam ? parseStayDate(checkInParam) : null;
+  const checkOut = checkOutParam ? parseStayDate(checkOutParam) : null;
   const guestsNeeded = guests ? Number(guests) : 0;
 
   // A hotel with one fully-booked room type and another still free is still

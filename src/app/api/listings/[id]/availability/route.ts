@@ -13,6 +13,7 @@ import {
 import { computeBookingPricing } from "@/lib/pricing";
 import { computePromoDiscount, normalizePromoCode, validatePromoCode } from "@/lib/promoCode";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
+import { parseStayDate, todayStayDate } from "@/lib/stayDates";
 
 const querySchema = z.object({
   checkIn: z.string().min(1),
@@ -86,9 +87,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!rateLimit.allowed) return rateLimitedResponse(rateLimit);
   }
 
-  const checkIn = new Date(parsed.data.checkIn);
-  const checkOut = new Date(parsed.data.checkOut);
-  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+  const checkIn = parseStayDate(parsed.data.checkIn);
+  const checkOut = parseStayDate(parsed.data.checkOut);
+  if (!checkIn || !checkOut) {
     return NextResponse.json({ error: "Invalid dates" }, { status: 400 });
   }
   if (checkOut <= checkIn) {
@@ -97,8 +98,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       { status: 200 },
     );
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayStayDate();
   if (checkIn < today) {
     return NextResponse.json(
       { available: false, error: "Check-in date must be in the future" },

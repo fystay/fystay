@@ -12,6 +12,7 @@ import { formatPrice } from "@/lib/format";
 import { nightsBetween, rangesOverlap, stayLengthError } from "@/lib/availability";
 import { computeBookingPricing } from "@/lib/pricing";
 import { cn } from "@/lib/cn";
+import { stayDateToLocal, toStayDateString } from "@/lib/stayDates";
 
 export function RequestChangeDialog({
   bookingId,
@@ -45,16 +46,21 @@ export function RequestChangeDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>({
-    from: currentCheckIn,
-    to: currentCheckOut,
+    from: stayDateToLocal(currentCheckIn),
+    to: stayDateToLocal(currentCheckOut),
   });
   const [guests, setGuests] = useState(currentGuests);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const disabledDays = useMemo(
-    () => [{ before: new Date() }, ...otherBookedRanges.map((r) => ({ from: r.checkIn, to: r.checkOut }))],
+  // Stored stay dates are UTC midnights; the picker works in local days.
+  const localBookedRanges = useMemo(
+    () => otherBookedRanges.map((r) => ({ checkIn: stayDateToLocal(r.checkIn), checkOut: stayDateToLocal(r.checkOut) })),
     [otherBookedRanges],
+  );
+  const disabledDays = useMemo(
+    () => [{ before: new Date() }, ...localBookedRanges.map((r) => ({ from: r.checkIn, to: r.checkOut }))],
+    [localBookedRanges],
   );
 
   const nights = range?.from && range?.to ? nightsBetween(range.from, range.to) : 0;
@@ -70,7 +76,7 @@ export function RequestChangeDialog({
   function isSelectionValid(): boolean {
     if (!range?.from || !range?.to) return false;
     if (stayLengthError(nightsBetween(range.from, range.to), { minNights, maxNights })) return false;
-    return !otherBookedRanges.some((r) =>
+    return !localBookedRanges.some((r) =>
       rangesOverlap(range.from as Date, range.to as Date, r.checkIn, r.checkOut),
     );
   }
@@ -96,8 +102,8 @@ export function RequestChangeDialog({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        checkIn: range.from.toISOString(),
-        checkOut: range.to.toISOString(),
+        checkIn: toStayDateString(range.from),
+        checkOut: toStayDateString(range.to),
         guests,
       }),
     });

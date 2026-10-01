@@ -4,6 +4,7 @@ import { computeBookingPricing } from "@/lib/pricing";
 import { generateBookingReference } from "@/lib/bookingReference";
 import { geocodeListing } from "@/lib/geocoding";
 import { generateReferralCode } from "@/lib/referral";
+import { todayStayDate } from "@/lib/stayDates";
 
 /**
  * Shared by prisma/seed.ts (local `npm run db:seed`) and the admin-only
@@ -742,7 +743,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
     const reviewedListing = createdListings.find((l) => l.title === seed.title);
     if (!reviewedListing || !newlyCreatedTitles.has(reviewedListing.title)) continue;
 
-    const checkIn = new Date(Date.now() - seed.checkInDaysAgo * 24 * 60 * 60 * 1000);
+    // Stay dates are UTC midnights (see src/lib/stayDates.ts).
+    const checkIn = new Date(todayStayDate().getTime() - seed.checkInDaysAgo * 24 * 60 * 60 * 1000);
     const checkOut = new Date(checkIn.getTime() + seed.nights * 24 * 60 * 60 * 1000);
     const pricing = computeBookingPricing({
       nights: seed.nights,

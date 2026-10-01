@@ -24,6 +24,7 @@ import { isSuspended } from "@/lib/suspension";
 import { heldRepeatBookingWhere } from "@/lib/heldBooking";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
+import { parseStayDate, todayStayDate } from "@/lib/stayDates";
 
 // Exactly one of listingId (every non-hotel booking, unchanged) or
 // roomTypeId (a HOTEL listing's room type, with roomsBooked defaulting to
@@ -90,10 +91,10 @@ async function postHandler(request: Request) {
 
   const { listingId, roomTypeId, guests, promoCode } = parsed.data;
   const roomsBooked = parsed.data.roomsBooked ?? 1;
-  const checkIn = new Date(parsed.data.checkIn);
-  const checkOut = new Date(parsed.data.checkOut);
+  const checkIn = parseStayDate(parsed.data.checkIn);
+  const checkOut = parseStayDate(parsed.data.checkOut);
 
-  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+  if (!checkIn || !checkOut) {
     return NextResponse.json({ error: "Invalid dates" }, { status: 400 });
   }
   if (checkOut <= checkIn) {
@@ -104,8 +105,7 @@ async function postHandler(request: Request) {
   }
   // The calendar UI already disables past dates, but that's client-side
   // only, so enforce it here too, since this endpoint is reachable directly.
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayStayDate();
   if (checkIn < today) {
     return NextResponse.json({ error: "Check-in date must be in the future" }, { status: 400 });
   }

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Dialog, ConfirmDialog } from "@/components/ui/Dialog";
 import { nightsBetween } from "@/lib/availability";
 import { cn } from "@/lib/cn";
+import { stayDateToLocal, toStayDateString } from "@/lib/stayDates";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
@@ -71,12 +72,14 @@ function useIsWideScreen(): boolean {
 
 function findBookingForDate(bookings: BookingRow[], date: Date): BookingRow | undefined {
   return bookings.find(
-    (b) => (b.status === "CONFIRMED" || b.status === "PENDING") && date >= b.checkIn && date < b.checkOut,
+    (b) => (b.status === "CONFIRMED" || b.status === "PENDING") &&
+      date >= stayDateToLocal(b.checkIn) &&
+      date < stayDateToLocal(b.checkOut),
   );
 }
 
 function findBlockForDate(blocks: BlockRow[], date: Date): BlockRow | undefined {
-  return blocks.find((b) => date >= b.startDate && date < b.endDate);
+  return blocks.find((b) => date >= stayDateToLocal(b.startDate) && date < stayDateToLocal(b.endDate));
 }
 
 type DayInfo = { booking?: BookingRow; block?: BlockRow; title: string };
@@ -104,15 +107,15 @@ export function AvailabilityCalendar({
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
 
   const confirmedRanges = useMemo(
-    () => bookings.filter((b) => b.status === "CONFIRMED").map((b) => ({ from: b.checkIn, to: b.checkOut })),
+    () => bookings.filter((b) => b.status === "CONFIRMED").map((b) => ({ from: stayDateToLocal(b.checkIn), to: stayDateToLocal(b.checkOut) })),
     [bookings],
   );
   const pendingRanges = useMemo(
-    () => bookings.filter((b) => b.status === "PENDING").map((b) => ({ from: b.checkIn, to: b.checkOut })),
+    () => bookings.filter((b) => b.status === "PENDING").map((b) => ({ from: stayDateToLocal(b.checkIn), to: stayDateToLocal(b.checkOut) })),
     [bookings],
   );
   const blockedRanges = useMemo(
-    () => blocks.map((b) => ({ from: b.startDate, to: b.endDate })),
+    () => blocks.map((b) => ({ from: stayDateToLocal(b.startDate), to: stayDateToLocal(b.endDate) })),
     [blocks],
   );
 
@@ -207,8 +210,8 @@ export function AvailabilityCalendar({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          startDate: range.from.toISOString(),
-          endDate: range.to.toISOString(),
+          startDate: toStayDateString(range.from),
+          endDate: toStayDateString(range.to),
           reason: reason.trim() || undefined,
           roomTypeId,
         }),
