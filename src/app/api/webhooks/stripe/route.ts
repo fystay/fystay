@@ -337,7 +337,10 @@ async function postHandler(request: Request) {
         await confirmPaidBooking(bookingId, checkoutSession);
       }
     } else if (changeRequestId && isCheckoutSessionPaid(checkoutSession)) {
-      await applyApprovedChange(changeRequestId);
+      await applyApprovedChange(
+        changeRequestId,
+        typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null,
+      );
     }
   } else if (event.type === "checkout.session.async_payment_succeeded") {
     // A delayed payment method (bank debit etc.) that left its session
@@ -351,7 +354,10 @@ async function postHandler(request: Request) {
     if (!purpose && bookingId && isCheckoutSessionPaid(checkoutSession)) {
       await confirmPaidBooking(bookingId, checkoutSession);
     } else if (changeRequestId && isCheckoutSessionPaid(checkoutSession)) {
-      await applyApprovedChange(changeRequestId);
+      await applyApprovedChange(
+        changeRequestId,
+        typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null,
+      );
     }
   } else if (event.type === "checkout.session.async_payment_failed") {
     // The delayed payment never arrived. Nothing was confirmed on the
