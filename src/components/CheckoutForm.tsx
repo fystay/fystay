@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { formatPrice } from "@/lib/format";
 import { useReserveBottomSpace } from "@/hooks/useReserveBottomSpace";
+import { StripeBadge } from "@/components/StripeBadge";
 
 export function CheckoutForm({
   bookingId,
@@ -142,6 +143,9 @@ export function CheckoutForm({
         You&apos;ll pay on Stripe&apos;s secure checkout page. FYStay never sees or stores your
         card details.
       </p>
+      <div className="mt-4 flex justify-center">
+        <StripeBadge />
+      </div>
 
       <div
         ref={mobileBarRef}

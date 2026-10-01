@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { StripeBadge } from "@/components/StripeBadge";
 
 export const metadata: Metadata = { title: "Payouts", robots: { index: false } };
 
@@ -61,7 +62,10 @@ export default async function HostPayoutsPage({
 
       <Card className="mt-6">
         <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>Stripe account</CardTitle>
+          <div className="flex flex-col gap-1.5">
+            <CardTitle>Stripe account</CardTitle>
+            <StripeBadge />
+          </div>
           {ready ? (
             <Badge variant="success">Payouts active</Badge>
           ) : started ? (
