@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
+import { heldRepeatBookingWhere } from "@/lib/heldBooking";
 import {
   blockingBookingWhere,
   blockingRanges,
@@ -172,10 +174,31 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const listing = await prisma.listing.findUnique({
     where: { id },
     include: {
-      bookings: { where: blockingBookingWhere(), select: { checkIn: true, checkOut: true } },
+      bookings: { where: blockingBookingWhere(), select: { id: true, checkIn: true, checkOut: true } },
       availabilityBlocks: { select: { startDate: true, endDate: true } },
     },
   });
+
+  // The signed-in guest's own held booking for exactly this stay doesn't
+  // count against them - re-checking after Back from checkout should say
+  // "available" and let them carry on with that same booking (POST
+  // /api/bookings hands it back), not report their own hold as taken.
+  const session = await auth();
+  const ownHeld = session?.user
+    ? await prisma.booking.findFirst({
+        where: heldRepeatBookingWhere({
+          guestId: session.user.id,
+          listingId: id,
+          checkIn,
+          checkOut,
+          guests: parsed.data.guests,
+        }),
+        select: { id: true },
+      })
+    : null;
+  const blockingBookings = ownHeld
+    ? (listing?.bookings ?? []).filter((booking) => booking.id !== ownHeld.id)
+    : (listing?.bookings ?? []);
 
   if (!listing || !listing.published) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
@@ -186,7 +209,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       { status: 200 },
     );
   }
-  if (!isRangeAvailable(checkIn, checkOut, blockingRanges(listing.bookings, listing.availabilityBlocks))) {
+  if (!isRangeAvailable(checkIn, checkOut, blockingRanges(blockingBookings, listing.availabilityBlocks))) {
     return NextResponse.json(
       { available: false, error: "Those dates are not available" },
       { status: 200 },

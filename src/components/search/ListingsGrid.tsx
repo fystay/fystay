@@ -13,6 +13,7 @@ import { findLandmarkByName } from "@/lib/landmarks";
 import { auth } from "@/auth";
 import { ListingsCarousel } from "@/components/ListingsCarousel";
 import { ListingCard } from "@/components/ListingCard";
+import { buildStayQuery } from "@/lib/stayQuery";
 import { FilterSheet } from "@/components/FilterSheet";
 import { SortDropdown } from "@/components/SortDropdown";
 import { ResultsViewToggle } from "@/components/ResultsViewToggle";
@@ -134,9 +135,26 @@ export async function ListingsGrid({
       )
     : new Set<string>();
 
-  const checkIn = checkInParam ? new Date(checkInParam) : null;
-  const checkOut = checkOutParam ? new Date(checkOutParam) : null;
+  // A hand-edited or stale URL can carry dates that aren't a usable range
+  // (unparseable, or check-out not after check-in) - those are ignored,
+  // with a note saying so, rather than filtering results by a broken range.
+  const parsedCheckIn = checkInParam ? new Date(checkInParam) : null;
+  const parsedCheckOut = checkOutParam ? new Date(checkOutParam) : null;
+  const datesUsable =
+    !!parsedCheckIn &&
+    !!parsedCheckOut &&
+    !Number.isNaN(parsedCheckIn.getTime()) &&
+    !Number.isNaN(parsedCheckOut.getTime()) &&
+    parsedCheckOut > parsedCheckIn;
+  const invalidDates = Boolean(checkInParam || checkOutParam) && !datesUsable;
+  const checkIn = datesUsable ? parsedCheckIn : null;
+  const checkOut = datesUsable ? parsedCheckOut : null;
   const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : undefined;
+  // Carried onto each card's link so the listing's booking widget opens
+  // with the dates and guests already searched for.
+  const stayQuery = buildStayQuery(
+    datesUsable ? searchParams : { ...searchParams, checkIn: undefined, checkOut: undefined },
+  );
 
   // A hotel with one fully-booked room type and another still free is still
   // bookable - hiding it because *some* room type overlaps would be wrong,
@@ -232,6 +250,11 @@ export async function ListingsGrid({
     <div
       className={cn("flex flex-col gap-5", showResultsView && "animate-search-reveal-in")}
     >
+      {invalidDates && (
+        <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Check your dates - check-out needs to be after check-in. Showing all stays for now.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm font-medium text-stone-500">
@@ -298,6 +321,7 @@ export async function ListingsGrid({
                 isLoggedIn={Boolean(session?.user)}
                 nights={nights}
                 nearLandmark={landmark}
+                stayQuery={stayQuery}
               />
             ))}
           </div>

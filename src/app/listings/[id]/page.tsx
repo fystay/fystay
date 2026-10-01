@@ -52,6 +52,7 @@ import { PROPERTY_TYPE_LABEL } from "@/lib/propertyType";
 import { getFeaturedOffering } from "@/lib/travelAddons";
 import { formatPrice } from "@/lib/format";
 import { isSuspended } from "@/lib/suspension";
+import { parseStaySelection } from "@/lib/stayQuery";
 
 const getListing = cache(async (id: string) => {
   return prisma.listing.findUnique({
@@ -62,7 +63,14 @@ const getListing = cache(async (id: string) => {
       },
       bookings: {
         where: blockingBookingWhere(),
-        select: { checkIn: true, checkOut: true },
+        select: {
+          checkIn: true,
+          checkOut: true,
+          guestId: true,
+          status: true,
+          paymentStatus: true,
+          approvalStatus: true,
+        },
       },
       availabilityBlocks: {
         select: { startDate: true, endDate: true },
@@ -114,10 +122,13 @@ export async function generateMetadata({
 
 export default async function ListingDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const staySelection = parseStaySelection(await searchParams);
   const [listing, session, featuredAddonOffering] = await Promise.all([
     getListing(id),
     auth(),
@@ -469,6 +480,7 @@ export default async function ListingDetailPage({
               isLoggedIn={Boolean(session?.user)}
               cancellationPolicy={cancellationPolicy}
               instantBook={listing.instantBook}
+              initialSelection={staySelection}
             />
           ) : (
             <BookingWidget
@@ -481,7 +493,22 @@ export default async function ListingDetailPage({
               maxNights={listing.maxNights}
               maxGuests={listing.maxGuests}
               amenities={listing.amenities}
-              bookedRanges={blockingRanges(listing.bookings, listing.availabilityBlocks).map(
+              bookedRanges={blockingRanges(
+                // The viewer's own unpaid instant-book hold isn't shown as
+                // taken to them, so going back from checkout lets them pick
+                // the same stay again and carry on with that booking.
+                listing.bookings.filter(
+                  (booking) =>
+                    !(
+                      session?.user &&
+                      booking.guestId === session.user.id &&
+                      booking.status === "PENDING" &&
+                      booking.paymentStatus === "UNPAID" &&
+                      booking.approvalStatus === "NONE"
+                    ),
+                ),
+                listing.availabilityBlocks,
+              ).map(
                 (r) => ({ checkIn: r.checkIn.toISOString(), checkOut: r.checkOut.toISOString() }),
               )}
               isLoggedIn={Boolean(session?.user)}
@@ -489,6 +516,7 @@ export default async function ListingDetailPage({
               reviewCount={reviewCount}
               cancellationPolicy={cancellationPolicy}
               instantBook={listing.instantBook}
+              initialSelection={staySelection}
             />
           )}
 

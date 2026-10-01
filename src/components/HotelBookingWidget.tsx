@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { type DateRange } from "react-day-picker";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { ArrowRight, BedDouble, ImageOff, Lock, Minus, Plus, ShieldCheck, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -17,6 +18,7 @@ import type { CancellationPolicy } from "@/lib/cancellationPolicy";
 import { computeBookingPricing } from "@/lib/pricing";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
+import type { StaySelection } from "@/lib/stayQuery";
 
 export type HotelRoomTypeSummary = {
   id: string;
@@ -43,6 +45,8 @@ type Props = {
   cancellationPolicy: CancellationPolicy;
   /** false means this listing is request-to-book: a guest submits a request and the host must accept it before any payment is offered. */
   instantBook: boolean;
+  /** The stay the guest searched for (see parseStaySelection), so dates and guests open already selected. */
+  initialSelection?: StaySelection;
 };
 
 function Stepper({
@@ -106,8 +110,29 @@ export function HotelBookingWidget({
   isLoggedIn,
   cancellationPolicy,
   instantBook,
+  initialSelection,
 }: Props) {
-  const [range, setRange] = useState<DateRange | undefined>();
+  const [range, setRange] = useState<DateRange | undefined>(() =>
+    initialSelection?.checkIn && initialSelection.checkOut
+      ? { from: parseISO(initialSelection.checkIn), to: parseISO(initialSelection.checkOut) }
+      : undefined,
+  );
+  // Adults + children searched for, if any - each room type starts at that
+  // (capped to what the room sleeps) instead of its maximum.
+  const searchedGuests = initialSelection
+    ? Math.max(initialSelection.guests.adults + initialSelection.guests.children, 1)
+    : null;
+  // Where "Log in to book" sends the guest back to, keeping the dates picked.
+  const loginHref = (() => {
+    const query = new URLSearchParams();
+    if (range?.from && range?.to) {
+      query.set("checkIn", format(range.from, "yyyy-MM-dd"));
+      query.set("checkOut", format(range.to, "yyyy-MM-dd"));
+    }
+    if (searchedGuests && searchedGuests !== 1) query.set("adults", String(searchedGuests));
+    const serialized = query.toString();
+    return `/login?callbackUrl=${encodeURIComponent(`/listings/${listingId}${serialized ? `?${serialized}` : ""}`)}`;
+  })();
   const disabledDays = useMemo(() => [{ before: new Date() }], []);
   const nights = range?.from && range?.to ? nightsBetween(range.from, range.to) : 0;
   const lengthError = nights > 0 ? stayLengthError(nights, { minNights, maxNights }) : null;
@@ -159,6 +184,8 @@ export function HotelBookingWidget({
               monthlyDiscountPercent={monthlyDiscountPercent}
               isLoggedIn={isLoggedIn}
               instantBook={instantBook}
+              initialGuests={searchedGuests}
+              loginHref={loginHref}
             />
           ))}
         </div>
@@ -196,6 +223,8 @@ function RoomTypeBookingCard({
   monthlyDiscountPercent,
   isLoggedIn,
   instantBook,
+  initialGuests,
+  loginHref,
 }: {
   listingId: string;
   roomType: HotelRoomTypeSummary;
@@ -205,10 +234,14 @@ function RoomTypeBookingCard({
   monthlyDiscountPercent?: number | null;
   isLoggedIn: boolean;
   instantBook: boolean;
+  initialGuests: number | null;
+  loginHref: string;
 }) {
   const router = useRouter();
   const [roomsBooked, setRoomsBooked] = useState(1);
-  const [guests, setGuests] = useState(roomType.maxGuests);
+  const [guests, setGuests] = useState(() =>
+    initialGuests ? Math.min(initialGuests, roomType.maxGuests) : roomType.maxGuests,
+  );
   const [checking, setChecking] = useState(false);
   const [reserving, setReserving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -488,7 +521,7 @@ function RoomTypeBookingCard({
       <div className="mt-3">
         {!isLoggedIn ? (
           <Button
-            onClick={() => router.push(`/login?callbackUrl=/listings/${listingId}`)}
+            onClick={() => router.push(loginHref)}
             size="sm"
             className="w-full"
           >

@@ -43,6 +43,7 @@ export function ListingCard({
   isLoggedIn = false,
   nights,
   nearLandmark,
+  stayQuery = "",
 }: {
   listing: ListingCardData;
   isSaved?: boolean;
@@ -56,6 +57,8 @@ export function ListingCard({
    * distance/walk/drive line so a guest can see exactly why this result
    * surfaced, not just trust an invisible sort order. */
   nearLandmark?: { name: string; latitude: number; longitude: number };
+  /** The searched stay as a query string (see buildStayQuery), appended to the listing link. */
+  stayQuery?: string;
 }) {
   const rating = computeAverageRating(listing.reviews);
   const landmarkDistance =
@@ -146,7 +149,7 @@ export function ListingCard({
           than a wide filmstrip thumbnail. */}
       <div className="relative aspect-[5/4] w-full overflow-hidden rounded-2xl bg-brand-50 shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] group-hover:ring-brand-200">
         <Link
-          href={`/listings/${listing.id}`}
+          href={`/listings/${listing.id}${stayQuery}`}
           className="focus-ring absolute inset-0 block rounded-2xl"
           onTouchStart={photoCount > 1 ? handleTouchStart : undefined}
           onTouchEnd={photoCount > 1 ? handleTouchEnd : undefined}
@@ -228,7 +231,7 @@ export function ListingCard({
           className="absolute right-2.5 top-2.5 z-10 h-10 w-10 bg-white/80 shadow-[var(--shadow-card)] backdrop-blur-sm hover:bg-white active:scale-90"
         />
       </div>
-      <Link href={`/listings/${listing.id}`} className="focus-ring flex flex-col gap-2 rounded-xl">
+      <Link href={`/listings/${listing.id}${stayQuery}`} className="focus-ring flex flex-col gap-2 rounded-xl">
         {/* min-h keeps this row the same height whether the title wraps to
             one line or two, so price/rating rows still line up across a
             row of cards regardless of title length. */}

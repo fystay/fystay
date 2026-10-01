@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type DateRange } from "react-day-picker";
-import { format, subDays } from "date-fns";
+import { format, parseISO, subDays } from "date-fns";
 import { toast } from "sonner";
 import { ArrowRight, CalendarClock, Lock, MessageCircle, ShieldCheck, Star, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -21,6 +21,7 @@ import {
   WEEKLY_DISCOUNT_MIN_NIGHTS,
 } from "@/lib/pricing";
 import { isPetFriendly, totalOccupants, type GuestCounts } from "@/lib/search";
+import type { StaySelection } from "@/lib/stayQuery";
 
 type Props = {
   listingId: string;
@@ -38,8 +39,20 @@ type Props = {
   reviewCount?: number;
   cancellationPolicy: CancellationPolicy;
   /** false means this listing is request-to-book: a guest submits a request and the host must accept it before any payment is offered. */
-  instantBook: boolean;
+  instantBook: boolean;  /** The stay the guest searched for (see parseStaySelection), so the widget opens with it already selected. */
+  initialSelection?: StaySelection;
 };
+
+/** Guest counts from a search, trimmed to what this listing can actually host. */
+function fitGuestsToListing(guests: GuestCounts, capacity: number, petsAllowed: boolean): GuestCounts {
+  const adults = Math.min(Math.max(guests.adults, 1), capacity);
+  return {
+    adults,
+    children: Math.min(guests.children, Math.max(capacity - adults, 0)),
+    infants: guests.infants,
+    pets: petsAllowed ? guests.pets : 0,
+  };
+}
 
 export function BookingWidget({
   listingId,
@@ -57,15 +70,21 @@ export function BookingWidget({
   reviewCount = 0,
   cancellationPolicy,
   instantBook,
+  initialSelection,
 }: Props) {
   const router = useRouter();
-  const [range, setRange] = useState<DateRange | undefined>();
-  const [guestCounts, setGuestCounts] = useState<GuestCounts>({
-    adults: 1,
-    children: 0,
-    infants: 0,
-    pets: 0,
-  });
+  const [range, setRange] = useState<DateRange | undefined>(() =>
+    initialSelection?.checkIn && initialSelection.checkOut
+      ? { from: parseISO(initialSelection.checkIn), to: parseISO(initialSelection.checkOut) }
+      : undefined,
+  );
+  const [guestCounts, setGuestCounts] = useState<GuestCounts>(() =>
+    fitGuestsToListing(
+      initialSelection?.guests ?? { adults: 1, children: 0, infants: 0, pets: 0 },
+      maxGuests,
+      isPetFriendly(amenities),
+    ),
+  );
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [reserving, setReserving] = useState(false);
@@ -249,6 +268,22 @@ export function BookingWidget({
     }
   }
 
+  // Where "Log in to book" sends the guest back to, with the dates and
+  // guests they'd picked still selected.
+  function listingUrlWithSelection(): string {
+    const query = new URLSearchParams();
+    if (range?.from && range?.to) {
+      query.set("checkIn", format(range.from, "yyyy-MM-dd"));
+      query.set("checkOut", format(range.to, "yyyy-MM-dd"));
+    }
+    if (guestCounts.adults !== 1) query.set("adults", String(guestCounts.adults));
+    if (guestCounts.children > 0) query.set("children", String(guestCounts.children));
+    if (guestCounts.infants > 0) query.set("infants", String(guestCounts.infants));
+    if (guestCounts.pets > 0) query.set("pets", String(guestCounts.pets));
+    const serialized = query.toString();
+    return `/listings/${listingId}${serialized ? `?${serialized}` : ""}`;
+  }
+
   const hasDates = Boolean(range?.from && range?.to);
 
   return (
@@ -408,7 +443,7 @@ export function BookingWidget({
 
         {!isLoggedIn ? (
           <Button
-            onClick={() => router.push(`/login?callbackUrl=/listings/${listingId}`)}
+            onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(listingUrlWithSelection())}`)}
             size="lg"
             className="mt-4 w-full"
           >

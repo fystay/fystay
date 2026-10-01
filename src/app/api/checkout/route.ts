@@ -3,7 +3,7 @@ import { z } from "zod";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { getStripeClient } from "@/lib/stripe";
+import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { isConnectReady } from "@/lib/stripeConnect";
 import { applyDiscountsToApplicationFee } from "@/lib/pricing";
@@ -86,6 +86,9 @@ async function postHandler(request: Request) {
   const stripe = getStripeClient();
 
   if (!stripe) {
+    if (!allowsUnpaidConfirmation()) {
+      return NextResponse.json({ error: PAYMENTS_UNAVAILABLE_MESSAGE }, { status: 503 });
+    }
     // Stripe isn't configured (e.g. local dev without keys). Confirm directly
     // so the booking flow can still be exercised end to end.
     await prisma.booking.update({

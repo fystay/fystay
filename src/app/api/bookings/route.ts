@@ -21,6 +21,7 @@ import { computePromoDiscount, normalizePromoCode, validatePromoCode } from "@/l
 import { sendBookingRequestReceivedEmail } from "@/lib/notificationEmails";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { isSuspended } from "@/lib/suspension";
+import { heldRepeatBookingWhere } from "@/lib/heldBooking";
 
 // Exactly one of listingId (every non-hotel booking, unchanged) or
 // roomTypeId (a HOTEL listing's room type, with roomsBooked defaulting to
@@ -105,6 +106,25 @@ async function postHandler(request: Request) {
   today.setHours(0, 0, 0, 0);
   if (checkIn < today) {
     return NextResponse.json({ error: "Check-in date must be in the future" }, { status: 400 });
+  }
+
+  // A repeat submission for exactly the same stay - a double-click, or Back
+  // from checkout then Reserve again - gets the guest's own still-held,
+  // unpaid booking back instead of colliding with its hold as "dates not
+  // available". Instant-book only (a request awaiting the host is a
+  // different flow), and not when a promo code is being applied this time.
+  if (!promoCode) {
+    const heldBooking = await prisma.booking.findFirst({
+      where: heldRepeatBookingWhere(
+        roomTypeId
+          ? { guestId: session.user.id, roomTypeId, roomsBooked, checkIn, checkOut, guests }
+          : { guestId: session.user.id, listingId: listingId!, checkIn, checkOut, guests },
+      ),
+      orderBy: { createdAt: "desc" },
+    });
+    if (heldBooking) {
+      return NextResponse.json({ booking: heldBooking, reused: true }, { status: 200 });
+    }
   }
 
   const guestAccount = await prisma.user.findUnique({

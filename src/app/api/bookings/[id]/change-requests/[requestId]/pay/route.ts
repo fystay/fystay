@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { getStripeClient } from "@/lib/stripe";
+import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { formatPrice } from "@/lib/format";
 import { splitByHostShare } from "@/lib/pricing";
 import { isConnectReady } from "@/lib/stripeConnect";
@@ -41,6 +41,9 @@ export async function POST(
   const stripe = getStripeClient();
 
   if (!stripe) {
+    if (!allowsUnpaidConfirmation()) {
+      return NextResponse.json({ error: PAYMENTS_UNAVAILABLE_MESSAGE }, { status: 503 });
+    }
     await applyApprovedChange(requestId);
     return NextResponse.json({
       url: `${baseUrl}/bookings?dev_confirmed=1`,
