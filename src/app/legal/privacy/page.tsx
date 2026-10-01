@@ -2,6 +2,8 @@ import Link from "next/link";
 import { LegalPageLayout, LegalSection } from "@/components/legal/LegalPageLayout";
 import { describeOperator, getCompanyInfo } from "@/lib/companyInfo";
 import { PRIVACY_EMAIL, SITE_URL, pageMetadata } from "@/lib/seo";
+import { googleSignInEnabled } from "@/lib/authProviders";
+import { isPhoneVerificationConfigured } from "@/lib/phoneVerification";
 
 export const metadata = pageMetadata({
   title: "Privacy Policy",
@@ -9,7 +11,7 @@ export const metadata = pageMetadata({
   path: "/legal/privacy",
 });
 
-const LAST_UPDATED = "31 August 2026";
+const LAST_UPDATED = "1 October 2026";
 
 export default function PrivacyPolicyPage() {
   const company = getCompanyInfo();
@@ -91,6 +93,34 @@ export default function PrivacyPolicyPage() {
           <li>
             <span className="font-medium text-foreground">Resend</span> - to send account and
             booking emails (e.g. password reset).
+          </li>
+          <li>
+            <span className="font-medium text-foreground">Vercel</span> - hosts the website, so
+            it handles every request to it, including your IP address.
+          </li>
+          {process.env.SENTRY_DSN && (
+            <li>
+              <span className="font-medium text-foreground">Sentry</span> - error monitoring, so we
+              can find and fix faults. An error report can include technical details of the request
+              that failed.
+            </li>
+          )}
+          {isPhoneVerificationConfigured() && (
+            <li>
+              <span className="font-medium text-foreground">Twilio</span> - to send the code that
+              verifies your phone number, if you choose to verify it.
+            </li>
+          )}
+          {googleSignInEnabled && (
+            <li>
+              <span className="font-medium text-foreground">Google</span> - if you choose to sign in
+              with Google, to confirm your identity.
+            </li>
+          )}
+          <li>
+            <span className="font-medium text-foreground">Trip extra providers</span> - if you buy
+            a trip extra (such as an airport transfer), the provider receives your name, contact
+            details, stay dates and any notes you add, so they can deliver it.
           </li>
           <li>
             <span className="font-medium text-foreground">The other party to a booking</span> -
