@@ -2,7 +2,7 @@
  * Pure mapping from Stripe's own dispute.status string to this app's
  * DisputeStatus enum - kept separate from the webhook route so the
  * mapping itself is directly unit-testable (the same reason
- * connectFlagsFromAccount in stripeConnect.ts exists as its own function).
+ * connectFlagsFromV2Account in stripeConnect.ts exists as its own function).
  */
 export type MappedDisputeStatus =
   | "WARNING_NEEDS_RESPONSE"

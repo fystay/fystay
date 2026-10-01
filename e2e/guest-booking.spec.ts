@@ -125,5 +125,6 @@ test("logged-out guest is redirected to log in when trying to book", async ({ pa
 
   await page.getByRole("button", { name: "Log in to book" }).click();
   await page.waitForURL(/\/login/);
-  expect(page.url()).toContain("callbackUrl=/listings/");
+  // The callback is URL-encoded (it can carry the selected dates/guests).
+  expect(decodeURIComponent(page.url())).toContain("callbackUrl=/listings/");
 });

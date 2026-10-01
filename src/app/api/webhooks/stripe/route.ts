@@ -3,7 +3,7 @@ import { withApiErrorHandling } from "@/lib/apiError";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 import { applyApprovedChange } from "@/app/api/bookings/[id]/change-requests/[requestId]/pay/route";
-import { connectFlagsFromAccount } from "@/lib/stripeConnect";
+import { refreshConnectAccountStatus } from "@/lib/stripeConnect";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
 import { depositClaimDeadline } from "@/lib/securityDeposit";
@@ -12,6 +12,72 @@ import { notifyTripExtraPaid } from "@/app/api/bookings/[id]/extras/route";
 import { sendDisputeAlertEmail } from "@/lib/notificationEmails";
 import { evidenceDueByDate, mapStripeDisputeStatus } from "@/lib/paymentDisputes";
 import type Stripe from "stripe";
+
+/**
+ * Whether a completed Checkout Session has actually been paid. "unpaid" is
+ * what a delayed-notification payment method reports at completion - the
+ * money hasn't moved yet, so nothing may be confirmed on it.
+ */
+function isCheckoutSessionPaid(session: Stripe.Checkout.Session): boolean {
+  return session.payment_status === "paid" || session.payment_status === "no_payment_required";
+}
+
+/**
+ * Confirms a booking once its Checkout Session is paid - shared by
+ * checkout.session.completed (card payments) and
+ * checkout.session.async_payment_succeeded (delayed payment methods).
+ */
+async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Checkout.Session): Promise<void> {
+  // Stripe's own docs are explicit that a webhook endpoint must tolerate
+  // the same event arriving more than once (a retry after a slow 200, or
+  // just an occasional genuine duplicate). Scoping the update to bookings
+  // not already CONFIRMED makes a redelivery a pure no-op instead of
+  // re-sending the guest and host their confirmation email a second (or
+  // third) time for a booking that was already confirmed the first time.
+  const { count } = await prisma.booking.updateMany({
+    where: { id: bookingId, status: { not: "CONFIRMED" } },
+    data: {
+      status: "CONFIRMED",
+      paymentStatus: "PAID",
+      paidAt: new Date(),
+      stripePaymentIntentId:
+        typeof checkoutSession.payment_intent === "string"
+          ? checkoutSession.payment_intent
+          : undefined,
+    },
+  });
+
+  if (count > 0) {
+    const booking = await prisma.booking.findUniqueOrThrow({
+      where: { id: bookingId },
+      include: { listing: { include: { host: true } } },
+    });
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    await sendBookingConfirmedEmails({
+      reference: booking.reference,
+      listingTitle: booking.listing.title,
+      city: booking.listing.city,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      nights: booking.nights,
+      guests: booking.guests,
+      totalPriceCents: booking.totalPriceCents,
+      guestName: booking.guestName,
+      guestEmail: booking.guestEmail,
+      hostName: booking.listing.host.name,
+      hostEmail: booking.listing.host.email,
+      bookingUrl: `${baseUrl}/bookings/${booking.id}`,
+    });
+    await awardReferralBonusIfEligible(prisma, booking.guestId);
+    // Best-effort: pushBookingReservation never throws (it catches and
+    // records every failure on the PmsReservationLink row itself), so
+    // awaiting it here can't fail this webhook or delay Stripe's retry
+    // logic - a booking with no PMS-mapped room/listing just resolves to
+    // "not_mapped" immediately.
+    await pushBookingReservation(prisma, bookingId);
+  }
+}
 
 /**
  * Records a Stripe chargeback (see PaymentDispute's own schema comment) and
@@ -151,58 +217,41 @@ async function postHandler(request: Request) {
         });
       }
     } else if (bookingId) {
-      // Stripe's own docs are explicit that a webhook endpoint must tolerate
-      // the same event arriving more than once (a retry after a slow 200, or
-      // just an occasional genuine duplicate). Scoping the update to bookings
-      // not already CONFIRMED makes a redelivery a pure no-op instead of
-      // re-sending the guest and host their confirmation email a second (or
-      // third) time for a booking that was already confirmed the first time.
-      const { count } = await prisma.booking.updateMany({
-        where: { id: bookingId, status: { not: "CONFIRMED" } },
-        data: {
-          status: "CONFIRMED",
-          paymentStatus: "PAID",
-          paidAt: new Date(),
-          stripePaymentIntentId:
-            typeof checkoutSession.payment_intent === "string"
-              ? checkoutSession.payment_intent
-              : undefined,
-        },
-      });
-
-      if (count > 0) {
-        const booking = await prisma.booking.findUniqueOrThrow({
-          where: { id: bookingId },
-          include: { listing: { include: { host: true } } },
-        });
-
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-        await sendBookingConfirmedEmails({
-          reference: booking.reference,
-          listingTitle: booking.listing.title,
-          city: booking.listing.city,
-          checkIn: booking.checkIn,
-          checkOut: booking.checkOut,
-          nights: booking.nights,
-          guests: booking.guests,
-          totalPriceCents: booking.totalPriceCents,
-          guestName: booking.guestName,
-          guestEmail: booking.guestEmail,
-          hostName: booking.listing.host.name,
-          hostEmail: booking.listing.host.email,
-          bookingUrl: `${baseUrl}/bookings/${booking.id}`,
-        });
-        await awardReferralBonusIfEligible(prisma, booking.guestId);
-        // Best-effort: pushBookingReservation never throws (it catches and
-        // records every failure on the PmsReservationLink row itself), so
-        // awaiting it here can't fail this webhook or delay Stripe's retry
-        // logic - a booking with no PMS-mapped room/listing just resolves to
-        // "not_mapped" immediately.
-        await pushBookingReservation(prisma, bookingId);
+      // Only a paid session confirms a booking. Card payments are paid by
+      // the time this fires; a delayed payment method (e.g. a bank debit)
+      // completes the session while still "unpaid" and confirms later via
+      // checkout.session.async_payment_succeeded below.
+      if (isCheckoutSessionPaid(checkoutSession)) {
+        await confirmPaidBooking(bookingId, checkoutSession);
       }
-    } else if (changeRequestId) {
+    } else if (changeRequestId && isCheckoutSessionPaid(checkoutSession)) {
       await applyApprovedChange(changeRequestId);
     }
+  } else if (event.type === "checkout.session.async_payment_succeeded") {
+    // A delayed payment method (bank debit etc.) that left its session
+    // "unpaid" at completion has now actually been paid. Only bookings and
+    // change requests can reach here: checkout for both is otherwise
+    // card-only today, and deposits and Trip Extras stay card-only.
+    const checkoutSession = event.data.object;
+    const bookingId = checkoutSession.metadata?.bookingId;
+    const changeRequestId = checkoutSession.metadata?.changeRequestId;
+    const purpose = checkoutSession.metadata?.purpose;
+    if (!purpose && bookingId && isCheckoutSessionPaid(checkoutSession)) {
+      await confirmPaidBooking(bookingId, checkoutSession);
+    } else if (changeRequestId && isCheckoutSessionPaid(checkoutSession)) {
+      await applyApprovedChange(changeRequestId);
+    }
+  } else if (event.type === "checkout.session.async_payment_failed") {
+    // The delayed payment never arrived. Nothing was confirmed on the
+    // unpaid completion, so there's nothing to undo: the booking stays
+    // PENDING/UNPAID and its date hold lapses on its own. Logged so a
+    // failed payment is visible rather than silent.
+    const checkoutSession = event.data.object;
+    console.warn("Stripe delayed payment failed", {
+      sessionId: checkoutSession.id,
+      bookingId: checkoutSession.metadata?.bookingId ?? null,
+      changeRequestId: checkoutSession.metadata?.changeRequestId ?? null,
+    });
   } else if (event.type === "account.updated") {
     // Fires on every change to a connected account, including ones this app
     // never directly caused (Stripe re-verifying details, a host adding a
@@ -210,16 +259,14 @@ async function postHandler(request: Request) {
     // rather than a stored userId, since that's all this event carries -
     // see also refreshConnectAccountStatus, which does the same lookup for
     // a host returning from onboarding without waiting on this webhook.
+    // The v1 snapshot's charges_enabled/payouts_enabled don't describe a
+    // v2 recipient account, so this re-reads the account through Accounts
+    // v2 and persists its stripe_transfers capability instead.
     const account = event.data.object;
-    await prisma.user
-      .update({
-        where: { stripeConnectAccountId: account.id },
-        data: connectFlagsFromAccount(account),
-      })
-      .catch(() => {
-        // No user has this account id yet (e.g. a stale/test event) -
-        // nothing to update, and not worth failing the webhook over.
-      });
+    await refreshConnectAccountStatus(account.id).catch(() => {
+      // No user has this account id yet (e.g. a stale/test event) -
+      // nothing to update, and not worth failing the webhook over.
+    });
   } else if (event.type === "checkout.session.expired") {
     // The guest never completed payment and Stripe's own session TTL ran
     // out (e.g. they abandoned the card form). Only ever touches a booking

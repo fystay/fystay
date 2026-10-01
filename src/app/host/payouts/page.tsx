@@ -95,8 +95,8 @@ export default async function HostPayoutsPage({
               </p>
               <ul className="flex flex-col gap-1.5 text-sm text-stone-600">
                 <ChecklistItem label="Details submitted" done={host.stripeConnectDetailsSubmitted} />
-                <ChecklistItem label="Charges enabled" done={host.stripeConnectChargesEnabled} />
-                <ChecklistItem label="Payouts enabled" done={host.stripeConnectPayoutsEnabled} />
+                <ChecklistItem label="Can receive booking payouts" done={host.stripeConnectChargesEnabled} />
+                <ChecklistItem label="Payouts to your bank enabled" done={host.stripeConnectPayoutsEnabled} />
               </ul>
               <a href="/api/host/stripe/connect" className={cn(buttonVariants(), "self-start")}>
                 {started ? "Finish onboarding" : "Connect with Stripe"}

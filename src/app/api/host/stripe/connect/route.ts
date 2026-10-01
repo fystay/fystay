@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
+import { hostConnectAccountParams } from "@/lib/stripeConnect";
 
 /**
- * Starts (or resumes) a host's Stripe Express onboarding. A plain GET, not a
+ * Starts (or resumes) a host's Stripe onboarding as a Connect recipient
+ * account (Accounts v2, Express dashboard - see hostConnectAccountParams). A plain GET, not a
  * POST+fetch, so the "Connect with Stripe" button on /host/payouts can just
  * be a link - and so Stripe's own account-link refresh_url (used if a link
  * expires before the host finishes) can point straight back here to mint a
@@ -26,14 +28,9 @@ export async function GET() {
 
   let accountId = user.stripeConnectAccountId;
   if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      email: user.email,
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
-      },
-    });
+    const account = await stripe.v2.core.accounts.create(
+      hostConnectAccountParams({ email: user.email, name: user.name }),
+    );
     accountId = account.id;
     await prisma.user.update({
       where: { id: user.id },
@@ -41,11 +38,16 @@ export async function GET() {
     });
   }
 
-  const accountLink = await stripe.accountLinks.create({
+  const accountLink = await stripe.v2.core.accountLinks.create({
     account: accountId,
-    refresh_url: `${baseUrl}/api/host/stripe/connect`,
-    return_url: `${baseUrl}/host/payouts?onboarding=return`,
-    type: "account_onboarding",
+    use_case: {
+      type: "account_onboarding",
+      account_onboarding: {
+        configurations: ["recipient"],
+        refresh_url: `${baseUrl}/api/host/stripe/connect`,
+        return_url: `${baseUrl}/host/payouts?onboarding=return`,
+      },
+    },
   });
 
   return NextResponse.redirect(accountLink.url);
