@@ -110,6 +110,21 @@ export function applyDiscountsToApplicationFee(
   return Math.max(0, grossApplicationFeeCents - discountsCents);
 }
 
+/**
+ * What a booking's stay itself costs once any weekly/monthly discount is
+ * taken off - the accommodation line the guest is charged at checkout. The
+ * booking stores the gross nightly rate and the discount separately, so
+ * charging nights x nightly rate alone would bill the guest (and pass to
+ * the host) the undiscounted price instead of the total they were shown.
+ */
+export function discountedAccommodationCents(booking: {
+  nights: number;
+  nightlyPriceCents: number;
+  lengthOfStayDiscountCents: number;
+}): number {
+  return booking.nights * booking.nightlyPriceCents - booking.lengthOfStayDiscountCents;
+}
+
 export type ChangeSplitBooking = {
   totalPriceCents: number;
   cleaningFeeCents: number;

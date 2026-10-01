@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyDiscountsToApplicationFee,
+  discountedAccommodationCents,
   computeBookingPricing,
   GUEST_SERVICE_FEE_RATE,
   resolveLengthOfStayDiscount,
@@ -181,5 +182,25 @@ describe("applyDiscountsToApplicationFee", () => {
 
   it("combines a referral credit and a promo discount into a single deduction", () => {
     expect(applyDiscountsToApplicationFee(3000, 1000 + 500)).toBe(1500);
+  });
+});
+
+describe("discountedAccommodationCents", () => {
+  it("charges a discounted stay at the price the guest was shown, not the gross nightly total", () => {
+    const pricing = computeBookingPricing({ nights: 7, pricePerNightCents: 10000, weeklyDiscountPercent: 10 });
+    const accommodation = discountedAccommodationCents({
+      nights: 7,
+      nightlyPriceCents: 10000,
+      lengthOfStayDiscountCents: pricing.lengthOfStayDiscountCents,
+    });
+    expect(accommodation).toBe(63000);
+    // Checkout's line items (accommodation + cleaning + fee + tax) add up to the booking's total.
+    expect(accommodation + pricing.cleaningFeeCents + pricing.serviceFeeCents + pricing.taxCents).toBe(
+      pricing.totalPriceCents,
+    );
+  });
+
+  it("is simply nights x nightly rate when no discount applies", () => {
+    expect(discountedAccommodationCents({ nights: 3, nightlyPriceCents: 7500, lengthOfStayDiscountCents: 0 })).toBe(22500);
   });
 });

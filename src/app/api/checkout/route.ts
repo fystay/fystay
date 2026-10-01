@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
-import { applyDiscountsToApplicationFee } from "@/lib/pricing";
+import { applyDiscountsToApplicationFee, discountedAccommodationCents } from "@/lib/pricing";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
 
@@ -134,7 +134,10 @@ async function postHandler(request: Request) {
     // "create_new": the old session expired unpaid; fall through below.
   }
 
-  const nightsLabel = `${booking.nights} night${booking.nights > 1 ? "s" : ""}`;
+  const discountNote = booking.lengthOfStayDiscountLabel
+    ? ` (${booking.lengthOfStayDiscountLabel} discount applied)`
+    : "";
+  const nightsLabel = `${booking.nights} night${booking.nights > 1 ? "s" : ""}${discountNote}`;
   const lineItemName = booking.roomType
     ? `${booking.listing.title} — ${booking.roomType.name} × ${booking.roomsBooked} room${booking.roomsBooked > 1 ? "s" : ""}: ${nightsLabel}`
     : `${booking.listing.title}: ${nightsLabel}`;
@@ -144,7 +147,7 @@ async function postHandler(request: Request) {
       price_data: {
         currency: "gbp",
         product_data: { name: lineItemName },
-        unit_amount: booking.nights * booking.nightlyPriceCents,
+        unit_amount: discountedAccommodationCents(booking),
       },
       quantity: 1,
     },
