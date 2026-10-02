@@ -39,8 +39,9 @@ test("the desktop header doesn't repeat links the pills already cover", async ({
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/search");
   const header = page.locator("header");
-  await expect(header.getByRole("link", { name: "Hotels" })).toBeVisible();
-  await expect(header.getByRole("link", { name: "About" })).toBeVisible();
+  // exact: the logo link's name includes its "Hotels · B&Bs · Apartments" tagline.
+  await expect(header.getByRole("link", { name: "Hotels", exact: true })).toBeVisible();
+  await expect(header.getByRole("link", { name: "About", exact: true })).toBeVisible();
   await expect(header.getByRole("link", { name: "Stays", exact: true })).toHaveCount(0);
   await expect(header.getByRole("link", { name: "Destinations", exact: true })).toHaveCount(0);
 });
