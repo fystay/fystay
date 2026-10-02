@@ -28,7 +28,8 @@ import { TripTypeCategories } from "@/components/TripTypeCategories";
 import { TravelAddonsSection } from "@/components/TravelAddonsSection";
 import { Reveal } from "@/components/Reveal";
 import { beachStaysSection, groupByCity, recentlyAddedSection } from "@/lib/marketplace";
-import { ADDON_CATEGORY_LABELS, getFeaturedOffering, travelAddonHref } from "@/lib/travelAddons";
+import { getFeaturedOffering } from "@/lib/travelAddons";
+import { SectionPills } from "@/components/SectionPills";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
 import { cn } from "@/lib/cn";
@@ -304,34 +305,12 @@ export default async function Home() {
               this row allows, rather than only ever rendering as wide as
               its fields' own natural size. */}
           <div className="pointer-events-auto w-full max-w-4xl lg:max-w-none">
-            {/* A tab row above the search panel - the "Stays / Airport
-                transfer" split several holiday-booking sites (Jet2, Virgin
-                Atlantic) lead with on their own homepages, rather than a
-                single undifferentiated search box. "Stays" is this bar
-                itself (already selected - there's nothing else to search
-                yet); "Airport transfer" is a plain link into the real
-                EV Exec cross-sell flow already built (see
-                src/lib/travelAddons.ts), not a second search form - there's
-                only one thing to configure for that add-on today. Same
-                dark-glass tokens as the search panel below (bg-ink/*,
-                border-white/*) so the two read as one attached unit rather
-                than a different visual language bolted on top. */}
-            {featuredAddonOffering && (
-              <div className="mb-2 flex justify-center gap-1.5 lg:justify-start">
-                <span
-                  aria-current="true"
-                  className="rounded-full border border-white/15 bg-ink/40 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-xl lg:border-white/10 lg:bg-ink/80"
-                >
-                  Stays
-                </span>
-                <Link
-                  href={travelAddonHref(featuredAddonOffering.category)}
-                  className="focus-ring rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-white/70 backdrop-blur-xl transition-colors hover:bg-white/10 hover:text-white"
-                >
-                  {ADDON_CATEGORY_LABELS[featuredAddonOffering.category]}
-                </Link>
-              </div>
-            )}
+            {/* The four section pills (Stays / Explore / Travel / Services,
+                see src/lib/siteSections.ts) above the search panel. Stays
+                shows pressed here: this search bar is the Stays search.
+                Same dark-glass tokens as the search panel below so the two
+                read as one attached unit. */}
+            <SectionPills variant="hero" className="mb-2 flex justify-center lg:justify-start" />
             <Suspense>
               <SearchBar liveUpdate={false} variant="hero" />
             </Suspense>
