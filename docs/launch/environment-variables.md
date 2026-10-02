@@ -58,7 +58,7 @@ Production, by design: payments are refused cleanly until they are.
 | `DISPUTE_ALERT_EMAIL` | Chargeback alerts; defaults to the support address | Unset |
 | `EV_EXEC_NOTIFICATION_EMAIL`, `EV_EXEC_BOOKING_FORM_URL` | Trip-extra provider seeding (demo/Preview) | Unset |
 | `SENTRY_ORG`, `SENTRY_PROJECT` | Source-map upload target | Set (`fystay` / `fystay-web`) |
-| `SENTRY_AUTH_TOKEN` (secret) | Readable stack traces: enables source-map upload at build | **Missing**: create an Organization Auth Token in Sentry |
+| `SENTRY_AUTH_TOKEN` (secret) | Readable stack traces: enables source-map upload at build | Set (Production + Preview, Sensitive) |
 | Per-route cron secrets (`LOCAL_DATA_`, `ICAL_SYNC_`, `PMS_RECONCILE_`, `BOOKING_LIFECYCLE_`, `BOOKING_REQUEST_`, `SECURITY_DEPOSIT_CRON_SECRET`) | Manual job runs only; `CRON_SECRET` covers everything | Unset (fine) |
 
 ## Should not be in Production

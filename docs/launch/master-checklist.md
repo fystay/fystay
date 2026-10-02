@@ -36,8 +36,7 @@ and deployed (see COMPLETE).
 | Item | Why it matters | Blocks launch? |
 |---|---|---|
 | `TWO_FACTOR_ENCRYPTION_KEY` | 2FA shows "not available" without it. Generate once with `openssl rand -hex 32`; never change it afterwards. | Yes |
-| **Sentry: set on 2 Oct, live after the next Production build.** Project `fystay/fystay-web` (EU region). `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` set for Production + Preview. The CSP allows the ingest host. No personal data is sent (`sendDefaultPii: false`). The release is the Vercel commit SHA. | Takes effect on the next Production build | Done (pending deploy) |
-| **Manual:** `SENTRY_AUTH_TOKEN` for source maps | Create an Organization Auth Token in Sentry (Settings → Developer Settings → Organization Tokens) and add it to Vercel Production + Preview as **Sensitive**. Without it, errors still arrive, with minified stack traces. | No |
+| **Sentry: live in Production since 2 Oct** (`c12c250`, `dpl_7MkzK9UhuX582sogSSNigb9MsvDw`). Project `fystay/fystay-web` (EU). DSN, org, project and auth token are set for Production + Preview. Source maps upload at build; the release is the commit SHA, with Vercel deploys recorded in Sentry. No personal data is sent. The CSP allows the ingest host. | Done | Done |
 | **Manual:** delete `SEED_ADMIN_SECRET` from Vercel **Production** (keep the Preview copy) | Read only by `/api/admin/seed-demo-data`, which refuses in Production. Can't be deleted with the available tooling. | No (hygiene) |
 | **Manual:** delete `PROD_DIRECT_URL` from Vercel **Production** | Only the migration workflow reads it, from the GitHub "production" environment secret, not Vercel; the app never reads it. Keep the GitHub secret. | No (hygiene) |
 | `PMS_ENCRYPTION_KEY` | Only if hosts may connect a property-management system at launch. | No |
@@ -162,6 +161,7 @@ a secret or link, and none treats an unconfigured service as success.
 
 | Item | Commit |
 |---|---|
+| Sentry error monitoring live in Production (browser + server + edge, source maps, releases); verified with a Preview test event | `c12c250` |
 | Production deploy of the readiness batch (admin listings, base-URL fix, privacy processors, admin bootstrap, 2FA state, a11y CI fix), verified live, 2 Oct | `b225c38` (`dpl_AKEpMP9VuEpTJo9dzv7xZtZRSVBa`) |
 | Password-reset guard verified live in Production (no link; guard log line present) | `4bc67b5`, kept in `b225c38` |
 | Cron auth verified: real Vercel cron returned 200 with `CRON_SECRET`; spoofed header and wrong secret return 401 | `2341bf1`, kept in `b225c38` |
