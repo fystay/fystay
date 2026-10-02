@@ -270,7 +270,10 @@ export function ListingCard({
           data-testid="listing-card-title"
           className={cn(
             "line-clamp-2 font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800",
-            isLarge ? "min-h-[3.1rem] text-lg sm:text-xl sm:min-h-[3.4rem]" : "min-h-[2.75rem] text-base",
+            // Large cards show one at a time on phones, so the fixed
+            // two-line height (which lines prices up across a row) only
+            // applies from sm, where two or more sit side by side.
+            isLarge ? "text-lg sm:min-h-[3.4rem] sm:text-xl" : "min-h-[2.75rem] text-base",
           )}
         >
           {listing.title}
