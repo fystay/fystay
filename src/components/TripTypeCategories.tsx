@@ -41,23 +41,28 @@ const TRIP_TYPES: { name: string; description: string; icon: LucideIcon; href: s
   },
 ];
 
+/**
+ * Compact on purpose: phones get a tight 2x2 of icon-beside-label tiles and
+ * wider screens a single row of four, so this reads as a quick "what kind
+ * of break?" chooser rather than another tall stack of cards.
+ */
 export function TripTypeCategories() {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:gap-6">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
       {TRIP_TYPES.map(({ name, description, icon: Icon, href }) => (
         <Link
           key={name}
           href={href}
           className={cn(
-            "focus-ring group flex flex-col items-start gap-3 rounded-2xl border border-border-subtle bg-surface p-5 shadow-[var(--shadow-card)] transition-all duration-200 hover:-translate-y-1.5 hover:border-brand-200 hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] active:border-brand-200 sm:p-6",
+            "focus-ring group flex items-center gap-3 rounded-2xl border border-border-subtle bg-surface p-3 shadow-[var(--shadow-card)] transition-all duration-200 hover:-translate-y-1 hover:border-brand-200 hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] active:border-brand-200 sm:flex-col sm:items-start sm:p-5",
           )}
         >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition-colors group-hover:bg-brand-100 sm:h-14 sm:w-14">
-            <Icon className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition-colors group-hover:bg-brand-100 sm:h-12 sm:w-12">
+            <Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
           </span>
-          <div>
-            <p className="text-sm font-semibold text-foreground sm:text-base">{name}</p>
-            <p className="mt-0.5 text-xs text-stone-500 sm:text-sm">{description}</p>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight text-foreground sm:text-base">{name}</p>
+            <p className="mt-0.5 text-xs leading-snug text-stone-500 sm:text-sm">{description}</p>
           </div>
         </Link>
       ))}

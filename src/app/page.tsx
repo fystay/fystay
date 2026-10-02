@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  ArrowRight,
   Compass,
   Home as HomeIcon,
   Lock,
@@ -29,6 +30,7 @@ import { Reveal } from "@/components/Reveal";
 import { beachStaysSection, groupByCity, recentlyAddedSection } from "@/lib/marketplace";
 import { getActiveOfferings } from "@/lib/travelAddons";
 import { SectionPills } from "@/components/SectionPills";
+import { NowCovering } from "@/components/NowCovering";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
 import { cn } from "@/lib/cn";
@@ -203,360 +205,143 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
-      {/* Full-bleed backdrop, deliberately outside the max-w-6xl content
-          container so it spans the entire viewport width. Purely a video
-          moment - no rotating real-listing photo or caption here (that's
-          what the search results and destination pages are for), so
-          nothing on this section depends on the catalog having listings
-          in it.
+      {/* The homepage opens as one continuous destination-first sequence:
+          the video hero with the headline, then the search panel straddling
+          the hero's bottom edge (section pills sitting on the video just
+          above it), then the towns covered and the trust strip, then the
+          discovery rails. Search sits in the cream sheet below rather than
+          inside the hero so it can overlap the seam - see the sheet's own
+          comment.
 
-          Deliberately no overflow-hidden here: the video itself is
-          already clipped to this box by its own object-cover (see
-          HeroBanner), so this section doesn't need to clip anything to
-          look right closed. But the search bar's date/guest popovers open
-          downward and are taller than the sliver of room left below the
-          bar - clipping the section would cut those panels off (confirmed
-          on a real phone) instead of letting them float over the page
-          content below, which is normal, expected dropdown behaviour. */}
-      {/* -mt-[84px]/lg:-mt-[97px] pulls this section up underneath the
-          navbar at every breakpoint (previously lg:-only, with a plain
-          positive margin below lg instead - the navbar itself used to
-          stay opaque and in-flow there, so nothing needed to overlap; now
-          that it's transparent everywhere too, the hero needs to sit
-          behind it everywhere too) - see NavbarChrome's own comment on why
-          that's a negative margin on this sibling rather than making the
-          nav position:absolute (which would ignore the cookie consent
-          banner's flow height and overlap it). 84px/97px match that
-          navbar's actual rendered height at each breakpoint (measured
-          directly, not a round-number guess - lg: comes out taller because
-          the desktop logo/tagline lockup (Logo size="lg", with the
-          "Hotels · B&Bs · Apartments" tagline sized to span the full width
-          of the "FYStay" wordmark beneath it, plus mt-2 clearance so the
-          "y" descender's swash doesn't touch the tagline) is taller than
-          the mobile icon-button row - the mobile logo lockup itself grew
-          too, but it's absolutely positioned over the header rather than
-          in flow, so it doesn't add to the header's own layout height
-          there) - if the navbar's own padding/content ever changes height,
-          this needs to move with it.
+          -mt-[84px]/lg:-mt-[97px] pulls the hero up under the transparent
+          navbar (NavbarChrome); those match the navbar's measured height at
+          each breakpoint and need to move with it if it changes. The hero
+          fills most of the first screen without taking all of it (68svh on
+          phones, svh so it doesn't resize as mobile browser chrome
+          collapses), so the search panel and the start of the page below
+          are visible on landing.
 
-          h-[100svh] (small viewport height, not dvh - a hero shouldn't
-          resize itself while the user is mid-scroll as mobile browser
-          chrome collapses) rather than a fixed pixel height per breakpoint
-          - the negative margin above already cancels out the navbar's own
-          in-flow height, so this makes the video fill exactly the first
-          screenful on any device instead of stopping ~150-200px short of
-          the fold, which read as the hero being "tucked up" into a band at
-          the top rather than a full-bleed moment. min-h-[560px] guards the
-          shortest real viewports (a landscape phone); lg:max-h-[860px]
-          stops it growing unbounded on a very tall desktop window, where a
-          hero taller than that starts to feel like its own page rather
-          than an opener. */}
-      <section className="relative -mt-[84px] h-[100svh] min-h-[560px] w-full lg:-mt-[97px] lg:max-h-[860px]">
+          The headline block is bottom-anchored with padding that clears the
+          overlapping search wrapper: the sheet rises 24px into the hero and
+          the wrapper is pulled a further 150px (lg: 84px) up, so the text
+          needs 174px (lg: 108px) plus a gap above the hero's bottom edge. */}
+      <section className="relative -mt-[84px] flex h-[68svh] min-h-[520px] w-full flex-col justify-end lg:-mt-[97px] lg:h-[78svh] lg:max-h-[780px] lg:min-h-[600px]">
         <HeroBanner className="absolute inset-0 h-full w-full" />
 
-        {/* Scrim over the video - darkens the sky band (behind the
-            headline/subcopy) and the sand band (behind the search bar),
-            left fully clear through the middle so the Tower, pier and
-            beach still read at full strength. A held plateau (0-50%) at
-            full opacity, not a fade starting at 0% - a straight two-stop
-            linear-gradient (an earlier version of this) is already
-            substantially faded by the time it reaches the middle of its
-            own range, which put the subcopy's second line - sitting well
-            inside what looked like "the opaque zone" on paper - over the
-            pier's own crossbeams at only ~10% scrim opacity, unreadable.
-            The plateau's own end (50%) is past the actual measured bottom
-            edge of the headline+subcopy block at every breakpoint. */}
-        <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.75)_0%,rgba(12,9,7,0.75)_50%,rgba(12,9,7,0)_62%,rgba(12,9,7,0)_66%,rgba(12,9,7,0.55)_100%)]" />
+        {/* Scrim: a light band at the top so the navbar stays legible, clear
+            through the middle so the Tower and pier read at full strength,
+            then a deepening band at the bottom behind the headline and the
+            pills. Same warm near-black as before, no new colour. */}
+        <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.6)_0%,rgba(12,9,7,0)_24%,rgba(12,9,7,0)_38%,rgba(12,9,7,0.55)_62%,rgba(12,9,7,0.85)_100%)]" />
 
-        {/* No visible headline in the hero itself (removed by request) -
-            this sr-only h1 keeps the page's one real heading for SEO/
-            accessibility (every page needs exactly one h1), reusing the
-            same string already in this page's own <title>/meta
-            description above rather than inventing separate copy. */}
-        <h1 className="sr-only">{title}</h1>
-
-        {/* The search bar floats low over the video - close to the bottom
-            edge, but with margin on every side (this wrapper's own
-            bottom offset and horizontal padding) so no corner of the
-            card ever touches the video's own frame - rather than the
-            earlier full-bleed band this replaced.
-
-            Leaves room below it (bottom-28/sm:bottom-32, not the old
-            bottom-3/sm:bottom-4 hugging the very edge) for the "Now
-            covering" pill row now living in-hero at every breakpoint - see
-            below - rather than in its own separate section after the
-            hero, which is what used to make this bar tolerate sitting
-            right at the bottom edge.
-
-            Raised from bottom-24/sm:bottom-28 by the same 16px the pill
-            row below was pushed up by (to clear the hero-to-page blend's
-            own curve, see that row's comment) - moving only the pill row
-            would have closed this gap by that same 16px instead, so both
-            move together to keep it the width it was.
-
-            lg: moves up further still and switches from centered-on-
-            viewport to left-aligned within the same max-w-6xl/px-6
-            container as the headline and navbar above, rather than
-            centered independently of them. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-28 z-40 flex justify-center px-4 sm:bottom-32 lg:inset-x-0 lg:bottom-32 lg:mx-auto lg:max-w-6xl lg:justify-start lg:px-6">
-          {/* w-full max-w-4xl (not just letting the flex item shrink-wrap
-              its content) so the bar actually grows to fill the width
-              this row allows, rather than only ever rendering as wide as
-              its fields' own natural size. */}
-          <div className="pointer-events-auto w-full max-w-4xl lg:max-w-none">
-            {/* The four section pills (Stays / Explore / Travel / Services,
-                see src/lib/siteSections.ts) above the search panel. Stays
-                shows pressed here: this search bar is the Stays search.
-                Same dark-glass tokens as the search panel below so the two
-                read as one attached unit. mx-auto max-w-4xl matches the
-                search bar's own centred width, so at lg: the row's left
-                edge lines up with the bar's. */}
-            <SectionPills variant="hero" className="mx-auto mb-2 flex w-full max-w-4xl justify-center lg:justify-start" />
-            <Suspense>
-              <SearchBar liveUpdate={false} variant="hero" />
-            </Suspense>
-          </div>
-        </div>
-
-        {/* Mobile/tablet: "Now covering" pills sit inside the hero itself,
-            just below the search bar - previously this lived in its own
-            plain section after the hero (on the page's cream background),
-            which read as a separate, lower-effort afterthought instead of
-            part of the same premium video moment the search bar is in.
-
-            Styling matches the reference the user shared: a champagne-gold
-            accent (the label flanked by hairline rules, and a plain pin
-            icon per pill in the same gold) against outlined, glassy pills
-            rather than the solid white badges this used to be - the
-            outlined treatment reads as sitting *in* the video rather than
-            floating a light card on top of it.
-
-            A single scrolling line at every width below lg, not wrapping
-            to multiple rows at sm: (an earlier version of this did) - this
-            block is anchored to the hero's bottom edge and grows upward as
-            its own content gets taller, so a two-row wrap at tablet width
-            pushed the "Now covering" label up far enough to collide with
-            the search bar sitting right above it. A fixed single-line
-            height keeps the gap between them predictable at every
-            breakpoint down here.
-
-            bottom-8/sm:bottom-10 (not bottom-4/bottom-6, this row's
-            original offset from before the hero-to-page blend below
-            existed) leaves clear headroom above the cream section's own
-            -mt-5/-mt-6 rise - otherwise the two edges land within a few
-            px of each other and the rounded curve visibly grazes this
-            row's pill icons/text instead of tucking in cleanly beneath
-            them. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-8 z-30 flex flex-col items-center gap-2.5 px-6 sm:bottom-10 lg:hidden">
-          <div className="flex w-full max-w-[220px] items-center gap-3">
-            <span
-              className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-300/60"
-              aria-hidden
-            />
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
-              Now covering
-            </span>
-            <span
-              className="h-px flex-1 bg-gradient-to-l from-transparent to-amber-300/60"
-              aria-hidden
-            />
-          </div>
-          {/* Auto-drifting marquee, not a manual swipe strip - the
-              destination list is rendered twice back to back so
-              translating the track by exactly one copy's width (-50%,
-              see .animate-marquee in globals.css) loops seamlessly. The
-              second copy is aria-hidden and untabbable so a screen reader
-              or keyboard user only ever encounters each town once. */}
-          <div className="relative w-full max-w-md overflow-hidden">
-            <div className="flex w-max items-center gap-2 px-6 pb-1 animate-marquee">
-              {[0, 1].map((copy) => (
-                <div
-                  key={copy}
-                  className="flex shrink-0 items-center gap-2"
-                  aria-hidden={copy === 1}
-                >
-                  {FYLDE_COAST_DESTINATIONS.map((destination) => (
-                    <Link
-                      key={destination.slug}
-                      href={`/search?city=${encodeURIComponent(destination.searchCity)}`}
-                      tabIndex={copy === 1 ? -1 : undefined}
-                      className="focus-ring pointer-events-auto flex shrink-0 items-center gap-1.5 rounded-full border border-amber-200/30 bg-white/5 px-3.5 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-amber-200/60 hover:bg-white/10 active:scale-95 active:bg-white/10"
-                    >
-                      <MapPin className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden />
-                      {destination.name}
-                    </Link>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div
-              className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-black/50 to-transparent"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-black/50 to-transparent"
-              aria-hidden
-            />
-          </div>
-        </div>
-
-        {/* Desktop-only: "Now covering" overlaps the hero's own bottom
-            edge here - the exact same list stays in its original spot, in
-            a bolder badge style, in-hero at <lg (see just above); this
-            isn't a duplicate content addition, just where the same links
-            render at each breakpoint.
-
-            Deliberately plainer here than the pill/icon treatment above:
-            six bordered, icon-carrying badges in a row read as a
-            directory footer next to the search bar's own restraint - an
-            inline index line (name, name, name) reads as an editorial
-            "we cover these towns" note instead. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-6 z-30 mx-auto hidden max-w-6xl px-6 lg:block">
-          <div className="pointer-events-auto flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-sm">
-            <span className="mr-1 font-medium text-white/60">Now covering</span>
-            {FYLDE_COAST_DESTINATIONS.map((destination, i) => (
-              <span key={destination.slug} className="flex items-baseline">
-                <Link
-                  href={`/search?city=${encodeURIComponent(destination.searchCity)}`}
-                  className="focus-ring rounded-sm font-medium text-white/90 underline decoration-white/30 underline-offset-4 transition-colors hover:text-white hover:decoration-white/70"
-                >
-                  {destination.name}
-                </Link>
-                {i < FYLDE_COAST_DESTINATIONS.length - 1 && (
-                  <span className="ml-1.5 text-white/30" aria-hidden>
-                    &middot;
-                  </span>
-                )}
-              </span>
-            ))}
-          </div>
+        <div className="relative z-30 mx-auto w-full max-w-4xl px-6 pb-[190px] lg:px-0 lg:pb-[132px]">
+          <h1 className="max-w-xl text-[2.1rem] leading-[1.08] text-white sm:text-5xl lg:text-6xl">
+            Find your stay on the Fylde Coast
+          </h1>
+          <p className="mt-3 text-base text-white/85 sm:text-lg">
+            Local stays. Local hosts. Your kind of break.
+          </p>
         </div>
       </section>
 
-      {/* Rounded top + a small negative margin pulls this section up over
-          the hero's own last few pixels, instead of the two meeting in a
-          hard rectangular line - reads as one continuous page (a sheet
-          rising over the video) rather than a video banner bolted onto a
-          separate page below it. relative z-50 is required, not
-          decorative: this div is a plain static sibling of the hero
-          <section>, and everything inside that section is absolutely
-          positioned with its own z-index (up to z-40, the search bar) -
-          without a higher z-index of its own here, those layers would
-          paint on top of this rounded edge instead of tucking behind it,
-          even though they come earlier in the DOM. The overlap amount is
-          deliberately small (and smaller again at lg: the desktop "Now
-          covering" row is a plain text line, not a pill block, so it
-          sits closer to the hero's true bottom edge than the mobile/
-          tablet pill row does) so it never actually covers them, just
-          softens the seam beneath.
-
-          pb-8 only, not the pt-8/sm:pt-10 this used to also carry - that
-          top padding existed to leave room for the "Now covering" strip
-          that used to open this section; now that it lives inside the
-          hero instead (see above), "Hand-picked stays" own mt-10 just
-          below is the only top spacing this section needs. */}
-      <div className="relative z-50 -mt-5 rounded-t-[28px] bg-background pt-px sm:-mt-6 sm:rounded-t-[36px] lg:-mt-3">
+      {/* The cream sheet rises over the hero's last 24px with a rounded top,
+          so the page reads as one surface sliding up over the video rather
+          than a banner bolted onto a separate page. relative z-50 is
+          required: it lets the search panel inside it paint over the hero
+          (whose own layers go up to z-30) where the two overlap. */}
+      <div className="relative z-50 -mt-6 rounded-t-[28px] bg-background pt-px sm:rounded-t-[36px]">
       <div className="mx-auto w-full max-w-6xl flex-1 px-6 pb-8">
-        {/* Phones: a 2x2 grid split by hairlines - one down the middle, and
-            one under each top-row item that stops short of it. sm and up:
-            the original single row. */}
-        <div className="mt-4 grid grid-cols-2 border-b border-border-subtle text-sm text-stone-600 sm:mt-8 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 sm:pb-6">
-          {TRUST_STRIP.map(({ icon: Icon, label }, index) => (
-            <div
-              key={label}
-              className={
-                index % 2 === 0
-                  ? "border-r border-border-subtle pr-4 sm:border-r-0 sm:pr-0"
-                  : "pl-4 sm:pl-0"
-              }
-            >
-              <span
-                className={`flex items-center gap-2.5 whitespace-nowrap py-3 sm:gap-1.5 sm:py-0 ${
-                  index < 2 ? "border-b border-border-subtle sm:border-b-0" : ""
-                }`}
-              >
+        {/* Section pills + search, pulled up so the pills and the top of
+            the panel sit on the video and the rest on the cream: the panel
+            straddles the seam. The solid search card (the same variant the
+            /search page uses), not the hero's dark glass, since half of it
+            now sits on cream. Same fields and search logic either way. */}
+        <div className="relative -mx-2 -mt-[150px] sm:mx-0 lg:-mt-[84px]">
+          <SectionPills variant="hero" className="mx-auto mb-2.5 flex w-full max-w-4xl justify-center lg:justify-start" />
+          <Suspense>
+            <SearchBar liveUpdate={false} />
+          </Suspense>
+        </div>
+
+        {/* "Now covering" and the trust strip directly under the search, as
+            one compact planning block rather than two separate sections. */}
+        <div className="mx-auto mt-6 max-w-4xl">
+          <NowCovering />
+          <ul className="mt-5 grid grid-cols-4 gap-2 border-y border-border-subtle py-3 text-center text-[11px] leading-tight text-stone-600 sm:flex sm:flex-wrap sm:items-center sm:justify-start sm:gap-x-6 sm:gap-y-2 sm:text-left sm:text-sm">
+            {TRUST_STRIP.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex flex-col items-center gap-1.5 sm:flex-row sm:gap-1.5">
                 <Icon className="h-[18px] w-[18px] shrink-0 text-brand-600 sm:h-4 sm:w-4" aria-hidden />
                 {label}
-              </span>
-            </div>
-          ))}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* Large, image-led card rails (see LargeCardRail) for the four
-            sections a picture actually helps with - stays, towns, travel
-            and services, in the same order as the section pills - each
-            showing one full card plus about half of the next on phones
-            and about three on desktop. Everything after them keeps
-            its existing, denser layout. */}
-        <div className="mt-10">
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">Hand-picked stays</h2>
-          <p className="mt-1 text-sm text-stone-500">
-            Hand-picked local places to stay, ready to book today.
-          </p>
-          <div className="mt-6">
-            <Suspense fallback={<LargeCardRailSkeleton />}>
-              <ListingsGrid searchParams={{}} showResultsView={false} />
-            </Suspense>
-          </div>
-        </div>
+        {/* Discovery: stays, then towns, then trip types - each a swipeable
+            rail or compact grid under one consistent header row, spaced as
+            one sequence rather than separate pages. */}
+        <section className="mt-10 sm:mt-14">
+          <SectionHeader
+            title="Hand-picked stays"
+            subtitle="Hand-picked local places to stay, ready to book today."
+            link={{ href: "/search", label: "View all" }}
+          />
+          <Suspense fallback={<LargeCardRailSkeleton />}>
+            <ListingsGrid searchParams={{}} showResultsView={false} />
+          </Suspense>
+        </section>
 
         {/* Each town links to its own /destinations/[slug] landing page (see
             lib/destinations.ts). */}
-        <Reveal className="mt-14">
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">Explore the Fylde Coast</h2>
-          <p className="mt-1 text-sm text-stone-500">
-            Six towns we actually know - each with real local stays and its own Local Guide, not a
-            search filter with a photo on it.
-          </p>
-          <div className="mt-6">
-            <Suspense fallback={<LargeCardRailSkeleton />}>
-              <ExploreDestinations variant="large" />
-            </Suspense>
-          </div>
+        <Reveal className="mt-10 sm:mt-14">
+          <SectionHeader
+            title="Explore the Fylde Coast"
+            subtitle="Six towns we actually know, each with real local stays and its own Local Guide."
+            link={{ href: "/destinations", label: "All towns" }}
+          />
+          <Suspense fallback={<LargeCardRailSkeleton />}>
+            <ExploreDestinations variant="large" />
+          </Suspense>
         </Reveal>
+
+        <section className="mt-10 sm:mt-14">
+          <SectionHeader
+            title="Find your perfect stay"
+            subtitle="Browse by what you're after, not just where you're going."
+          />
+          <TripTypeCategories />
+        </section>
 
         {/* One card per travel add-on category with a live offering.
             Renders nothing when none is live (same "don't show a promise
             with nothing behind it" rule every other conditional section on
             this page already follows). */}
         {travelOfferings.length > 0 && (
-          <Reveal className="mt-14">
-            <h2 className="text-xl font-bold text-foreground sm:text-2xl">Travel</h2>
-            <p className="mt-1 text-sm text-stone-500">Getting here and getting around, added to your stay.</p>
-            <div className="mt-6">
-              <TravelAddonsSection offerings={travelOfferings} />
-            </div>
+          <Reveal className="mt-10 sm:mt-14">
+            <SectionHeader title="Travel" subtitle="Getting here and getting around, added to your stay." />
+            <TravelAddonsSection offerings={travelOfferings} />
           </Reveal>
         )}
 
-        <Reveal className="mt-14">
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">Services</h2>
-          <p className="mt-1 text-sm text-stone-500">Everything FYStay offers beyond the stay itself.</p>
-          <div className="mt-6">
-            <LargeCardRail label="Services">
-              {FYSTAY_SERVICES.map((service) => (
-                <LargeCard
-                  key={service.title}
-                  href={service.href}
-                  image={{ icon: service.icon, gradient: service.gradient }}
-                  title={service.title}
-                  description={service.description}
-                  meta={service.cta}
-                />
-              ))}
-            </LargeCardRail>
-          </div>
+        <Reveal className="mt-10 sm:mt-14">
+          <SectionHeader
+            title="Services"
+            subtitle="Everything FYStay offers beyond the stay itself."
+            link={{ href: "/services", label: "All services" }}
+          />
+          <LargeCardRail label="Services">
+            {FYSTAY_SERVICES.map((service) => (
+              <LargeCard
+                key={service.title}
+                href={service.href}
+                image={{ icon: service.icon, gradient: service.gradient }}
+                title={service.title}
+                description={service.description}
+                meta={service.cta}
+              />
+            ))}
+          </LargeCardRail>
         </Reveal>
-
-        <div className="mt-14">
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">Find your perfect stay</h2>
-          <p className="mt-1 text-sm text-stone-500">
-            Browse by what you&apos;re after, not just where you&apos;re going.
-          </p>
-          <div className="mt-6">
-            <TripTypeCategories />
-          </div>
-        </div>
 
         <Suspense fallback={null}>
           <MarketplaceSections />
@@ -625,6 +410,35 @@ export default async function Home() {
       </div>
       </div>
     </>
+  );
+}
+
+/** One header row for every homepage discovery section: title and subtitle, with an optional "View all"-style link on the right. */
+function SectionHeader({
+  title,
+  subtitle,
+  link,
+}: {
+  title: string;
+  subtitle: string;
+  link?: { href: string; label: string };
+}) {
+  return (
+    <div className="mb-5 flex items-end justify-between gap-4 sm:mb-6">
+      <div className="min-w-0">
+        <h2 className="text-xl font-bold text-foreground sm:text-2xl">{title}</h2>
+        <p className="mt-1 text-sm text-stone-500">{subtitle}</p>
+      </div>
+      {link && (
+        <Link
+          href={link.href}
+          className="focus-ring mb-0.5 flex shrink-0 items-center gap-1 rounded-sm text-sm font-medium text-brand-700 hover:text-brand-800"
+        >
+          {link.label}
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+      )}
+    </div>
   );
 }
 
