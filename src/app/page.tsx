@@ -206,35 +206,39 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {/* The homepage opens as one continuous destination-first sequence:
-          the video hero with the headline, then the search panel straddling
-          the hero's bottom edge (section pills sitting on the video just
-          above it), then the towns covered and the trust strip, then the
-          discovery rails. Search sits in the cream sheet below rather than
-          inside the hero so it can overlap the seam - see the sheet's own
-          comment.
+          the video hero (section pills under the logo, headline at the
+          bottom), then the search panel, then the towns covered and the
+          trust strip, then the discovery rails. Search sits in the cream
+          sheet below the hero - see the sheet's own comment.
 
           -mt-[84px]/lg:-mt-[97px] pulls the hero up under the transparent
           navbar (NavbarChrome); those match the navbar's measured height at
           each breakpoint and need to move with it if it changes. The hero
-          fills most of the first screen without taking all of it (68svh on
+          fills most of the first screen without taking all of it (60svh on
           phones, svh so it doesn't resize as mobile browser chrome
-          collapses), so the search panel and the start of the page below
-          are visible on landing.
+          collapses), so the search panel is visible on landing.
 
           The headline block is bottom-anchored with padding that clears the
-          overlapping search wrapper: the sheet rises 24px into the hero and
-          the wrapper is pulled a further 150px (lg: 84px) up, so the text
-          needs 174px (lg: 108px) plus a gap above the hero's bottom edge. */}
-      <section className="relative -mt-[84px] flex h-[68svh] min-h-[520px] w-full flex-col justify-end lg:-mt-[97px] lg:h-[78svh] lg:max-h-[780px] lg:min-h-[600px]">
+          cream sheet's 24px rise (and on lg, the search bar pulled a further
+          36px up over the seam). */}
+      <section className="relative -mt-[84px] flex h-[60svh] min-h-[460px] w-full flex-col justify-end lg:-mt-[97px] lg:h-[78svh] lg:max-h-[780px] lg:min-h-[600px]">
         <HeroBanner className="absolute inset-0 h-full w-full" />
 
-        {/* Scrim: a light band at the top so the navbar stays legible, clear
-            through the middle so the Tower and pier read at full strength,
-            then a deepening band at the bottom behind the headline and the
-            pills. Same warm near-black as before, no new colour. */}
-        <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.6)_0%,rgba(12,9,7,0)_24%,rgba(12,9,7,0)_38%,rgba(12,9,7,0.55)_62%,rgba(12,9,7,0.85)_100%)]" />
+        {/* Scrim: a band at the top so the navbar and section pills stay
+            legible, clear through the middle so the Tower and pier read at
+            full strength, then a deepening band at the bottom behind the
+            headline. Same warm near-black as before, no new colour. */}
+        <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.65)_0%,rgba(12,9,7,0.3)_28%,rgba(12,9,7,0)_42%,rgba(12,9,7,0.5)_68%,rgba(12,9,7,0.85)_100%)]" />
 
-        <div className="relative z-30 mx-auto w-full max-w-4xl px-6 pb-[190px] lg:px-0 lg:pb-[132px]">
+        {/* Section pills directly under the header's logo and its "Hotels -
+            B&Bs - Apartments" tagline: centred under the centred logo on
+            phones, left-aligned under the left-hand logo from lg. The
+            offsets match the navbar heights the -mt above cancels. */}
+        <div className="absolute inset-x-0 top-[84px] z-30 mx-auto max-w-6xl px-6 lg:top-[97px]">
+          <SectionPills variant="hero" className="flex justify-center lg:justify-start" />
+        </div>
+
+        <div className="relative z-30 mx-auto w-full max-w-4xl px-6 pb-12 lg:px-0 lg:pb-[84px]">
           <h1 className="max-w-xl text-[2.1rem] leading-[1.08] text-white sm:text-5xl lg:text-6xl">
             Find your stay on the Fylde Coast
           </h1>
@@ -247,17 +251,17 @@ export default async function Home() {
       {/* The cream sheet rises over the hero's last 24px with a rounded top,
           so the page reads as one surface sliding up over the video rather
           than a banner bolted onto a separate page. relative z-50 is
-          required: it lets the search panel inside it paint over the hero
-          (whose own layers go up to z-30) where the two overlap. */}
+          required: it lets the search bar inside it paint over the hero
+          (whose own layers go up to z-30) where the two overlap on lg. */}
       <div className="relative z-50 -mt-6 rounded-t-[28px] bg-background pt-px sm:rounded-t-[36px]">
       <div className="mx-auto w-full max-w-6xl flex-1 px-6 pb-8">
-        {/* Section pills + search, pulled up so the pills and the top of
-            the panel sit on the video and the rest on the cream: the panel
-            straddles the seam. The solid search card (the same variant the
-            /search page uses), not the hero's dark glass, since half of it
-            now sits on cream. Same fields and search logic either way. */}
-        <div className="relative -mx-2 -mt-[150px] sm:mx-0 lg:-mt-[84px]">
-          <SectionPills variant="hero" className="mx-auto mb-2.5 flex w-full max-w-4xl justify-center lg:justify-start" />
+        {/* The search panel: the solid search card (the same variant the
+            /search page uses), the same fields and search logic as before.
+            On phones it sits cleanly on the cream just below the video; the
+            tall stacked card straddling the seam collided with the sheet's
+            rounded corners. From lg it's a slim single-row bar, pulled up to
+            sit across the seam. */}
+        <div className="relative -mx-2 mt-5 sm:mx-0 lg:-mt-9">
           <Suspense>
             <SearchBar liveUpdate={false} />
           </Suspense>
