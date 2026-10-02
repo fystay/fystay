@@ -20,7 +20,7 @@ async function slotBoxes(page: Page, label: string) {
 test.describe("phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("each rail shows one full card and a peek of the next, without widening the page", async ({ page }) => {
+  test("each rail shows one full card and about half of the next, without widening the page", async ({ page }) => {
     await page.goto("/");
     for (const label of RAILS) {
       await rail(page, label).scrollIntoViewIfNeeded();
@@ -28,8 +28,8 @@ test.describe("phone", () => {
       expect(first.left).toBeGreaterThanOrEqual(0);
       expect(first.right).toBeLessThanOrEqual(390);
       const peek = (390 - second.left) / second.width;
-      expect(peek, `${label}: share of the next card visible`).toBeGreaterThan(0.08);
-      expect(peek).toBeLessThan(0.25);
+      expect(peek, `${label}: share of the next card visible`).toBeGreaterThan(0.3);
+      expect(peek).toBeLessThan(0.65);
     }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
@@ -48,15 +48,15 @@ test.describe("phone", () => {
   });
 });
 
-test("desktop shows about two and a half cards, with arrows to move along", async ({ page }) => {
+test("desktop shows about three cards, with arrows to move along", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
   const services = rail(page, "Services");
   await services.scrollIntoViewIfNeeded();
   const [first] = await slotBoxes(page, "Services");
   const railWidth = await services.locator("ul").evaluate((el) => el.clientWidth);
-  expect(railWidth / first.width).toBeGreaterThan(2.2);
-  expect(railWidth / first.width).toBeLessThan(2.8);
+  expect(railWidth / first.width).toBeGreaterThan(3);
+  expect(railWidth / first.width).toBeLessThan(3.7);
 
   const next = services.getByRole("button", { name: "Next" });
   await expect(next).toBeVisible();

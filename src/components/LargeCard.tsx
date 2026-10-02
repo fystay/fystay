@@ -30,13 +30,13 @@ export function LargeCard({
   onClick?: () => void;
 }) {
   return (
-    <Link href={href} onClick={onClick} className="focus-ring group block rounded-[28px]">
+    <Link href={href} onClick={onClick} className="focus-ring group block rounded-[22px]">
       <LargeCardImageArea image={image} />
       <div className="px-1 pt-4">
         {eyebrow && (
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">{eyebrow}</p>
         )}
-        <p className="mt-1 text-lg font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800 sm:text-xl">
+        <p className="mt-1 text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800 sm:text-lg">
           {title}
         </p>
         {description && <p className="mt-1 line-clamp-2 text-sm text-stone-500">{description}</p>}
@@ -46,11 +46,19 @@ export function LargeCard({
   );
 }
 
-/** Loading placeholder matching LargeCardRail's slot sizes: one card plus the peek of the next (2.5 on desktop). */
+/**
+ * Width of one card slot in a LargeCardRail, shared with the skeleton so the
+ * two can't drift apart. Phones: 60vw - with the 24px page gutter and a
+ * 16px gap, one full card plus about half of the next. Tablet: 44vw, about
+ * two cards. Desktop: 30% of the content width, about three and a third.
+ */
+export const LARGE_CARD_SLOT_CLASS = "w-[60vw] max-w-[340px] shrink-0 sm:w-[44vw] lg:w-[30%] lg:max-w-none";
+
+/** Loading placeholder matching LargeCardRail's slot sizes. */
 export function LargeCardRailSkeleton() {
   const slot = (key: number) => (
-    <div key={key} className="w-[78vw] max-w-[440px] shrink-0 sm:w-[58vw] lg:w-[40%] lg:max-w-none">
-      <div className="skeleton-shimmer aspect-square w-full rounded-[28px] sm:aspect-[4/3]" />
+    <div key={key} className={LARGE_CARD_SLOT_CLASS}>
+      <div className="skeleton-shimmer aspect-square w-full rounded-[22px] sm:aspect-[4/3]" />
       <div className="skeleton-shimmer mt-4 h-5 w-2/3 rounded-full" />
       <div className="skeleton-shimmer mt-2 h-4 w-1/2 rounded-full" />
     </div>
@@ -68,7 +76,7 @@ export function LargeCardRailSkeleton() {
 
 /** Shared with ListingCard size="large" so both card types have the same corner radius, shadow and hover. */
 export const LARGE_CARD_IMAGE_CLASS =
-  "relative aspect-square w-full overflow-hidden rounded-[28px] shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] sm:aspect-[4/3]";
+  "relative aspect-square w-full overflow-hidden rounded-[22px] shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] sm:aspect-[4/3]";
 
 function LargeCardImageArea({ image }: { image: LargeCardImage }) {
   if ("photoSrc" in image) {
@@ -89,12 +97,12 @@ function LargeCardImageArea({ image }: { image: LargeCardImage }) {
   return (
     <div className={cn(LARGE_CARD_IMAGE_CLASS, "bg-gradient-to-br", image.gradient)}>
       <Icon
-        className="absolute -bottom-6 -right-6 h-48 w-48 text-white/15 transition-transform duration-700 group-hover:scale-110 group-hover:-rotate-6 sm:h-56 sm:w-56"
+        className="absolute -bottom-5 -right-5 h-36 w-36 text-white/15 transition-transform duration-700 group-hover:scale-110 group-hover:-rotate-6 sm:h-44 sm:w-44"
         strokeWidth={1.25}
         aria-hidden
       />
-      <span className="absolute left-5 top-5 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm">
-        <Icon className="h-6 w-6" aria-hidden />
+      <span className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm">
+        <Icon className="h-5 w-5" aria-hidden />
       </span>
     </div>
   );

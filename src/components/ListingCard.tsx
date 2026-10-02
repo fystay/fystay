@@ -166,7 +166,7 @@ export function ListingCard({
       >
         <Link
           href={`/listings/${listing.id}${stayQuery}`}
-          className={cn("focus-ring absolute inset-0 block", isLarge ? "rounded-[28px]" : "rounded-2xl")}
+          className={cn("focus-ring absolute inset-0 block", isLarge ? "rounded-[22px]" : "rounded-2xl")}
           onTouchStart={photoCount > 1 ? handleTouchStart : undefined}
           onTouchEnd={photoCount > 1 ? handleTouchEnd : undefined}
         >
@@ -184,7 +184,7 @@ export function ListingCard({
                     className="object-cover transition duration-300 group-hover:scale-105"
                     sizes={
                       isLarge
-                        ? "(max-width: 640px) 78vw, (max-width: 1024px) 58vw, 440px"
+                        ? "(max-width: 640px) 60vw, (max-width: 1024px) 44vw, 340px"
                         : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     }
                     unoptimized={!isOptimizableImage(photo)}
@@ -242,7 +242,7 @@ export function ListingCard({
           <span
             className={cn(
               "absolute z-10 rounded-full bg-accent-500 px-2.5 py-1 text-xs font-semibold text-ink shadow-[var(--shadow-card)]",
-              isLarge ? "left-4 top-4" : "left-2.5 top-2.5",
+              isLarge ? "left-3 top-3" : "left-2.5 top-2.5",
             )}
           >
             {dealLabel}
@@ -255,7 +255,7 @@ export function ListingCard({
           isLoggedIn={isLoggedIn}
           className={cn(
             "absolute z-10 h-10 w-10 bg-white/80 shadow-[var(--shadow-card)] backdrop-blur-sm hover:bg-white active:scale-90",
-            isLarge ? "right-4 top-4" : "right-2.5 top-2.5",
+            isLarge ? "right-3 top-3" : "right-2.5 top-2.5",
           )}
         />
       </div>
@@ -273,7 +273,7 @@ export function ListingCard({
             // Large cards show one at a time on phones, so the fixed
             // two-line height (which lines prices up across a row) only
             // applies from sm, where two or more sit side by side.
-            isLarge ? "text-lg sm:min-h-[3.4rem] sm:text-xl" : "min-h-[2.75rem] text-base",
+            isLarge ? "text-base sm:min-h-[3.1rem] sm:text-lg" : "min-h-[2.75rem] text-base",
           )}
         >
           {listing.title}

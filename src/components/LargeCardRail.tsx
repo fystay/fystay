@@ -3,15 +3,14 @@
 import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { LARGE_CARD_SLOT_CLASS } from "@/components/LargeCard";
 
 /**
  * A horizontally swipeable row of large, image-led cards (LargeCard,
  * ListingCard size="large"). Sized so the next card always peeks in:
  *
- * - phones: each slot is 78vw, so with the 24px page gutter and a 16px gap
- *   one full card plus roughly 12-15% of the next is visible;
- * - sm (tablet): 58vw, about 1.5 cards;
- * - lg (desktop): 40% of the content width, about 2.5 cards.
+ * one full card plus about half of the next on phones, about two on
+ * tablets and three and a third on desktop (see LARGE_CARD_SLOT_CLASS).
  *
  * Below lg the rail bleeds to the screen edges (-mx-6/px-6, matching the
  * page's own px-6 container) so the peeking card runs off the edge rather
@@ -20,7 +19,7 @@ import { cn } from "@/lib/cn";
  * and only while there's somewhere to scroll to.
  */
 const RAIL_ROW_CLASS = "-mx-6 flex gap-4 px-6 pb-4 pt-1 lg:mx-0 lg:gap-6 lg:px-0";
-const SLOT_CLASS = "w-[78vw] max-w-[440px] shrink-0 sm:w-[58vw] lg:w-[40%] lg:max-w-none";
+const SLOT_CLASS = LARGE_CARD_SLOT_CLASS;
 
 export function LargeCardRail({ label, children }: { label: string; children: ReactNode }) {
   const railRef = useRef<HTMLUListElement>(null);

@@ -485,8 +485,8 @@ export default async function Home() {
         {/* Large, image-led card rails (see LargeCardRail) for the four
             sections a picture actually helps with - stays, towns, travel
             and services, in the same order as the section pills - each
-            showing one full card plus a peek of the next on phones and
-            about two and a half on desktop. Everything after them keeps
+            showing one full card plus about half of the next on phones
+            and about three on desktop. Everything after them keeps
             its existing, denser layout. */}
         <div className="mt-10">
           <h2 className="text-xl font-bold text-foreground sm:text-2xl">Hand-picked stays</h2>
