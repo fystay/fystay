@@ -20,7 +20,7 @@
 export type FyldeCoastDestination = {
   slug: string;
   name: string;
-  /** Short, factual description - doubles as a /destinations/[slug] page's intro copy and meta description; not shown on the homepage tile itself. */
+  /** Short, factual description - doubles as a /destinations/[slug] page's intro copy and meta description, and the homepage's large Explore card (clamped to two lines). */
   description: string;
   searchCity: string;
 };

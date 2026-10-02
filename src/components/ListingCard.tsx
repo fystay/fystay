@@ -15,6 +15,7 @@ import { cn } from "@/lib/cn";
 import { withCity } from "@/lib/seo";
 import { distanceMiles, estimateDriveMinutes, estimateWalkMinutes } from "@/lib/geo";
 import { EntryLocationMeta } from "@/components/EntryLocationMeta";
+import { LARGE_CARD_IMAGE_CLASS } from "@/components/LargeCard";
 
 export type ListingCardData = {
   id: string;
@@ -44,6 +45,7 @@ export function ListingCard({
   nights,
   nearLandmark,
   stayQuery = "",
+  size = "default",
 }: {
   listing: ListingCardData;
   isSaved?: boolean;
@@ -59,7 +61,15 @@ export function ListingCard({
   nearLandmark?: { name: string; latitude: number; longitude: number };
   /** The searched stay as a query string (see buildStayQuery), appended to the listing link. */
   stayQuery?: string;
+  /**
+   * "large": the homepage's large, image-led card (see LargeCardRail) -
+   * bigger image and corners, first photo only (a horizontal swipe on the
+   * card belongs to the rail, not to a photo carousel inside it), and only
+   * title, location, price and rating beneath it.
+   */
+  size?: "default" | "large";
 }) {
+  const isLarge = size === "large";
   const rating = computeAverageRating(listing.reviews);
   const landmarkDistance =
     nearLandmark && listing.latitude != null && listing.longitude != null
@@ -90,7 +100,7 @@ export function ListingCard({
       ? `${listing.weeklyDiscountPercent}% off weekly`
       : null;
 
-  const photoCount = listing.photos.length;
+  const photoCount = isLarge ? Math.min(listing.photos.length, 1) : listing.photos.length;
   const [photoIndex, setPhotoIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
 
@@ -147,10 +157,16 @@ export function ListingCard({
       {/* aspect-[5/4] (not the old 4/3) - a touch taller and closer to
           square, the crop a considered property brochure uses rather
           than a wide filmstrip thumbnail. */}
-      <div className="relative aspect-[5/4] w-full overflow-hidden rounded-2xl bg-brand-50 shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] group-hover:ring-brand-200">
+      <div
+        className={cn(
+          isLarge
+            ? cn(LARGE_CARD_IMAGE_CLASS, "bg-brand-50")
+            : "relative aspect-[5/4] w-full overflow-hidden rounded-2xl bg-brand-50 shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] group-hover:ring-brand-200",
+        )}
+      >
         <Link
           href={`/listings/${listing.id}${stayQuery}`}
-          className="focus-ring absolute inset-0 block rounded-2xl"
+          className={cn("focus-ring absolute inset-0 block", isLarge ? "rounded-[28px]" : "rounded-2xl")}
           onTouchStart={photoCount > 1 ? handleTouchStart : undefined}
           onTouchEnd={photoCount > 1 ? handleTouchEnd : undefined}
         >
@@ -159,14 +175,18 @@ export function ListingCard({
               className="flex h-full w-full transition-transform duration-300 ease-out"
               style={{ transform: `translateX(-${photoIndex * 100}%)` }}
             >
-              {listing.photos.map((photo, i) => (
+              {listing.photos.slice(0, photoCount).map((photo, i) => (
                 <div key={i} className="relative h-full w-full shrink-0">
                   <Image
                     src={photo}
                     alt={withCity(listing.title, listing.city)}
                     fill
                     className="object-cover transition duration-300 group-hover:scale-105"
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    sizes={
+                      isLarge
+                        ? "(max-width: 640px) 78vw, (max-width: 1024px) 58vw, 440px"
+                        : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    }
                     unoptimized={!isOptimizableImage(photo)}
                   />
                 </div>
@@ -219,7 +239,12 @@ export function ListingCard({
         )}
 
         {dealLabel && (
-          <span className="absolute left-2.5 top-2.5 z-10 rounded-full bg-accent-500 px-2.5 py-1 text-xs font-semibold text-ink shadow-[var(--shadow-card)]">
+          <span
+            className={cn(
+              "absolute z-10 rounded-full bg-accent-500 px-2.5 py-1 text-xs font-semibold text-ink shadow-[var(--shadow-card)]",
+              isLarge ? "left-4 top-4" : "left-2.5 top-2.5",
+            )}
+          >
             {dealLabel}
           </span>
         )}
@@ -228,16 +253,25 @@ export function ListingCard({
           listingId={listing.id}
           initialSaved={isSaved}
           isLoggedIn={isLoggedIn}
-          className="absolute right-2.5 top-2.5 z-10 h-10 w-10 bg-white/80 shadow-[var(--shadow-card)] backdrop-blur-sm hover:bg-white active:scale-90"
+          className={cn(
+            "absolute z-10 h-10 w-10 bg-white/80 shadow-[var(--shadow-card)] backdrop-blur-sm hover:bg-white active:scale-90",
+            isLarge ? "right-4 top-4" : "right-2.5 top-2.5",
+          )}
         />
       </div>
-      <Link href={`/listings/${listing.id}${stayQuery}`} className="focus-ring flex flex-col gap-2 rounded-xl">
+      <Link
+        href={`/listings/${listing.id}${stayQuery}`}
+        className={cn("focus-ring flex flex-col gap-2 rounded-xl", isLarge && "px-1 pt-0.5")}
+      >
         {/* min-h keeps this row the same height whether the title wraps to
             one line or two, so price/rating rows still line up across a
             row of cards regardless of title length. */}
         <p
           data-testid="listing-card-title"
-          className="line-clamp-2 min-h-[2.75rem] text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800"
+          className={cn(
+            "line-clamp-2 font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800",
+            isLarge ? "min-h-[3.1rem] text-lg sm:text-xl sm:min-h-[3.4rem]" : "min-h-[2.75rem] text-base",
+          )}
         >
           {listing.title}
         </p>
@@ -248,13 +282,15 @@ export function ListingCard({
           </span>
         </p>
         {landmarkDistance && <EntryLocationMeta location={landmarkDistance} />}
-        <p className="flex items-center gap-1 text-xs text-stone-500">
-          <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          {listing.maxGuests} guest{listing.maxGuests === 1 ? "" : "s"}
-          <span aria-hidden>·</span>
-          {listing.bedrooms} bedroom{listing.bedrooms === 1 ? "" : "s"}
-        </p>
-        {keyAmenities.length > 0 && (
+        {!isLarge && (
+          <p className="flex items-center gap-1 text-xs text-stone-500">
+            <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {listing.maxGuests} guest{listing.maxGuests === 1 ? "" : "s"}
+            <span aria-hidden>·</span>
+            {listing.bedrooms} bedroom{listing.bedrooms === 1 ? "" : "s"}
+          </p>
+        )}
+        {!isLarge && keyAmenities.length > 0 && (
           <ul className="flex items-center gap-3">
             {keyAmenities.map((category) => (
               <li key={category.key} className="flex items-center gap-1 text-xs text-stone-500">
@@ -268,7 +304,7 @@ export function ListingCard({
             line) - the rating/New chip now aligns with the top of the
             price block, which reads correctly whether or not the second
             "total" line below it is present. */}
-        <div className="mt-2.5 flex items-start justify-between gap-2">
+        <div className={cn("flex items-start justify-between gap-2", isLarge ? "mt-1" : "mt-2.5")}>
           <div className="flex flex-col gap-0.5">
             {/* The nightly rate in the site's own display serif, the same
                 face every page heading uses (see globals.css) - a

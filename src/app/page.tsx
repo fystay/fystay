@@ -17,18 +17,17 @@ import { auth } from "@/auth";
 import { SearchBar } from "@/components/SearchBar";
 import { HeroBanner } from "@/components/HeroBanner";
 import { ListingsGrid } from "@/components/search/ListingsGrid";
-import { ListingsCarouselSkeleton } from "@/components/ListingCardSkeleton";
 import { buttonVariants } from "@/components/ui/Button";
 import { ListingsCarousel } from "@/components/ListingsCarousel";
-import {
-  ExploreDestinations,
-  ExploreDestinationsSkeleton,
-} from "@/components/ExploreDestinations";
+import { ExploreDestinations } from "@/components/ExploreDestinations";
+import { LargeCard, LargeCardRailSkeleton } from "@/components/LargeCard";
+import { LargeCardRail } from "@/components/LargeCardRail";
+import { FYSTAY_SERVICES } from "@/lib/services";
 import { TripTypeCategories } from "@/components/TripTypeCategories";
 import { TravelAddonsSection } from "@/components/TravelAddonsSection";
 import { Reveal } from "@/components/Reveal";
 import { beachStaysSection, groupByCity, recentlyAddedSection } from "@/lib/marketplace";
-import { getFeaturedOffering } from "@/lib/travelAddons";
+import { getActiveOfferings } from "@/lib/travelAddons";
 import { SectionPills } from "@/components/SectionPills";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
@@ -157,7 +156,7 @@ async function MarketplaceSections() {
 }
 
 export default async function Home() {
-  const featuredAddonOffering = await getFeaturedOffering();
+  const travelOfferings = await getActiveOfferings();
 
   // WebSite + SearchAction tells Google this site has an internal search it
   // can offer directly in results (a "sitelinks search box"), targeting the
@@ -483,17 +482,71 @@ export default async function Home() {
           ))}
         </div>
 
+        {/* Large, image-led card rails (see LargeCardRail) for the four
+            sections a picture actually helps with - stays, towns, travel
+            and services, in the same order as the section pills - each
+            showing one full card plus a peek of the next on phones and
+            about two and a half on desktop. Everything after them keeps
+            its existing, denser layout. */}
         <div className="mt-10">
           <h2 className="text-xl font-bold text-foreground sm:text-2xl">Hand-picked stays</h2>
           <p className="mt-1 text-sm text-stone-500">
             Hand-picked local places to stay, ready to book today.
           </p>
           <div className="mt-6">
-            <Suspense fallback={<ListingsCarouselSkeleton />}>
+            <Suspense fallback={<LargeCardRailSkeleton />}>
               <ListingsGrid searchParams={{}} showResultsView={false} />
             </Suspense>
           </div>
         </div>
+
+        {/* Each town links to its own /destinations/[slug] landing page (see
+            lib/destinations.ts). */}
+        <Reveal className="mt-14">
+          <h2 className="text-xl font-bold text-foreground sm:text-2xl">Explore the Fylde Coast</h2>
+          <p className="mt-1 text-sm text-stone-500">
+            Six towns we actually know - each with real local stays and its own Local Guide, not a
+            search filter with a photo on it.
+          </p>
+          <div className="mt-6">
+            <Suspense fallback={<LargeCardRailSkeleton />}>
+              <ExploreDestinations variant="large" />
+            </Suspense>
+          </div>
+        </Reveal>
+
+        {/* One card per travel add-on category with a live offering.
+            Renders nothing when none is live (same "don't show a promise
+            with nothing behind it" rule every other conditional section on
+            this page already follows). */}
+        {travelOfferings.length > 0 && (
+          <Reveal className="mt-14">
+            <h2 className="text-xl font-bold text-foreground sm:text-2xl">Travel</h2>
+            <p className="mt-1 text-sm text-stone-500">Getting here and getting around, added to your stay.</p>
+            <div className="mt-6">
+              <TravelAddonsSection offerings={travelOfferings} />
+            </div>
+          </Reveal>
+        )}
+
+        <Reveal className="mt-14">
+          <h2 className="text-xl font-bold text-foreground sm:text-2xl">Services</h2>
+          <p className="mt-1 text-sm text-stone-500">Everything FYStay offers beyond the stay itself.</p>
+          <div className="mt-6">
+            <LargeCardRail label="Services">
+              {FYSTAY_SERVICES.map((service) => (
+                <LargeCard
+                  key={service.title}
+                  href={service.href}
+                  image={{ icon: service.icon, gradient: service.gradient }}
+                  title={service.title}
+                  description={service.description}
+                  meta={service.cta}
+                />
+              ))}
+            </LargeCardRail>
+          </div>
+        </Reveal>
 
         <div className="mt-14">
           <h2 className="text-xl font-bold text-foreground sm:text-2xl">Find your perfect stay</h2>
@@ -508,36 +561,6 @@ export default async function Home() {
         <Suspense fallback={null}>
           <MarketplaceSections />
         </Suspense>
-
-        {/* A geographic index rather than another listings carousel - each
-            tile is a real, working link to that town's search results
-            today, and doubles as the seed for dedicated per-destination
-            landing pages later (see lib/destinations.ts). */}
-        <Reveal className="mt-14">
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">Explore the Fylde Coast</h2>
-          <p className="mt-1 text-sm text-stone-500">
-            Six towns we actually know - each with real local stays and its own Local Guide, not a
-            search filter with a photo on it.
-          </p>
-          <div className="mt-6">
-            <Suspense fallback={<ExploreDestinationsSkeleton />}>
-              <ExploreDestinations />
-            </Suspense>
-          </div>
-        </Reveal>
-
-        {/* A single, quiet travel add-on cross-sell (see item 1 of
-            docs/trip-extras-roadmap.md's cross-sell brief) - one compact
-            card, not another hero banner, so accommodation stays the
-            obvious point of this page. Renders nothing if there's no
-            active offering for this category (same "don't show a promise
-            with nothing behind it" rule every other conditional section
-            on this page already follows). */}
-        {featuredAddonOffering && (
-          <Reveal className="mt-14">
-            <TravelAddonsSection offering={featuredAddonOffering} />
-          </Reveal>
-        )}
 
         <Reveal className="mt-14 border-t border-border-subtle pt-10">
           <div className="mx-auto max-w-2xl text-center">

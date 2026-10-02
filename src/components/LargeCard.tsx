@@ -1,0 +1,101 @@
+import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/cn";
+
+/** The image area of a large card: a real photo, or FYStay's own brand-gradient art where no real photo exists. */
+export type LargeCardImage = { photoSrc: string } | { icon: LucideIcon; gradient: string };
+
+/**
+ * A large, image-led card for LargeCardRail: a big rounded image area with
+ * a short title and one line of description beneath it. The whole card is
+ * one link. Image ratio is 1:1 on phones and 4:3 from sm up, so the card
+ * stays substantial without towering over the page on desktop.
+ */
+export function LargeCard({
+  href,
+  image,
+  eyebrow,
+  title,
+  description,
+  meta,
+  onClick,
+}: {
+  href: string;
+  image: LargeCardImage;
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  /** A short trailing detail, e.g. "3 stays to explore" or a price. */
+  meta?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <Link href={href} onClick={onClick} className="focus-ring group block rounded-[28px]">
+      <LargeCardImageArea image={image} />
+      <div className="px-1 pt-4">
+        {eyebrow && (
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">{eyebrow}</p>
+        )}
+        <p className="mt-1 text-lg font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800 sm:text-xl">
+          {title}
+        </p>
+        {description && <p className="mt-1 line-clamp-2 text-sm text-stone-500">{description}</p>}
+        {meta && <p className="mt-2 text-sm font-medium text-brand-700">{meta}</p>}
+      </div>
+    </Link>
+  );
+}
+
+/** Loading placeholder matching LargeCardRail's slot sizes: one card plus the peek of the next (2.5 on desktop). */
+export function LargeCardRailSkeleton() {
+  const slot = (key: number) => (
+    <div key={key} className="w-[78vw] max-w-[440px] shrink-0 sm:w-[58vw] lg:w-[40%] lg:max-w-none">
+      <div className="skeleton-shimmer aspect-square w-full rounded-[28px] sm:aspect-[4/3]" />
+      <div className="skeleton-shimmer mt-4 h-5 w-2/3 rounded-full" />
+      <div className="skeleton-shimmer mt-2 h-4 w-1/2 rounded-full" />
+    </div>
+  );
+  // Same out-of-flow row as LargeCardRail, so the placeholder can't widen a phone's page either.
+  return (
+    <div className="relative" aria-hidden>
+      <div className="invisible flex pb-4 pt-1">{slot(0)}</div>
+      <div className="absolute inset-x-0 top-0 -mx-6 flex gap-4 overflow-hidden px-6 pb-4 pt-1 lg:mx-0 lg:gap-6 lg:px-0">
+        {[0, 1, 2].map(slot)}
+      </div>
+    </div>
+  );
+}
+
+/** Shared with ListingCard size="large" so both card types have the same corner radius, shadow and hover. */
+export const LARGE_CARD_IMAGE_CLASS =
+  "relative aspect-square w-full overflow-hidden rounded-[28px] shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] sm:aspect-[4/3]";
+
+function LargeCardImageArea({ image }: { image: LargeCardImage }) {
+  if ("photoSrc" in image) {
+    return (
+      <div className={cn(LARGE_CARD_IMAGE_CLASS, "bg-brand-50")}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={image.photoSrc}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+      </div>
+    );
+  }
+
+  const Icon = image.icon;
+  return (
+    <div className={cn(LARGE_CARD_IMAGE_CLASS, "bg-gradient-to-br", image.gradient)}>
+      <Icon
+        className="absolute -bottom-6 -right-6 h-48 w-48 text-white/15 transition-transform duration-700 group-hover:scale-110 group-hover:-rotate-6 sm:h-56 sm:w-56"
+        strokeWidth={1.25}
+        aria-hidden
+      />
+      <span className="absolute left-5 top-5 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm">
+        <Icon className="h-6 w-6" aria-hidden />
+      </span>
+    </div>
+  );
+}

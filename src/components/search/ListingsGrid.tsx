@@ -215,6 +215,7 @@ export async function ListingsGrid({
         listings={petFiltered.slice(0, HOMEPAGE_CAROUSEL_SIZE)}
         savedListingIds={savedListingIds}
         isLoggedIn={Boolean(session?.user)}
+        size="large"
       />
     );
   }

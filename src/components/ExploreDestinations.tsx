@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/cn";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { DESTINATION_PHOTOS } from "@/lib/destinationPhotos";
+import { LargeCard } from "@/components/LargeCard";
+import { LargeCardRail } from "@/components/LargeCardRail";
 
 export const DESTINATION_ART: Record<string, { icon: LucideIcon; gradient: string }> = {
   blackpool: { icon: FerrisWheel, gradient: "from-brand-600 via-brand-700 to-brand-900" },
@@ -91,7 +93,7 @@ function DestinationTile({
  * other independent homepage sections (FeaturedHero, MarketplaceSections)
  * each own their own data below their Suspense boundary in page.tsx.
  */
-export async function ExploreDestinations() {
+export async function ExploreDestinations({ variant = "grid" }: { variant?: "grid" | "large" } = {}) {
   const counts = await prisma.listing.groupBy({
     by: ["city"],
     where: { published: true },
@@ -100,12 +102,38 @@ export async function ExploreDestinations() {
   const countByCity = new Map(counts.map((row) => [row.city, row._count._all]));
 
   const featured = FYLDE_COAST_DESTINATIONS.filter((d) => FEATURED_SLUGS.includes(d.slug));
+  const subtitleFor = (searchCity: string) => {
+    const count = countByCity.get(searchCity) ?? 0;
+    return count > 0 ? `${count} stay${count === 1 ? "" : "s"} to explore` : "Coming soon";
+  };
+
+  // The homepage's large-card rail (see LargeCardRail): the same towns,
+  // links and counts as the grid, plus each town's one-line description.
+  if (variant === "large") {
+    return (
+      <LargeCardRail label="Explore the Fylde Coast">
+        {featured.map((destination) => {
+          const art = DESTINATION_ART[destination.slug];
+          const photoSrc = DESTINATION_PHOTOS[destination.slug]?.tile;
+          return (
+            <LargeCard
+              key={destination.slug}
+              href={`/destinations/${destination.slug}`}
+              image={photoSrc ? { photoSrc } : { icon: art.icon, gradient: art.gradient }}
+              title={destination.name}
+              description={destination.description}
+              meta={subtitleFor(destination.searchCity)}
+            />
+          );
+        })}
+      </LargeCardRail>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6">
       {featured.map((destination) => {
         const art = DESTINATION_ART[destination.slug];
-        const count = countByCity.get(destination.searchCity) ?? 0;
         return (
           <DestinationTile
             key={destination.slug}
@@ -113,7 +141,7 @@ export async function ExploreDestinations() {
             href={`/destinations/${destination.slug}`}
             icon={art.icon}
             gradient={art.gradient}
-            subtitle={count > 0 ? `${count} stay${count === 1 ? "" : "s"} to explore` : "Coming soon"}
+            subtitle={subtitleFor(destination.searchCity)}
             photoSrc={DESTINATION_PHOTOS[destination.slug]?.tile}
           />
         );

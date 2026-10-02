@@ -52,13 +52,12 @@ export const ADDON_CATEGORY_LABELS: Record<ExtraCategory, string> = {
 };
 
 /**
- * The order the single-offering "browse and discover" surfaces (homepage
- * TravelAddonsSection, property-page PropertyTransferPromo) try categories
- * in when picking the one offering to feature - airport transfer first
- * since it's FYStay's own real, launched cross-sell, then the other two
- * categories in the order they were added. These surfaces show one offering
- * at a time by design (see their own file comments), so this is "which one"
- * rather than "show them all".
+ * Category order for the "browse and discover" surfaces - airport transfer
+ * first since it's FYStay's own real, launched cross-sell, then the other
+ * two categories in the order they were added. The property page's
+ * PropertyTransferPromo shows one offering at a time by design, so for it
+ * this is "which one" (getFeaturedOffering); the homepage's large-card
+ * Travel rail shows every live one in this order (getActiveOfferings).
  */
 const FEATURED_CATEGORY_PRIORITY: ExtraCategory[] = [
   "AIRPORT_TRANSFER",
@@ -80,6 +79,12 @@ export async function getFeaturedOffering(): Promise<TravelAddonOffering | null>
     if (offering) return offering;
   }
   return null;
+}
+
+/** Every category's live offering, in FEATURED_CATEGORY_PRIORITY order - categories with none are left out. */
+export async function getActiveOfferings(): Promise<TravelAddonOffering[]> {
+  const offerings = await Promise.all(FEATURED_CATEGORY_PRIORITY.map(getActiveOfferingByCategory));
+  return offerings.filter((offering) => offering !== null);
 }
 
 /**
