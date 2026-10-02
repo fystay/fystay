@@ -172,9 +172,28 @@ or bookings.
 **Still open:**
 - **Preview** `DATABASE_URL` still has `connection_limit=1` (user `fystay_app`). Add the same
   suffix when convenient.
-- **Region:** functions run in `iad1` (Washington DC), the database is in `eu-west-1` (Ireland).
-  A `SELECT 1` health check takes about 350ms and pages took about 5s under the burst. Recommended next:
-  `"regions": ["dub1"]` in `vercel.json` (one-line deploy config change; verify on Preview first).
+
+**Region moved to Dublin (2 Oct).** `vercel.json` now has `"regions": ["dub1"]` (`012ee79`), so
+functions run next to the `eu-west-1` database instead of in `iad1` (Washington DC). It was verified on
+Preview (`dpl_64wcAbxaPbggF24RU8bhJkBmEioA`), then deployed fresh to Production
+(`dpl_9WJQUZfZfxCosrifsFdy6eio8JnY`). Every response's `x-vercel-id` shows `dub1` as the function region.
+
+Measured from the test sandbox, which is in the US, so these times include a transatlantic hop to the client:
+
+| | Before (`iad1`) | After (`dub1`) |
+|---|---|---|
+| `/api/health` database `latencyMs` | 418 | 11-26 warm (186 on the first, cold call) |
+| `/` warm time to first byte | 1.31-1.46s | 0.34-0.41s |
+| `/search` warm time to first byte | 0.21-0.44s | 0.27-0.33s |
+| Pages that don't touch the database | 0.19-0.41s | 0.25-0.37s |
+| Burst of 35 concurrent requests | avg 5.2s, max 7.4s | avg 2.7-2.9s, max 3.6s |
+
+Every Production page checked returned 200: `/`, `/search`, `/login`, `/legal/terms`, `/legal/privacy` and
+`/api/health`. There were no error or warning logs on Preview or Production, and no new Sentry issues. Across two
+bursts, 1 of 35 requests in each never got a response at the client. The one with an error message
+failed in the sandbox's outbound proxy during the TLS handshake (`SSL_ERROR_SYSCALL`). Vercel logged no
+non-200 responses for the deployment. Guests in the UK should gain more
+than these US-measured numbers show, but that wasn't measured.
 
 ## COMPLETE
 
