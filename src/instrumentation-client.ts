@@ -14,6 +14,8 @@ const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 if (dsn) {
   Sentry.init({
     dsn,
+    // Don't attach IP addresses, cookies or request bodies to events.
+    sendDefaultPii: false,
     // Keep this low in production - it's a sample rate for performance
     // traces, not error reporting (errors are always captured regardless).
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1,

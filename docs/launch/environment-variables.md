@@ -35,8 +35,8 @@ Secret = mark it **Sensitive** in Vercel. Public = safe to be seen; the
 | `NEXT_PUBLIC_COMPANY_ADDRESS` | Same | Public | **Missing** |
 | `NEXT_PUBLIC_COMPANY_NUMBER` | Same; only if a limited company/LLP | Public | Leave empty if sole trader |
 | `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_LEGAL_EMAIL` | Contact addresses on the site (`src/lib/seo.ts`) | Public | Unset (default `support@` / `privacy@` / `legal@fystay.co.uk`) |
-| `SENTRY_DSN` | Server error reporting (`src/instrumentation.ts`, every generic 500) | Low-sensitivity | **Missing** |
-| `NEXT_PUBLIC_SENTRY_DSN` | Browser error reporting (`src/instrumentation-client.ts`); same value as above | Public | **Missing** |
+| `SENTRY_DSN` | Server error reporting (`src/instrumentation.ts`, every generic 500) | Low-sensitivity | Set (Production + Preview), project `fystay/fystay-web` |
+| `NEXT_PUBLIC_SENTRY_DSN` | Browser error reporting (`src/instrumentation-client.ts`); same value as above; the CSP allows its ingest host (`src/lib/sentryCsp.ts`) | Public | Set (Production + Preview) |
 
 ## Stripe (parked: do not configure until the Stripe decision)
 
@@ -57,7 +57,8 @@ Production, by design: payments are refused cleanly until they are.
 | `HOTEL_PROVIDER_*`, `HOTEL_*_CACHE_TTL_MS` | Hotel affiliate tuning | Unset (defaults) |
 | `DISPUTE_ALERT_EMAIL` | Chargeback alerts; defaults to the support address | Unset |
 | `EV_EXEC_NOTIFICATION_EMAIL`, `EV_EXEC_BOOKING_FORM_URL` | Trip-extra provider seeding (demo/Preview) | Unset |
-| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` (secret) | Readable stack traces | Unset |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | Source-map upload target | Set (`fystay` / `fystay-web`) |
+| `SENTRY_AUTH_TOKEN` (secret) | Readable stack traces: enables source-map upload at build | **Missing**: create an Organization Auth Token in Sentry |
 | Per-route cron secrets (`LOCAL_DATA_`, `ICAL_SYNC_`, `PMS_RECONCILE_`, `BOOKING_LIFECYCLE_`, `BOOKING_REQUEST_`, `SECURITY_DEPOSIT_CRON_SECRET`) | Manual job runs only; `CRON_SECRET` covers everything | Unset (fine) |
 
 ## Should not be in Production

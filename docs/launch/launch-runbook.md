@@ -44,7 +44,7 @@ In Vercel → Settings → Environment Variables, target **Production only**:
 | `RESEND_API_KEY` | from step 2.3 (Sensitive) |
 | `EMAIL_FROM` | `FYStay <bookings@mail.yourdomain>` |
 | `TWO_FACTOR_ENCRYPTION_KEY` | output of `openssl rand -hex 32` on your own computer (Sensitive). **Never change it.** |
-| `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` | the same DSN from a new Sentry "Next.js" project |
+| `SENTRY_AUTH_TOKEN` | Sentry Organization Auth Token (Sensitive). The DSN, org and project are already set. |
 | `NEXT_PUBLIC_COMPANY_LEGAL_NAME`, `NEXT_PUBLIC_COMPANY_ADDRESS`, `NEXT_PUBLIC_COMPANY_NUMBER` (if any) | from step 1.1 |
 | `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_LEGAL_EMAIL` | from step 2.4 |
 | `NEXT_PUBLIC_BASE_URL`, `NEXTAUTH_URL` | `https://yourdomain` |

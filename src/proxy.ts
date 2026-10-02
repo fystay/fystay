@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { sentryIngestOrigin } from "@/lib/sentryCsp";
+
+// The browser SDK posts errors straight to Sentry's ingest host, so it has to
+// be allowed in connect-src - only when a DSN is configured.
+const SENTRY_INGEST = sentryIngestOrigin(process.env.NEXT_PUBLIC_SENTRY_DSN);
 
 // Nearly every page in this app calls auth() and is already dynamically
 // rendered, so a per-request nonce (which requires dynamic rendering) costs
@@ -17,7 +22,7 @@ export function proxy(request: NextRequest) {
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https:;
     font-src 'self';
-    connect-src 'self';
+    connect-src 'self'${SENTRY_INGEST ? ` ${SENTRY_INGEST}` : ""};
     object-src 'none';
     base-uri 'self';
     form-action 'self';

@@ -17,6 +17,8 @@ export async function register() {
     const Sentry = await import("@sentry/nextjs");
     Sentry.init({
       dsn,
+      // Don't attach IP addresses, cookies or request bodies to events.
+      sendDefaultPii: false,
       tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1,
       environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
     });
@@ -24,6 +26,8 @@ export async function register() {
     const Sentry = await import("@sentry/nextjs");
     Sentry.init({
       dsn,
+      // Don't attach IP addresses, cookies or request bodies to events.
+      sendDefaultPii: false,
       tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1,
       environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
     });

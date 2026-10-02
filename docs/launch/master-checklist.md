@@ -36,7 +36,8 @@ and deployed (see COMPLETE).
 | Item | Why it matters | Blocks launch? |
 |---|---|---|
 | `TWO_FACTOR_ENCRYPTION_KEY` | 2FA shows "not available" without it. Generate once with `openssl rand -hex 32`; never change it afterwards. | Yes |
-| `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` | Without them nobody is told when something breaks. Same DSN value in both. | Strongly recommended |
+| **Sentry: set on 2 Oct, live after the next Production build.** Project `fystay/fystay-web` (EU region). `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` set for Production + Preview. The CSP allows the ingest host. No personal data is sent (`sendDefaultPii: false`). The release is the Vercel commit SHA. | Takes effect on the next Production build | Done (pending deploy) |
+| **Manual:** `SENTRY_AUTH_TOKEN` for source maps | Create an Organization Auth Token in Sentry (Settings → Developer Settings → Organization Tokens) and add it to Vercel Production + Preview as **Sensitive**. Without it, errors still arrive, with minified stack traces. | No |
 | **Manual:** delete `SEED_ADMIN_SECRET` from Vercel **Production** (keep the Preview copy) | Read only by `/api/admin/seed-demo-data`, which refuses in Production. Can't be deleted with the available tooling. | No (hygiene) |
 | **Manual:** delete `PROD_DIRECT_URL` from Vercel **Production** | Only the migration workflow reads it, from the GitHub "production" environment secret, not Vercel; the app never reads it. Keep the GitHub secret. | No (hygiene) |
 | `PMS_ENCRYPTION_KEY` | Only if hosts may connect a property-management system at launch. | No |
@@ -96,7 +97,6 @@ and deployed (see COMPLETE).
 - Ticketmaster events on destination pages (`TICKETMASTER_API_KEY`).
 - Booking.com hotel affiliate. Credentials alone never switch it on: the code must also list it in `LIVE_HOTEL_PROVIDER_CODES`.
 - PMS integrations: Cloudbeds is built, SiteMinder and SuperControl are stubs.
-- Sentry source maps (`SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`).
 - Uptime monitoring on `/` and `/api/listings`; check the Supabase backup / point-in-time-recovery plan.
 - A test-timezone tidy-up: one hotel-affiliate unit test fails only when the suite runs outside UTC (CI and Vercel run in UTC).
 
