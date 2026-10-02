@@ -157,41 +157,24 @@ a secret or link, and none treats an unconfigured service as success.
 
 ---
 
-## Database connection pooling (investigated 2 Oct, Sentry FYSTAY-WEB-1..3)
+## Database connection pooling (investigated and fixed 2 Oct)
 
-**Finding: a real scaling risk, not urgent at today's zero traffic.** Two causes combine:
+**Production fixed.** Production `DATABASE_URL` is the Supabase transaction pooler (6543) with
+`?pgbouncer=true&connection_limit=5&pool_timeout=20` (was `connection_limit=1`), deployed in
+`dpl_5wVMUCxWzkiQ9YnvYrS8a2rr1dPo`. Check: 35 concurrent requests (25 homepage + 10 search)
+all returned 200, with no pool-timeout or database errors.
 
-1. **`connection_limit=1` on the Prisma connection.** The Preview `DATABASE_URL`
-   sets it (Prisma's own default on a 2-CPU function would be 5). The homepage
-   fans out several queries at once (`MarketplaceSections`, `ExploreDestinations`'
-   `groupBy`, auth), and Vercel runs concurrent requests on the same instance.
-   All three failures came from one instance 26s after it started, so every
-   query queued behind a single connection and hit Prisma's 10s `pool_timeout`.
-2. **Region mismatch.** Functions run in `iad1` (Washington DC); both Supabase
-   projects are in `eu-west-1` (Ireland). Every query pays a transatlantic round
-   trip (roughly 70-80ms), which lengthens that queue.
+The database password was reset during the change. Production `DATABASE_URL`, `DIRECT_URL` and
+the GitHub `production` secret `PROD_DIRECT_URL` were all updated to it. There was an outage of
+about 30 minutes (old credentials) on 2 Oct, 08:00-08:32 UTC, while Production had no listings
+or bookings.
 
-Production has had **no** pool timeouts (7 days of Vercel logs; Sentry shows
-none). It has an empty catalogue and no traffic, so it hasn't been tested yet.
-Production's `DATABASE_URL` is a Sensitive variable, so its `connection_limit`
-can't be read. It's described as the same transaction pooler as Preview and
-should be assumed identical.
-
-**Fix (config only: no code, schema, migration or data change):**
-- **A. Smallest:** in Vercel `DATABASE_URL` (Preview first, then Production),
-  keep the Supabase transaction pooler (port 6543, `pgbouncer=true`) and change
-  `connection_limit=1` to `connection_limit=5`, adding `pool_timeout=20`.
-  Supavisor transaction mode multiplexes client connections cheaply, so that's
-  roughly 40 concurrent instances before Supabase's default client cap.
-  Redeploy, then check.
-- **B. Recommended next:** run functions next to the database by adding
-  `"regions": ["dub1"]` to `vercel.json`. This cuts query latency for every
-  page, and Dublin is also closer to UK guests. It's a one-line deployment
-  config change; ship it separately after A, and verify on Preview first.
-
-**Validation plan:** apply A to Preview, redeploy, then load the homepage
-cold with about 20 concurrent requests. Expect no `Timed out fetching a new
-connection`. Then apply to Production.
+**Still open:**
+- **Preview** `DATABASE_URL` still has `connection_limit=1` (user `fystay_app`). Add the same
+  suffix when convenient.
+- **Region:** functions run in `iad1` (Washington DC), the database is in `eu-west-1` (Ireland).
+  A `SELECT 1` health check takes about 350ms and pages took about 5s under the burst. Recommended next:
+  `"regions": ["dub1"]` in `vercel.json` (one-line deploy config change; verify on Preview first).
 
 ## COMPLETE
 
