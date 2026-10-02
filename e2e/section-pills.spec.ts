@@ -35,6 +35,16 @@ for (const { label, path } of SECTIONS) {
   });
 }
 
+test("the desktop header doesn't repeat links the pills already cover", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/search");
+  const header = page.locator("header");
+  await expect(header.getByRole("link", { name: "Hotels" })).toBeVisible();
+  await expect(header.getByRole("link", { name: "About" })).toBeVisible();
+  await expect(header.getByRole("link", { name: "Stays", exact: true })).toHaveCount(0);
+  await expect(header.getByRole("link", { name: "Destinations", exact: true })).toHaveCount(0);
+});
+
 test("selecting a pill does not change the size of the row (no layout shift)", async ({ page }) => {
   await page.goto("/search");
   const widths = async () =>
