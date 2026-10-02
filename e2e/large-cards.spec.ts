@@ -51,16 +51,18 @@ test.describe("phone", () => {
 test("desktop shows about three cards, with arrows to move along", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
-  const services = rail(page, "Services");
-  await services.scrollIntoViewIfNeeded();
-  const [first] = await slotBoxes(page, "Services");
-  const railWidth = await services.locator("ul").evaluate((el) => el.clientWidth);
+  // Explore always has six towns, so unlike Services (three cards, which
+  // all fit at this size) it always has somewhere to scroll to.
+  const explore = rail(page, "Explore the Fylde Coast");
+  await explore.scrollIntoViewIfNeeded();
+  const [first] = await slotBoxes(page, "Explore the Fylde Coast");
+  const railWidth = await explore.locator("ul").evaluate((el) => el.clientWidth);
   expect(railWidth / first.width).toBeGreaterThan(3);
   expect(railWidth / first.width).toBeLessThan(3.7);
 
-  const next = services.getByRole("button", { name: "Next" });
+  const next = explore.getByRole("button", { name: "Next" });
   await expect(next).toBeVisible();
   await next.click();
-  await expect.poll(() => services.locator("ul").evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
-  await expect(services.getByRole("button", { name: "Previous" })).toBeVisible();
+  await expect.poll(() => explore.locator("ul").evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+  await expect(explore.getByRole("button", { name: "Previous" })).toBeVisible();
 });
