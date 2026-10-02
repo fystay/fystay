@@ -42,9 +42,9 @@ const TRIP_TYPES: { name: string; description: string; icon: LucideIcon; href: s
 ];
 
 /**
- * Compact on purpose: phones get a tight 2x2 of icon-beside-label tiles and
- * wider screens a single row of four, so this reads as a quick "what kind
- * of break?" chooser rather than another tall stack of cards.
+ * Compact on purpose: a tight 2x2 on phones and a single row of four on
+ * wider screens, so this reads as a quick "what kind of break?" chooser
+ * rather than another tall stack of cards.
  */
 export function TripTypeCategories() {
   return (
@@ -54,15 +54,15 @@ export function TripTypeCategories() {
           key={name}
           href={href}
           className={cn(
-            "focus-ring group flex items-center gap-3 rounded-2xl border border-border-subtle bg-surface p-3 shadow-[var(--shadow-card)] transition-all duration-200 hover:-translate-y-1 hover:border-brand-200 hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] active:border-brand-200 sm:flex-col sm:items-start sm:p-5",
+            "focus-ring group flex flex-col items-start gap-2.5 rounded-2xl border border-border-subtle bg-surface p-3.5 shadow-[var(--shadow-card)] transition-all duration-200 hover:-translate-y-1 hover:border-brand-200 hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] active:border-brand-200 sm:gap-3 sm:p-5",
           )}
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition-colors group-hover:bg-brand-100 sm:h-12 sm:w-12">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition-colors group-hover:bg-brand-100 sm:h-12 sm:w-12">
             <Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
           </span>
           <div className="min-w-0">
             <p className="text-sm font-semibold leading-tight text-foreground sm:text-base">{name}</p>
-            <p className="mt-0.5 text-xs leading-snug text-stone-500 sm:text-sm">{description}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-stone-500 sm:text-sm">{description}</p>
           </div>
         </Link>
       ))}

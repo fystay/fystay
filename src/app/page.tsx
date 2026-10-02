@@ -424,20 +424,20 @@ function SectionHeader({
   link?: { href: string; label: string };
 }) {
   return (
-    <div className="mb-5 flex items-end justify-between gap-4 sm:mb-6">
-      <div className="min-w-0">
+    <div className="mb-5 sm:mb-6">
+      <div className="flex items-baseline justify-between gap-4">
         <h2 className="text-xl font-bold text-foreground sm:text-2xl">{title}</h2>
-        <p className="mt-1 text-sm text-stone-500">{subtitle}</p>
+        {link && (
+          <Link
+            href={link.href}
+            className="focus-ring flex shrink-0 items-center gap-1 rounded-sm text-sm font-medium text-brand-700 hover:text-brand-800"
+          >
+            {link.label}
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        )}
       </div>
-      {link && (
-        <Link
-          href={link.href}
-          className="focus-ring mb-0.5 flex shrink-0 items-center gap-1 rounded-sm text-sm font-medium text-brand-700 hover:text-brand-800"
-        >
-          {link.label}
-          <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
-      )}
+      <p className="mt-1 text-sm text-stone-500">{subtitle}</p>
     </div>
   );
 }
