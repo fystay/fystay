@@ -12,7 +12,7 @@ type Variant = "hero" | "default";
 // pressed look is an inset shadow, a deeper background and a 1px drop;
 // inactive pills keep a small raised shadow so they still read as buttons.
 const PILL_BASE =
-  "focus-ring inline-flex items-center rounded-full border px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-[background-color,color,box-shadow,transform] duration-150 sm:px-4";
+  "focus-ring inline-flex items-center rounded-full border px-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-[background-color,color,box-shadow,transform] duration-150 min-[360px]:px-3.5 sm:px-4";
 
 const PILL_STYLES: Record<Variant, { active: string; inactive: string }> = {
   // Over the homepage video: the same dark-glass tokens as the search panel
@@ -39,7 +39,8 @@ export function SectionPills({ variant, className }: { variant: Variant; classNa
 
   return (
     <nav aria-label="Sections" className={className}>
-      <ul className="flex gap-1.5">
+      {/* Tighter padding and gap below 360px so all four still fit inside the page gutter on the smallest phones. */}
+      <ul className="flex gap-1 min-[360px]:gap-1.5">
         {SITE_SECTIONS.map((section) => {
           const isActive = section.key === active;
           return (

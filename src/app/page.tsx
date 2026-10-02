@@ -309,8 +309,10 @@ export default async function Home() {
                 see src/lib/siteSections.ts) above the search panel. Stays
                 shows pressed here: this search bar is the Stays search.
                 Same dark-glass tokens as the search panel below so the two
-                read as one attached unit. */}
-            <SectionPills variant="hero" className="mb-2 flex justify-center lg:justify-start" />
+                read as one attached unit. mx-auto max-w-4xl matches the
+                search bar's own centred width, so at lg: the row's left
+                edge lines up with the bar's. */}
+            <SectionPills variant="hero" className="mx-auto mb-2 flex w-full max-w-4xl justify-center lg:justify-start" />
             <Suspense>
               <SearchBar liveUpdate={false} variant="hero" />
             </Suspense>
