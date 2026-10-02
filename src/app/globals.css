@@ -477,6 +477,27 @@ body {
   }
 }
 
+/* Property-card photo crossfade (CrossfadeImages): the incoming photo fades
+   in over the outgoing one, which stays fully visible underneath. An
+   animation rather than a transition so it replays whichever photo becomes
+   current, including one stepped back to. */
+@keyframes card-photo-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-card-photo-fade {
+  animation: card-photo-fade 600ms ease-in-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-photo-fade {
+    animation: none;
+  }
+}
+
 /* Loading skeletons (Skeleton.tsx, used by every route's loading.tsx): a
    slow, understated shimmer across the site's own warm surface tones,
    rather than Tailwind's default animate-pulse (a flat opacity blink that

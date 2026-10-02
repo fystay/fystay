@@ -1,12 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import type { TouchEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
 import { useFormattedPrice } from "@/components/CurrencyProvider";
-import { isOptimizableImage } from "@/lib/image";
 import { computeBookingPricing } from "@/lib/pricing";
 import { SaveButton } from "@/components/SaveButton";
 import { averageRating as computeAverageRating } from "@/lib/reviews";
@@ -15,6 +13,8 @@ import { cn } from "@/lib/cn";
 import { withCity } from "@/lib/seo";
 import { distanceMiles, estimateDriveMinutes, estimateWalkMinutes } from "@/lib/geo";
 import { EntryLocationMeta } from "@/components/EntryLocationMeta";
+import { CrossfadeImages } from "@/components/CrossfadeImages";
+import { useAutoRotate } from "@/hooks/useAutoRotate";
 import { LARGE_CARD_IMAGE_CLASS } from "@/components/LargeCard";
 
 export type ListingCardData = {
@@ -100,13 +100,21 @@ export function ListingCard({
       ? `${listing.weeklyDiscountPercent}% off weekly`
       : null;
 
-  const photoCount = isLarge ? Math.min(listing.photos.length, 1) : listing.photos.length;
-  const [photoIndex, setPhotoIndex] = useState(0);
+  const photoCount = listing.photos.length;
+  // Gentle automatic crossfade through the listing's photos (see
+  // useAutoRotate for when it runs and pauses). Large cards rotate too but
+  // get no arrows, dots or photo swipe: a sideways swipe on them belongs to
+  // the rail they sit in (LargeCardRail).
+  const {
+    observe: observePhotos,
+    index: photoIndex,
+    previous: previousPhotoIndex,
+    goTo: goToPhoto,
+    handlers: rotationHandlers,
+    preloadNext,
+  } = useAutoRotate<HTMLDivElement>({ count: photoCount, seed: listing.id });
+  const showPhotoControls = !isLarge && photoCount > 1;
   const touchStartX = useRef<number | null>(null);
-
-  function goToPhoto(index: number) {
-    setPhotoIndex(((index % photoCount) + photoCount) % photoCount);
-  }
 
   // Swiping across the photo shouldn't also navigate to the listing:
   // mobile browsers already suppress the anchor's click event once a touch
@@ -158,6 +166,8 @@ export function ListingCard({
           square, the crop a considered property brochure uses rather
           than a wide filmstrip thumbnail. */}
       <div
+        ref={observePhotos}
+        {...rotationHandlers}
         className={cn(
           isLarge
             ? cn(LARGE_CARD_IMAGE_CLASS, "bg-brand-50")
@@ -167,31 +177,23 @@ export function ListingCard({
         <Link
           href={`/listings/${listing.id}${stayQuery}`}
           className={cn("focus-ring absolute inset-0 block", isLarge ? "rounded-[22px]" : "rounded-2xl")}
-          onTouchStart={photoCount > 1 ? handleTouchStart : undefined}
-          onTouchEnd={photoCount > 1 ? handleTouchEnd : undefined}
+          onTouchStart={showPhotoControls ? handleTouchStart : undefined}
+          onTouchEnd={showPhotoControls ? handleTouchEnd : undefined}
         >
           {photoCount > 0 ? (
-            <div
-              className="flex h-full w-full transition-transform duration-300 ease-out"
-              style={{ transform: `translateX(-${photoIndex * 100}%)` }}
-            >
-              {listing.photos.slice(0, photoCount).map((photo, i) => (
-                <div key={i} className="relative h-full w-full shrink-0">
-                  <Image
-                    src={photo}
-                    alt={withCity(listing.title, listing.city)}
-                    fill
-                    className="object-cover transition duration-300 group-hover:scale-105"
-                    sizes={
-                      isLarge
-                        ? "(max-width: 640px) 60vw, (max-width: 1024px) 44vw, 340px"
-                        : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    }
-                    unoptimized={!isOptimizableImage(photo)}
-                  />
-                </div>
-              ))}
-            </div>
+            <CrossfadeImages
+              photos={listing.photos}
+              index={photoIndex}
+              previous={previousPhotoIndex}
+              preloadNext={preloadNext}
+              alt={withCity(listing.title, listing.city)}
+              imageClassName="object-cover transition duration-300 group-hover:scale-105"
+              sizes={
+                isLarge
+                  ? "(max-width: 640px) 60vw, (max-width: 1024px) 44vw, 340px"
+                  : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              }
+            />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-brand-300">
               <ImageOff className="h-6 w-6" />
@@ -200,7 +202,7 @@ export function ListingCard({
           )}
         </Link>
 
-        {photoCount > 1 && (
+        {showPhotoControls && (
           <>
             {/* Desktop-only prev/next, shown on hover - mobile relies on
                 the swipe handlers on the Link above instead. Siblings of
