@@ -3,8 +3,22 @@
 **The single remaining-work list.** Update this file instead of re-auditing.
 When an item is done, move it to COMPLETE with the commit or date.
 
-Last full audit: 1 October 2026. Production at that point: commit `4bc67b5`,
-deployment `dpl_6cYXELk2wifDoReLBpJ5MuFJDk55`, `fystay.vercel.app`.
+Last full audit: 1 October 2026.
+
+**Production now (2 October 2026):** commit `b225c38`, deployment
+`dpl_AKEpMP9VuEpTJo9dzv7xZtZRSVBa`, `fystay.vercel.app`. Fresh Production
+build. Post-deploy checks passed:
+- pages 200;
+- no `//` in robots.txt, the sitemap or canonical URLs;
+- password reset returns no link;
+- cron rejects a spoofed header and a wrong secret;
+- Stripe unconfigured;
+- `/admin/listings` live (login-gated);
+- no runtime errors.
+
+Production database migrations are current (latest
+`20261001160000_normalize_stay_dates_to_utc_midnight`, applied 1 October;
+none added since).
 
 Related: [launch runbook](launch-runbook.md) ·
 [environment variables](environment-variables.md) ·
@@ -15,8 +29,7 @@ Related: [launch runbook](launch-runbook.md) ·
 ## FIX NOW (code)
 
 Nothing outstanding. Every code item found in the 1 October audit is fixed
-(see COMPLETE). The fixes since `4bc67b5` reach Production with the next
-deploy (runbook step 4).
+and deployed (see COMPLETE).
 
 ## CONFIGURE LATER (Vercel Production variables, no domain needed)
 
@@ -24,8 +37,8 @@ deploy (runbook step 4).
 |---|---|---|
 | `TWO_FACTOR_ENCRYPTION_KEY` | 2FA shows "not available" without it. Generate once with `openssl rand -hex 32`; never change it afterwards. | Yes |
 | `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` | Without them nobody is told when something breaks. Same DSN value in both. | Strongly recommended |
-| Remove `SEED_ADMIN_SECRET` from Production | The seed routes already refuse in Production; the secret has no use there. | No (hygiene) |
-| Remove `PROD_DIRECT_URL` from Vercel Production | Only the GitHub "production" environment needs it; the app never reads it. Least privilege. | No (hygiene) |
+| **Manual:** delete `SEED_ADMIN_SECRET` from Vercel **Production** (keep the Preview copy) | Read only by `/api/admin/seed-demo-data`, which refuses in Production. Can't be deleted with the available tooling. | No (hygiene) |
+| **Manual:** delete `PROD_DIRECT_URL` from Vercel **Production** | Only the migration workflow reads it, from the GitHub "production" environment secret, not Vercel; the app never reads it. Keep the GitHub secret. | No (hygiene) |
 | `PMS_ENCRYPTION_KEY` | Only if hosts may connect a property-management system at launch. | No |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | "Continue with Google". Hidden until set. | No |
 
@@ -149,6 +162,9 @@ a secret or link, and none treats an unconfigured service as success.
 
 | Item | Commit |
 |---|---|
+| Production deploy of the readiness batch (admin listings, base-URL fix, privacy processors, admin bootstrap, 2FA state, a11y CI fix), verified live, 2 Oct | `b225c38` (`dpl_AKEpMP9VuEpTJo9dzv7xZtZRSVBa`) |
+| Password-reset guard verified live in Production (no link; guard log line present) | `4bc67b5`, kept in `b225c38` |
+| Cron auth verified: real Vercel cron returned 200 with `CRON_SECRET`; spoofed header and wrong secret return 401 | `2341bf1`, kept in `b225c38` |
 | Accessibility CI check made deterministic (fade-in race that failed CI on `4bc67b5`; real contrast 5.09:1, not a UI bug) | `4625d57` |
 | Launch docs (this checklist, runbook, env reference, legal drafts) | `54480f9` |
 | Admin listing moderation page | `0137da1` |
