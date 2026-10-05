@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { todayStayDate } from "@/lib/stayDates";
 
 /**
- * Deals - what the homepage's "Steals Deals" row shows. Two kinds, both
+ * Deals - what the homepage's "Last Minute Deals" row shows. Two kinds, both
  * real by construction (UK rules on price claims: a "deal" or "was" price
  * has to be genuine):
  *

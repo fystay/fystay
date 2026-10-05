@@ -119,7 +119,7 @@ export function ListingCard({
   });
   const dealLabel = deal
     ? deal.kind === "last_minute"
-      ? `${deal.percentOff}% off last-minute`
+      ? `${deal.percentOff}% off`
       : `Price drop · ${deal.percentOff}% off`
     : listing.monthlyDiscountPercent
       ? `${listing.monthlyDiscountPercent}% off monthly`

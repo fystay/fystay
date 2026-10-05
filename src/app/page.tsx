@@ -31,7 +31,7 @@ import { beachStaysSection, groupByCity, recentlyAddedSection } from "@/lib/mark
 import { getActiveOfferings } from "@/lib/travelAddons";
 import { NowCovering } from "@/components/NowCovering";
 import { SpotlightStays } from "@/components/SpotlightStays";
-import { StealsDeals } from "@/components/StealsDeals";
+import { LastMinuteDeals } from "@/components/LastMinuteDeals";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
 import { cn } from "@/lib/cn";
@@ -303,11 +303,11 @@ export default async function Home() {
           <SpotlightStays />
         </Suspense>
 
-        {/* Genuine last-minute deals and price drops (see StealsDeals) -
+        {/* Genuine last-minute deals and price drops (see LastMinuteDeals) -
             renders nothing on a day with no deals; the town rows further
             down still list every stay. */}
         <Suspense fallback={null}>
-          <StealsDeals />
+          <LastMinuteDeals />
         </Suspense>
 
         {/* Each town links to its own /destinations/[slug] landing page (see

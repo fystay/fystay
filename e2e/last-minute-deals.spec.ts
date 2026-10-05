@@ -10,12 +10,12 @@ const isoInDays = (days: number) => {
 // a 20% last-minute deal for check-ins within 7 days (src/lib/demoSeed.ts).
 const DEAL_LISTING = "Seafront apartment overlooking Blackpool promenade";
 
-test("Steals Deals shows a real last-minute deal, and the quoted price includes it", async ({ page }) => {
+test("Last Minute Deals shows a real last-minute deal, and the quoted price includes it", async ({ page }) => {
   await page.goto("/");
-  const row = page.locator("section", { has: page.getByRole("heading", { name: "Steals Deals" }) });
-  await expect(row.getByText("Last-minute deals and price drops")).toBeVisible();
+  const row = page.locator("section", { has: page.getByRole("heading", { name: "Last Minute Deals" }) });
+  await expect(row.getByText("Stays coming up soon for less")).toBeVisible();
   // :visible - the rail also renders a hidden sizing copy of its first card.
-  await expect(row.locator("span:text-is('20% off last-minute'):visible").first()).toBeVisible();
+  await expect(row.locator("span:text-is('20% off'):visible").first()).toBeVisible();
   await expect(row.getByRole("link", { name: DEAL_LISTING }).first()).toBeVisible();
 
   const listings = (await (await page.request.get("/api/listings?city=Blackpool")).json()).listings as {

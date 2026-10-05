@@ -12,14 +12,14 @@ const MAX_DEALS = 12;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The homepage's "Steals Deals" row: stays with a genuine deal right now (see
+ * The homepage's "Last Minute Deals" row: stays with a genuine deal right now (see
  * src/lib/deals.ts) - a last-minute deal with at least one night still free
  * inside its window, or a live price drop - biggest saving first. A
  * last-minute deal with nothing left to book in its window isn't a deal
  * anyone can take, so it doesn't count. Renders nothing when there are no
  * deals, and leaves itself out rather than failing the page on an error.
  */
-export async function StealsDeals() {
+export async function LastMinuteDeals() {
   const now = new Date();
   const today = todayStayDate(now);
 
@@ -45,7 +45,7 @@ export async function StealsDeals() {
         },
       })
       .catch((error: unknown) => {
-        console.error("Couldn't load Steals Deals", error);
+        console.error("Couldn't load Last Minute Deals", error);
         Sentry.captureException(error);
         return [];
       }),
@@ -92,15 +92,15 @@ export async function StealsDeals() {
     : new Set<string>();
 
   return (
-    <section className="mt-10 sm:mt-14" aria-labelledby="steals-deals-heading">
+    <section className="mt-10 sm:mt-14" aria-labelledby="last-minute-deals-heading">
       <div className="mb-5 sm:mb-6">
-        <h2 id="steals-deals-heading" className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
+        <h2 id="last-minute-deals-heading" className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
           <BadgePercent className="h-5 w-5 text-brand-600" aria-hidden />
-          Steals Deals
+          Last Minute Deals
         </h2>
-        <p className="mt-1 text-sm text-stone-500">Last-minute deals and price drops from local hosts.</p>
+        <p className="mt-1 text-sm text-stone-500">Stays coming up soon for less, plus genuine price drops from local hosts.</p>
       </div>
-      <LargeCardRail label="Steals Deals">
+      <LargeCardRail label="Last Minute Deals">
         {deals.map(({ card }) => (
           <ListingCard
             key={card.id}

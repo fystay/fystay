@@ -482,7 +482,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
                 placeholder="e.g. 15"
               />
               <FieldHint>
-                Off stays that start soon - featured in Steals Deals on the homepage. Doesn&apos;t stack
+                Off stays that start soon - featured in Last Minute Deals on the homepage. Doesn&apos;t stack
                 with weekly or monthly discounts; guests get the larger one.
               </FieldHint>
             </Field>
