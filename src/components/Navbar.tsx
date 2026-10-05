@@ -34,9 +34,10 @@ export async function Navbar() {
         <Link
           href="/"
           aria-label="FYStay home"
-          className="focus-ring relative z-10 flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600 text-white hover:bg-brand-700 lg:hidden"
+          className="focus-ring relative z-10 flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-600 text-white hover:bg-brand-700 lg:hidden"
         >
-          <Home className="h-6 w-6" strokeWidth={2.5} />
+          {/* Smaller and finer than the logo's weight, so the logo stays the header's focal point. */}
+          <Home className="h-[18px] w-[18px]" strokeWidth={2.25} />
         </Link>
 
         <Link href="/" className="relative z-10 hidden items-center gap-2 lg:flex">
@@ -49,7 +50,7 @@ export async function Navbar() {
           </Link>
         </div>
 
-        {/* lg: the Stays / Explore / Travel / Services tabs sit inline,
+        {/* lg: the Stays / Discover / Journeys / Services tabs sit inline,
             centred against the whole bar the same way the mobile logo is
             above. Below lg they're the header's second row instead. */}
         <div className="pointer-events-none absolute inset-0 hidden items-center justify-center lg:flex">

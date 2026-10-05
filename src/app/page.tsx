@@ -252,7 +252,7 @@ export default async function Home() {
           the footage's sand is close to the page's own colour, so the beach
           simply becomes the page instead of ending at an edge. The fade is a
           mask on the media layer only, so the headline above it is never
-          faded. On phones it takes 42% of the screen (svh: the height with
+          faded. On phones it takes 37% of the screen (svh: the height with
           the browser's toolbars showing, so it doesn't resize as they
           collapse), which keeps the whole search panel, Search button
           included, above the fold on a typical phone. isolate keeps its
@@ -261,7 +261,7 @@ export default async function Home() {
 
           The headline block is bottom-anchored with padding that keeps it
           clear of the fade band, where the search bar floats. */}
-      <section className="relative isolate flex h-[42svh] min-h-[280px] w-full flex-col justify-end sm:h-[48svh] sm:min-h-[380px] lg:h-[68svh] lg:max-h-[700px] lg:min-h-[540px]">
+      <section className="relative isolate flex h-[37svh] min-h-[250px] w-full flex-col justify-end sm:h-[48svh] sm:min-h-[380px] lg:h-[68svh] lg:max-h-[700px] lg:min-h-[540px]">
         <div className="absolute inset-0 [mask-image:linear-gradient(to_top,transparent_0,#000_80px)] sm:[mask-image:linear-gradient(to_top,transparent_0,#000_140px)] lg:[mask-image:linear-gradient(to_top,transparent_0,#000_180px)]">
           <HeroBanner className="absolute inset-0 h-full w-full" />
 
@@ -317,20 +317,20 @@ export default async function Home() {
             grid on phones, one row from lg. */}
         <ul
           aria-label="Why book with FYStay"
-          className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 lg:mt-7 lg:grid-cols-4 lg:gap-x-8"
+          className="mt-7 grid grid-cols-2 gap-x-5 gap-y-6 px-1 sm:mt-6 sm:px-0 lg:mt-7 lg:grid-cols-4 lg:gap-x-8"
         >
           {TRUST_STRIP.map(({ icon: Icon, label, detail }) => (
-            <li key={label} className="flex items-start gap-2.5 lg:pl-1">
-              <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-brand-600" aria-hidden />
+            <li key={label} className="flex items-start gap-3 lg:pl-1">
+              <Icon className="mt-px h-[18px] w-[18px] shrink-0 text-brand-600" aria-hidden />
               <div className="min-w-0">
-                <p className="text-[13px] font-semibold leading-snug text-foreground sm:text-sm">{label}</p>
-                <p className="mt-0.5 text-xs leading-snug text-stone-500 sm:text-[13px]">{detail}</p>
+                <p className="text-[13.5px] font-semibold leading-snug text-foreground sm:text-sm">{label}</p>
+                <p className="mt-1 text-xs leading-relaxed text-stone-500 sm:text-[13px]">{detail}</p>
               </div>
             </li>
           ))}
         </ul>
 
-        <div className="mt-8 lg:mt-10">
+        <div className="mt-9 lg:mt-10">
           <NowCovering />
         </div>
 

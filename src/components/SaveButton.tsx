@@ -46,10 +46,15 @@ export function SaveButton({
     setSaved(optimisticSaved);
     pendingRef.current = true;
 
+    // keepalive: the heart has already flipped, so the save must still land
+    // if the visitor leaves the page straight away - without it, a full
+    // page load (a typed address, a refresh) cancels the request in flight
+    // and the stay silently isn't saved.
     const res = await fetch("/api/wishlist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ listingId }),
+      keepalive: true,
     });
     pendingRef.current = false;
 

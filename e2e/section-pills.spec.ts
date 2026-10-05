@@ -2,8 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 const SECTIONS = [
   { label: "Stays", path: "/search" },
-  { label: "Explore", path: "/destinations" },
-  { label: "Travel", path: "/travel-extras" },
+  { label: "Discover", path: "/destinations" },
+  { label: "Journeys", path: "/travel-extras" },
   { label: "Services", path: "/services" },
 ];
 
@@ -14,7 +14,7 @@ function sectionNav(page: Page) {
 test("the homepage shows the four section pills with Stays pressed", async ({ page }) => {
   await page.goto("/");
   const nav = sectionNav(page);
-  await expect(nav.getByRole("link")).toHaveText(["Stays", "Explore", "Travel", "Services"]);
+  await expect(nav.getByRole("link")).toHaveText(["Stays", "Discover", "Journeys", "Services"]);
   await expect(nav.getByRole("link", { name: "Stays" })).toHaveAttribute("aria-current", "page");
   await expect(nav.locator("[aria-current]")).toHaveCount(1);
 });

@@ -31,6 +31,6 @@ describe("activeSiteSection", () => {
   });
 
   it("has exactly the four agreed sections, in order", () => {
-    expect(SITE_SECTIONS.map((section) => section.label)).toEqual(["Stays", "Explore", "Travel", "Services"]);
+    expect(SITE_SECTIONS.map((section) => section.label)).toEqual(["Stays", "Discover", "Journeys", "Services"]);
   });
 });

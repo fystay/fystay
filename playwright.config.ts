@@ -7,7 +7,9 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  // "github" turns each failure into an annotation on the CI check run, so
+  // a red run says which test failed and why without opening the logs.
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }], ["github"]] : "list",
   use: {
     baseURL,
     trace: "retain-on-failure",

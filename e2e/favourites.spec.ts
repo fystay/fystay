@@ -124,8 +124,12 @@ test.describe("favourites / wishlist", () => {
       await page.waitForURL("/");
 
       await page.goto(`/listings/${listing.id}`);
+      // The heart flips straight away; wait for the save itself before
+      // leaving the page, so what follows checks the stored result.
+      const saved = page.waitForResponse((res) => res.url().endsWith("/api/wishlist") && res.request().method() === "POST");
       await page.getByRole("button", { name: "Save to wishlist" }).click();
       await expect(page.getByRole("button", { name: "Remove from wishlist" })).toBeVisible();
+      expect((await saved).ok()).toBe(true);
 
       await page.goto("/wishlist");
       await expect(page.getByRole("heading", { name: "My Favourites" })).toBeVisible();

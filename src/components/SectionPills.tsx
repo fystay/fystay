@@ -9,12 +9,13 @@ import { activeSiteSection, SITE_SECTIONS, type SiteSectionKey } from "@/lib/sit
 type Variant = "header" | "tabs";
 
 // Plain text tabs that belong to the header rather than a boxed control
-// sitting on it: no track, no border - the current section is marked by
-// brand-coloured text and a brand underline, the rest are quiet text that
-// darkens on hover. Same weight and padding in every state, so changing
-// section never shifts the layout.
+// sitting on it: no track, no border. The current section reads as pressed
+// in - brand-coloured text on a soft brand tint with a faint inner shadow -
+// with the brand underline beneath it; the rest are quiet text that darkens
+// on hover. Same weight and padding in every state, so changing section
+// never shifts the layout.
 const ITEM_BASE =
-  "focus-ring relative flex items-center justify-center whitespace-nowrap font-medium transition-colors duration-200";
+  "focus-ring relative flex items-center justify-center whitespace-nowrap font-medium transition-[color,background-color,box-shadow] duration-200";
 
 const ITEM_STYLES: Record<
   Variant,
@@ -30,7 +31,7 @@ const ITEM_STYLES: Record<
   // Desktop: inline in the header's centre, underline just under the text.
   header: {
     base: "rounded-lg px-3.5 py-2 text-sm",
-    active: "text-brand-700",
+    active: "bg-brand-50 text-brand-700 shadow-[inset_0_2px_4px_-2px_rgba(124,45,18,0.18)]",
     inactive: "text-stone-600 hover:bg-brand-50 hover:text-foreground",
     underline: "bottom-0.5 h-0.5 rounded-full",
     staticUnderline:
@@ -40,8 +41,8 @@ const ITEM_STYLES: Record<
   // Phones and tablets: the header's second row, four equal tabs whose
   // underline sits on the header's bottom edge - an app-style tab bar.
   tabs: {
-    base: "w-full rounded-t-md px-1 pb-3 pt-1.5 text-[15px]",
-    active: "text-brand-700",
+    base: "w-full rounded-t-lg px-1 pb-3 pt-1.5 text-[15px]",
+    active: "bg-brand-50/70 text-brand-700 shadow-[inset_0_2px_4px_-2px_rgba(124,45,18,0.16)]",
     inactive: "text-stone-500 hover:text-foreground",
     underline: "bottom-0 h-[3px] rounded-t-full",
     staticUnderline:
@@ -51,7 +52,7 @@ const ITEM_STYLES: Record<
 };
 
 /**
- * The Stays / Explore / Travel / Services navigation, with the current
+ * The Stays / Discover / Journeys / Services navigation, with the current
  * route's section marked (aria-current="page").
  *
  * The underline is one element that glides between tabs, and it moves the

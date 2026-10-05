@@ -33,8 +33,11 @@ test("guest can save a listing and unsave it from the wishlist page", async ({ p
     await page.waitForURL("/");
 
     await page.goto(`/listings/${listing.id}`);
+    // The heart flips straight away; wait for the save itself before leaving the page.
+    const saved = page.waitForResponse((res) => res.url().endsWith("/api/wishlist") && res.request().method() === "POST");
     await page.getByRole("button", { name: "Save to wishlist" }).click();
     await expect(page.getByRole("button", { name: "Remove from wishlist" })).toBeVisible();
+    expect((await saved).ok()).toBe(true);
 
     await page.goto("/wishlist");
     await expect(page.getByText(listing.title)).toBeVisible();

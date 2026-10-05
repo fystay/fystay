@@ -7,6 +7,18 @@ import { cn } from "@/lib/cn";
 import { SUPPORT_EMAIL } from "@/lib/seo";
 
 
+// On phones the launcher sits over the corner of the first screen - on the
+// homepage, right over the benefits under the search - so there it waits
+// until the visitor has scrolled a little (or the page can't scroll at all).
+const PHONE_QUERY = "(max-width: 639px)";
+const PHONE_REVEAL_SCROLL_PX = 240;
+
+function launcherVisible(): boolean {
+  if (!window.matchMedia(PHONE_QUERY).matches) return true;
+  const canScroll = document.documentElement.scrollHeight - window.innerHeight > PHONE_REVEAL_SCROLL_PX;
+  return !canScroll || window.scrollY > PHONE_REVEAL_SCROLL_PX;
+}
+
 /**
  * An honest "message us" entry point, not a fake live chat - FYStay has no
  * real-time chat system behind this, just a small team reading the same
@@ -19,6 +31,25 @@ import { SUPPORT_EMAIL } from "@/lib/seo";
 export function SupportWidget() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Hidden in the server render, then shown (fading in) once the browser
+  // knows the screen size - so it never flashes over a phone's first screen
+  // before hiding. Measured a frame after mount, not during hydration: a
+  // state change in the hydration commit itself was found to drop clicks
+  // made while the page was still becoming interactive (see SectionPills).
+  const [launcherShown, setLauncherShown] = useState(false);
+  const visible = launcherShown || open;
+
+  useEffect(() => {
+    const update = () => setLauncherShown(launcherVisible());
+    const frame = requestAnimationFrame(update);
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -44,7 +75,11 @@ export function SupportWidget() {
       // than guessing a fixed offset or being hidden behind it - see
       // --fixed-bottom-bar-height in globals.css / useReserveBottomSpace.
       style={{ bottom: "calc(var(--fixed-bottom-bar-height, 0px) + 1rem)" }}
-      className="fixed right-4 z-40"
+      className={cn(
+        "fixed right-4 z-40 transition-[opacity,transform] duration-300 motion-reduce:transition-none",
+        visible ? "opacity-100" : "pointer-events-none translate-y-2 opacity-0",
+      )}
+      inert={!visible}
     >
       {open && (
         <div

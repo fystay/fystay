@@ -1,9 +1,10 @@
 // FYStay's four top-level sections, shown as the category pills on the
 // homepage hero and above each section's own pages (see SectionPills).
 // Deliberately generic so each can grow beyond what it holds today:
-// Stays (FYStay listings and affiliate hotels), Explore (the towns and
-// their Local Guides), Travel (transport add-ons) and Services (the hub for
-// everything else FYStay offers).
+// Stays (FYStay listings and affiliate hotels), Discover (the towns and
+// their Local Guides), Journeys (transport add-ons) and Services (the hub
+// for everything else FYStay offers). The keys ("explore", "travel") are
+// internal and kept stable when a label is renamed.
 export type SiteSectionKey = "stays" | "explore" | "travel" | "services";
 
 export type SiteSection = {
@@ -16,8 +17,8 @@ export type SiteSection = {
 
 export const SITE_SECTIONS: SiteSection[] = [
   { key: "stays", label: "Stays", href: "/search", paths: ["/search", "/listings", "/hotels"] },
-  { key: "explore", label: "Explore", href: "/destinations", paths: ["/destinations"] },
-  { key: "travel", label: "Travel", href: "/travel-extras", paths: ["/travel-extras"] },
+  { key: "explore", label: "Discover", href: "/destinations", paths: ["/destinations"] },
+  { key: "travel", label: "Journeys", href: "/travel-extras", paths: ["/travel-extras"] },
   { key: "services", label: "Services", href: "/services", paths: ["/services"] },
 ];
 
