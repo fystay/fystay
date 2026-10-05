@@ -549,3 +549,36 @@ export async function sendDisputeAlertEmail(details: {
     `,
   });
 }
+
+/**
+ * Tells a host their paid Spotlight placement is booked in (see
+ * src/lib/listingPromotions.ts) - sent once, when payment lands. Stripe
+ * sends the payment receipt itself; this says what the money bought.
+ */
+export async function sendListingPromotionConfirmedEmail(ctx: {
+  hostName: string;
+  hostEmail: string;
+  listingTitle: string;
+  priceCents: number;
+  startsAt: Date;
+  endsAt: Date;
+  manageUrl: string;
+}): Promise<void> {
+  const resend = getResendClient();
+  if (!resend || !ctx.hostEmail) return;
+
+  const startsNow = ctx.startsAt.getTime() <= Date.now() + 60_000;
+  await resend.emails.send({
+    from: EMAIL_FROM,
+    to: ctx.hostEmail,
+    subject: `Spotlight booked: ${ctx.listingTitle}`,
+    html: `
+      <p>Hi ${escapeHtml(ctx.hostName)},</p>
+      <p>Thanks - <strong>${escapeHtml(ctx.listingTitle)}</strong> is booked into Spotlight stays on the FYStay
+      homepage (${formatPrice(ctx.priceCents)}).</p>
+      <p>${startsNow ? "It's live now" : `It goes live on ${dateFormatter.format(ctx.startsAt)}`} and runs until
+      ${dateFormatter.format(ctx.endsAt)}.</p>
+      <p><a href="${ctx.manageUrl}">See your Spotlight placements</a></p>
+    `,
+  });
+}

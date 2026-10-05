@@ -31,6 +31,7 @@ import { Reveal } from "@/components/Reveal";
 import { beachStaysSection, groupByCity, recentlyAddedSection } from "@/lib/marketplace";
 import { getActiveOfferings } from "@/lib/travelAddons";
 import { NowCovering } from "@/components/NowCovering";
+import { SpotlightStays } from "@/components/SpotlightStays";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
 import { cn } from "@/lib/cn";
@@ -296,10 +297,16 @@ export default async function Home() {
         {/* Discovery: stays, then towns, then trip types - each a swipeable
             rail or compact grid under one consistent header row, spaced as
             one sequence rather than separate pages. */}
+        {/* Paid placements (see SpotlightStays) - renders nothing unless a
+            host's Spotlight placement is live right now. */}
+        <Suspense fallback={null}>
+          <SpotlightStays />
+        </Suspense>
+
         <section className="mt-10 sm:mt-14">
           <SectionHeader
-            title="Hand-picked stays"
-            subtitle="Hand-picked local places to stay, ready to book today."
+            title="Places to stay"
+            subtitle="Local stays across the Fylde Coast, ready to book today."
             link={{ href: "/search", label: "View all" }}
           />
           <Suspense fallback={<LargeCardRailSkeleton />}>

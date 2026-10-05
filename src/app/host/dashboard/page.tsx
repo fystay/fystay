@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarCheck2, CreditCard, Home, Plug, PlusCircle, Star, Wallet } from "lucide-react";
+import { CalendarCheck2, CreditCard, Home, Plug, PlusCircle, Sparkles, Star, Wallet } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { averageRating } from "@/lib/reviews";
@@ -186,6 +186,10 @@ export default async function HostDashboardPage({
           <Link href="/host/payouts" className={cn(buttonVariants({ variant: "outline" }))}>
             <CreditCard className="h-4 w-4" />
             Payouts
+          </Link>
+          <Link href="/host/promote" className={cn(buttonVariants({ variant: "outline" }))}>
+            <Sparkles className="h-4 w-4" />
+            Spotlight
           </Link>
           <Link href="/host/listings/new" className={cn(buttonVariants())}>
             <PlusCircle className="h-4 w-4" />

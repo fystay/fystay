@@ -266,6 +266,12 @@
       "files": {
         "migration.sql": "63c082ea26d744977f4185fe71257b11d19bb04c5eac4b9ff4c2500ce78e1467"
       }
+    },
+    {
+      "name": "20261005120000_add_listing_promotions",
+      "files": {
+        "migration.sql": "8cebdcb7fc850fe2f27f5e08449c12ed7519d4cba0e0021c26f96d79e8e7f439"
+      }
     }
   ],
   "retired": [

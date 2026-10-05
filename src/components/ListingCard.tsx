@@ -46,6 +46,7 @@ export function ListingCard({
   nearLandmark,
   stayQuery = "",
   size = "default",
+  promoted = false,
 }: {
   listing: ListingCardData;
   isSaved?: boolean;
@@ -68,6 +69,8 @@ export function ListingCard({
    * title, location, price and rating beneath it.
    */
   size?: "default" | "large";
+  /** A paid Spotlight placement (see src/lib/listingPromotions.ts): labelled "Promoted" on the photo, as UK rules on paid placement require. */
+  promoted?: boolean;
 }) {
   const isLarge = size === "large";
   const rating = computeAverageRating(listing.reviews);
@@ -248,6 +251,17 @@ export function ListingCard({
             )}
           >
             {dealLabel}
+          </span>
+        )}
+
+        {promoted && (
+          <span
+            className={cn(
+              "absolute z-10 rounded-md bg-ink/70 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-white backdrop-blur-sm",
+              isLarge ? "bottom-3 left-3" : "bottom-2.5 left-2.5",
+            )}
+          >
+            Promoted
           </span>
         )}
 

@@ -285,6 +285,9 @@ model User {
   // optional userId on this schema's tracking tables (see AnalyticsEvent).
   affiliateSearches AffiliateSearch[]
   affiliateClicks   AffiliateClick[]
+
+  // Spotlight placements this host has bought (see ListingPromotion).
+  listingPromotions ListingPromotion[]
 }
 
 // A single-use, time-limited token for the "forgot password" flow. Only a
@@ -445,6 +448,7 @@ model Listing {
   conversations      Conversation[]
   roomTypes          RoomType[]
   pmsRoomMappings    PmsRoomMapping[]
+  promotions         ListingPromotion[]
 
   @@index([city])
   @@index([hostId])
@@ -2082,4 +2086,59 @@ model HotelProviderCacheEntry {
   createdAt    DateTime @default(now())
 
   @@index([expiresAt])
+}
+
+// --- Paid featuring ("Spotlight stays") --------------------------------------
+//
+// A host pays FYStay (a platform charge, never Connect - this is FYStay's own
+// advertising product, like a Trip Extra) to feature one of their listings in
+// the homepage's Spotlight row for a fixed number of days. See
+// src/lib/listingPromotions.ts for the plans, eligibility and capacity rules.
+
+enum ListingPromotionStatus {
+  // A Checkout Session exists but hasn't been paid. Holds no Spotlight spot.
+  PENDING_PAYMENT
+  // Paid: startsAt/endsAt are set. Live while startsAt <= now < endsAt,
+  // scheduled before that, finished after - derived from the dates, so
+  // nothing has to run to expire a placement.
+  PAID
+  // The checkout was abandoned (its session expired) - never charged.
+  CANCELLED
+}
+
+model ListingPromotion {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  // The host who paid - kept separately from listing.hostId so the record
+  // still says who bought it if the listing ever changed hands.
+  hostId    String
+  host      User    @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  // Snapshotted from the plan at purchase time (see PROMOTION_PLANS), so a
+  // later price change never rewrites what an earlier host paid.
+  plan       String
+  days       Int
+  priceCents Int
+
+  status       ListingPromotionStatus @default(PENDING_PAYMENT)
+  // Both set when payment lands: starts then, or straight after this
+  // listing's latest paid placement ends (buying again extends, it never
+  // overlaps).
+  startsAt     DateTime?
+  endsAt       DateTime?
+  // Set when an admin ends a placement early (endsAt is moved to that
+  // moment). Any refund is made separately in Stripe.
+  endedEarlyAt DateTime?
+
+  stripeSessionId       String?   @unique
+  stripePaymentIntentId String?
+  paidAt                DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, endsAt])
+  @@index([listingId])
+  @@index([hostId])
 }

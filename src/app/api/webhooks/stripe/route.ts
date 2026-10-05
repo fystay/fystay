@@ -15,6 +15,8 @@ import { refundAcrossPayments } from "@/lib/connectRefunds";
 import { evidenceDueByDate, mapStripeDisputeStatus } from "@/lib/paymentDisputes";
 import type Stripe from "stripe";
 import { BASE_URL } from "@/lib/baseUrl";
+import { activatePaidPromotion } from "@/lib/listingPromotions";
+import { notifyListingPromotionActivated } from "@/lib/listingPromotionNotifications";
 
 /**
  * Whether a completed Checkout Session has actually been paid. "unpaid" is
@@ -241,6 +243,22 @@ async function upsertPaymentDispute(dispute: Stripe.Dispute): Promise<void> {
   }
 }
 
+/**
+ * Activates the Spotlight placement a paid Checkout Session was for, then
+ * emails the host. activatePaidPromotion only moves an unpaid placement, so
+ * a redelivered event activates (and emails) nothing the second time.
+ */
+async function activateListingPromotion(checkoutSession: Stripe.Checkout.Session): Promise<void> {
+  const promotionId = checkoutSession.metadata?.promotionId;
+  if (!promotionId) return;
+  const activated = await activatePaidPromotion(
+    prisma,
+    promotionId,
+    typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null,
+  );
+  if (activated) await notifyListingPromotionActivated(promotionId);
+}
+
 async function postHandler(request: Request) {
   const stripe = getStripeClient();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -305,6 +323,11 @@ async function postHandler(request: Request) {
           await notifyTripExtraPaid(bookingExtraId);
         }
       }
+    } else if (checkoutSession.metadata?.purpose === "listing_promotion") {
+      // A host's Spotlight purchase (see src/lib/listingPromotions.ts).
+      if (isCheckoutSessionPaid(checkoutSession)) {
+        await activateListingPromotion(checkoutSession);
+      }
     } else if (checkoutSession.metadata?.purpose === "deposit" && bookingId) {
       // A security-deposit hold session (see createDepositCheckoutSession)
       // completing - this is the moment the card actually gets the
@@ -354,6 +377,8 @@ async function postHandler(request: Request) {
     const purpose = checkoutSession.metadata?.purpose;
     if (!purpose && bookingId && isCheckoutSessionPaid(checkoutSession)) {
       await confirmPaidBooking(bookingId, checkoutSession);
+    } else if (purpose === "listing_promotion" && isCheckoutSessionPaid(checkoutSession)) {
+      await activateListingPromotion(checkoutSession);
     } else if (changeRequestId && isCheckoutSessionPaid(checkoutSession)) {
       await applyApprovedChange(
         changeRequestId,
@@ -402,6 +427,13 @@ async function postHandler(request: Request) {
     if (bookingId) {
       await prisma.booking.updateMany({
         where: { id: bookingId, status: "PENDING", stripeSessionId: event.data.object.id },
+        data: { status: "CANCELLED" },
+      });
+    } else if (event.data.object.metadata?.purpose === "listing_promotion") {
+      // An abandoned Spotlight checkout: never charged, so it's simply
+      // closed off. Scoped to this session and to unpaid, like the above.
+      await prisma.listingPromotion.updateMany({
+        where: { stripeSessionId: event.data.object.id, status: "PENDING_PAYMENT" },
         data: { status: "CANCELLED" },
       });
     }
