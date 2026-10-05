@@ -498,6 +498,60 @@ body {
   }
 }
 
+/* Homepage Spotlight showcase (SpotlightShowcase.tsx).
+   - spotlight-progress fills the current stay's progress bar; the bar's own
+     animationend is what moves the showcase on, so pausing the animation
+     (animation-play-state) pauses the showcase with no separate timer to
+     keep in step. The duration is set inline from SPOTLIGHT_SLIDE_MS.
+   - spotlight-drift: the photo's slow push-in while its stay is showing.
+   - spotlight-rise: the stay's details easing in as it arrives.
+   Under reduced motion nothing drifts or rises, and the showcase never
+   moves on by itself (the component doesn't start the progress at all). */
+@keyframes spotlight-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.animate-spotlight-progress {
+  transform-origin: left;
+  animation-name: spotlight-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes spotlight-drift {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07);
+  }
+}
+.animate-spotlight-drift {
+  animation: spotlight-drift 9s ease-out forwards;
+}
+@keyframes spotlight-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-spotlight-rise {
+  animation: spotlight-rise 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-spotlight-drift,
+  .animate-spotlight-rise {
+    animation: none;
+  }
+}
+
 /* Loading skeletons (Skeleton.tsx, used by every route's loading.tsx): a
    slow, understated shimmer across the site's own warm surface tones,
    rather than Tailwind's default animate-pulse (a flat opacity blink that

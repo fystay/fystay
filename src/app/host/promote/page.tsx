@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, ChevronLeft, ImageOff, Sparkles } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Eye, ImageOff, MousePointerClick, Sparkles } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
@@ -12,6 +12,7 @@ import {
   SPOTLIGHT_SLOTS,
   type PromotionPhase,
 } from "@/lib/listingPromotions";
+import { spotlightStatsFor, type SpotlightStats } from "@/lib/spotlightStats";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { buttonVariants } from "@/components/ui/Button";
@@ -28,6 +29,33 @@ const PHASE_BADGE: Record<PromotionPhase, { label: string; variant: "success" | 
   pending: { label: "Awaiting payment", variant: "warning" },
   cancelled: { label: "Not paid", variant: "neutral" },
 };
+
+const formatCount = (n: number) => n.toLocaleString("en-GB");
+
+/**
+ * How a listing's Spotlight placements have done: times its stay was shown
+ * in the homepage showcase and clicks through to it (src/lib/spotlightStats.ts).
+ */
+function SpotlightStatsLine({ stats }: { stats: SpotlightStats }) {
+  const clickRate = stats.impressions > 0 ? (stats.clicks / stats.impressions) * 100 : null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-stone-600">
+      <span className="flex items-center gap-1.5">
+        <Eye className="h-4 w-4 text-brand-600" aria-hidden />
+        Seen <strong className="font-semibold tabular-nums text-foreground">{formatCount(stats.impressions)}</strong>{" "}
+        {stats.impressions === 1 ? "time" : "times"}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <MousePointerClick className="h-4 w-4 text-brand-600" aria-hidden />
+        <strong className="font-semibold tabular-nums text-foreground">{formatCount(stats.clicks)}</strong>{" "}
+        {stats.clicks === 1 ? "click" : "clicks"} to your listing
+        {clickRate !== null && stats.clicks > 0 && (
+          <span className="text-stone-500">({clickRate < 10 ? clickRate.toFixed(1) : Math.round(clickRate)}%)</span>
+        )}
+      </span>
+    </p>
+  );
+}
 
 /**
  * Where a host buys Spotlight placements for their listings (see
@@ -78,6 +106,16 @@ export default async function HostPromotePage({
     }),
   ]);
 
+  const stats = await spotlightStatsFor(promotions.filter((p) => p.status === "PAID").map((p) => p.id));
+  const statsFor = (ids: string[]): SpotlightStats =>
+    ids.reduce(
+      (total, id) => {
+        const own = stats.get(id);
+        return own ? { impressions: total.impressions + own.impressions, clicks: total.clicks + own.clicks } : total;
+      },
+      { impressions: 0, clicks: 0 },
+    );
+
   const canTakePayments = hostAcceptsPaidBookings(host);
   const spotsFree = Math.max(0, SPOTLIGHT_SLOTS - liveListingIds.length);
   const paidPromotions = promotions.filter((p) => p.status === "PAID");
@@ -97,8 +135,9 @@ export default async function HostPromotePage({
           <h1 className="text-2xl font-bold text-foreground">Spotlight</h1>
           <p className="mt-1 max-w-xl text-sm leading-relaxed text-stone-600">
             Feature a listing in <strong className="font-semibold text-foreground">Spotlight stays</strong>, the
-            first row of places guests see on the FYStay homepage. Spots are limited to {SPOTLIGHT_SLOTS} at a
-            time, and featured stays are labelled &ldquo;Promoted&rdquo;.
+            showcase near the top of the FYStay homepage, where each featured stay takes its turn at full size.
+            Spots are limited to {SPOTLIGHT_SLOTS} at a time, featured stays are labelled &ldquo;Promoted&rdquo;,
+            and you can see how many times yours is seen and clicked.
           </p>
         </div>
         <p className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-stone-700">
@@ -161,6 +200,7 @@ export default async function HostPromotePage({
               .filter((p) => p.endsAt && p.endsAt > now)
               .reduce<Date | null>((latest, p) => (!latest || p.endsAt! > latest ? p.endsAt! : latest), null);
             const reason = promotionIneligibilityReason(listing, canTakePayments);
+            const listingStats = own.length > 0 ? statsFor(own.map((p) => p.id)) : null;
 
             return (
               <li key={listing.id}>
@@ -190,6 +230,7 @@ export default async function HostPromotePage({
                           <Badge variant="neutral">Not featured</Badge>
                         )}
                       </div>
+                      {listingStats && <SpotlightStatsLine stats={listingStats} />}
                       {reason ? (
                         <p className="text-sm text-stone-500">{reason}</p>
                       ) : (
@@ -212,12 +253,14 @@ export default async function HostPromotePage({
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-foreground">Your placements</h2>
           <div className="mt-3 overflow-x-auto rounded-xl border border-border-subtle bg-surface">
-            <table className="w-full min-w-[560px] text-left text-sm">
+            <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="border-b border-border-subtle text-xs uppercase tracking-wide text-stone-500">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">Listing</th>
                   <th className="px-4 py-2.5 font-medium">Dates</th>
                   <th className="px-4 py-2.5 font-medium">Price</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Views</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Clicks</th>
                   <th className="px-4 py-2.5 font-medium">Status</th>
                 </tr>
               </thead>
@@ -234,6 +277,12 @@ export default async function HostPromotePage({
                           : `${promotion.days} days`}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-stone-600">{formatPrice(promotion.priceCents)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-stone-600">
+                        {promotion.status === "PAID" ? formatCount(stats.get(promotion.id)?.impressions ?? 0) : "–"}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-stone-600">
+                        {promotion.status === "PAID" ? formatCount(stats.get(promotion.id)?.clicks ?? 0) : "–"}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </td>

@@ -2158,7 +2158,24 @@ model ListingPromotion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  stats ListingPromotionStat[]
+
   @@index([status, endsAt])
   @@index([listingId])
   @@index([hostId])
+}
+
+// How a Spotlight placement performed, one row per UTC day: how many times
+// its slide was shown in the homepage showcase and how many times it was
+// clicked through to the listing (see src/lib/spotlightStats.ts). Counters
+// only - nothing about who saw it - so hosts can see what they paid for.
+model ListingPromotionStat {
+  id          String           @id @default(cuid())
+  promotionId String
+  promotion   ListingPromotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  day         DateTime         @db.Date
+  impressions Int              @default(0)
+  clicks      Int              @default(0)
+
+  @@unique([promotionId, day])
 }

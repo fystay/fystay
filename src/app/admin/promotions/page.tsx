@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EndPromotionButton } from "@/components/admin/EndPromotionButton";
 import { promotionPhase, SPOTLIGHT_SLOTS, type PromotionPhase } from "@/lib/listingPromotions";
 import { formatDate, formatPrice } from "@/lib/format";
+import { spotlightStatsFor } from "@/lib/spotlightStats";
 
 export const metadata: Metadata = { title: "Spotlight", robots: { index: false } };
 
@@ -48,6 +49,7 @@ export default async function AdminPromotionsPage() {
   });
 
   const paid = promotions.filter((p) => p.status === "PAID");
+  const stats = await spotlightStatsFor(paid.map((p) => p.id));
   const liveListings = new Set(paid.filter((p) => promotionPhase(p, now) === "live").map((p) => p.listing.id));
   const scheduledCount = paid.filter((p) => promotionPhase(p, now) === "scheduled").length;
   const revenueCents = paid.reduce((sum, p) => sum + p.priceCents, 0);
@@ -56,7 +58,8 @@ export default async function AdminPromotionsPage() {
     <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Spotlight</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-        Paid placements in the homepage&apos;s Spotlight stays row, bought by hosts. Up to {SPOTLIGHT_SLOTS}{" "}
+        Paid placements in the homepage&apos;s Spotlight stays showcase, bought by hosts, with how often each was
+        seen and clicked. Up to {SPOTLIGHT_SLOTS}{" "}
         listings at a time.
       </p>
 
@@ -81,13 +84,15 @@ export default async function AdminPromotionsPage() {
         <p className="mt-8 text-sm text-stone-500">No Spotlight placements yet.</p>
       ) : (
         <div className="mt-8 overflow-x-auto rounded-xl border border-border-subtle bg-surface">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="border-b border-border-subtle text-xs uppercase tracking-wide text-stone-500">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Listing</th>
                 <th className="px-4 py-2.5 font-medium">Host</th>
                 <th className="px-4 py-2.5 font-medium">Dates</th>
                 <th className="px-4 py-2.5 font-medium">Price</th>
+                <th className="px-4 py-2.5 text-right font-medium">Views</th>
+                <th className="px-4 py-2.5 text-right font-medium">Clicks</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium">
                   <span className="sr-only">Actions</span>
@@ -119,6 +124,16 @@ export default async function AdminPromotionsPage() {
                       {promotion.endedEarlyAt && <span className="block text-xs text-stone-400">Ended early</span>}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-stone-600">{formatPrice(promotion.priceCents)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-stone-600">
+                      {promotion.status === "PAID"
+                        ? (stats.get(promotion.id)?.impressions ?? 0).toLocaleString("en-GB")
+                        : "–"}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-stone-600">
+                      {promotion.status === "PAID"
+                        ? (stats.get(promotion.id)?.clicks ?? 0).toLocaleString("en-GB")
+                        : "–"}
+                    </td>
                     <td className="px-4 py-3">
                       <Badge variant={badge.variant}>{badge.label}</Badge>
                     </td>
