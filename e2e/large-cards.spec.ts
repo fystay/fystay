@@ -1,9 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const RAILS = ["Featured stays", "Explore the Fylde Coast", "Services"];
+const RAILS = ["Steals Deals", "Explore the Fylde Coast", "Services"];
 
 function rail(page: Page, label: string) {
-  return page.getByRole("region", { name: label });
+  // The carousel itself - a homepage row's <section> can share its name.
+  return page.getByRole("region", { name: label }).and(page.locator('[aria-roledescription="carousel"]'));
 }
 
 async function slotBoxes(page: Page, label: string) {
