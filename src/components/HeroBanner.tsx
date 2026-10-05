@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Pause, Play } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 
 /**
@@ -20,9 +19,10 @@ import { cn } from "@/lib/cn";
  * chosen, and permanently under prefers-reduced-motion (which never loads
  * a video at all), the still poster frame shows instead.
  *
- * A pause button sits in the panel's top-right corner: moving content that
- * starts on its own and runs longer than five seconds needs a way to stop
- * it (WCAG 2.2.2, Pause, Stop, Hide).
+ * No play/pause control, by product decision: the footage plays and loops
+ * continuously as ambient scenery. Visitors who've asked their device to
+ * reduce motion get the still frame instead (above), which is the
+ * accessibility safeguard that remains.
  */
 // A light contrast/saturation lift on both the video and its poster, so the
 // footage doesn't read as flat, hazy drone-camera midday.
@@ -32,12 +32,7 @@ const POSTER = "/videos/hero-blackpool-pier-poster.jpg";
 const SMALL_SCREEN = "(max-width: 640px)";
 
 export function HeroBanner({ className }: { className?: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [src, setSrc] = useState<string | null>(null);
-  // Follows the video's own play/pause events rather than assuming autoplay
-  // worked - it can be blocked (iOS Low Power Mode, data saver), and then
-  // the button should offer Play, not Pause.
-  const [paused, setPaused] = useState(true);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -48,13 +43,6 @@ export function HeroBanner({ className }: { className?: string }) {
         : "/videos/hero-blackpool-pier.mp4",
     );
   }, []);
-
-  function togglePlayback() {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.paused) video.play().catch(() => {});
-    else video.pause();
-  }
 
   return (
     <div className={cn("relative overflow-hidden bg-ink", className)}>
@@ -68,7 +56,6 @@ export function HeroBanner({ className }: { className?: string }) {
       />
       {src && (
         <video
-          ref={videoRef}
           src={src}
           className="absolute inset-0 h-full w-full object-cover object-[100%_center]"
           style={{ filter: GRADE_FILTER }}
@@ -78,8 +65,6 @@ export function HeroBanner({ className }: { className?: string }) {
           loop
           playsInline
           preload="auto"
-          onPlay={() => setPaused(false)}
-          onPause={() => setPaused(true)}
           aria-hidden
         />
       )}
@@ -92,17 +77,6 @@ export function HeroBanner({ className }: { className?: string }) {
         style={{ opacity: 0.3 }}
         aria-hidden
       />
-
-      {src && (
-        <button
-          type="button"
-          onClick={togglePlayback}
-          aria-label={paused ? "Play background video" : "Pause background video"}
-          className="focus-ring absolute right-3 top-3 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-ink/45 text-white/90 backdrop-blur-md transition-colors hover:bg-ink/65 hover:text-white sm:right-4 sm:top-4"
-        >
-          {paused ? <Play className="h-4 w-4" aria-hidden /> : <Pause className="h-4 w-4" aria-hidden />}
-        </button>
-      )}
     </div>
   );
 }
