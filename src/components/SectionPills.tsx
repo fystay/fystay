@@ -84,7 +84,7 @@ export function SectionPillsBar() {
   if (!activeSiteSection(pathname)) return null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:hidden">
+    <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-6 sm:pt-4 lg:hidden">
       <SectionPills variant="default" className="flex justify-center sm:justify-start" />
     </div>
   );

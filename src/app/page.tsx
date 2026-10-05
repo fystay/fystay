@@ -214,16 +214,17 @@ export default async function Home() {
 
           The hero starts below the header as a framed panel - inset from
           the page edges, rounded on every corner - rather than running up
-          underneath it. It takes a little under half a phone screen (svh so
-          it doesn't resize as mobile browser chrome collapses), so the
-          search panel is still visible on landing. isolate keeps its
+          underneath it. On phones it takes 38% of the screen (svh: the
+          height with the browser's toolbars showing, so it doesn't resize as
+          they collapse), which keeps the whole search panel, Search button
+          included, above the fold on a typical phone. isolate keeps its
           layered video/scrim/text z-indexes inside the panel, so neither
           the sticky header nor the cream sheet has to out-rank them.
 
           The headline block is bottom-anchored with padding that, on lg,
           clears the search bar pulled 36px up over the panel's bottom edge. */}
-      <div className="px-4 pt-3 sm:pt-4 lg:px-6 lg:pt-5">
-        <section className="relative isolate flex h-[46svh] min-h-[360px] w-full flex-col justify-end overflow-hidden rounded-[24px] sm:rounded-[28px] lg:h-[66svh] lg:max-h-[680px] lg:min-h-[520px] lg:rounded-[32px]">
+      <div className="px-4 pt-2.5 sm:pt-4 lg:px-6 lg:pt-5">
+        <section className="relative isolate flex h-[38svh] min-h-[240px] w-full flex-col sm:h-[46svh] sm:min-h-[360px] justify-end overflow-hidden rounded-[24px] sm:rounded-[28px] lg:h-[66svh] lg:max-h-[680px] lg:min-h-[520px] lg:rounded-[32px]">
           <HeroBanner className="absolute inset-0 h-full w-full" />
 
           {/* Scrim: a light shade at the top for depth, clear through the
@@ -231,7 +232,7 @@ export default async function Home() {
               deepening band at the bottom behind the headline. From lg a
               soft wash from the left also sits behind the left-aligned
               headline. Same warm near-black throughout. */}
-          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.25)_0%,rgba(12,9,7,0)_24%,rgba(12,9,7,0.55)_50%,rgba(12,9,7,0.88)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.15)_0%,rgba(12,9,7,0)_26%,rgba(12,9,7,0.4)_52%,rgba(12,9,7,0.8)_100%)]" />
           <div className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(90deg,rgba(12,9,7,0.4)_0%,rgba(12,9,7,0)_55%)] lg:block" />
 
           <div className="relative z-30 mx-auto w-full max-w-[69rem] px-2 pb-7 [text-shadow:0_1px_16px_rgba(12,9,7,0.35)] sm:px-2 sm:pb-9 lg:px-0 lg:pb-[72px]">
@@ -242,9 +243,13 @@ export default async function Home() {
             <h1 className="mt-3 max-w-2xl text-[2rem] leading-[1.08] text-balance text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[3.5rem]">
               Find your stay on the Fylde Coast
             </h1>
-            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-lg">
-              Apartments, cottages and guest houses from Fleetwood to Lytham, each listed by a host
-              who lives here.
+            <p className="mt-2 max-w-xl text-[15px] leading-snug text-white/90 sm:mt-3 sm:text-lg sm:leading-relaxed">
+              {/* A shorter line on phones, so the headline block leaves room for the video. */}
+              <span className="sm:hidden">Stays from Fleetwood to Lytham, each listed by a host who lives here.</span>
+              <span className="hidden sm:inline">
+                Apartments, cottages and guest houses from Fleetwood to Lytham, each listed by a host
+                who lives here.
+              </span>
             </p>
           </div>
         </section>
@@ -260,7 +265,7 @@ export default async function Home() {
             On phones it sits on the cream just below the video. From lg
             it's a single-row bar the full width of the page grid, raised
             and pulled up across the video panel's bottom edge. */}
-        <div className="relative -mx-2 mt-5 sm:mx-0 lg:-mt-9">
+        <div className="relative -mx-2 mt-3 sm:mx-0 sm:mt-5 lg:-mt-9">
           <Suspense>
             <SearchBar liveUpdate={false} className="max-w-none lg:shadow-[var(--shadow-popover)]" />
           </Suspense>
