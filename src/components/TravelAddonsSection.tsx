@@ -1,36 +1,11 @@
 "use client";
 
-import { CarFront, KeyRound, Ticket as TicketIcon, type LucideIcon } from "lucide-react";
 import { trackAddonEvent } from "@/lib/analytics";
 import { useViewOnce } from "@/hooks/useViewOnce";
-import { LargeCard } from "@/components/LargeCard";
+import { PartnerServiceCard } from "@/components/LargeCard";
 import { LargeCardRail } from "@/components/LargeCardRail";
-import { ADDON_CATEGORY_LABELS, travelAddonHref, type TravelAddonOffering } from "@/lib/travelAddons";
-import type { ExtraCategory } from "@prisma/client";
-
-const CATEGORY_COPY: Record<
-  ExtraCategory,
-  { icon: LucideIcon; heading: (providerName: string) => string; blurb: string; cta: string }
-> = {
-  AIRPORT_TRANSFER: {
-    icon: CarFront,
-    heading: (providerName) => `Premium electric airport transfers with ${providerName}.`,
-    blurb: "Travel door-to-door in comfort with a Tesla.",
-    cta: "Add an airport transfer",
-  },
-  ATTRACTION_TICKET: {
-    icon: TicketIcon,
-    heading: (providerName) => `Skip the queue with ${providerName}.`,
-    blurb: "Book a local attraction ticket alongside your stay.",
-    cta: "Browse attraction tickets",
-  },
-  CAR_HIRE: {
-    icon: KeyRound,
-    heading: (providerName) => `Need wheels? ${providerName} has you covered.`,
-    blurb: "Hire a car for the length of your stay.",
-    cta: "Browse car hire",
-  },
-};
+import { partnerServiceForOffering } from "@/lib/partnerServices";
+import { travelAddonHref, type TravelAddonOffering } from "@/lib/travelAddons";
 
 /**
  * The homepage's travel add-ons (see the cross-sell brief in
@@ -49,9 +24,13 @@ export function TravelAddonsSection({ offerings }: { offerings: TravelAddonOffer
   );
 }
 
-/** One travel add-on as a large card, with its viewed/clicked analytics - also used in the homepage's More from FYStay row. */
+/**
+ * One travel add-on as a partner service card (see src/lib/partnerServices.ts):
+ * the provider - EV Exec, for airport transfers - presented as the
+ * independent business providing it, booked through FYStay's own
+ * /travel-extras flow. Also used in the homepage's More from FYStay row.
+ */
 export function TravelAddonCard({ offering }: { offering: TravelAddonOffering }) {
-  const copy = CATEGORY_COPY[offering.category];
   const viewRef = useViewOnce<HTMLDivElement>(() => {
     trackAddonEvent({
       name: "transfer_offer_viewed",
@@ -72,14 +51,9 @@ export function TravelAddonCard({ offering }: { offering: TravelAddonOffering })
 
   return (
     <div ref={viewRef}>
-      <LargeCard
-        href={travelAddonHref(offering.category)}
+      <PartnerServiceCard
+        service={partnerServiceForOffering(offering, travelAddonHref(offering.category))}
         onClick={handleCtaClick}
-        image={{ icon: copy.icon, gradient: "from-brand-700 via-brand-900 to-ink" }}
-        eyebrow={ADDON_CATEGORY_LABELS[offering.category]}
-        title={copy.heading(offering.providerName)}
-        description={copy.blurb}
-        meta={copy.cta}
       />
     </div>
   );

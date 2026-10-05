@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import { ArrowRight, ShieldCheck, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { isOptimizableImage } from "@/lib/image";
+import type { PartnerService } from "@/lib/partnerServices";
 
 /** The image area of a large card: a real photo, or FYStay's own brand-gradient art where no real photo exists. */
 export type LargeCardImage = { photoSrc: string } | { icon: LucideIcon; gradient: string };
@@ -43,6 +44,62 @@ export function LargeCard({
         </p>
         {description && <p className="mt-1 line-clamp-2 text-sm text-stone-500">{description}</p>}
         {meta && <p className="mt-2 text-sm font-medium text-brand-700">{meta}</p>}
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * A LargeCard for a service FYStay offers through an independent provider
+ * (see src/lib/partnerServices.ts): the same card shape, spacing and type
+ * as every other large card, with the provider's identity leading - its
+ * name (or its own logo, once supplied) on the image - then what it offers,
+ * a "FYStay service partner" line stating the relationship, and a "Book
+ * with <provider>" call to action. The image area shows the provider's own
+ * photo when supplied, otherwise a plain backdrop - never a stand-in
+ * vehicle or a drawn logo.
+ */
+export function PartnerServiceCard({ service, onClick }: { service: PartnerService; onClick?: () => void }) {
+  return (
+    <Link href={service.href} onClick={onClick} className="focus-ring group block rounded-[22px]">
+      <div className={cn(LARGE_CARD_IMAGE_CLASS, !service.image && cn("bg-gradient-to-br", service.backdrop))}>
+        {service.image ? (
+          <Image
+            src={service.image.src}
+            alt={service.image.alt}
+            fill
+            sizes="(min-width: 1024px) 340px, (min-width: 640px) 44vw, 60vw"
+            unoptimized={!isOptimizableImage(service.image.src)}
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-[radial-gradient(90%_70%_at_85%_0%,rgba(255,255,255,0.14),transparent_60%)]" aria-hidden />
+        )}
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" aria-hidden />
+        <div className="absolute inset-x-4 bottom-4 sm:inset-x-5 sm:bottom-5">
+          {service.logoSrc ? (
+            // The provider's own logo, as supplied - never redrawn or recoloured.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={service.logoSrc} alt={service.provider} className="h-8 w-auto max-w-[70%] object-contain object-left" />
+          ) : (
+            <p className="text-2xl font-semibold tracking-tight text-white sm:text-[1.7rem]">{service.provider}</p>
+          )}
+        </div>
+      </div>
+      <div className="px-1 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">{service.category}</p>
+        <p className="mt-1 text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800 sm:text-lg">
+          {service.title}
+        </p>
+        <p className="mt-1 line-clamp-3 text-sm text-stone-500">{service.description}</p>
+        <p className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-stone-600">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-600" aria-hidden />
+          {service.providerLabel}
+        </p>
+        <p className="mt-2 flex items-center gap-1 text-sm font-medium text-brand-700">
+          {service.cta}
+          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
+        </p>
       </div>
     </Link>
   );

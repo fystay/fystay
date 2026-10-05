@@ -557,24 +557,6 @@ body {
   }
 }
 
-/* TransferFeature's light trails: each drifts slowly along its own angle
-   and breathes, like headlights in a long exposure. The individual
-   `translate` property is used so it composes with each trail's inline
-   rotate. Only runs under motion-safe (see the component). */
-@keyframes transfer-trail {
-  0% {
-    translate: -18% 0;
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    translate: 18% 0;
-    opacity: 0.35;
-  }
-}
-
 /* Loading skeletons (Skeleton.tsx, used by every route's loading.tsx): a
    slow, understated shimmer across the site's own warm surface tones,
    rather than Tailwind's default animate-pulse (a flat opacity blink that

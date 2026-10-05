@@ -1,19 +1,37 @@
 import { test, expect } from "@playwright/test";
 
 // The demo seed makes EV Exec's return airport transfer a live offering, so
-// the homepage gives it its own panel in More from FYStay (TransferFeature).
-test("the homepage features EV Exec's airport transfer, priced from the live offering, linking to booking", async ({
+// the homepage's More from FYStay row leads with it as a partner service
+// (PartnerServiceCard, src/lib/partnerServices.ts).
+
+function moreFromFyStay(page: import("@playwright/test").Page) {
+  return page.getByRole("region", { name: "More from FYStay" }).and(page.locator('[aria-roledescription="carousel"]'));
+}
+
+test("More from FYStay leads with EV Exec as a FYStay service partner, booked through the transfer flow", async ({
   page,
 }) => {
   await page.goto("/");
-  const cta = page.getByRole("link", { name: "Add an airport transfer" });
-  await cta.scrollIntoViewIfNeeded();
-  const panel = page.locator("div.isolate", { has: cta });
-  await expect(panel.getByText("EV Exec", { exact: true })).toBeVisible();
-  await expect(panel.getByText("Return airport transfer")).toBeVisible();
-  await expect(panel.getByText("£45")).toBeVisible();
-  await expect(panel.getByText("Meet & greet")).toBeVisible();
+  const row = moreFromFyStay(page);
+  await row.scrollIntoViewIfNeeded();
+  // :visible - the rail also renders a hidden sizing copy of its first card.
+  const card = row.locator("a:visible", { hasText: "Book with EV Exec" }).first();
+  await expect(card).toBeVisible();
+  await expect(card.getByText("EV Exec", { exact: true })).toBeVisible();
+  await expect(card.getByText("Premium electric airport transfers")).toBeVisible();
+  await expect(card.getByText("FYStay service partner")).toBeVisible();
+  // It's EV Exec's service, presented through FYStay - never FYStay's own.
+  await expect(row.getByText(/FYStay (airport transfers|taxi)/i)).toHaveCount(0);
 
-  await cta.click();
+  await card.click();
   await expect(page).toHaveURL(/\/travel-extras\?category=AIRPORT_TRANSFER/);
+  await expect(page.getByText("EV Exec").first()).toBeVisible();
+});
+
+test("the Hosting card in More from FYStay still opens the host guide", async ({ page }) => {
+  await page.goto("/");
+  const row = moreFromFyStay(page);
+  await row.scrollIntoViewIfNeeded();
+  await row.locator("a:visible", { hasText: "Hosting" }).first().click();
+  await expect(page).toHaveURL(/\/host-guide$/);
 });
