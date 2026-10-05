@@ -14,6 +14,7 @@ import {
   stayLengthError,
 } from "@/lib/availability";
 import { computeBookingPricing } from "@/lib/pricing";
+import { lastMinuteDiscountFor } from "@/lib/deals";
 import { generateBookingReference } from "@/lib/bookingReference";
 import { completePastBookings, expireStaleBookingRequests } from "@/lib/bookingLifecycle";
 import { computeCreditToApply } from "@/lib/referral";
@@ -349,12 +350,16 @@ async function createListingBooking(
     throw new BookingRequestError(409, "Those dates are not available");
   }
 
+  // Decided here, at booking time, from the stay's check-in date - and
+  // snapshotted on the booking like every other price input.
+  const lastMinuteDiscountPercent = lastMinuteDiscountFor(listing, checkIn);
   const pricing = computeBookingPricing({
     nights,
     pricePerNightCents: listing.pricePerNightCents,
     cleaningFeeCents: listing.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
+    lastMinuteDiscountPercent,
   });
 
   // Spent at creation, not at payment: if this PENDING booking is later
@@ -384,6 +389,7 @@ async function createListingBooking(
       nightlyPriceCents: listing.pricePerNightCents,
       lengthOfStayDiscountCents: pricing.lengthOfStayDiscountCents,
       lengthOfStayDiscountLabel: pricing.lengthOfStayDiscountLabel,
+      lastMinuteDiscountPercent,
       cleaningFeeCents: pricing.cleaningFeeCents,
       serviceFeeCents: pricing.serviceFeeCents,
       taxCents: pricing.taxCents,
@@ -488,12 +494,14 @@ async function createRoomTypeBooking(
   // rooms) - see Booking.roomsBooked's own schema comment for why the
   // multiplication happens here rather than inside computeBookingPricing.
   const nightlyPriceCents = roomType.pricePerNightCents * roomsBooked;
+  const lastMinuteDiscountPercent = lastMinuteDiscountFor(listing, checkIn);
   const pricing = computeBookingPricing({
     nights,
     pricePerNightCents: nightlyPriceCents,
     cleaningFeeCents: listing.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
+    lastMinuteDiscountPercent,
   });
 
   const { promoCodeId, promoDiscountCents, creditAppliedCents } = await applyPromoAndCredit(tx, {
@@ -518,6 +526,7 @@ async function createRoomTypeBooking(
       nightlyPriceCents,
       lengthOfStayDiscountCents: pricing.lengthOfStayDiscountCents,
       lengthOfStayDiscountLabel: pricing.lengthOfStayDiscountLabel,
+      lastMinuteDiscountPercent,
       cleaningFeeCents: pricing.cleaningFeeCents,
       serviceFeeCents: pricing.serviceFeeCents,
       taxCents: pricing.taxCents,

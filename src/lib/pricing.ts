@@ -9,7 +9,18 @@ export const GUEST_SERVICE_FEE_RATE = 0.1;
 export const WEEKLY_DISCOUNT_MIN_NIGHTS = 7;
 export const MONTHLY_DISCOUNT_MIN_NIGHTS = 28;
 
-export type LengthOfStayDiscountLabel = "weekly" | "monthly";
+/**
+ * Which discount a stay got. "last_minute" is a host's last-minute deal
+ * (src/lib/deals.ts), which shares this one discount slot because it never
+ * stacks with weekly/monthly - the larger applies.
+ */
+export type LengthOfStayDiscountLabel = "weekly" | "monthly" | "last_minute";
+
+/** How a stay's discount is named on price breakdowns and receipts. */
+export function stayDiscountName(label: string | null | undefined): string {
+  if (label === "last_minute") return "Last-minute deal";
+  return label === "monthly" ? "Monthly discount" : "Weekly discount";
+}
 
 /**
  * Picks which length-of-stay discount (if either) applies to a given stay.
@@ -63,6 +74,12 @@ export function computeBookingPricing(params: {
   cleaningFeeCents?: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
+  /**
+   * The last-minute deal this stay qualifies for (see lastMinuteDiscountFor
+   * in src/lib/deals.ts - the caller decides from the check-in date). Used
+   * instead of the weekly/monthly discount only when it's larger.
+   */
+  lastMinuteDiscountPercent?: number | null;
 }): BookingPriceBreakdown {
   const {
     nights,
@@ -70,10 +87,14 @@ export function computeBookingPricing(params: {
     cleaningFeeCents = 0,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
+    lastMinuteDiscountPercent,
   } = params;
   const nightlySubtotalCents = Math.max(0, nights) * pricePerNightCents;
+  const lengthOfStay = resolveLengthOfStayDiscount({ nights, weeklyDiscountPercent, monthlyDiscountPercent });
   const { percent: lengthOfStayDiscountPercent, label: lengthOfStayDiscountLabel } =
-    resolveLengthOfStayDiscount({ nights, weeklyDiscountPercent, monthlyDiscountPercent });
+    lastMinuteDiscountPercent && lastMinuteDiscountPercent > lengthOfStay.percent
+      ? { percent: lastMinuteDiscountPercent, label: "last_minute" as const }
+      : lengthOfStay;
   const lengthOfStayDiscountCents = Math.round(
     (nightlySubtotalCents * lengthOfStayDiscountPercent) / 100,
   );

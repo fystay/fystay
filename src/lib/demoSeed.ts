@@ -240,6 +240,8 @@ export const DEMO_LISTINGS = [
     amenities: ["Wifi", "Kitchen", "Sea view", "Free parking"],
     placeholderIcon: "waves" as const,
     cancellationPolicy: "FLEXIBLE" as const,
+    lastMinuteDiscountPercent: 20,
+    lastMinuteWindowDays: 7,
   },
   {
     title: "Elegant Victorian townhouse in Lytham",
@@ -274,6 +276,9 @@ export const DEMO_LISTINGS = [
     amenities: ["Wifi", "Kitchen", "Washer", "Pet friendly"],
     placeholderIcon: "lighthouse" as const,
     cancellationPolicy: "CUSTOM" as const,
+    // Demo price drop from £64 a night (see src/lib/deals.ts).
+    priceDropFromCents: 6400,
+    priceDroppedAt: new Date(),
     customCancellationCutoffDays: 10,
     customCancellationRefundPercent: 75,
   },
@@ -292,6 +297,8 @@ export const DEMO_LISTINGS = [
     amenities: ["Wifi", "Kitchen", "Sea view"],
     placeholderIcon: "waves" as const,
     cancellationPolicy: "FLEXIBLE" as const,
+    lastMinuteDiscountPercent: 15,
+    lastMinuteWindowDays: 3,
   },
   {
     title: "Clifftop garden apartment in Bispham",

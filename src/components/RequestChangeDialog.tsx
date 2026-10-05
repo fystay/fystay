@@ -24,6 +24,7 @@ export function RequestChangeDialog({
   cleaningFeeCents = 0,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
+  lastMinuteDiscountPercent,
   minNights,
   maxNights,
   maxGuests,
@@ -38,6 +39,8 @@ export function RequestChangeDialog({
   cleaningFeeCents?: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
+  /** The booking's own last-minute deal, which a date change keeps. */
+  lastMinuteDiscountPercent?: number | null;
   minNights: number;
   maxNights: number | null;
   maxGuests: number;
@@ -70,6 +73,7 @@ export function RequestChangeDialog({
     cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
+    lastMinuteDiscountPercent,
   });
   const priceDeltaCents = newTotalPriceCents - currentTotalPriceCents;
 

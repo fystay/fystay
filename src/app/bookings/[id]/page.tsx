@@ -23,6 +23,7 @@ import { DepositStatusCard } from "@/components/DepositStatusCard";
 import { TripExtrasCard } from "@/components/TripExtrasCard";
 import type { BadgeProps } from "@/components/ui/Badge";
 import { formatDateTime } from "@/lib/format";
+import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
 
 export const metadata: Metadata = { title: "Booking details", robots: { index: false } };
 
@@ -396,6 +397,7 @@ export default async function BookingDetailPage({
                     cleaningFeeCents={booking.listing.cleaningFeeCents}
                     weeklyDiscountPercent={booking.listing.weeklyDiscountPercent}
                     monthlyDiscountPercent={booking.listing.monthlyDiscountPercent}
+                    lastMinuteDiscountPercent={booking.lastMinuteDiscountPercent}
                     minNights={booking.listing.minNights}
                     maxNights={booking.listing.maxNights}
                     maxGuests={booking.listing.maxGuests}
@@ -457,7 +459,7 @@ export default async function BookingDetailPage({
             guests={booking.guests}
             nightlyPriceCents={booking.nightlyPriceCents}
             lengthOfStayDiscountCents={booking.lengthOfStayDiscountCents}
-            lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as "weekly" | "monthly" | null}
+            lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as LengthOfStayDiscountLabel | null}
             cleaningFeeCents={booking.cleaningFeeCents}
             serviceFeeCents={booking.serviceFeeCents}
             taxCents={booking.taxCents}

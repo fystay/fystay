@@ -180,7 +180,18 @@ export async function pullRateForMapping(
   if (mapping.roomTypeId) {
     await tx.roomType.update({ where: { id: mapping.roomTypeId }, data: { pricePerNightCents: nearest.priceCents } });
   } else {
-    await tx.listing.update({ where: { id: mapping.listingId }, data: { pricePerNightCents: nearest.priceCents } });
+    // A property-management system sets day-by-day rates, so a lower synced
+    // rate is never presented as a "price drop" (see src/lib/deals.ts): any
+    // live drop ends and the price counts as freshly changed.
+    await tx.listing.update({
+      where: { id: mapping.listingId },
+      data: {
+        pricePerNightCents: nearest.priceCents,
+        priceChangedAt: new Date(),
+        priceDropFromCents: null,
+        priceDroppedAt: null,
+      },
+    });
   }
   return true;
 }

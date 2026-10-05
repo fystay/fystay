@@ -321,6 +321,7 @@ export async function ListingsGrid({
                 isSaved={savedListingIds.has(listing.id)}
                 isLoggedIn={Boolean(session?.user)}
                 nights={nights}
+                checkIn={checkInParam || undefined}
                 nearLandmark={landmark}
                 stayQuery={stayQuery}
               />

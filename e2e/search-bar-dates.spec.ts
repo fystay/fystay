@@ -74,7 +74,11 @@ test("homepage search's date picker sets checkIn/checkOut and filters results", 
 
 test("pressing Search on the homepage navigates to the dedicated results page", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Places to stay" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Find your stay on the Fylde Coast" })).toBeVisible();
+  // Let the page settle first: the cookie notice appears just after load and
+  // pushes the page down, which would move the button out from under a click
+  // aimed a moment earlier.
+  await page.waitForLoadState("networkidle");
 
   await page.getByRole("button", { name: "Search", exact: true }).click();
 
@@ -84,6 +88,7 @@ test("pressing Search on the homepage navigates to the dedicated results page", 
 
 test("Search button shows a busy state while a search is in flight, then clears", async ({ page }) => {
   await page.goto("/");
+  await page.waitForLoadState("networkidle");
 
   const searchButton = page.getByRole("button", { name: "Search", exact: true });
   await expect(searchButton).toBeEnabled();
@@ -95,11 +100,12 @@ test("Search button shows a busy state while a search is in flight, then clears"
   await expect(searchButton).toBeEnabled();
   expect(page.url()).not.toContain("city=Blackpool");
 
-  // Slow every request slightly so the transient "Searching…" state is
-  // reliably observable instead of racing a near-instant local response -
-  // this only affects the test's network timing, not the app's own code.
+  // Slow every request so the transient "Searching…" state outlasts the three
+  // checks below instead of racing a near-instant local response (at 300ms
+  // it sometimes ended between them) - this only affects the test's network
+  // timing, not the app's own code.
   await page.route("**/*", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     await route.continue();
   });
 

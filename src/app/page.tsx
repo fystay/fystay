@@ -18,7 +18,6 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { SearchBar } from "@/components/SearchBar";
 import { HeroBanner } from "@/components/HeroBanner";
-import { ListingsGrid } from "@/components/search/ListingsGrid";
 import { buttonVariants } from "@/components/ui/Button";
 import { ListingsCarousel } from "@/components/ListingsCarousel";
 import { ExploreDestinations } from "@/components/ExploreDestinations";
@@ -32,6 +31,7 @@ import { beachStaysSection, groupByCity, recentlyAddedSection } from "@/lib/mark
 import { getActiveOfferings } from "@/lib/travelAddons";
 import { NowCovering } from "@/components/NowCovering";
 import { SpotlightStays } from "@/components/SpotlightStays";
+import { StealsDeals } from "@/components/StealsDeals";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
 import { cn } from "@/lib/cn";
@@ -303,16 +303,12 @@ export default async function Home() {
           <SpotlightStays />
         </Suspense>
 
-        <section className="mt-10 sm:mt-14">
-          <SectionHeader
-            title="Places to stay"
-            subtitle="Local stays across the Fylde Coast, ready to book today."
-            link={{ href: "/search", label: "View all" }}
-          />
-          <Suspense fallback={<LargeCardRailSkeleton />}>
-            <ListingsGrid searchParams={{}} showResultsView={false} />
-          </Suspense>
-        </section>
+        {/* Genuine last-minute deals and price drops (see StealsDeals) -
+            renders nothing on a day with no deals; the town rows further
+            down still list every stay. */}
+        <Suspense fallback={null}>
+          <StealsDeals />
+        </Suspense>
 
         {/* Each town links to its own /destinations/[slug] landing page (see
             lib/destinations.ts). */}

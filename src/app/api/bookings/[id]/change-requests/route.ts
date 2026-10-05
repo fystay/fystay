@@ -128,6 +128,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     cleaningFeeCents: booking.cleaningFeeCents,
     weeklyDiscountPercent: booking.listing.weeklyDiscountPercent,
     monthlyDiscountPercent: booking.listing.monthlyDiscountPercent,
+    lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent,
     currentTotalPriceCents: booking.totalPriceCents,
   });
 

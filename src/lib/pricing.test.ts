@@ -3,6 +3,7 @@ import {
   applyDiscountsToApplicationFee,
   discountedAccommodationCents,
   computeBookingPricing,
+  stayDiscountName,
   GUEST_SERVICE_FEE_RATE,
   resolveLengthOfStayDiscount,
   splitBookingChange,
@@ -202,5 +203,43 @@ describe("discountedAccommodationCents", () => {
 
   it("is simply nights x nightly rate when no discount applies", () => {
     expect(discountedAccommodationCents({ nights: 3, nightlyPriceCents: 7500, lengthOfStayDiscountCents: 0 })).toBe(22500);
+  });
+});
+
+describe("computeBookingPricing with a last-minute deal", () => {
+  it("charges the last-minute discount, with the service fee on the discounted stay", () => {
+    const pricing = computeBookingPricing({ nights: 3, pricePerNightCents: 10000, lastMinuteDiscountPercent: 20 });
+    expect(pricing).toMatchObject({
+      nightlySubtotalCents: 30000,
+      lengthOfStayDiscountPercent: 20,
+      lengthOfStayDiscountCents: 6000,
+      lengthOfStayDiscountLabel: "last_minute",
+      serviceFeeCents: 2400,
+      totalPriceCents: 26400,
+    });
+  });
+
+  it("never stacks with a weekly discount - the larger one applies", () => {
+    const weeklyWins = computeBookingPricing({
+      nights: 7,
+      pricePerNightCents: 10000,
+      weeklyDiscountPercent: 25,
+      lastMinuteDiscountPercent: 20,
+    });
+    expect(weeklyWins).toMatchObject({ lengthOfStayDiscountPercent: 25, lengthOfStayDiscountLabel: "weekly" });
+
+    const lastMinuteWins = computeBookingPricing({
+      nights: 7,
+      pricePerNightCents: 10000,
+      weeklyDiscountPercent: 10,
+      lastMinuteDiscountPercent: 20,
+    });
+    expect(lastMinuteWins).toMatchObject({ lengthOfStayDiscountPercent: 20, lengthOfStayDiscountLabel: "last_minute" });
+  });
+
+  it("names each discount for receipts", () => {
+    expect(stayDiscountName("last_minute")).toBe("Last-minute deal");
+    expect(stayDiscountName("monthly")).toBe("Monthly discount");
+    expect(stayDiscountName("weekly")).toBe("Weekly discount");
   });
 });

@@ -11,6 +11,7 @@ import { CheckoutForm } from "@/components/CheckoutForm";
 import { Card, CardContent } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
 
 export const metadata: Metadata = { title: "Confirm and pay", robots: { index: false } };
 
@@ -110,7 +111,7 @@ export default async function CheckoutPage({
               guests={booking.guests}
               nightlyPriceCents={booking.nightlyPriceCents}
               lengthOfStayDiscountCents={booking.lengthOfStayDiscountCents}
-              lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as "weekly" | "monthly" | null}
+              lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as LengthOfStayDiscountLabel | null}
               cleaningFeeCents={booking.cleaningFeeCents}
               serviceFeeCents={booking.serviceFeeCents}
               taxCents={booking.taxCents}

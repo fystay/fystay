@@ -328,54 +328,68 @@ model EmailChangeToken {
 }
 
 model Listing {
-  id                     String       @id @default(cuid())
-  title                  String
-  description            String
-  city                   String
-  country                String
-  address                String?
+  id                        String       @id @default(cuid())
+  title                     String
+  description               String
+  city                      String
+  country                   String
+  address                   String?
   // Both null until the listing's city matches a known Fylde Coast town
   // (see src/lib/geocoding.ts) - never a guessed or user-typed value, so a
   // city FYStay doesn't actually cover never gets a fabricated pin on the
   // map. Town-center coordinates with a small deterministic jitter, not a
   // real street address - this app has no per-property geocoding data.
-  latitude               Float?
-  longitude              Float?
-  propertyType           PropertyType @default(OTHER)
-  pricePerNightCents     Int
+  latitude                  Float?
+  longitude                 Float?
+  propertyType              PropertyType @default(OTHER)
+  pricePerNightCents        Int
   // A flat, once-per-stay fee (housekeeping between guests), separate from
   // the nightly rate. Zero means the host hasn't set one, in which case the
   // booking summary simply omits that line rather than showing "£0".
-  cleaningFeeCents       Int          @default(0)
+  cleaningFeeCents          Int          @default(0)
   // Percentage off the nightly subtotal for stays of 7+ / 28+ nights
   // (Airbnb-style length-of-stay discounts). Null means the host hasn't set
   // one, in which case no discount applies at that threshold - never
   // defaulted to 0 vs null being treated the same, so "not configured" and
   // "explicitly 0%" stay distinguishable if that ever matters. See
   // resolveLengthOfStayDiscount in src/lib/pricing.ts for how these combine.
-  weeklyDiscountPercent  Int?
-  monthlyDiscountPercent Int?
-  maxGuests              Int          @default(1)
-  bedrooms               Int          @default(1)
-  beds                   Int          @default(1)
-  bathrooms              Int          @default(1)
-  photos                 String[]
-  amenities              String[]
-  published              Boolean      @default(true)
+  weeklyDiscountPercent     Int?
+  monthlyDiscountPercent    Int?
+  // A last-minute deal: this percentage off the nightly rate for a stay
+  // that checks in within lastMinuteWindowDays of the day it's booked. Both
+  // null (the default) = no deal. Never stacks with the weekly/monthly
+  // discount - the guest gets whichever is larger. See src/lib/deals.ts.
+  lastMinuteDiscountPercent Int?
+  lastMinuteWindowDays      Int?
+  // Price-drop tracking for the "was" price (src/lib/deals.ts): when the
+  // nightly price last changed, and - only when a host lowered a price that
+  // had been charged for at least 28 days - that earlier price and when it
+  // dropped. Shown for 28 days after the drop, so a "was" price is always
+  // one the listing genuinely charged for a reasonable time.
+  priceChangedAt            DateTime?
+  priceDropFromCents        Int?
+  priceDroppedAt            DateTime?
+  maxGuests                 Int          @default(1)
+  bedrooms                  Int          @default(1)
+  beds                      Int          @default(1)
+  bathrooms                 Int          @default(1)
+  photos                    String[]
+  amenities                 String[]
+  published                 Boolean      @default(true)
   // true (the default, preserving every existing listing's behavior): a
   // guest's booking goes straight to payment, same as today. false: the
   // guest instead submits a request (see Booking.approvalStatus) that the
   // host must accept within REQUEST_HOLD_HOURS before payment is even
   // offered - no card is touched until the host says yes.
-  instantBook            Boolean      @default(true)
+  instantBook               Boolean      @default(true)
   // A refundable damage-deposit hold, in addition to the nightly price -
   // never added to a booking's own totalPriceCents, and never actually
   // charged unless the host files a claim (see DepositStatus). 0 (the
   // default) means the host hasn't set one - the same "0 means not
   // configured" convention as cleaningFeeCents.
-  securityDepositCents   Int          @default(0)
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  securityDepositCents      Int          @default(0)
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
 
   cancellationPolicy              CancellationPolicyKind @default(MODERATE)
   // Only read when cancellationPolicy is CUSTOM; null otherwise. A null
@@ -591,8 +605,14 @@ model Booking {
   // same way as the other price fields - a later edit to the listing's
   // discount settings never rewrites what a guest already agreed to.
   // 0/null when no discount applied to this stay.
+  // Holds the stay's one discount: weekly/monthly, or a last-minute deal
+  // ("last_minute") when that was larger - they never stack.
   lengthOfStayDiscountCents Int        @default(0)
   lengthOfStayDiscountLabel String?
+  // The last-minute deal percentage this booking qualified for when it was
+  // made (null if none), so a later date change reprices with the same deal
+  // instead of quietly taking it away.
+  lastMinuteDiscountPercent Int?
   cleaningFeeCents          Int        @default(0)
   serviceFeeCents           Int        @default(0)
   taxCents                  Int        @default(0)

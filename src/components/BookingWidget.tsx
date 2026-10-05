@@ -18,12 +18,14 @@ import type { CancellationPolicy } from "@/lib/cancellationPolicy";
 import {
   computeBookingPricing,
   MONTHLY_DISCOUNT_MIN_NIGHTS,
+  stayDiscountName,
   WEEKLY_DISCOUNT_MIN_NIGHTS,
 } from "@/lib/pricing";
+import { lastMinuteDiscountFor } from "@/lib/deals";
 import { isPetFriendly, totalOccupants, type GuestCounts } from "@/lib/search";
 import type { StaySelection } from "@/lib/stayQuery";
 import { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
-import { stayDateToLocal, toStayDateString } from "@/lib/stayDates";
+import { parseStayDate, stayDateToLocal, toStayDateString } from "@/lib/stayDates";
 
 type Props = {
   listingId: string;
@@ -31,6 +33,11 @@ type Props = {
   cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
+  /** The listing's last-minute deal (see src/lib/deals.ts), applied when the chosen check-in is within the window. */
+  lastMinuteDiscountPercent?: number | null;
+  lastMinuteWindowDays?: number | null;
+  /** The genuine earlier nightly price while a price drop is live (activePriceDrop), shown struck through. */
+  priceDropFromCents?: number | null;
   minNights: number;
   maxNights: number | null;
   maxGuests: number;
@@ -64,6 +71,9 @@ export function BookingWidget({
   cleaningFeeCents,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
+  lastMinuteDiscountPercent = null,
+  lastMinuteWindowDays = null,
+  priceDropFromCents = null,
   minNights,
   maxNights,
   maxGuests,
@@ -132,12 +142,19 @@ export function BookingWidget({
       ? subDays(range.from, bestTier.minDaysBeforeCheckIn)
       : null;
 
+  // The same rule the server charges by (POST /api/bookings), from the
+  // picked check-in as a calendar date.
+  const selectedCheckIn = range?.from ? parseStayDate(toStayDateString(range.from)) : null;
+  const lastMinuteForStay = selectedCheckIn
+    ? lastMinuteDiscountFor({ lastMinuteDiscountPercent, lastMinuteWindowDays }, selectedCheckIn)
+    : null;
   const pricing = computeBookingPricing({
     nights,
     pricePerNightCents,
     cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
+    lastMinuteDiscountPercent: lastMinuteForStay,
   });
 
   const availabilityChecked = Boolean(
@@ -308,6 +325,12 @@ export function BookingWidget({
       <CardContent className="p-5 sm:p-6">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-2xl font-bold text-brand-800">
+            {priceDropFromCents && (
+              <s className="mr-1.5 text-base font-medium text-stone-600">
+                <span className="sr-only">Was </span>
+                {formatPrice(priceDropFromCents)}
+              </s>
+            )}
             {formatPrice(pricePerNightCents)}
             <span className="ml-1 text-sm font-normal text-stone-500">/ night</span>
           </p>
@@ -319,6 +342,12 @@ export function BookingWidget({
             </span>
           )}
         </div>
+
+        {lastMinuteDiscountPercent && lastMinuteWindowDays && (
+          <p className="mt-1 text-xs font-semibold text-brand-700">
+            Last-minute deal: {lastMinuteDiscountPercent}% off if you check in within {lastMinuteWindowDays} days
+          </p>
+        )}
 
         {nights === 0 && (weeklyDiscountPercent || monthlyDiscountPercent) && (
           <p className="mt-1 text-xs font-medium text-brand-700">
@@ -365,8 +394,7 @@ export function BookingWidget({
             {pricing.lengthOfStayDiscountCents > 0 && (
               <div className="flex justify-between text-brand-700">
                 <span>
-                  {pricing.lengthOfStayDiscountLabel === "monthly" ? "Monthly" : "Weekly"} discount
-                  {" "}({pricing.lengthOfStayDiscountPercent}%)
+                  {stayDiscountName(pricing.lengthOfStayDiscountLabel)} ({pricing.lengthOfStayDiscountPercent}%)
                 </span>
                 <span>&minus;{formatPrice(pricing.lengthOfStayDiscountCents)}</span>
               </div>

@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
 import { formatPrice } from "@/lib/format";
 import { isOptimizableImage } from "@/lib/image";
+import { stayDiscountName, type LengthOfStayDiscountLabel } from "@/lib/pricing";
 
 const paymentStatusLabel: Record<string, string> = {
   UNPAID: "Unpaid",
@@ -56,7 +57,7 @@ export function BookingSummaryCard({
   guests: number;
   nightlyPriceCents: number;
   lengthOfStayDiscountCents?: number;
-  lengthOfStayDiscountLabel?: "weekly" | "monthly" | null;
+  lengthOfStayDiscountLabel?: LengthOfStayDiscountLabel | null;
   cleaningFeeCents: number;
   serviceFeeCents: number;
   taxCents: number;
@@ -180,7 +181,7 @@ export function BookingSummaryCard({
           </div>
           {lengthOfStayDiscountCents > 0 && (
             <div className="flex justify-between text-brand-700">
-              <span>{lengthOfStayDiscountLabel === "monthly" ? "Monthly" : "Weekly"} discount</span>
+              <span>{stayDiscountName(lengthOfStayDiscountLabel)}</span>
               <span>&minus;{formatPrice(lengthOfStayDiscountCents)}</span>
             </div>
           )}

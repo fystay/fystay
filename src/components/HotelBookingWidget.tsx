@@ -15,12 +15,13 @@ import { usePromoCode } from "@/hooks/usePromoCode";
 import { formatPrice } from "@/lib/format";
 import { nightsBetween, stayLengthError } from "@/lib/availability";
 import type { CancellationPolicy } from "@/lib/cancellationPolicy";
-import { computeBookingPricing } from "@/lib/pricing";
+import { computeBookingPricing, stayDiscountName } from "@/lib/pricing";
+import { lastMinuteDiscountFor } from "@/lib/deals";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
 import type { StaySelection } from "@/lib/stayQuery";
 import { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
-import { toStayDateString } from "@/lib/stayDates";
+import { parseStayDate, toStayDateString } from "@/lib/stayDates";
 
 export type HotelRoomTypeSummary = {
   id: string;
@@ -41,6 +42,8 @@ type Props = {
   cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
+  lastMinuteDiscountPercent?: number | null;
+  lastMinuteWindowDays?: number | null;
   minNights: number;
   maxNights: number | null;
   isLoggedIn: boolean;
@@ -109,6 +112,8 @@ export function HotelBookingWidget({
   cleaningFeeCents,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
+  lastMinuteDiscountPercent = null,
+  lastMinuteWindowDays = null,
   minNights,
   maxNights,
   isLoggedIn,
@@ -192,6 +197,8 @@ export function HotelBookingWidget({
               cleaningFeeCents={cleaningFeeCents}
               weeklyDiscountPercent={weeklyDiscountPercent}
               monthlyDiscountPercent={monthlyDiscountPercent}
+              lastMinuteDiscountPercent={lastMinuteDiscountPercent}
+              lastMinuteWindowDays={lastMinuteWindowDays}
               isLoggedIn={isLoggedIn}
               instantBook={instantBook}
               initialGuests={searchedGuests}
@@ -232,6 +239,8 @@ function RoomTypeBookingCard({
   cleaningFeeCents,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
+  lastMinuteDiscountPercent = null,
+  lastMinuteWindowDays = null,
   isLoggedIn,
   instantBook,
   initialGuests,
@@ -244,6 +253,8 @@ function RoomTypeBookingCard({
   cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
+  lastMinuteDiscountPercent?: number | null;
+  lastMinuteWindowDays?: number | null;
   isLoggedIn: boolean;
   instantBook: boolean;
   initialGuests: number | null;
@@ -274,6 +285,10 @@ function RoomTypeBookingCard({
           cleaningFeeCents,
           weeklyDiscountPercent,
           monthlyDiscountPercent,
+          lastMinuteDiscountPercent: lastMinuteDiscountFor(
+            { lastMinuteDiscountPercent, lastMinuteWindowDays },
+            parseStayDate(toStayDateString(range!.from!))!,
+          ),
         })
       : null;
 
@@ -467,8 +482,7 @@ function RoomTypeBookingCard({
           {pricing.lengthOfStayDiscountCents > 0 && (
             <div className="flex justify-between text-brand-700">
               <span>
-                {pricing.lengthOfStayDiscountLabel === "monthly" ? "Monthly" : "Weekly"} discount (
-                {pricing.lengthOfStayDiscountPercent}%)
+                {stayDiscountName(pricing.lengthOfStayDiscountLabel)} ({pricing.lengthOfStayDiscountPercent}%)
               </span>
               <span>&minus;{formatPrice(pricing.lengthOfStayDiscountCents)}</span>
             </div>

@@ -10,6 +10,7 @@ import { ConfettiBurst } from "@/components/ConfettiBurst";
 import { SuccessCheckmark } from "@/components/SuccessCheckmark";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
 
 const POLL_INTERVAL_MS = 1500;
 const MAX_POLLS = 12;
@@ -70,7 +71,7 @@ export function BookingConfirmation({
   guests: number;
   nightlyPriceCents: number;
   lengthOfStayDiscountCents: number;
-  lengthOfStayDiscountLabel: "weekly" | "monthly" | null;
+  lengthOfStayDiscountLabel: LengthOfStayDiscountLabel | null;
   cleaningFeeCents: number;
   serviceFeeCents: number;
   taxCents: number;

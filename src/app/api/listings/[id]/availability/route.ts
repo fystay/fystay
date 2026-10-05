@@ -11,6 +11,7 @@ import {
   nightsBetween,
 } from "@/lib/availability";
 import { computeBookingPricing } from "@/lib/pricing";
+import { lastMinuteDiscountFor } from "@/lib/deals";
 import { computePromoDiscount, normalizePromoCode, validatePromoCode } from "@/lib/promoCode";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
 import { parseStayDate, todayStayDate } from "@/lib/stayDates";
@@ -118,6 +119,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             cleaningFeeCents: true,
             weeklyDiscountPercent: true,
             monthlyDiscountPercent: true,
+            lastMinuteDiscountPercent: true,
+            lastMinuteWindowDays: true,
           },
         },
         bookings: {
@@ -163,6 +166,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       cleaningFeeCents: roomType.listing.cleaningFeeCents,
       weeklyDiscountPercent: roomType.listing.weeklyDiscountPercent,
       monthlyDiscountPercent: roomType.listing.monthlyDiscountPercent,
+      lastMinuteDiscountPercent: lastMinuteDiscountFor(roomType.listing, checkIn),
     });
     const promo = parsed.data.promoCode
       ? await previewPromoDiscount(parsed.data.promoCode, pricing.totalPriceCents)
@@ -223,6 +227,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     cleaningFeeCents: listing.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
+    lastMinuteDiscountPercent: lastMinuteDiscountFor(listing, checkIn),
   });
   const promo = parsed.data.promoCode
     ? await previewPromoDiscount(parsed.data.promoCode, pricing.totalPriceCents)

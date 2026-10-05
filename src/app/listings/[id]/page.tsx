@@ -54,6 +54,7 @@ import { formatPrice } from "@/lib/format";
 import { isSuspended } from "@/lib/suspension";
 import { parseStaySelection } from "@/lib/stayQuery";
 import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
+import { activePriceDrop } from "@/lib/deals";
 
 const getListing = cache(async (id: string) => {
   return prisma.listing.findUnique({
@@ -484,6 +485,8 @@ export default async function ListingDetailPage({
               cleaningFeeCents={listing.cleaningFeeCents}
               weeklyDiscountPercent={listing.weeklyDiscountPercent}
               monthlyDiscountPercent={listing.monthlyDiscountPercent}
+              lastMinuteDiscountPercent={listing.lastMinuteDiscountPercent}
+              lastMinuteWindowDays={listing.lastMinuteWindowDays}
               minNights={listing.minNights}
               maxNights={listing.maxNights}
               isLoggedIn={Boolean(session?.user)}
@@ -499,6 +502,9 @@ export default async function ListingDetailPage({
               cleaningFeeCents={listing.cleaningFeeCents}
               weeklyDiscountPercent={listing.weeklyDiscountPercent}
               monthlyDiscountPercent={listing.monthlyDiscountPercent}
+              lastMinuteDiscountPercent={listing.lastMinuteDiscountPercent}
+              lastMinuteWindowDays={listing.lastMinuteWindowDays}
+              priceDropFromCents={activePriceDrop(listing)?.fromCents ?? null}
               minNights={listing.minNights}
               maxNights={listing.maxNights}
               maxGuests={listing.maxGuests}

@@ -54,6 +54,8 @@ export default async function EditListingPage({
             listing.securityDepositCents > 0 ? (listing.securityDepositCents / 100).toString() : "",
           weeklyDiscountPercent: listing.weeklyDiscountPercent?.toString() ?? "",
           monthlyDiscountPercent: listing.monthlyDiscountPercent?.toString() ?? "",
+          lastMinuteDiscountPercent: listing.lastMinuteDiscountPercent?.toString() ?? "",
+          lastMinuteWindowDays: listing.lastMinuteWindowDays?.toString() ?? "7",
           maxGuests: listing.maxGuests.toString(),
           bedrooms: listing.bedrooms.toString(),
           beds: listing.beds.toString(),

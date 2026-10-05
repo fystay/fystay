@@ -6,6 +6,8 @@ import { httpUrlSchema } from "@/lib/validation";
 import { geocodeListing } from "@/lib/geocoding";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { priceChangeFields } from "@/lib/deals";
+import { lastMinuteDealInput, resolveLastMinuteDeal } from "@/lib/dealValidation";
 
 const updateListingSchema = z
   .object({
@@ -21,6 +23,7 @@ const updateListingSchema = z
     cleaningFeeCents: z.number().int().min(0).optional(),
     weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
+    ...lastMinuteDealInput,
     maxGuests: z.number().int().min(1).max(50).optional(),
     bedrooms: z.number().int().min(0).max(50).optional(),
     beds: z.number().int().min(1).max(50).optional(),
@@ -186,10 +189,25 @@ async function patchHandler(
       ? geocodeListing({ id: listing.id, city: parsed.data.city })
       : undefined;
 
+  const deal = resolveLastMinuteDeal(parsed.data, listing);
+  if ("error" in deal) {
+    return NextResponse.json({ error: deal.error }, { status: 400 });
+  }
+
+  // A changed nightly price updates the price-drop tracking behind the
+  // "was" price (see priceChangeFields) - set only by the server, never by
+  // the request.
+  const priceTracking =
+    parsed.data.pricePerNightCents !== undefined
+      ? priceChangeFields(listing, parsed.data.pricePerNightCents)
+      : {};
+
   const updated = await prisma.listing.update({
     where: { id },
     data: {
       ...parsed.data,
+      ...deal.fields,
+      ...priceTracking,
       ...(coordinates !== undefined && {
         latitude: coordinates?.latitude ?? null,
         longitude: coordinates?.longitude ?? null,

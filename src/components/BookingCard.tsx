@@ -58,6 +58,7 @@ export type BookingCardBooking = {
   checkIn: Date;
   checkOut: Date;
   guests: number;
+  lastMinuteDiscountPercent?: number | null;
   totalPriceCents: number;
   review: { rating: number } | null;
   listing: {
@@ -282,6 +283,7 @@ export function BookingCard({
                 cleaningFeeCents={booking.listing.cleaningFeeCents}
                 weeklyDiscountPercent={booking.listing.weeklyDiscountPercent}
                 monthlyDiscountPercent={booking.listing.monthlyDiscountPercent}
+                lastMinuteDiscountPercent={booking.lastMinuteDiscountPercent}
                 minNights={booking.listing.minNights}
                 maxNights={booking.listing.maxNights}
                 maxGuests={booking.listing.maxGuests}

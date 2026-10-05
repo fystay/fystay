@@ -9,6 +9,7 @@ import { Field, FieldHint, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
+import { LAST_MINUTE_MAX_PERCENT, LAST_MINUTE_MIN_PERCENT, LAST_MINUTE_WINDOW_OPTIONS } from "@/lib/deals";
 import { Button } from "@/components/ui/Button";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -60,6 +61,8 @@ export type ListingFormValues = {
   securityDeposit: string;
   weeklyDiscountPercent: string;
   monthlyDiscountPercent: string;
+  lastMinuteDiscountPercent: string;
+  lastMinuteWindowDays: string;
   maxGuests: string;
   bedrooms: string;
   beds: string;
@@ -100,6 +103,8 @@ const emptyValues: ListingFormValues = {
   securityDeposit: "",
   weeklyDiscountPercent: "",
   monthlyDiscountPercent: "",
+  lastMinuteDiscountPercent: "",
+  lastMinuteWindowDays: "7",
   maxGuests: "2",
   bedrooms: "1",
   beds: "1",
@@ -256,6 +261,13 @@ export function ListingForm({ listingId, initialValues }: Props) {
         : null,
       monthlyDiscountPercent: values.monthlyDiscountPercent
         ? Number(values.monthlyDiscountPercent)
+        : null,
+      // Both or neither: no percentage means no last-minute deal at all.
+      lastMinuteDiscountPercent: values.lastMinuteDiscountPercent
+        ? Number(values.lastMinuteDiscountPercent)
+        : null,
+      lastMinuteWindowDays: values.lastMinuteDiscountPercent
+        ? Number(values.lastMinuteWindowDays || LAST_MINUTE_WINDOW_OPTIONS[1])
         : null,
       photos: values.photos,
       ...(isHotel && !listingId ? { roomTypes: values.roomTypes.map(roomTypePayload) } : {}),
@@ -457,6 +469,37 @@ export function ListingForm({ listingId, initialValues }: Props) {
                 placeholder="0"
               />
               <FieldHint>Applied to stays of 28+ nights.</FieldHint>
+            </Field>
+            <Field>
+              <Label htmlFor="lastMinuteDiscountPercent">Last-minute deal % (optional)</Label>
+              <Input
+                id="lastMinuteDiscountPercent"
+                type="number"
+                min={LAST_MINUTE_MIN_PERCENT}
+                max={LAST_MINUTE_MAX_PERCENT}
+                value={values.lastMinuteDiscountPercent}
+                onChange={(e) => update("lastMinuteDiscountPercent", e.target.value)}
+                placeholder="e.g. 15"
+              />
+              <FieldHint>
+                Off stays that start soon - featured in Steals Deals on the homepage. Doesn&apos;t stack
+                with weekly or monthly discounts; guests get the larger one.
+              </FieldHint>
+            </Field>
+            <Field>
+              <Label htmlFor="lastMinuteWindowDays">Last-minute deal applies to check-ins within</Label>
+              <Select
+                id="lastMinuteWindowDays"
+                value={values.lastMinuteWindowDays || String(LAST_MINUTE_WINDOW_OPTIONS[1])}
+                onChange={(e) => update("lastMinuteWindowDays", e.target.value)}
+                disabled={!values.lastMinuteDiscountPercent}
+              >
+                {LAST_MINUTE_WINDOW_OPTIONS.map((days) => (
+                  <option key={days} value={days}>
+                    {days} days
+                  </option>
+                ))}
+              </Select>
             </Field>
             {values.propertyType !== "HOTEL" && (
               <>

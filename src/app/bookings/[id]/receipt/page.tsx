@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { PrintButton } from "@/components/PrintButton";
 import { cn } from "@/lib/cn";
+import { stayDiscountName } from "@/lib/pricing";
 
 export const metadata: Metadata = { title: "Receipt", robots: { index: false } };
 
@@ -131,7 +132,7 @@ export default async function BookingReceiptPage({
               {booking.lengthOfStayDiscountCents > 0 && (
                 <div className="flex justify-between text-brand-700">
                   <span>
-                    {booking.lengthOfStayDiscountLabel === "monthly" ? "Monthly" : "Weekly"} discount
+                    {stayDiscountName(booking.lengthOfStayDiscountLabel)}
                   </span>
                   <span>&minus;{formatPrice(booking.lengthOfStayDiscountCents)}</span>
                 </div>

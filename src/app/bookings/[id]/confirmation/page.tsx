@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { BookingConfirmation } from "@/components/BookingConfirmation";
 import { getActiveOfferingByCategory } from "@/lib/travelAddons";
+import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
 
 export const metadata: Metadata = { title: "Booking confirmed", robots: { index: false } };
 
@@ -72,7 +73,7 @@ export default async function BookingConfirmationPage({
         guests={booking.guests}
         nightlyPriceCents={booking.nightlyPriceCents}
         lengthOfStayDiscountCents={booking.lengthOfStayDiscountCents}
-        lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as "weekly" | "monthly" | null}
+        lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as LengthOfStayDiscountLabel | null}
         cleaningFeeCents={booking.cleaningFeeCents}
         serviceFeeCents={booking.serviceFeeCents}
         taxCents={booking.taxCents}

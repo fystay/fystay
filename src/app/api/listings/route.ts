@@ -14,6 +14,7 @@ import { paginateListings, parsePageParam } from "@/lib/listingSearch";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { parseStayDate } from "@/lib/stayDates";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { lastMinuteDealInput, resolveLastMinuteDeal } from "@/lib/dealValidation";
 
 const LISTINGS_API_PAGE_SIZE = 24;
 
@@ -49,6 +50,7 @@ const createListingSchema = z
     cleaningFeeCents: z.number().int().min(0).default(0),
     weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
+    ...lastMinuteDealInput,
     maxGuests: z.number().int().min(1).max(50).optional(),
     bedrooms: z.number().int().min(0).max(50).optional(),
     beds: z.number().int().min(1).max(50).optional(),
@@ -232,6 +234,11 @@ async function postHandler(request: Request) {
     );
   }
 
+  const deal = resolveLastMinuteDeal(parsed.data);
+  if ("error" in deal) {
+    return NextResponse.json({ error: deal.error }, { status: 400 });
+  }
+
   const { roomTypes, pricePerNightCents, maxGuests, bedrooms, beds, bathrooms, ...rest } =
     parsed.data;
   const isHotel = rest.propertyType === "HOTEL";
@@ -247,6 +254,7 @@ async function postHandler(request: Request) {
     const created = await tx.listing.create({
       data: {
         ...rest,
+        ...deal.fields,
         hostId: session.user.id,
         pricePerNightCents: isHotel
           ? Math.min(...roomTypes!.map((r) => r.pricePerNightCents))

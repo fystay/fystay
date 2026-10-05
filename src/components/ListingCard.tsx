@@ -16,6 +16,8 @@ import { EntryLocationMeta } from "@/components/EntryLocationMeta";
 import { CrossfadeImages } from "@/components/CrossfadeImages";
 import { useAutoRotate } from "@/hooks/useAutoRotate";
 import { LARGE_CARD_IMAGE_CLASS } from "@/components/LargeCard";
+import { lastMinuteDiscountFor, listingDeal } from "@/lib/deals";
+import { parseStayDate } from "@/lib/stayDates";
 
 export type ListingCardData = {
   id: string;
@@ -33,6 +35,12 @@ export type ListingCardData = {
   reviews: { rating: number }[];
   latitude?: number | null;
   longitude?: number | null;
+  // Deal fields (src/lib/deals.ts) - optional, so callers that don't select
+  // them simply show no deal.
+  lastMinuteDiscountPercent?: number | null;
+  lastMinuteWindowDays?: number | null;
+  priceDropFromCents?: number | null;
+  priceDroppedAt?: Date | null;
 };
 
 const MAX_AMENITY_ICONS = 3;
@@ -47,6 +55,7 @@ export function ListingCard({
   stayQuery = "",
   size = "default",
   promoted = false,
+  checkIn,
 }: {
   listing: ListingCardData;
   isSaved?: boolean;
@@ -71,6 +80,8 @@ export function ListingCard({
   size?: "default" | "large";
   /** A paid Spotlight placement (see src/lib/listingPromotions.ts): labelled "Promoted" on the photo, as UK rules on paid placement require. */
   promoted?: boolean;
+  /** The searched check-in (yyyy-MM-dd), so the stay total includes a last-minute deal when it applies. */
+  checkIn?: string;
 }) {
   const isLarge = size === "large";
   const rating = computeAverageRating(listing.reviews);
@@ -97,11 +108,24 @@ export function ListingCard({
   // that otherwise only surfaces once a guest has picked dates long enough
   // to trigger it (see computeBookingPricing). Monthly takes priority when
   // both are set - it's the larger saving a host is offering.
-  const dealLabel = listing.monthlyDiscountPercent
-    ? `${listing.monthlyDiscountPercent}% off monthly`
-    : listing.weeklyDiscountPercent
-      ? `${listing.weeklyDiscountPercent}% off weekly`
-      : null;
+  // A real last-minute deal or price drop (src/lib/deals.ts) takes the
+  // ribbon ahead of a length-of-stay discount - it's the more urgent offer.
+  const deal = listingDeal({
+    lastMinuteDiscountPercent: listing.lastMinuteDiscountPercent ?? null,
+    lastMinuteWindowDays: listing.lastMinuteWindowDays ?? null,
+    pricePerNightCents: listing.pricePerNightCents,
+    priceDropFromCents: listing.priceDropFromCents ?? null,
+    priceDroppedAt: listing.priceDroppedAt ? new Date(listing.priceDroppedAt) : null,
+  });
+  const dealLabel = deal
+    ? deal.kind === "last_minute"
+      ? `${deal.percentOff}% off last-minute`
+      : `Price drop · ${deal.percentOff}% off`
+    : listing.monthlyDiscountPercent
+      ? `${listing.monthlyDiscountPercent}% off monthly`
+      : listing.weeklyDiscountPercent
+        ? `${listing.weeklyDiscountPercent}% off weekly`
+        : null;
 
   const photoCount = listing.photos.length;
   // Gentle automatic crossfade through the listing's photos (see
@@ -144,6 +168,15 @@ export function ListingCard({
           cleaningFeeCents: listing.cleaningFeeCents,
           weeklyDiscountPercent: listing.weeklyDiscountPercent,
           monthlyDiscountPercent: listing.monthlyDiscountPercent,
+          lastMinuteDiscountPercent: checkIn
+            ? lastMinuteDiscountFor(
+                {
+                  lastMinuteDiscountPercent: listing.lastMinuteDiscountPercent ?? null,
+                  lastMinuteWindowDays: listing.lastMinuteWindowDays ?? null,
+                },
+                parseStayDate(checkIn) ?? new Date(0),
+              )
+            : null,
         }).totalPriceCents
       : null;
 
@@ -152,6 +185,7 @@ export function ListingCard({
   // case, exactly like the totalPriceCents !== null check below already
   // gates whether it renders.
   const formattedNightlyPrice = useFormattedPrice(listing.pricePerNightCents);
+  const formattedWasPrice = useFormattedPrice(deal?.kind === "price_drop" ? deal.fromCents : 0);
   const formattedTotal = useFormattedPrice(totalPriceCents ?? 0);
 
   return (
@@ -337,6 +371,12 @@ export function ListingCard({
                 prevent - this element isn't an h1/h2, so nothing catches
                 that mistake for it automatically). */}
             <p className="flex items-baseline gap-1">
+              {deal?.kind === "price_drop" && (
+                <s className="text-sm tabular-nums text-stone-600">
+                  <span className="sr-only">Was </span>
+                  {formattedWasPrice}
+                </s>
+              )}
               <span className="font-serif text-xl tabular-nums text-brand-800">
                 {formattedNightlyPrice}
               </span>

@@ -272,6 +272,12 @@
       "files": {
         "migration.sql": "8cebdcb7fc850fe2f27f5e08449c12ed7519d4cba0e0021c26f96d79e8e7f439"
       }
+    },
+    {
+      "name": "20261005140000_add_listing_deals",
+      "files": {
+        "migration.sql": "95302a66b9492679421b081c5dc29faf753df39b7a8cdf74c7e01c9ab54a9103"
+      }
     }
   ],
   "retired": [

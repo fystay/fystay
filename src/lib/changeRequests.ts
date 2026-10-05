@@ -38,6 +38,8 @@ export function computePriceDeltaCents(params: {
   cleaningFeeCents?: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
+  /** The booking's own snapshotted last-minute deal (Booking.lastMinuteDiscountPercent), kept through a change. */
+  lastMinuteDiscountPercent?: number | null;
   currentTotalPriceCents: number;
 }): number {
   const {
@@ -46,6 +48,7 @@ export function computePriceDeltaCents(params: {
     cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
+    lastMinuteDiscountPercent,
     currentTotalPriceCents,
   } = params;
   const { totalPriceCents } = computeBookingPricing({
@@ -54,6 +57,7 @@ export function computePriceDeltaCents(params: {
     cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
+    lastMinuteDiscountPercent,
   });
   return totalPriceCents - currentTotalPriceCents;
 }
