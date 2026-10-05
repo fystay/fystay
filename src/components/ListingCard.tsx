@@ -56,6 +56,7 @@ export function ListingCard({
   size = "default",
   promoted = false,
   checkIn,
+  showLastMinutePrice = false,
 }: {
   listing: ListingCardData;
   isSaved?: boolean;
@@ -82,6 +83,12 @@ export function ListingCard({
   promoted?: boolean;
   /** The searched check-in (yyyy-MM-dd), so the stay total includes a last-minute deal when it applies. */
   checkIn?: string;
+  /**
+   * Show a last-minute deal's discounted nightly rate (the full rate struck
+   * through beside it) without a searched check-in - for the Last Minute
+   * Deals row, which only lists a deal when a night inside its window is free.
+   */
+  showLastMinutePrice?: boolean;
 }) {
   const isLarge = size === "large";
   const rating = computeAverageRating(listing.reviews);
@@ -118,9 +125,7 @@ export function ListingCard({
     priceDroppedAt: listing.priceDroppedAt ? new Date(listing.priceDroppedAt) : null,
   });
   const dealLabel = deal
-    ? deal.kind === "last_minute"
-      ? `${deal.percentOff}% off`
-      : `Price drop · ${deal.percentOff}% off`
+    ? `${deal.percentOff}% off`
     : listing.monthlyDiscountPercent
       ? `${listing.monthlyDiscountPercent}% off monthly`
       : listing.weeklyDiscountPercent
@@ -160,6 +165,17 @@ export function ListingCard({
     else if (delta >= SWIPE_THRESHOLD_PX) goToPhoto(photoIndex - 1);
   }
 
+  // The last-minute percentage the searched check-in gets, if any.
+  const searchedLastMinutePercent = checkIn
+    ? lastMinuteDiscountFor(
+        {
+          lastMinuteDiscountPercent: listing.lastMinuteDiscountPercent ?? null,
+          lastMinuteWindowDays: listing.lastMinuteWindowDays ?? null,
+        },
+        parseStayDate(checkIn) ?? new Date(0),
+      )
+    : null;
+
   const totalPriceCents =
     nights && nights > 0
       ? computeBookingPricing({
@@ -168,24 +184,31 @@ export function ListingCard({
           cleaningFeeCents: listing.cleaningFeeCents,
           weeklyDiscountPercent: listing.weeklyDiscountPercent,
           monthlyDiscountPercent: listing.monthlyDiscountPercent,
-          lastMinuteDiscountPercent: checkIn
-            ? lastMinuteDiscountFor(
-                {
-                  lastMinuteDiscountPercent: listing.lastMinuteDiscountPercent ?? null,
-                  lastMinuteWindowDays: listing.lastMinuteWindowDays ?? null,
-                },
-                parseStayDate(checkIn) ?? new Date(0),
-              )
-            : null,
+          lastMinuteDiscountPercent: searchedLastMinutePercent,
         }).totalPriceCents
       : null;
+
+  // The nightly rate to lead with, and the higher genuine rate to strike
+  // through beside it: a price drop's earlier price, or the full rate when
+  // the headline last-minute deal applies (the searched check-in is inside
+  // its window, or the card sits in the Last Minute Deals row).
+  const lastMinutePercent =
+    deal?.kind === "last_minute" && (showLastMinutePrice || searchedLastMinutePercent !== null)
+      ? deal.percentOff
+      : null;
+  const shownNightlyCents =
+    lastMinutePercent !== null
+      ? listing.pricePerNightCents - Math.round((listing.pricePerNightCents * lastMinutePercent) / 100)
+      : listing.pricePerNightCents;
+  const struckNightlyCents =
+    deal?.kind === "price_drop" ? deal.fromCents : lastMinutePercent !== null ? listing.pricePerNightCents : null;
 
   // Called unconditionally (hooks can't be conditional) even though
   // totalPriceCents may be null - formattedTotal is simply unused in that
   // case, exactly like the totalPriceCents !== null check below already
   // gates whether it renders.
-  const formattedNightlyPrice = useFormattedPrice(listing.pricePerNightCents);
-  const formattedWasPrice = useFormattedPrice(deal?.kind === "price_drop" ? deal.fromCents : 0);
+  const formattedNightlyPrice = useFormattedPrice(shownNightlyCents);
+  const formattedWasPrice = useFormattedPrice(struckNightlyCents ?? 0);
   const formattedTotal = useFormattedPrice(totalPriceCents ?? 0);
 
   return (
@@ -371,9 +394,9 @@ export function ListingCard({
                 prevent - this element isn't an h1/h2, so nothing catches
                 that mistake for it automatically). */}
             <p className="flex items-baseline gap-1">
-              {deal?.kind === "price_drop" && (
+              {struckNightlyCents !== null && (
                 <s className="text-sm tabular-nums text-stone-600">
-                  <span className="sr-only">Was </span>
+                  <span className="sr-only">{deal?.kind === "price_drop" ? "Was " : "Full price "}</span>
                   {formattedWasPrice}
                 </s>
               )}

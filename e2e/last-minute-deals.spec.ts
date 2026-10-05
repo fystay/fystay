@@ -17,6 +17,10 @@ test("Last Minute Deals shows a real last-minute deal, and the quoted price incl
   // :visible - the rail also renders a hidden sizing copy of its first card.
   await expect(row.locator("span:text-is('20% off'):visible").first()).toBeVisible();
   await expect(row.getByRole("link", { name: DEAL_LISTING }).first()).toBeVisible();
+  // Its card leads with the deal rate (£75 less 20%), the full rate struck through.
+  const card = row.locator("li", { has: page.getByRole("link", { name: DEAL_LISTING }) }).locator("visible=true").first();
+  await expect(card.locator("s")).toContainText("£75");
+  await expect(card.getByText("£60", { exact: true })).toBeVisible();
 
   const listings = (await (await page.request.get("/api/listings?city=Blackpool")).json()).listings as {
     id: string;

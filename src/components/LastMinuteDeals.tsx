@@ -108,6 +108,7 @@ export async function LastMinuteDeals() {
             isSaved={savedListingIds.has(card.id)}
             isLoggedIn={Boolean(session?.user)}
             size="large"
+            showLastMinutePrice
           />
         ))}
       </LargeCardRail>
