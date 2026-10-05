@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { CircleUserRound, Home, Menu } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PRIMARY_NAV_LINKS } from "@/lib/primaryNav";
+import { useNavTone } from "@/components/NavTone";
 
 /**
  * A single trigger that opens a dropdown with Log in / Sign up, replacing
@@ -18,6 +19,7 @@ const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"
 export function GuestMenu() {
   const pathname = usePathname();
   const router = useRouter();
+  const isHero = useNavTone() === "hero";
   // Logging in or signing up from the menu returns the guest to the page
   // they were on (with its query, e.g. a listing's selected dates) rather
   // than the homepage. The href carries the path for no-JS/new-tab use;
@@ -74,7 +76,12 @@ export function GuestMenu() {
         aria-expanded={open}
         aria-controls="guest-menu-panel"
         aria-label="Account menu"
-        className="focus-ring flex items-center gap-2 rounded-xl bg-brand-600 py-2 pl-3 pr-1.5 text-white hover:bg-brand-700 active:bg-brand-800"
+        className={cn(
+          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-2 pl-3 pr-1.5 text-white hover:bg-brand-700 active:bg-brand-800",
+          // Over the homepage video: the same quiet glass as the section
+          // control, so the hero's one solid brand-coloured button is Search.
+          isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
+        )}
       >
         <Menu className="h-4 w-4" />
         <CircleUserRound className="h-7 w-7 text-white/90" strokeWidth={1.5} />

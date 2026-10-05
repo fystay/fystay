@@ -21,8 +21,9 @@ export function NavbarChrome({ children }: { children: React.ReactNode }) {
   return (
     <NavToneContext.Provider value={isHome ? "hero" : "default"}>
       <header
+        data-tone={isHome ? "hero" : "default"}
         className={cn(
-          "sticky top-0 z-30 border-b border-border-subtle bg-surface/90 backdrop-blur",
+          "group/nav sticky top-0 z-30 border-b border-border-subtle bg-surface/90 backdrop-blur",
           // On the homepage this drops out of "sticky, opaque, its own
           // height" into "relative (not static - see below), transparent,
           // a fixed height with a matching negative margin pulled onto the

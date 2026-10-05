@@ -6,7 +6,9 @@ import { useNavTone } from "@/components/NavTone";
 import { HEADER_NAV_LINKS } from "@/lib/primaryNav";
 
 /**
- * Desktop-only (lg:) nav links, hidden below that breakpoint where the
+ * Desktop-only (lg:) secondary links (Hotels, About), beside the account
+ * menu on the right of the header - the four main sections sit in the
+ * centre (see Navbar). Hidden below lg, where the
  * navbar keeps its current compact mobile layout. Split out as its own
  * client component (rather than inline in the server-rendered Navbar) just
  * to read NavTone - see NavbarChrome for why that has to be a route-aware
@@ -16,7 +18,7 @@ export function DesktopNavLinks() {
   const isHero = useNavTone() === "hero";
 
   return (
-    <nav className="relative z-10 hidden items-center gap-7 text-sm font-medium lg:flex">
+    <nav className="relative z-10 hidden items-center gap-6 text-sm font-medium lg:flex">
       {HEADER_NAV_LINKS.map((link) => (
         <Link
           key={link.href}

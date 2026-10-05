@@ -7,6 +7,7 @@ import { GuestMenu } from "@/components/GuestMenu";
 import { Logo } from "@/components/Logo";
 import { NavbarChrome } from "@/components/NavbarChrome";
 import { DesktopNavLinks } from "@/components/DesktopNavLinks";
+import { SectionPills } from "@/components/SectionPills";
 
 export async function Navbar() {
   const session = await auth();
@@ -44,7 +45,7 @@ export async function Navbar() {
         <Link
           href="/"
           aria-label="FYStay home"
-          className="relative z-10 flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600 text-white lg:hidden"
+          className="relative z-10 flex h-10 w-10 items-center justify-center rounded-lg border border-transparent bg-brand-600 text-white lg:hidden group-data-[tone=hero]/nav:border-white/25 group-data-[tone=hero]/nav:bg-white/10 group-data-[tone=hero]/nav:backdrop-blur-md"
         >
           <Home className="h-6 w-6" strokeWidth={2.5} />
         </Link>
@@ -59,19 +60,29 @@ export async function Navbar() {
           </Link>
         </div>
 
-        <DesktopNavLinks />
+        {/* lg: the Stays / Explore / Travel / Services control sits in the
+            header itself, centred against the whole bar the same way the
+            mobile logo is above (independent of how wide the logo and the
+            right-hand controls are). Below lg it sits under the header
+            instead - in the homepage hero, or SectionPillsBar elsewhere. */}
+        <div className="pointer-events-none absolute inset-0 hidden items-center justify-center lg:flex">
+          <SectionPills className="pointer-events-auto" />
+        </div>
 
-        <nav className="relative z-10 flex items-center gap-3">
-          {session?.user ? (
-            <UserMenu
-              name={session.user.name ?? "Account"}
-              role={session.user.role}
-              unreadMessageCount={unreadMessageCount}
-            />
-          ) : (
-            <GuestMenu />
-          )}
-        </nav>
+        <div className="relative z-10 flex items-center gap-6">
+          <DesktopNavLinks />
+          <nav className="flex items-center gap-3">
+            {session?.user ? (
+              <UserMenu
+                name={session.user.name ?? "Account"}
+                role={session.user.role}
+                unreadMessageCount={unreadMessageCount}
+              />
+            ) : (
+              <GuestMenu />
+            )}
+          </nav>
+        </div>
       </div>
     </NavbarChrome>
   );

@@ -3,15 +3,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
+  BadgeCheck,
+  CalendarCheck,
   Compass,
   Home as HomeIcon,
   Lock,
   MapPin,
   MessageCircle,
-  RotateCcw,
+  ShieldCheck,
   Star,
   Users,
-  Zap,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -35,18 +36,17 @@ import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
 import { cn } from "@/lib/cn";
 
-// A condensed, single-line read of four facts already true site-wide
-// (Listing.instantBook defaults to true, Stripe checkout, every listing is
-// a real Fylde Coast host, cancellation policies exist on every listing) -
-// the value-proposition strip Jet2/Virgin Atlantic lead their own
-// homepages with, right under the hero rather than buried in the full
-// "Why FYStay?" section further down (see TRUST_POINTS below, which this
-// doesn't replace - that section keeps its own full descriptions).
+// The four reasons to trust a booking, shown directly under the hero search
+// so they're read in the same glance as it. Each is already true site-wide:
+// payment runs through Stripe Checkout, every listing is a Fylde Coast host,
+// only a guest with a completed paid stay can review, and every listing
+// shows its cancellation policy before payment. TRUST_POINTS below is the
+// fuller "Why FYStay?" version further down the page.
 const TRUST_STRIP = [
-  { icon: Zap, label: "Instant Book" },
-  { icon: Lock, label: "Stripe checkout" },
-  { icon: Users, label: "Local hosts" },
-  { icon: RotateCcw, label: "Free cancellation" },
+  { icon: ShieldCheck, label: "Secure payments", detail: "Encrypted Stripe checkout" },
+  { icon: MapPin, label: "Local hosts", detail: "Based on the Fylde Coast" },
+  { icon: BadgeCheck, label: "Genuine reviews", detail: "Only from guests who stayed" },
+  { icon: CalendarCheck, label: "Flexible cancellation", detail: "Where available, shown upfront" },
 ];
 
 const TRUST_POINTS = [
@@ -206,44 +206,50 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {/* The homepage opens as one continuous destination-first sequence:
-          the video hero (section pills under the logo, headline at the
-          bottom), then the search panel, then the towns covered and the
-          trust strip, then the discovery rails. Search sits in the cream
-          sheet below the hero - see the sheet's own comment.
+          the video hero (headline at the bottom), then the search panel
+          straddling the seam, the trust row, and the towns covered, then
+          the discovery rails. The headline, search and everything below
+          share the header's max-w-6xl grid, so they line up with the logo.
 
           -mt-[84px]/lg:-mt-[97px] pulls the hero up under the transparent
           navbar (NavbarChrome); those match the navbar's measured height at
           each breakpoint and need to move with it if it changes. The hero
-          fills most of the first screen without taking all of it (60svh on
-          phones, svh so it doesn't resize as mobile browser chrome
-          collapses), so the search panel is visible on landing.
+          fills most of the first screen without taking all of it (svh so it
+          doesn't resize as mobile browser chrome collapses), so the search
+          panel is visible on landing.
 
           The headline block is bottom-anchored with padding that clears the
           cream sheet's 24px rise (and on lg, the search bar pulled a further
           36px up over the seam). */}
-      <section className="relative -mt-[84px] flex h-[60svh] min-h-[460px] w-full flex-col justify-end lg:-mt-[97px] lg:h-[78svh] lg:max-h-[780px] lg:min-h-[600px]">
+      <section className="relative -mt-[84px] flex h-[60svh] min-h-[480px] w-full flex-col justify-end lg:-mt-[97px] lg:h-[76svh] lg:max-h-[760px] lg:min-h-[600px]">
         <HeroBanner className="absolute inset-0 h-full w-full" />
 
-        {/* Scrim: a band at the top so the navbar and section pills stay
+        {/* Scrim: a band at the top so the navbar and section control stay
             legible, clear through the middle so the Tower and pier read at
             full strength, then a deepening band at the bottom behind the
-            headline. Same warm near-black as before, no new colour. */}
+            headline. From lg a soft wash from the left also sits behind the
+            left-aligned headline. Same warm near-black throughout. */}
         <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.65)_0%,rgba(12,9,7,0.3)_28%,rgba(12,9,7,0)_42%,rgba(12,9,7,0.5)_68%,rgba(12,9,7,0.85)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(90deg,rgba(12,9,7,0.4)_0%,rgba(12,9,7,0)_55%)] lg:block" />
 
-        {/* Section pills directly under the header's logo and its "Hotels -
-            B&Bs - Apartments" tagline: centred under the centred logo on
-            phones, left-aligned under the left-hand logo from lg. The
-            offsets match the navbar heights the -mt above cancels. */}
-        <div className="absolute inset-x-0 top-[84px] z-30 mx-auto max-w-6xl px-6 lg:top-[97px]">
-          <SectionPills variant="hero" className="flex justify-center lg:justify-start" />
+        {/* Below lg the section control sits directly under the header's
+            logo (from lg it moves into the header itself - see Navbar). The
+            offset matches the navbar height the -mt above cancels. */}
+        <div className="absolute inset-x-0 top-[84px] z-30 mx-auto max-w-6xl px-6 lg:hidden">
+          <SectionPills variant="hero" className="flex justify-center" />
         </div>
 
-        <div className="relative z-30 mx-auto w-full max-w-4xl px-6 pb-12 lg:px-0 lg:pb-[84px]">
-          <h1 className="max-w-xl text-[2.1rem] leading-[1.08] text-white sm:text-5xl lg:text-6xl">
+        <div className="relative z-30 mx-auto w-full max-w-6xl px-6 pb-12 [text-shadow:0_1px_16px_rgba(12,9,7,0.35)] lg:pb-[84px]">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-xs">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
+            Fylde Coast specialists
+          </p>
+          <h1 className="mt-3 max-w-2xl text-[2rem] leading-[1.08] text-balance text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[3.5rem]">
             Find your stay on the Fylde Coast
           </h1>
-          <p className="mt-3 text-base text-white/85 sm:text-lg">
-            Local stays. Local hosts. Your kind of break.
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-lg">
+            Apartments, cottages and guest houses from Fleetwood to Lytham, each listed by a host
+            who lives here.
           </p>
         </div>
       </section>
@@ -257,28 +263,35 @@ export default async function Home() {
       <div className="mx-auto w-full max-w-6xl flex-1 px-6 pb-8">
         {/* The search panel: the solid search card (the same variant the
             /search page uses), the same fields and search logic as before.
-            On phones it sits cleanly on the cream just below the video; the
-            tall stacked card straddling the seam collided with the sheet's
-            rounded corners. From lg it's a slim single-row bar, pulled up to
-            sit across the seam. */}
+            On phones it sits on the cream just below the video. From lg
+            it's a single-row bar the full width of the page grid, raised
+            and pulled up to sit across the seam. */}
         <div className="relative -mx-2 mt-5 sm:mx-0 lg:-mt-9">
           <Suspense>
-            <SearchBar liveUpdate={false} />
+            <SearchBar liveUpdate={false} className="max-w-none lg:shadow-[var(--shadow-popover)]" />
           </Suspense>
         </div>
 
-        {/* "Now covering" and the trust strip directly under the search, as
-            one compact planning block rather than two separate sections. */}
-        <div className="mx-auto mt-6 max-w-4xl">
+        {/* Trust row: read in the same glance as the search, as quiet
+            icon-and-text items rather than cards - a 2x2 grid on phones,
+            one divided row from lg. */}
+        <ul
+          aria-label="Why book with FYStay"
+          className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 lg:mt-6 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-border-subtle"
+        >
+          {TRUST_STRIP.map(({ icon: Icon, label, detail }) => (
+            <li key={label} className="flex items-start gap-2.5 lg:px-6 lg:first:pl-1">
+              <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-brand-600" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold leading-snug text-foreground sm:text-sm">{label}</p>
+                <p className="mt-0.5 text-xs leading-snug text-stone-500 sm:text-[13px]">{detail}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-7 border-t border-border-subtle pt-5 lg:mt-8">
           <NowCovering />
-          <ul className="mt-5 grid grid-cols-4 gap-2 border-y border-border-subtle py-3 text-center text-[11px] leading-tight text-stone-600 sm:flex sm:flex-wrap sm:items-center sm:justify-start sm:gap-x-6 sm:gap-y-2 sm:text-left sm:text-sm">
-            {TRUST_STRIP.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex flex-col items-center gap-1.5 sm:flex-row sm:gap-1.5">
-                <Icon className="h-[18px] w-[18px] shrink-0 text-brand-600 sm:h-4 sm:w-4" aria-hidden />
-                {label}
-              </li>
-            ))}
-          </ul>
         </div>
 
         {/* Discovery: stays, then towns, then trip types - each a swipeable

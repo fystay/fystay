@@ -63,8 +63,11 @@ function buildSearchQuery(
 export function SearchBar({
   liveUpdate = true,
   variant = "default",
+  className,
 }: {
   liveUpdate?: boolean;
+  /** Extra classes for the outer card, merged last (e.g. the homepage's wider, raised bar). */
+  className?: string;
   /**
    * "hero" is a smaller, translucent/frosted read of the exact same bar -
    * used only floating over the homepage hero video, where a full-size
@@ -241,6 +244,7 @@ export function SearchBar({
             // hero is mouse-driven and was already comfortable.
             "w-full gap-1 rounded-2xl border-white/15 bg-ink/40 p-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:max-w-4xl sm:gap-0.5 sm:p-1 lg:border-white/10 lg:bg-ink/80 lg:p-1.5 lg:shadow-[0_16px_36px_-18px_rgba(48,26,19,0.55)]"
           : "max-w-4xl border-border-subtle bg-surface p-2 sm:p-2",
+        className,
       )}
     >
       {/* Ambient "search in progress" sweep - the same soft brand/accent

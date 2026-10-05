@@ -3,52 +3,65 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { useNavTone } from "@/components/NavTone";
 import { activeSiteSection, SITE_SECTIONS } from "@/lib/siteSections";
 
 type Variant = "hero" | "default";
 
-// Every pill has the same border width, padding and font weight in both
-// states, so selecting one never changes its size (no layout shift). The
-// pressed look is an inset shadow, a deeper background and a 1px drop;
-// inactive pills keep a small raised shadow so they still read as buttons.
-const PILL_BASE =
-  "focus-ring inline-flex items-center rounded-full border px-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-[background-color,color,box-shadow,transform] duration-150 min-[360px]:px-3.5 sm:px-4";
+// One segmented control rather than four free-standing pills: a single
+// track holds all four sections and the current one sits on a raised
+// "thumb", so the row reads as one navigation system that belongs to the
+// header. Every item is the same width (equal grid columns) and the same
+// padding in both states, so changing section never shifts the layout.
+const TRACK_STYLES: Record<Variant, string> = {
+  // Over the homepage video: the same warm dark glass as the scrim behind it.
+  hero: "border-white/10 bg-ink/40 backdrop-blur-md",
+  // On the cream page and the opaque header.
+  default: "border-border-subtle bg-brand-50",
+};
 
-const PILL_STYLES: Record<Variant, { active: string; inactive: string }> = {
-  // Over the homepage video: the same dark-glass tokens as the search panel
-  // it sits on (bg-ink/*, border-white/*).
+const ITEM_BASE =
+  "focus-ring flex items-center justify-center rounded-[9px] px-2 py-1.5 text-[13px] font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 min-[360px]:text-sm sm:px-4";
+
+const ITEM_STYLES: Record<Variant, { active: string; inactive: string }> = {
   hero: {
-    active:
-      "translate-y-px border-white/10 bg-ink/80 text-white shadow-[inset_0_2px_6px_rgba(0,0,0,0.55)] backdrop-blur-xl",
-    inactive:
-      "border-white/15 bg-white/10 text-white/85 shadow-[0_1px_2px_rgba(0,0,0,0.25)] backdrop-blur-xl hover:bg-white/20 hover:text-white",
+    active: "bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.3)]",
+    inactive: "text-white/85 hover:bg-white/10 hover:text-white",
   },
-  // On the cream page background.
   default: {
-    active:
-      "translate-y-px border-brand-200 bg-brand-100 text-brand-800 shadow-[inset_0_2px_4px_rgba(48,26,19,0.16)]",
-    inactive:
-      "border-border-subtle bg-surface text-stone-700 shadow-[0_1px_2px_rgba(48,26,19,0.08)] hover:bg-brand-50 hover:text-foreground",
+    active: "bg-surface text-foreground shadow-[0_1px_2px_rgba(48,26,19,0.12),0_0_0_1px_rgba(48,26,19,0.06)]",
+    inactive: "text-stone-600 hover:bg-surface/70 hover:text-foreground",
   },
 };
 
-/** The Stays / Explore / Travel / Services pills, with the current route's section shown pressed (aria-current="page"). */
-export function SectionPills({ variant, className }: { variant: Variant; className?: string }) {
+/**
+ * The Stays / Explore / Travel / Services navigation, with the current
+ * route's section shown selected (aria-current="page"). The variant follows
+ * the header's tone (light over the homepage video) unless one is given.
+ * Full width with four equal tabs on phones, sized to its content from sm.
+ */
+export function SectionPills({ variant, className }: { variant?: Variant; className?: string }) {
   const active = activeSiteSection(usePathname());
-  const styles = PILL_STYLES[variant];
+  const tone = useNavTone();
+  const resolved = variant ?? (tone === "hero" ? "hero" : "default");
+  const styles = ITEM_STYLES[resolved];
 
   return (
     <nav aria-label="Sections" className={className}>
-      {/* Tighter padding and gap below 360px so all four still fit inside the page gutter on the smallest phones. */}
-      <ul className="flex gap-1 min-[360px]:gap-1.5">
+      <ul
+        className={cn(
+          "grid w-full grid-cols-4 gap-0.5 rounded-xl border p-[3px] sm:inline-grid sm:w-auto",
+          TRACK_STYLES[resolved],
+        )}
+      >
         {SITE_SECTIONS.map((section) => {
           const isActive = section.key === active;
           return (
-            <li key={section.key}>
+            <li key={section.key} className="flex">
               <Link
                 href={section.href}
                 aria-current={isActive ? "page" : undefined}
-                className={cn(PILL_BASE, isActive ? styles.active : styles.inactive)}
+                className={cn(ITEM_BASE, "w-full", isActive ? styles.active : styles.inactive)}
               >
                 {section.label}
               </Link>
@@ -61,15 +74,17 @@ export function SectionPills({ variant, className }: { variant: Variant; classNa
 }
 
 /**
- * The pill row under the header on each section's own pages. Renders nothing
- * on the homepage (its hero has its own row) or outside the four sections.
+ * The section row under the header on phones and tablets, on each section's
+ * own pages. From lg the same control sits inside the header (see Navbar),
+ * so this hides there. Renders nothing on the homepage (its hero carries its
+ * own row) or outside the four sections.
  */
 export function SectionPillsBar() {
   const pathname = usePathname();
   if (pathname === "/" || !activeSiteSection(pathname)) return null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6">
+    <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:hidden">
       <SectionPills variant="default" className="flex justify-center sm:justify-start" />
     </div>
   );

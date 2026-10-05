@@ -22,8 +22,8 @@ test("the homepage shows the four section pills with Stays pressed", async ({ pa
 for (const { label, path } of SECTIONS) {
   test(`${label} opens ${path} and shows as the pressed pill`, async ({ page }) => {
     await page.goto("/about");
-    // Pages outside the four sections have no pill row.
-    await expect(sectionNav(page)).toHaveCount(0);
+    // Pages outside the four sections show the control with none selected.
+    await expect(sectionNav(page).locator("[aria-current]")).toHaveCount(0);
 
     await page.goto("/");
     await sectionNav(page).getByRole("link", { name: label }).click();
@@ -35,15 +35,29 @@ for (const { label, path } of SECTIONS) {
   });
 }
 
-test("the desktop header doesn't repeat links the pills already cover", async ({ page }) => {
+test("on desktop the sections sit in the header, each offered once", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/search");
-  const header = page.locator("header");
-  // exact: the logo link's name includes its "Hotels · B&Bs · Apartments" tagline.
-  await expect(header.getByRole("link", { name: "Hotels", exact: true })).toBeVisible();
-  await expect(header.getByRole("link", { name: "About", exact: true })).toBeVisible();
-  await expect(header.getByRole("link", { name: "Stays", exact: true })).toHaveCount(0);
-  await expect(header.getByRole("link", { name: "Destinations", exact: true })).toHaveCount(0);
+  for (const path of ["/", "/search"]) {
+    await page.goto(path);
+    const header = page.locator("header");
+    await expect(header.getByRole("navigation", { name: "Sections" })).toBeVisible();
+    // exact: the logo link's name includes its "Hotels · B&Bs · Apartments" tagline.
+    await expect(header.getByRole("link", { name: "Hotels", exact: true })).toBeVisible();
+    await expect(header.getByRole("link", { name: "About", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Stays", exact: true })).toHaveCount(1);
+    await expect(header.getByRole("link", { name: "Destinations", exact: true })).toHaveCount(0);
+  }
+});
+
+test("on phones the sections sit under the header as four equal tabs", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of ["/", "/search"]) {
+    await page.goto(path);
+    const links = sectionNav(page).getByRole("link");
+    await expect(links).toHaveCount(4);
+    const widths = await links.evaluateAll((all) => all.map((link) => Math.round(link.getBoundingClientRect().width)));
+    expect(new Set(widths).size).toBe(1);
+  }
 });
 
 test("selecting a pill does not change the size of the row (no layout shift)", async ({ page }) => {
