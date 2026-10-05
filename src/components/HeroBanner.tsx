@@ -24,9 +24,10 @@ import { cn } from "@/lib/cn";
  * reduce motion get the still frame instead (above), which is the
  * accessibility safeguard that remains.
  */
-// A light contrast/saturation lift on both the video and its poster, so the
-// footage doesn't read as flat, hazy drone-camera midday.
-const GRADE_FILTER = "contrast(1.06) saturate(1.1)";
+// A light brightness/contrast/saturation lift on both the video and its
+// poster, so the footage reads as a bright seaside day rather than flat,
+// hazy drone-camera midday.
+const GRADE_FILTER = "brightness(1.06) contrast(1.05) saturate(1.14)";
 
 const POSTER = "/videos/hero-blackpool-pier-poster.jpg";
 const SMALL_SCREEN = "(max-width: 640px)";
@@ -74,7 +75,7 @@ export function HeroBanner({ className }: { className?: string }) {
           legibility scrim over the whole panel on top of this. */}
       <div
         className="pointer-events-none absolute inset-0 bg-brand-600 mix-blend-soft-light"
-        style={{ opacity: 0.3 }}
+        style={{ opacity: 0.16 }}
         aria-hidden
       />
     </div>

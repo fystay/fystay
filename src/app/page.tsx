@@ -225,18 +225,21 @@ export default async function Home() {
           The headline block is bottom-anchored with padding that, on lg,
           clears the search bar pulled 36px up over the panel's bottom edge. */}
       <div className="px-4 pt-4 lg:px-6 lg:pt-5">
-        <section className="relative isolate flex h-[38svh] min-h-[240px] w-full flex-col sm:h-[46svh] sm:min-h-[360px] justify-end overflow-hidden rounded-[24px] sm:rounded-[28px] lg:h-[66svh] lg:max-h-[680px] lg:min-h-[520px] lg:rounded-[32px]">
+        <section className="relative isolate flex h-[38svh] min-h-[240px] w-full flex-col justify-end overflow-hidden rounded-[24px] shadow-[0_28px_60px_-34px_rgba(124,58,28,0.45)] sm:h-[46svh] sm:min-h-[360px] sm:rounded-[28px] lg:h-[66svh] lg:max-h-[680px] lg:min-h-[520px] lg:rounded-[32px]">
           <HeroBanner className="absolute inset-0 h-full w-full" />
 
-          {/* Scrim: a light shade at the top for depth, clear through the
-              middle so the Tower and pier read at full strength, then a
-              deepening band at the bottom behind the headline. From lg a
-              soft wash from the left also sits behind the left-aligned
-              headline. Same warm near-black throughout. */}
-          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.2)_0%,rgba(12,9,7,0)_26%,rgba(12,9,7,0.48)_52%,rgba(12,9,7,0.85)_100%)]" />
-          <div className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(90deg,rgba(12,9,7,0.4)_0%,rgba(12,9,7,0)_55%)] lg:block" />
+          {/* Scrim: clear through the top and middle so the sky, Tower and
+              pier read at full strength, then a band at the bottom behind the
+              headline - a warm brown (the brand's own dark, not near-black),
+              so the panel stays sunlit rather than turning into a dark box
+              on the cream page. From lg the bottom band eases off and a soft
+              wash from the left sits behind the left-aligned headline
+              instead. A hairline inner edge keeps the rounded frame crisp. */}
+          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(46,24,14,0.08)_0%,rgba(46,24,14,0)_30%,rgba(46,24,14,0.32)_58%,rgba(46,24,14,0.7)_100%)] lg:bg-[linear-gradient(180deg,rgba(46,24,14,0.06)_0%,rgba(46,24,14,0)_36%,rgba(46,24,14,0.24)_62%,rgba(46,24,14,0.58)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(90deg,rgba(46,24,14,0.42)_0%,rgba(46,24,14,0.12)_42%,rgba(46,24,14,0)_62%)] lg:block" />
+          <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
-          <div className="relative z-30 mx-auto w-full max-w-[69rem] px-2 pb-7 [text-shadow:0_1px_16px_rgba(12,9,7,0.35)] sm:px-2 sm:pb-9 lg:px-0 lg:pb-[72px]">
+          <div className="relative z-30 mx-auto w-full max-w-[69rem] px-2 pb-7 [text-shadow:0_1px_18px_rgba(46,24,14,0.45)] sm:px-2 sm:pb-9 lg:px-0 lg:pb-[72px]">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-xs">
               <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
               Fylde Coast specialists
