@@ -210,54 +210,56 @@ export default async function Home() {
           straddling the seam, the trust row, and the towns covered, then
           the discovery rails. The headline, search and everything below
           share the header's max-w-6xl grid, so they line up with the logo
-          (the headline's max-w-[69rem] is that grid's content width, since
-          the panel it sits in is already inset from the page edges).
+          (the hero runs edge to edge, so its text sits in that same grid).
 
-          The hero starts below the header as a framed panel - inset from
-          the page edges, rounded on every corner - rather than running up
-          underneath it. On phones it takes 38% of the screen (svh: the
-          height with the browser's toolbars showing, so it doesn't resize as
-          they collapse), which keeps the whole search panel, Search button
+          The hero runs the full width of the page directly under the
+          header - no framed, rounded panel - and its bottom dissolves into
+          the cream page over a fixed band (80px on phones, 140px on tablets, 180px from lg):
+          the footage's sand is close to the page's own colour, so the beach
+          simply becomes the page instead of ending at an edge. The fade is a
+          mask on the media layer only, so the headline above it is never
+          faded. On phones it takes 42% of the screen (svh: the height with
+          the browser's toolbars showing, so it doesn't resize as they
+          collapse), which keeps the whole search panel, Search button
           included, above the fold on a typical phone. isolate keeps its
-          layered video/scrim/text z-indexes inside the panel, so neither
-          the sticky header nor the cream sheet has to out-rank them.
+          layered video/scrim/text z-indexes inside the hero, so neither the
+          sticky header nor the cream sheet has to out-rank them.
 
-          The headline block is bottom-anchored with padding that, on lg,
-          clears the search bar pulled 36px up over the panel's bottom edge. */}
-      <div className="px-4 pt-4 lg:px-6 lg:pt-5">
-        <section className="relative isolate flex h-[38svh] min-h-[240px] w-full flex-col justify-end overflow-hidden rounded-[24px] shadow-[0_28px_60px_-34px_rgba(124,58,28,0.45)] sm:h-[46svh] sm:min-h-[360px] sm:rounded-[28px] lg:h-[66svh] lg:max-h-[680px] lg:min-h-[520px] lg:rounded-[32px]">
+          The headline block is bottom-anchored with padding that keeps it
+          clear of the fade band, where the search bar floats. */}
+      <section className="relative isolate flex h-[42svh] min-h-[280px] w-full flex-col justify-end sm:h-[48svh] sm:min-h-[380px] lg:h-[68svh] lg:max-h-[700px] lg:min-h-[540px]">
+        <div className="absolute inset-0 [mask-image:linear-gradient(to_top,transparent_0,#000_80px)] sm:[mask-image:linear-gradient(to_top,transparent_0,#000_140px)] lg:[mask-image:linear-gradient(to_top,transparent_0,#000_180px)]">
           <HeroBanner className="absolute inset-0 h-full w-full" />
 
-          {/* Scrim: clear through the top and middle so the sky, Tower and
-              pier read at full strength, then a band at the bottom behind the
-              headline - a warm brown (the brand's own dark, not near-black),
-              so the panel stays sunlit rather than turning into a dark box
-              on the cream page. From lg the bottom band eases off and a soft
-              wash from the left sits behind the left-aligned headline
-              instead. A hairline inner edge keeps the rounded frame crisp. */}
-          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(46,24,14,0.08)_0%,rgba(46,24,14,0)_30%,rgba(46,24,14,0.32)_58%,rgba(46,24,14,0.7)_100%)] lg:bg-[linear-gradient(180deg,rgba(46,24,14,0.06)_0%,rgba(46,24,14,0)_36%,rgba(46,24,14,0.24)_62%,rgba(46,24,14,0.58)_100%)]" />
-          <div className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(90deg,rgba(46,24,14,0.42)_0%,rgba(46,24,14,0.12)_42%,rgba(46,24,14,0)_62%)] lg:block" />
-          <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] ring-1 ring-inset ring-white/10" />
+          {/* Scrim, only where the text is: a whisper of shade at the very
+              top, clear through the sky, Tower and pier, a warm-brown band
+              (the brand's own dark, not near-black) behind the headline,
+              easing off again into the fade so the sand meets the cream page
+              in its own colour rather than as a muddy brown smudge. From lg
+              the headline is left-aligned, so the band there is lighter and
+              a wash from the left carries it instead. */}
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(46,24,14,0.06)_0%,rgba(46,24,14,0)_28%,rgba(46,24,14,0.44)_58%,rgba(46,24,14,0.5)_calc(100%-96px),rgba(46,24,14,0)_100%)] sm:bg-[linear-gradient(180deg,rgba(46,24,14,0.06)_0%,rgba(46,24,14,0)_28%,rgba(46,24,14,0.4)_55%,rgba(46,24,14,0.42)_calc(100%-160px),rgba(46,24,14,0)_100%)] lg:bg-[linear-gradient(180deg,rgba(46,24,14,0.05)_0%,rgba(46,24,14,0)_30%,rgba(46,24,14,0.22)_55%,rgba(46,24,14,0.26)_calc(100%-200px),rgba(46,24,14,0)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(46,24,14,0.5)_0%,rgba(46,24,14,0.18)_40%,rgba(46,24,14,0)_62%)] lg:block" />
+        </div>
 
-          <div className="relative z-30 mx-auto w-full max-w-[69rem] px-2 pb-7 [text-shadow:0_1px_18px_rgba(46,24,14,0.45)] sm:px-2 sm:pb-9 lg:px-0 lg:pb-[72px]">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-xs">
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
-              Fylde Coast specialists
-            </p>
-            <h1 className="mt-3 max-w-2xl text-[2rem] leading-[1.08] text-balance text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[3.5rem]">
-              Find your stay on the Fylde Coast
-            </h1>
-            <p className="mt-2 max-w-xl text-[15px] leading-snug text-white/90 sm:mt-3 sm:text-lg sm:leading-relaxed">
-              {/* A shorter line on phones, so the headline block leaves room for the video. */}
-              <span className="sm:hidden">Stays from Fleetwood to Lytham, each listed by a host who lives here.</span>
-              <span className="hidden sm:inline">
-                Apartments, cottages and guest houses from Fleetwood to Lytham, each listed by a host
-                who lives here.
-              </span>
-            </p>
-          </div>
-        </section>
-      </div>
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-[88px] [text-shadow:0_1px_18px_rgba(46,24,14,0.5)] sm:pb-[156px] lg:pb-[196px]">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-xs">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
+            Fylde Coast specialists
+          </p>
+          <h1 className="mt-3 max-w-2xl text-[2rem] leading-[1.08] text-balance text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[3.5rem]">
+            Find your stay on the Fylde Coast
+          </h1>
+          <p className="mt-2 max-w-xl text-[15px] leading-snug text-white/90 sm:mt-3 sm:text-lg sm:leading-relaxed">
+            {/* A shorter line on phones, so the headline block leaves room for the video. */}
+            <span className="sm:hidden">Stays from Fleetwood to Lytham, each listed by a host who lives here.</span>
+            <span className="hidden sm:inline">
+              Apartments, cottages and guest houses from Fleetwood to Lytham, each listed by a host
+              who lives here.
+            </span>
+          </p>
+        </div>
+      </section>
 
       {/* relative z-10 paints this (and the search bar inside it) over the
           isolated hero panel where the two overlap on lg, while staying
@@ -267,9 +269,10 @@ export default async function Home() {
         {/* The search panel: the solid search card (the same variant the
             /search page uses), the same fields and search logic as before.
             On phones it sits on the cream just below the video. From lg
-            it's a single-row bar the full width of the page grid, raised
-            and pulled up across the video panel's bottom edge. */}
-        <div className="relative -mx-2 mt-3 sm:mx-0 sm:mt-5 lg:-mt-9">
+            it's a single-row bar the full width of the page grid, raised.
+            Both float up into the band where the video fades into the
+            page. */}
+        <div className="relative -mx-2 -mt-9 sm:mx-0 sm:-mt-20 lg:-mt-[112px]">
           <Suspense>
             <SearchBar liveUpdate={false} className="max-w-none lg:shadow-[var(--shadow-popover)]" />
           </Suspense>
