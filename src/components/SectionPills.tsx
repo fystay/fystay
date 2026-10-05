@@ -74,14 +74,14 @@ export function SectionPills({ variant, className }: { variant?: Variant; classN
 }
 
 /**
- * The section row under the header on phones and tablets, on each section's
- * own pages. From lg the same control sits inside the header (see Navbar),
- * so this hides there. Renders nothing on the homepage (its hero carries its
- * own row) or outside the four sections.
+ * The section row under the header on phones and tablets, on the homepage
+ * and each section's own pages. From lg the same control sits inside the
+ * header (see Navbar), so this hides there. Renders nothing outside the
+ * four sections.
  */
 export function SectionPillsBar() {
   const pathname = usePathname();
-  if (pathname === "/" || !activeSiteSection(pathname)) return null;
+  if (!activeSiteSection(pathname)) return null;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:hidden">

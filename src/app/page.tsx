@@ -30,7 +30,6 @@ import { TravelAddonsSection } from "@/components/TravelAddonsSection";
 import { Reveal } from "@/components/Reveal";
 import { beachStaysSection, groupByCity, recentlyAddedSection } from "@/lib/marketplace";
 import { getActiveOfferings } from "@/lib/travelAddons";
-import { SectionPills } from "@/components/SectionPills";
 import { NowCovering } from "@/components/NowCovering";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
@@ -209,63 +208,58 @@ export default async function Home() {
           the video hero (headline at the bottom), then the search panel
           straddling the seam, the trust row, and the towns covered, then
           the discovery rails. The headline, search and everything below
-          share the header's max-w-6xl grid, so they line up with the logo.
+          share the header's max-w-6xl grid, so they line up with the logo
+          (the headline's max-w-[69rem] is that grid's content width, since
+          the panel it sits in is already inset from the page edges).
 
-          -mt-[84px]/lg:-mt-[97px] pulls the hero up under the transparent
-          navbar (NavbarChrome); those match the navbar's measured height at
-          each breakpoint and need to move with it if it changes. The hero
-          fills most of the first screen without taking all of it (svh so it
-          doesn't resize as mobile browser chrome collapses), so the search
-          panel is visible on landing.
+          The hero starts below the header as a framed panel - inset from
+          the page edges, rounded on every corner - rather than running up
+          underneath it. It takes a little under half a phone screen (svh so
+          it doesn't resize as mobile browser chrome collapses), so the
+          search panel is still visible on landing. isolate keeps its
+          layered video/scrim/text z-indexes inside the panel, so neither
+          the sticky header nor the cream sheet has to out-rank them.
 
-          The headline block is bottom-anchored with padding that clears the
-          cream sheet's 24px rise (and on lg, the search bar pulled a further
-          36px up over the seam). */}
-      <section className="relative -mt-[84px] flex h-[60svh] min-h-[480px] w-full flex-col justify-end lg:-mt-[97px] lg:h-[76svh] lg:max-h-[760px] lg:min-h-[600px]">
-        <HeroBanner className="absolute inset-0 h-full w-full" />
+          The headline block is bottom-anchored with padding that, on lg,
+          clears the search bar pulled 36px up over the panel's bottom edge. */}
+      <div className="px-4 pt-3 sm:pt-4 lg:px-6 lg:pt-5">
+        <section className="relative isolate flex h-[46svh] min-h-[360px] w-full flex-col justify-end overflow-hidden rounded-[24px] sm:rounded-[28px] lg:h-[66svh] lg:max-h-[680px] lg:min-h-[520px] lg:rounded-[32px]">
+          <HeroBanner className="absolute inset-0 h-full w-full" />
 
-        {/* Scrim: a band at the top so the navbar and section control stay
-            legible, clear through the middle so the Tower and pier read at
-            full strength, then a deepening band at the bottom behind the
-            headline. From lg a soft wash from the left also sits behind the
-            left-aligned headline. Same warm near-black throughout. */}
-        <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.65)_0%,rgba(12,9,7,0.3)_28%,rgba(12,9,7,0)_42%,rgba(12,9,7,0.5)_68%,rgba(12,9,7,0.85)_100%)]" />
-        <div className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(90deg,rgba(12,9,7,0.4)_0%,rgba(12,9,7,0)_55%)] lg:block" />
+          {/* Scrim: a light shade at the top for depth, clear through the
+              middle so the Tower and pier read at full strength, then a
+              deepening band at the bottom behind the headline. From lg a
+              soft wash from the left also sits behind the left-aligned
+              headline. Same warm near-black throughout. */}
+          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.25)_0%,rgba(12,9,7,0)_24%,rgba(12,9,7,0.55)_50%,rgba(12,9,7,0.88)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(90deg,rgba(12,9,7,0.4)_0%,rgba(12,9,7,0)_55%)] lg:block" />
 
-        {/* Below lg the section control sits directly under the header's
-            logo (from lg it moves into the header itself - see Navbar). The
-            offset matches the navbar height the -mt above cancels. */}
-        <div className="absolute inset-x-0 top-[84px] z-30 mx-auto max-w-6xl px-6 lg:hidden">
-          <SectionPills variant="hero" className="flex justify-center" />
-        </div>
+          <div className="relative z-30 mx-auto w-full max-w-[69rem] px-2 pb-7 [text-shadow:0_1px_16px_rgba(12,9,7,0.35)] sm:px-2 sm:pb-9 lg:px-0 lg:pb-[72px]">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-xs">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
+              Fylde Coast specialists
+            </p>
+            <h1 className="mt-3 max-w-2xl text-[2rem] leading-[1.08] text-balance text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[3.5rem]">
+              Find your stay on the Fylde Coast
+            </h1>
+            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-lg">
+              Apartments, cottages and guest houses from Fleetwood to Lytham, each listed by a host
+              who lives here.
+            </p>
+          </div>
+        </section>
+      </div>
 
-        <div className="relative z-30 mx-auto w-full max-w-6xl px-6 pb-12 [text-shadow:0_1px_16px_rgba(12,9,7,0.35)] lg:pb-[84px]">
-          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-xs">
-            <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
-            Fylde Coast specialists
-          </p>
-          <h1 className="mt-3 max-w-2xl text-[2rem] leading-[1.08] text-balance text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[3.5rem]">
-            Find your stay on the Fylde Coast
-          </h1>
-          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-lg">
-            Apartments, cottages and guest houses from Fleetwood to Lytham, each listed by a host
-            who lives here.
-          </p>
-        </div>
-      </section>
-
-      {/* The cream sheet rises over the hero's last 24px with a rounded top,
-          so the page reads as one surface sliding up over the video rather
-          than a banner bolted onto a separate page. relative z-50 is
-          required: it lets the search bar inside it paint over the hero
-          (whose own layers go up to z-30) where the two overlap on lg. */}
-      <div className="relative z-50 -mt-6 rounded-t-[28px] bg-background pt-px sm:rounded-t-[36px]">
+      {/* relative z-10 paints this (and the search bar inside it) over the
+          isolated hero panel where the two overlap on lg, while staying
+          under the sticky header. */}
+      <div className="relative z-10 bg-background">
       <div className="mx-auto w-full max-w-6xl flex-1 px-6 pb-8">
         {/* The search panel: the solid search card (the same variant the
             /search page uses), the same fields and search logic as before.
             On phones it sits on the cream just below the video. From lg
             it's a single-row bar the full width of the page grid, raised
-            and pulled up to sit across the seam. */}
+            and pulled up across the video panel's bottom edge. */}
         <div className="relative -mx-2 mt-5 sm:mx-0 lg:-mt-9">
           <Suspense>
             <SearchBar liveUpdate={false} className="max-w-none lg:shadow-[var(--shadow-popover)]" />
