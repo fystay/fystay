@@ -53,7 +53,7 @@ export function LargeCard({
  * A LargeCard for a service FYStay offers through an independent provider
  * (see src/lib/partnerServices.ts): the same card shape, spacing and type
  * as every other large card, with the provider's identity leading - its
- * name (or its own logo, once supplied) on the image - then what it offers,
+ * name, with its own logo when supplied, on the image - then what it offers,
  * a "FYStay service partner" line stating the relationship, and a "Book
  * with <provider>" call to action. The image area shows the provider's own
  * photo when supplied, otherwise a plain backdrop - never a stand-in
@@ -71,19 +71,23 @@ export function PartnerServiceCard({ service, onClick }: { service: PartnerServi
             sizes="(min-width: 1024px) 340px, (min-width: 640px) 44vw, 60vw"
             unoptimized={!isOptimizableImage(service.image.src)}
             className="object-cover transition-transform duration-700 group-hover:scale-105"
+            style={service.image.position ? { objectPosition: service.image.position } : undefined}
           />
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(90%_70%_at_85%_0%,rgba(255,255,255,0.14),transparent_60%)]" aria-hidden />
         )}
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" aria-hidden />
-        <div className="absolute inset-x-4 bottom-4 sm:inset-x-5 sm:bottom-5">
-          {service.logoSrc ? (
-            // The provider's own logo, as supplied - never redrawn or recoloured.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={service.logoSrc} alt={service.provider} className="h-8 w-auto max-w-[70%] object-contain object-left" />
-          ) : (
-            <p className="text-2xl font-semibold tracking-tight text-white sm:text-[1.7rem]">{service.provider}</p>
+        {/* The provider's identity sits top-left, clear of the subject of
+            its photo (which providers frame low, like a car on the ground). */}
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" aria-hidden />
+        <div className="absolute inset-x-4 top-4 flex items-center gap-3 sm:inset-x-5 sm:top-5">
+          {service.logoSrc && (
+            // The provider's own logo, as supplied - never redrawn or recoloured -
+            // on a small tile, with its name beside it so it reads at any size.
+            <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl shadow-[var(--shadow-card)] ring-1 ring-white/20 sm:h-14 sm:w-14">
+              <Image src={service.logoSrc} alt="" fill sizes="56px" className="object-cover" />
+            </span>
           )}
+          <p className="text-2xl font-semibold tracking-tight text-white sm:text-[1.7rem]">{service.provider}</p>
         </div>
       </div>
       <div className="px-1 pt-4">

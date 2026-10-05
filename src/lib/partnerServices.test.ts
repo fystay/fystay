@@ -33,9 +33,13 @@ describe("partnerServiceForOffering", () => {
     expect(service.cta).toBe("Book with Coastline Cars");
   });
 
-  it("uses no stand-in logo or photo for a provider that hasn't supplied its own", () => {
+  it("uses a provider's own logo and photo when it has supplied them, and no stand-in otherwise", () => {
     const service = partnerServiceForOffering(evExec, "/x");
-    expect(service.logoSrc).toBeUndefined();
-    expect(service.image).toBeUndefined();
+    expect(service.logoSrc).toBe("/images/partners/ev-exec/logo.jpg");
+    expect(service.image?.src).toBe("/images/partners/ev-exec/model-y-airport.jpg");
+
+    const other = partnerServiceForOffering({ ...evExec, providerName: "Coastline Cars" }, "/x");
+    expect(other.logoSrc).toBeUndefined();
+    expect(other.image).toBeUndefined();
   });
 });

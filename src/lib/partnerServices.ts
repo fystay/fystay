@@ -23,7 +23,8 @@ export type PartnerService = {
   href: string;
   /** The provider's own official assets, used only when supplied (see PROVIDER_ASSETS). */
   logoSrc?: string;
-  image?: { src: string; alt: string };
+  /** `position` is the CSS object-position that keeps the subject in frame at every crop. */
+  image?: { src: string; alt: string; position?: string };
   /** Background for the card's image area until the provider's own image is supplied. */
   backdrop: string;
 };
@@ -31,12 +32,24 @@ export type PartnerService = {
 export const PARTNER_LABEL = "FYStay service partner";
 
 /**
- * Official artwork supplied by each provider, by provider name. Empty for
- * EV Exec until its own logo and vehicle photography (a navy Tesla Model Y)
- * are added under public/images/partners/ - FYStay never draws or invents
- * a provider's logo or stands in a generic vehicle photo for theirs.
+ * Official artwork supplied by each provider, by provider name, kept under
+ * public/images/partners/<provider>/. Used exactly as supplied - FYStay
+ * never draws, recolours or invents a provider's logo, or stands a generic
+ * photo in for theirs. (EV Exec's logo file is its supplied artwork with
+ * only the empty background margin trimmed.)
  */
-const PROVIDER_ASSETS: Partial<Record<string, { logoSrc?: string; image?: { src: string; alt: string } }>> = {};
+const PROVIDER_ASSETS: Partial<
+  Record<string, { logoSrc?: string; image?: { src: string; alt: string; position?: string } }>
+> = {
+  "EV Exec": {
+    logoSrc: "/images/partners/ev-exec/logo.jpg",
+    image: {
+      src: "/images/partners/ev-exec/model-y-airport.jpg",
+      alt: "A navy EV Exec Tesla Model Y outside an airport terminal at night",
+      position: "45% 62%",
+    },
+  },
+};
 
 // What FYStay says about each kind of partner service. The provider's name
 // comes from its own record (src/lib/travelAddons.ts), never this copy.
