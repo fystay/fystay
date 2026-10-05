@@ -117,8 +117,13 @@
   --shadow-popover: 0 12px 32px rgb(0 0 0 / 0.12), 0 2px 8px rgb(0 0 0 / 0.06);
 }
 
-* {
-  border-color: var(--border-subtle);
+/* The default border colour, in the base layer so a border-colour utility
+   on an element (border-brand-700, border-white/10, border-transparent...)
+   still wins - unlayered, this rule outranked every one of them. */
+@layer base {
+  * {
+    border-color: var(--border-subtle);
+  }
 }
 
 /* DM Serif Display for every heading (h1/h2, which is what every page title
@@ -549,6 +554,24 @@ body {
   .animate-spotlight-drift,
   .animate-spotlight-rise {
     animation: none;
+  }
+}
+
+/* TransferFeature's light trails: each drifts slowly along its own angle
+   and breathes, like headlights in a long exposure. The individual
+   `translate` property is used so it composes with each trail's inline
+   rotate. Only runs under motion-safe (see the component). */
+@keyframes transfer-trail {
+  0% {
+    translate: -18% 0;
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    translate: 18% 0;
+    opacity: 0.35;
   }
 }
 

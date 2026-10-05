@@ -25,6 +25,7 @@ import { LargeCardRail } from "@/components/LargeCardRail";
 import { FYSTAY_SERVICES } from "@/lib/services";
 import { TripTypeCategories } from "@/components/TripTypeCategories";
 import { TravelAddonCard } from "@/components/TravelAddonsSection";
+import { TransferFeature } from "@/components/TransferFeature";
 import { PopularStays, type PopularStaysFilter } from "@/components/PopularStays";
 import { Reveal } from "@/components/Reveal";
 import {
@@ -193,6 +194,8 @@ async function PopularStaysSection() {
 
 export default async function Home() {
   const travelOfferings = await getActiveOfferings();
+  const featuredTransfer = travelOfferings.find((offering) => offering.category === "AIRPORT_TRANSFER");
+  const otherTravelOfferings = travelOfferings.filter((offering) => offering !== featuredTransfer);
 
   // WebSite + SearchAction tells Google this site has an internal search it
   // can offer directly in results (a "sitelinks search box"), targeting the
@@ -375,20 +378,22 @@ export default async function Home() {
           <TripTypeCategories />
         </section>
 
-        {/* Getting here, and everything else FYStay offers, as one row:
-            a card per travel add-on category with a live offering (none
-            when nothing is live - the page never shows a promise with
-            nothing behind it), then the services. The generic "Trip
-            extras" card is left out while a live add-on card already
-            leads to the same page. */}
+        {/* Getting here, and everything else FYStay offers: the live
+            airport transfer (EV Exec) as a feature panel of its own, then
+            one row of any other live travel add-ons and the services.
+            Nothing is shown for an add-on that isn't live (the page never
+            shows a promise with nothing behind it), and the generic "Trip
+            extras" card is left out while a live add-on already leads to
+            the same page. */}
         <Reveal className="mt-10 sm:mt-14">
           <SectionHeader
             title="More from FYStay"
             subtitle="Getting here, and everything beyond the stay itself."
             link={{ href: "/services", label: "All services" }}
           />
+          {featuredTransfer && <TransferFeature offering={featuredTransfer} />}
           <LargeCardRail label="More from FYStay">
-            {travelOfferings.map((offering) => (
+            {otherTravelOfferings.map((offering) => (
               <TravelAddonCard key={offering.id} offering={offering} />
             ))}
             {FYSTAY_SERVICES.filter((service) => !(travelOfferings.length > 0 && service.href === "/travel-extras")).map(
