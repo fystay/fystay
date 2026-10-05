@@ -19,18 +19,44 @@ import { todayStayDate } from "@/lib/stayDates";
  * data.
  */
 
-// A handful of towns have one real, licensed cover photo (self-hosted under
-// public/images/listings/ - same "real, licensed media only" rule as the
-// homepage hero video) used as every listing's first photo in that town,
-// swapped in ahead of the generated placeholder art below. Deliberately not
-// per-listing (only one photo per town, shared across that town's listings)
-// - this is demo-catalogue dressing, not real per-property photography, and
-// should be replaced with actual host-uploaded photos before go-live.
-const TOWN_COVER_PHOTOS: Partial<Record<string, string>> = {
-  Fleetwood: "/images/listings/fleetwood-cover.jpg",
-  "Poulton-le-Fylde": "/images/listings/poulton-cover.jpg",
-  "St Annes": "/images/listings/st-annes-cover.jpg",
+// Every town has at least one real, licensed photo (self-hosted under
+// public/ - the same "real, licensed media only" rule as the homepage hero
+// video and DESTINATION_PHOTOS, which three of these reuse), used as the
+// first photo of each demo listing in that town, ahead of the generated
+// placeholder art below. A town with several photos hands them out in turn
+// (see townCoverPhoto), so neighbouring cards don't all open on the same
+// shot. Each photo is genuinely of its own town - the Lytham windmill is
+// never reused for St Annes. This is demo-catalogue dressing, not real
+// per-property photography, and gets replaced by host-uploaded photos.
+const TOWN_COVER_PHOTOS: Partial<Record<string, string[]>> = {
+  Blackpool: [
+    "/images/destinations/blackpool-tile.jpg",
+    "/images/destinations/blackpool-hero.jpg",
+    "/videos/hero-blackpool-pier-poster.jpg",
+  ],
+  Fleetwood: ["/images/listings/fleetwood-cover.jpg"],
+  Lytham: ["/images/destinations/lytham-st-annes.jpg"],
+  "Poulton-le-Fylde": ["/images/listings/poulton-cover.jpg"],
+  "St Annes": ["/images/listings/st-annes-cover.jpg"],
+  "Thornton-Cleveleys": ["/images/destinations/cleveleys.jpg"],
 };
+
+const ALL_TOWN_COVER_PHOTOS = new Set(Object.values(TOWN_COVER_PHOTOS).flat());
+
+/** The cover for one demo listing: its town's photos in turn, by the listing's position among that town's demo listings. */
+function townCoverPhoto(city: string, title: string): string | undefined {
+  const covers = TOWN_COVER_PHOTOS[city];
+  if (!covers?.length) return undefined;
+  const sameTown = [...DEMO_LISTINGS, DEMO_HOTEL_LISTING]
+    .filter((listing) => listing.city === city)
+    .map((listing) => listing.title);
+  return covers[Math.max(0, sameTown.indexOf(title)) % covers.length];
+}
+
+/** Whether a stored photo is one this seed generated (placeholder art or a town cover) - never a host's own upload. */
+function isDemoSeedPhoto(photo: string): boolean {
+  return photo.startsWith("data:image/svg+xml") || ALL_TOWN_COVER_PHOTOS.has(photo);
+}
 
 // The remaining photos ship as generated placeholder art instead of
 // hotlinked stock photos: it renders instantly with zero external requests,
@@ -172,10 +198,30 @@ function placeholderPhotos(seedText: string, count: number, exteriorIcon: Placeh
   return Array.from({ length: count }, (_, i) => placeholderPhoto(seedText, i, exteriorIcon));
 }
 
-function listingPhotos(city: string, count: number, exteriorIcon: PlaceholderIcon): string[] {
-  const cover = TOWN_COVER_PHOTOS[city];
+function listingPhotos(city: string, title: string, count: number, exteriorIcon: PlaceholderIcon): string[] {
+  const cover = townCoverPhoto(city, title);
   if (!cover) return placeholderPhotos(city, count, exteriorIcon);
   return [cover, ...placeholderPhotos(city, count - 1, exteriorIcon)];
+}
+
+/**
+ * Brings an already-seeded demo listing's cover up to date with
+ * TOWN_COVER_PHOTOS, so a database seeded before a town had a real photo
+ * picks it up on the next seed run. Only touches the demo host's listings,
+ * and only when the current cover is itself seed-generated - a photo a
+ * host uploaded is never replaced. Returns whether it changed anything.
+ */
+async function refreshDemoCoverPhoto(
+  prisma: PrismaClient,
+  listing: { id: string; hostId: string; city: string; title: string; photos: string[] },
+  demoHostId: string,
+): Promise<boolean> {
+  const cover = townCoverPhoto(listing.city, listing.title);
+  if (!cover || listing.hostId !== demoHostId) return false;
+  const [current, ...rest] = listing.photos;
+  if (current === cover || (current !== undefined && !isDemoSeedPhoto(current))) return false;
+  await prisma.listing.update({ where: { id: listing.id }, data: { photos: [cover, ...rest] } });
+  return true;
 }
 
 export const DEMO_LISTINGS = [
@@ -593,6 +639,7 @@ export type SeedDemoDataSummary = {
   guestEmail: string;
   listingsCreated: number;
   listingsSkippedExisting: number;
+  listingPhotosRefreshed: number;
   reviewsCreated: number;
   extrasProvidersUpserted: number;
 };
@@ -629,19 +676,21 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
   const newlyCreatedTitles = new Set<string>();
   let listingsCreated = 0;
   let listingsSkippedExisting = 0;
+  let listingPhotosRefreshed = 0;
 
   for (const { placeholderIcon, ...listing } of DEMO_LISTINGS) {
     const existing = await prisma.listing.findFirst({ where: { title: listing.title } });
     if (existing) {
       createdListings.push(existing);
       listingsSkippedExisting++;
+      if (await refreshDemoCoverPhoto(prisma, existing, host.id)) listingPhotosRefreshed++;
       continue;
     }
 
     const created = await prisma.listing.create({
       data: {
         ...listing,
-        photos: listingPhotos(listing.city, 4, placeholderIcon),
+        photos: listingPhotos(listing.city, listing.title, 4, placeholderIcon),
         hostId: host.id,
       },
     });
@@ -664,6 +713,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
   if (existingHotel) {
     createdListings.push(existingHotel);
     listingsSkippedExisting++;
+    if (await refreshDemoCoverPhoto(prisma, existingHotel, host.id)) listingPhotosRefreshed++;
   } else {
     const { roomTypes, placeholderIcon, ...hotelListing } = DEMO_HOTEL_LISTING;
     const createdHotel = await prisma.listing.create({
@@ -674,7 +724,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
         bedrooms: Math.max(...roomTypes.map((rt) => rt.bedrooms)),
         beds: Math.max(...roomTypes.map((rt) => rt.beds)),
         bathrooms: Math.max(...roomTypes.map((rt) => rt.bathrooms)),
-        photos: listingPhotos(hotelListing.city, 4, placeholderIcon),
+        photos: listingPhotos(hotelListing.city, hotelListing.title, 4, placeholderIcon),
         hostId: host.id,
       },
     });
@@ -918,6 +968,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
     guestEmail: guest.email,
     listingsCreated,
     listingsSkippedExisting,
+    listingPhotosRefreshed,
     reviewsCreated,
     extrasProvidersUpserted: 3,
   };

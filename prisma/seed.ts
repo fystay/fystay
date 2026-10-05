@@ -20,7 +20,7 @@ async function main() {
   console.log("Seeded database:");
   console.log(`  host  -> ${summary.hostEmail} / hostpass123`);
   console.log(`  guest -> ${summary.guestEmail} / guestpass123`);
-  console.log(`  ${summary.listingsCreated} listings created, ${summary.listingsSkippedExisting} already existed`);
+  console.log(`  ${summary.listingsCreated} listings created, ${summary.listingsSkippedExisting} already existed (${summary.listingPhotosRefreshed} cover photos updated)`);
   console.log(`  ${summary.reviewsCreated} completed stay(s) + review(s) created`);
   console.log(`  ${summary.extrasProvidersUpserted} trip-extras providers (EV Exec + 2 placeholders) + offerings upserted`);
 }
