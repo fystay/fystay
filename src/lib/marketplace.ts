@@ -8,6 +8,9 @@
 
 export const MIN_LISTINGS_PER_SECTION = 2;
 export const MAX_CITY_SECTIONS = 2;
+/** The homepage's Popular stays row: how many stays each filter shows, and how many town filters it offers. */
+export const POPULAR_STAYS_LIMIT = 12;
+export const MAX_POPULAR_TOWN_FILTERS = 6;
 const RECENT_WINDOW_DAYS = 30;
 
 export type MarketplaceListing = {
@@ -99,3 +102,21 @@ export function recentlyAddedSection<T extends MarketplaceListing>(
   };
 }
 
+
+/**
+ * Most popular first, for the homepage's Popular stays row: stays guests
+ * have rated come ahead of unrated ones, best average rating first (more
+ * reviews breaking a tie, since 4.8 from twenty stays says more than 5.0
+ * from one), then the newest. Returns a new array.
+ */
+export function rankByPopularity<T extends MarketplaceListing & { reviews: { rating: number }[] }>(listings: T[]): T[] {
+  const average = (reviews: { rating: number }[]) =>
+    reviews.length === 0 ? 0 : reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+  return [...listings].sort(
+    (a, b) =>
+      Number(b.reviews.length > 0) - Number(a.reviews.length > 0) ||
+      average(b.reviews) - average(a.reviews) ||
+      b.reviews.length - a.reviews.length ||
+      b.createdAt.getTime() - a.createdAt.getTime(),
+  );
+}

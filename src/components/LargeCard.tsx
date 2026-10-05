@@ -1,6 +1,8 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { isOptimizableImage } from "@/lib/image";
 
 /** The image area of a large card: a real photo, or FYStay's own brand-gradient art where no real photo exists. */
 export type LargeCardImage = { photoSrc: string } | { icon: LucideIcon; gradient: string };
@@ -82,12 +84,14 @@ function LargeCardImageArea({ image }: { image: LargeCardImage }) {
   if ("photoSrc" in image) {
     return (
       <div className={cn(LARGE_CARD_IMAGE_CLASS, "bg-brand-50")}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        {/* Sized to LARGE_CARD_SLOT_CLASS, so a phone downloads a card-sized photo. */}
+        <Image
           src={image.photoSrc}
           alt=""
-          loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          fill
+          sizes="(min-width: 1024px) 340px, (min-width: 640px) 44vw, 60vw"
+          unoptimized={!isOptimizableImage(image.photoSrc)}
+          className="object-cover transition-transform duration-700 group-hover:scale-105"
         />
       </div>
     );

@@ -3,6 +3,7 @@ import {
   beachStaysSection,
   groupByCity,
   isBeachStay,
+  rankByPopularity,
   recentlyAddedSection,
   type MarketplaceListing,
 } from "./marketplace";
@@ -116,3 +117,27 @@ describe("recentlyAddedSection", () => {
   });
 });
 
+
+describe("rankByPopularity", () => {
+  const rated = (id: string, ratings: number[], createdAt = "2026-01-01") => ({
+    ...listing({ id, createdAt: new Date(createdAt) }),
+    reviews: ratings.map((rating) => ({ rating })),
+  });
+
+  it("puts rated stays first, best average first, more reviews breaking a tie, then newest", () => {
+    const ranked = rankByPopularity([
+      rated("unrated-old", [], "2026-01-01"),
+      rated("four", [4, 4]),
+      rated("five-once", [5]),
+      rated("unrated-new", [], "2026-03-01"),
+      rated("five-twice", [5, 5]),
+    ]);
+    expect(ranked.map((l) => l.id)).toEqual(["five-twice", "five-once", "four", "unrated-new", "unrated-old"]);
+  });
+
+  it("doesn't reorder the array it was given", () => {
+    const input = [rated("a", []), rated("b", [5])];
+    rankByPopularity(input);
+    expect(input.map((l) => l.id)).toEqual(["a", "b"]);
+  });
+});

@@ -14,6 +14,17 @@ describe("isOptimizableImage", () => {
     expect(isOptimizableImage("not a url")).toBe(false);
   });
 
+  it("allows the site's own photos, so they're resized for where they're shown", () => {
+    expect(isOptimizableImage("/images/destinations/cleveleys.jpg")).toBe(true);
+    expect(isOptimizableImage("/videos/hero-blackpool-pier-poster.jpg")).toBe(true);
+  });
+
+  it("doesn't point the optimizer at other routes of the app, or local paths with a query", () => {
+    expect(isOptimizableImage("/api/listings")).toBe(false);
+    expect(isOptimizableImage("//evil.example.com/photo.jpg")).toBe(false);
+    expect(isOptimizableImage("/images/photo.jpg?v=1")).toBe(false);
+  });
+
   it("rejects a data: URI (used for seed placeholder art)", () => {
     expect(isOptimizableImage("data:image/svg+xml,<svg></svg>")).toBe(false);
   });

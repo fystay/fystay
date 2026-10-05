@@ -19,15 +19,21 @@ import { auth } from "@/auth";
 import { SearchBar } from "@/components/SearchBar";
 import { HeroBanner } from "@/components/HeroBanner";
 import { buttonVariants } from "@/components/ui/Button";
-import { ListingsCarousel } from "@/components/ListingsCarousel";
 import { ExploreDestinations } from "@/components/ExploreDestinations";
 import { LargeCard, LargeCardRailSkeleton } from "@/components/LargeCard";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { FYSTAY_SERVICES } from "@/lib/services";
 import { TripTypeCategories } from "@/components/TripTypeCategories";
-import { TravelAddonsSection } from "@/components/TravelAddonsSection";
+import { TravelAddonCard } from "@/components/TravelAddonsSection";
+import { PopularStays, type PopularStaysFilter } from "@/components/PopularStays";
 import { Reveal } from "@/components/Reveal";
-import { beachStaysSection, groupByCity, recentlyAddedSection } from "@/lib/marketplace";
+import {
+  beachStaysSection,
+  groupByCity,
+  MAX_POPULAR_TOWN_FILTERS,
+  POPULAR_STAYS_LIMIT,
+  rankByPopularity,
+} from "@/lib/marketplace";
 import { getActiveOfferings } from "@/lib/travelAddons";
 import { NowCovering } from "@/components/NowCovering";
 import { SpotlightStays } from "@/components/SpotlightStays";
@@ -90,7 +96,7 @@ const title = "Local Accommodation in Blackpool & the Fylde Coast";
 const description =
   "Search and book independent apartments, cottages and guest houses across Blackpool and the Fylde Coast. Real local hosts, genuine reviews, secure booking.";
 
-// Per-user and database-backed throughout (auth() in MarketplaceSections,
+// Per-user and database-backed throughout (auth() in PopularStaysSection,
 // live listing counts), so the page was already rendered per request - this
 // just stops `next build` from starting its database queries before
 // discovering that. Same reasoning as sitemap.ts.
@@ -105,55 +111,83 @@ export const metadata: Metadata = {
 };
 
 /**
- * Browse-by-category rows shown only on the homepage - a search instead
- * takes the visitor to the dedicated /search results page, so there's no
- * "active search" state to reconcile these against here any more.
+ * The homepage's one browse row of stays (see PopularStays): the most
+ * popular published stays, with a filter for each town that has enough
+ * stays to make one (the busiest MAX_POPULAR_TOWN_FILTERS) and one for sea
+ * views. A search instead takes the visitor to the dedicated /search
+ * results page, so there's no "active search" state to reconcile here.
  */
-async function MarketplaceSections() {
+async function PopularStaysSection() {
   const [session, listings] = await Promise.all([
     auth(),
     prisma.listing.findMany({
-      where: { published: true },
-      include: { reviews: { where: { status: "PUBLISHED" }, select: { rating: true } } },
-      orderBy: { createdAt: "desc" },
+      where: { published: true, suspendedAt: null },
+      select: {
+        id: true,
+        title: true,
+        city: true,
+        country: true,
+        pricePerNightCents: true,
+        cleaningFeeCents: true,
+        weeklyDiscountPercent: true,
+        monthlyDiscountPercent: true,
+        photos: true,
+        amenities: true,
+        maxGuests: true,
+        bedrooms: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        lastMinuteDiscountPercent: true,
+        lastMinuteWindowDays: true,
+        priceDropFromCents: true,
+        priceDroppedAt: true,
+        reviews: { where: { status: "PUBLISHED" }, select: { rating: true } },
+      },
     }),
   ]);
+  if (listings.length < 2) return null;
+
+  const ranked = rankByPopularity(listings);
+  const top = (subset: typeof ranked) => subset.slice(0, POPULAR_STAYS_LIMIT).map((listing) => listing.id);
+  const seaViews = beachStaysSection(ranked);
+  const filters: PopularStaysFilter[] = [
+    { key: "all", label: "All", listingIds: top(ranked) },
+    ...groupByCity(ranked, { maxSections: MAX_POPULAR_TOWN_FILTERS }).map((town) => ({
+      key: town.key,
+      label: town.listings[0].city,
+      listingIds: top(town.listings),
+    })),
+    ...(seaViews ? [{ key: seaViews.key, label: "Sea views", listingIds: top(seaViews.listings) }] : []),
+  ];
+
+  // Each stay is sent to the browser once; the filters refer to it by id.
+  const shownIds = new Set(filters.flatMap((filter) => filter.listingIds));
+  const shown = ranked.filter((listing) => shownIds.has(listing.id));
 
   const savedListingIds = session?.user
-    ? new Set(
-        (
-          await prisma.savedListing.findMany({
-            where: { userId: session.user.id },
-            select: { listingId: true },
-          })
-        ).map((s) => s.listingId),
-      )
-    : new Set<string>();
-
-  const sections = [
-    ...groupByCity(listings),
-    beachStaysSection(listings),
-    recentlyAddedSection(listings),
-  ].filter((section) => section !== null);
-
-  if (sections.length === 0) return null;
+    ? (
+        await prisma.savedListing.findMany({
+          where: { userId: session.user.id, listingId: { in: [...shownIds] } },
+          select: { listingId: true },
+        })
+      ).map((saved) => saved.listingId)
+    : [];
 
   return (
-    <div className="mt-14 flex flex-col gap-12">
-      {sections.map((section) => (
-        <div key={section.key}>
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">{section.title}</h2>
-          <p className="mt-1 text-sm text-stone-500">{section.subtitle}</p>
-          <div className="mt-6">
-            <ListingsCarousel
-              listings={section.listings}
-              savedListingIds={savedListingIds}
-              isLoggedIn={Boolean(session?.user)}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
+    <section className="mt-10 sm:mt-14">
+      <SectionHeader
+        title="Popular stays"
+        subtitle={`${listings.length} local stays across the Fylde Coast.`}
+        link={{ href: "/search", label: "See all stays" }}
+      />
+      <PopularStays
+        listings={shown}
+        filters={filters}
+        savedListingIds={savedListingIds}
+        isLoggedIn={Boolean(session?.user)}
+      />
+    </section>
   );
 }
 
@@ -329,6 +363,10 @@ export default async function Home() {
           </Suspense>
         </Reveal>
 
+        <Suspense fallback={null}>
+          <PopularStaysSection />
+        </Suspense>
+
         <section className="mt-10 sm:mt-14">
           <SectionHeader
             title="Find your perfect stay"
@@ -337,40 +375,36 @@ export default async function Home() {
           <TripTypeCategories />
         </section>
 
-        {/* One card per travel add-on category with a live offering.
-            Renders nothing when none is live (same "don't show a promise
-            with nothing behind it" rule every other conditional section on
-            this page already follows). */}
-        {travelOfferings.length > 0 && (
-          <Reveal className="mt-10 sm:mt-14">
-            <SectionHeader title="Travel" subtitle="Getting here and getting around, added to your stay." />
-            <TravelAddonsSection offerings={travelOfferings} />
-          </Reveal>
-        )}
-
+        {/* Getting here, and everything else FYStay offers, as one row:
+            a card per travel add-on category with a live offering (none
+            when nothing is live - the page never shows a promise with
+            nothing behind it), then the services. The generic "Trip
+            extras" card is left out while a live add-on card already
+            leads to the same page. */}
         <Reveal className="mt-10 sm:mt-14">
           <SectionHeader
-            title="Services"
-            subtitle="Everything FYStay offers beyond the stay itself."
+            title="More from FYStay"
+            subtitle="Getting here, and everything beyond the stay itself."
             link={{ href: "/services", label: "All services" }}
           />
-          <LargeCardRail label="Services">
-            {FYSTAY_SERVICES.map((service) => (
-              <LargeCard
-                key={service.title}
-                href={service.href}
-                image={{ icon: service.icon, gradient: service.gradient }}
-                title={service.title}
-                description={service.description}
-                meta={service.cta}
-              />
+          <LargeCardRail label="More from FYStay">
+            {travelOfferings.map((offering) => (
+              <TravelAddonCard key={offering.id} offering={offering} />
             ))}
+            {FYSTAY_SERVICES.filter((service) => !(travelOfferings.length > 0 && service.href === "/travel-extras")).map(
+              (service) => (
+                <LargeCard
+                  key={service.title}
+                  href={service.href}
+                  image={{ icon: service.icon, gradient: service.gradient }}
+                  title={service.title}
+                  description={service.description}
+                  meta={service.cta}
+                />
+              ),
+            )}
           </LargeCardRail>
         </Reveal>
-
-        <Suspense fallback={null}>
-          <MarketplaceSections />
-        </Suspense>
 
         <Reveal className="mt-14 border-t border-border-subtle pt-10">
           <div className="mx-auto max-w-2xl text-center">
@@ -472,7 +506,7 @@ function SectionHeader({
  * urgency or growth claim - only rendered once there's at least one real
  * stay to count, so an empty catalog never states "0 stays live" as if
  * that were a selling point. Its own query (not threaded down from
- * MarketplaceSections above) since a plain count is cheap and
+ * PopularStaysSection above) since a plain count is cheap and
  * this is the one place on the page that needs exactly that number.
  */
 async function LiveStayCount() {

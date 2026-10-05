@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const RAILS = ["Last Minute Deals", "Explore the Fylde Coast", "Services"];
+const RAILS = ["Last Minute Deals", "Explore the Fylde Coast", "More from FYStay"];
 
 function rail(page: Page, label: string) {
   // The carousel itself - a homepage row's <section> can share its name.

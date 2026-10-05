@@ -1,7 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Anchor, FerrisWheel, TrainFront, Umbrella, Waves, Wind, type LucideIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/cn";
+import { isOptimizableImage } from "@/lib/image";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { DESTINATION_PHOTOS } from "@/lib/destinationPhotos";
 import { LargeCard } from "@/components/LargeCard";
@@ -61,11 +63,13 @@ function DestinationTile({
     >
       {photoSrc ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={photoSrc}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            fill
+            sizes="(min-width: 1024px) 400px, (min-width: 640px) 50vw, 100vw"
+            unoptimized={!isOptimizableImage(photoSrc)}
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
         </>

@@ -49,7 +49,8 @@ export function TravelAddonsSection({ offerings }: { offerings: TravelAddonOffer
   );
 }
 
-function TravelAddonCard({ offering }: { offering: TravelAddonOffering }) {
+/** One travel add-on as a large card, with its viewed/clicked analytics - also used in the homepage's More from FYStay row. */
+export function TravelAddonCard({ offering }: { offering: TravelAddonOffering }) {
   const copy = CATEGORY_COPY[offering.category];
   const viewRef = useViewOnce<HTMLDivElement>(() => {
     trackAddonEvent({
