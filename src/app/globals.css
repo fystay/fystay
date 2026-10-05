@@ -449,9 +449,9 @@ body {
   }
 }
 
-/* Homepage hero's mobile/tablet "Now covering" pill row: a slow, continuous
+/* Homepage "Now covering" pill row: a slow, continuous
    drift through every Fylde Coast town instead of a manual swipe-to-see-more
-   strip - the list is rendered twice back to back (see page.tsx) and this
+   strip - the list is rendered twice back to back (see NowCovering.tsx) and this
    translates the track exactly one copy's width (-50%) so the loop point is
    invisible. 36s/linear reads as ambient movement, not something drawing
    attention away from the search bar above it. Paused on hover/focus so a
