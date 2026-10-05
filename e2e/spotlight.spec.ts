@@ -38,21 +38,28 @@ test("a featured listing shows in the Spotlight showcase, labelled Promoted, and
 }) => {
   await logInAsHost(page);
   const title = await featureListing(page, 0);
+  // A second live placement, so the showcase has its list and pause button
+  // whatever else this run has featured (the seed features nothing).
+  await featureListing(page, 1);
 
+  // Listening from before the page loads: the showcase reports whichever
+  // stay it opens on (chosen at random) as soon as it's on screen, which can
+  // be before any later step of this test.
+  const impression = page.waitForRequest(
+    (request) => request.url().endsWith("/api/spotlight/events") && request.postData()?.includes('"impression"') === true,
+  );
   await page.goto("/");
   const spotlight = showcase(page);
   await spotlight.scrollIntoViewIfNeeded();
   await expect(spotlight.getByText("who pay for these spots")).toBeVisible();
   await expect(spotlight.getByText("Promoted", { exact: true })).toBeVisible();
+  await impression;
 
-  // Bring it to the front from the list beside the showcase (desktop), and
-  // it's reported as seen.
-  const impression = page.waitForRequest(
-    (request) => request.url().endsWith("/api/spotlight/events") && request.postData()?.includes('"impression"') === true,
-  );
+  // Paused, so it can't move on by itself mid-test, then this stay brought to
+  // the front from the list beside the showcase (desktop).
+  await spotlight.getByRole("button", { name: "Pause Spotlight stays" }).click();
   await spotlight.getByRole("button", { name: new RegExp(title) }).click();
   await expect(featuredTitle(page)).toHaveText(title);
-  await impression;
 
   // Clicking through opens the listing and is reported as a click.
   const click = page.waitForRequest(
