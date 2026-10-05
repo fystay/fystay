@@ -5,8 +5,16 @@ import { cn } from "@/lib/cn";
 import { isOptimizableImage } from "@/lib/image";
 import type { PartnerService } from "@/lib/partnerServices";
 
-/** The image area of a large card: a real photo, or FYStay's own brand-gradient art where no real photo exists. */
-export type LargeCardImage = { photoSrc: string } | { icon: LucideIcon; gradient: string };
+/**
+ * The image area of a large card: a real photo, or FYStay's own art where no
+ * real photo exists - a brand gradient, or ("quiet") a calm warm-neutral
+ * panel with the icon on a raised disc, for cards that sit beside photos and
+ * shouldn't shout over them.
+ */
+export type LargeCardImage =
+  | { photoSrc: string }
+  | { icon: LucideIcon; gradient: string }
+  | { icon: LucideIcon; tone: "quiet" };
 
 /**
  * A large, image-led card for LargeCardRail: a big rounded image area with
@@ -52,12 +60,13 @@ export function LargeCard({
 /**
  * A LargeCard for a service FYStay offers through an independent provider
  * (see src/lib/partnerServices.ts): the same card shape, spacing and type
- * as every other large card, with the provider's identity leading - its
- * name, with its own logo when supplied, on the image - then what it offers,
- * a "FYStay service partner" line stating the relationship, and a "Book
- * with <provider>" call to action. The image area shows the provider's own
- * photo when supplied, otherwise a plain backdrop - never a stand-in
- * vehicle or a drawn logo.
+ * as every other large card. The provider's identity leads, on the image:
+ * its own logo when supplied, its name, and the relationship ("FYStay
+ * service partner") as one unit. Beneath: what it offers, then the price
+ * and what it buys beside a "Book with <provider>" call to action, so the
+ * offer reads in full without opening it. The image area shows the
+ * provider's own photo when supplied, otherwise a plain backdrop - never a
+ * stand-in vehicle or a drawn logo.
  */
 export function PartnerServiceCard({ service, onClick }: { service: PartnerService; onClick?: () => void }) {
   return (
@@ -78,16 +87,22 @@ export function PartnerServiceCard({ service, onClick }: { service: PartnerServi
         )}
         {/* The provider's identity sits top-left, clear of the subject of
             its photo (which providers frame low, like a car on the ground). */}
-        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" aria-hidden />
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/55 to-transparent" aria-hidden />
         <div className="absolute inset-x-4 top-4 flex items-center gap-3 sm:inset-x-5 sm:top-5">
           {service.logoSrc && (
             // The provider's own logo, as supplied - never redrawn or recoloured -
             // on a small tile, with its name beside it so it reads at any size.
-            <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl shadow-[var(--shadow-card)] ring-1 ring-white/20 sm:h-14 sm:w-14">
+            <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl shadow-[var(--shadow-card)] ring-1 ring-white/25 sm:h-14 sm:w-14">
               <Image src={service.logoSrc} alt="" fill sizes="56px" className="object-cover" />
             </span>
           )}
-          <p className="text-2xl font-semibold tracking-tight text-white sm:text-[1.7rem]">{service.provider}</p>
+          <div className="min-w-0 text-white [text-shadow:0_1px_10px_rgba(0,0,0,0.35)]">
+            <p className="text-lg font-semibold leading-tight tracking-tight sm:text-xl">{service.provider}</p>
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-white/85 sm:text-xs">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {service.providerLabel}
+            </p>
+          </div>
         </div>
       </div>
       <div className="px-1 pt-4">
@@ -96,14 +111,18 @@ export function PartnerServiceCard({ service, onClick }: { service: PartnerServi
           {service.title}
         </p>
         <p className="mt-1 line-clamp-3 text-sm text-stone-500">{service.description}</p>
-        <p className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-stone-600">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-600" aria-hidden />
-          {service.providerLabel}
-        </p>
-        <p className="mt-2 flex items-center gap-1 text-sm font-medium text-brand-700">
-          {service.cta}
-          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
-        </p>
+        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1.5 border-t border-border-subtle pt-3">
+          {service.price && (
+            <p className="text-sm text-stone-600">
+              <span className="font-serif text-xl text-brand-800">{service.price.label}</span>{" "}
+              <span className="whitespace-nowrap">{service.price.detail.toLowerCase()}</span>
+            </p>
+          )}
+          <p className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-brand-700">
+            {service.cta}
+            <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
+          </p>
+        </div>
       </div>
     </Link>
   );
@@ -159,6 +178,29 @@ function LargeCardImageArea({ image }: { image: LargeCardImage }) {
   }
 
   const Icon = image.icon;
+  if ("tone" in image) {
+    return (
+      <div className={cn(LARGE_CARD_IMAGE_CLASS, "bg-surface-muted")}>
+        <div
+          className="absolute inset-0 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(255,255,255,0.75),transparent_60%)]"
+          aria-hidden
+        />
+        <svg
+          className="absolute -bottom-[38%] -right-[24%] w-[90%] text-brand-200/50 transition-transform duration-700 group-hover:scale-105"
+          viewBox="0 0 200 200"
+          fill="none"
+          aria-hidden
+        >
+          {[96, 72, 48].map((r) => (
+            <circle key={r} cx="100" cy="100" r={r} stroke="currentColor" strokeWidth="0.75" />
+          ))}
+        </svg>
+        <span className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface text-brand-700 shadow-[var(--shadow-card)] ring-1 ring-black/5 sm:left-5 sm:top-5 sm:h-14 sm:w-14">
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} aria-hidden />
+        </span>
+      </div>
+    );
+  }
   return (
     <div className={cn(LARGE_CARD_IMAGE_CLASS, "bg-gradient-to-br", image.gradient)}>
       <Icon

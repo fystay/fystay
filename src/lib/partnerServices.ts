@@ -20,6 +20,8 @@ export type PartnerService = {
   providerLabel: string;
   /** e.g. "Book with EV Exec". */
   cta: string;
+  /** What it costs, already formatted for the visitor's currency, and what that buys - e.g. "£45" / "Return airport transfer". */
+  price?: { label: string; detail: string };
   href: string;
   /** The provider's own official assets, used only when supplied (see PROVIDER_ASSETS). */
   logoSrc?: string;

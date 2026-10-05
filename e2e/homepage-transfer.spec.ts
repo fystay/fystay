@@ -20,6 +20,9 @@ test("More from FYStay leads with EV Exec as a FYStay service partner, booked th
   await expect(card.getByText("EV Exec", { exact: true })).toBeVisible();
   await expect(card.getByText("Premium electric airport transfers")).toBeVisible();
   await expect(card.getByText("FYStay service partner")).toBeVisible();
+  // The offer reads in full on the card: the live offering's price and what it buys.
+  await expect(card.getByText("£45")).toBeVisible();
+  await expect(card.getByText("return airport transfer")).toBeVisible();
   // It's EV Exec's service, presented through FYStay - never FYStay's own.
   await expect(row.getByText(/FYStay (airport transfers|taxi)/i)).toHaveCount(0);
 

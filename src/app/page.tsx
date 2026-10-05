@@ -398,7 +398,7 @@ export default async function Home() {
                 <LargeCard
                   key={service.title}
                   href={service.href}
-                  image={{ icon: service.icon, gradient: service.gradient }}
+                  image={{ icon: service.icon, tone: "quiet" }}
                   title={service.title}
                   description={service.description}
                   meta={service.cta}

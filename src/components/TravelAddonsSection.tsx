@@ -1,5 +1,6 @@
 "use client";
 
+import { useFormattedPrice } from "@/components/CurrencyProvider";
 import { trackAddonEvent } from "@/lib/analytics";
 import { useViewOnce } from "@/hooks/useViewOnce";
 import { PartnerServiceCard } from "@/components/LargeCard";
@@ -31,6 +32,7 @@ export function TravelAddonsSection({ offerings }: { offerings: TravelAddonOffer
  * /travel-extras flow. Also used in the homepage's More from FYStay row.
  */
 export function TravelAddonCard({ offering }: { offering: TravelAddonOffering }) {
+  const price = useFormattedPrice(offering.priceCents);
   const viewRef = useViewOnce<HTMLDivElement>(() => {
     trackAddonEvent({
       name: "transfer_offer_viewed",
@@ -52,7 +54,10 @@ export function TravelAddonCard({ offering }: { offering: TravelAddonOffering })
   return (
     <div ref={viewRef}>
       <PartnerServiceCard
-        service={partnerServiceForOffering(offering, travelAddonHref(offering.category))}
+        service={{
+          ...partnerServiceForOffering(offering, travelAddonHref(offering.category)),
+          price: { label: price, detail: offering.name },
+        }}
         onClick={handleCtaClick}
       />
     </div>
