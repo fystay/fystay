@@ -6,7 +6,6 @@ import { Footer } from "@/components/Footer";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { CurrencyProvider } from "@/components/CurrencyProvider";
 import { SupportWidget } from "@/components/SupportWidget";
-import { SectionPillsBar } from "@/components/SectionPills";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
@@ -87,7 +86,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <CurrencyProvider>
           <CookieConsentBanner />
           <Navbar />
-          <SectionPillsBar />
           <main id="main-content" className="flex flex-1 flex-col">
             {children}
           </main>

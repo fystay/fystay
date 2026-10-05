@@ -223,7 +223,7 @@ export default async function Home() {
 
           The headline block is bottom-anchored with padding that, on lg,
           clears the search bar pulled 36px up over the panel's bottom edge. */}
-      <div className="px-4 pt-2.5 sm:pt-4 lg:px-6 lg:pt-5">
+      <div className="px-4 pt-4 lg:px-6 lg:pt-5">
         <section className="relative isolate flex h-[38svh] min-h-[240px] w-full flex-col sm:h-[46svh] sm:min-h-[360px] justify-end overflow-hidden rounded-[24px] sm:rounded-[28px] lg:h-[66svh] lg:max-h-[680px] lg:min-h-[520px] lg:rounded-[32px]">
           <HeroBanner className="absolute inset-0 h-full w-full" />
 
@@ -232,7 +232,7 @@ export default async function Home() {
               deepening band at the bottom behind the headline. From lg a
               soft wash from the left also sits behind the left-aligned
               headline. Same warm near-black throughout. */}
-          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.15)_0%,rgba(12,9,7,0)_26%,rgba(12,9,7,0.4)_52%,rgba(12,9,7,0.8)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(12,9,7,0.2)_0%,rgba(12,9,7,0)_26%,rgba(12,9,7,0.48)_52%,rgba(12,9,7,0.85)_100%)]" />
           <div className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(90deg,rgba(12,9,7,0.4)_0%,rgba(12,9,7,0)_55%)] lg:block" />
 
           <div className="relative z-30 mx-auto w-full max-w-[69rem] px-2 pb-7 [text-shadow:0_1px_16px_rgba(12,9,7,0.35)] sm:px-2 sm:pb-9 lg:px-0 lg:pb-[72px]">
@@ -272,14 +272,14 @@ export default async function Home() {
         </div>
 
         {/* Trust row: read in the same glance as the search, as quiet
-            icon-and-text items rather than cards - a 2x2 grid on phones,
-            one divided row from lg. */}
+            icon-and-text items rather than cards or ruled cells - a 2x2
+            grid on phones, one row from lg. */}
         <ul
           aria-label="Why book with FYStay"
-          className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 lg:mt-6 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-border-subtle"
+          className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 lg:mt-7 lg:grid-cols-4 lg:gap-x-8"
         >
           {TRUST_STRIP.map(({ icon: Icon, label, detail }) => (
-            <li key={label} className="flex items-start gap-2.5 lg:px-6 lg:first:pl-1">
+            <li key={label} className="flex items-start gap-2.5 lg:pl-1">
               <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-brand-600" aria-hidden />
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold leading-snug text-foreground sm:text-sm">{label}</p>
@@ -289,7 +289,7 @@ export default async function Home() {
           ))}
         </ul>
 
-        <div className="mt-7 border-t border-border-subtle pt-5 lg:mt-8">
+        <div className="mt-8 lg:mt-10">
           <NowCovering />
         </div>
 

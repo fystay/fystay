@@ -89,7 +89,7 @@ export function HeroBanner({ className }: { className?: string }) {
           legibility scrim over the whole panel on top of this. */}
       <div
         className="pointer-events-none absolute inset-0 bg-brand-600 mix-blend-soft-light"
-        style={{ opacity: 0.18 }}
+        style={{ opacity: 0.3 }}
         aria-hidden
       />
 

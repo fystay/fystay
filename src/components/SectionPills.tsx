@@ -3,57 +3,42 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { useNavTone } from "@/components/NavTone";
 import { activeSiteSection, SITE_SECTIONS } from "@/lib/siteSections";
 
-type Variant = "hero" | "default";
+type Variant = "header" | "tabs";
 
-// One segmented control rather than four free-standing pills: a single
-// track holds all four sections and the current one sits on a raised
-// "thumb", so the row reads as one navigation system that belongs to the
-// header. Every item is the same width (equal grid columns) and the same
-// padding in both states, so changing section never shifts the layout.
-const TRACK_STYLES: Record<Variant, string> = {
-  // Over the homepage video: the same warm dark glass as the scrim behind it.
-  hero: "border-white/10 bg-ink/40 backdrop-blur-md",
-  // On the cream page and the opaque header.
-  default: "border-border-subtle bg-brand-50",
-};
-
+// Plain text tabs that belong to the header rather than a boxed control
+// sitting on it: no track, no border - the current section is marked by
+// brand-coloured text and a brand underline, the rest are quiet text that
+// darkens on hover. Same weight and padding in every state, so changing
+// section never shifts the layout.
 const ITEM_BASE =
-  "focus-ring flex items-center justify-center rounded-[9px] px-2 py-1.5 text-[13px] font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 min-[360px]:text-sm sm:px-4";
+  "focus-ring relative flex items-center justify-center whitespace-nowrap font-medium transition-colors duration-150 after:absolute after:rounded-full after:bg-brand-600 after:transition-opacity after:duration-150";
 
-const ITEM_STYLES: Record<Variant, { active: string; inactive: string }> = {
-  hero: {
-    active: "bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.3)]",
-    inactive: "text-white/85 hover:bg-white/10 hover:text-white",
+const ITEM_STYLES: Record<Variant, { base: string; active: string; inactive: string }> = {
+  // Desktop: inline in the header's centre, underline just under the text.
+  header: {
+    base: "rounded-lg px-3.5 py-2 text-sm after:inset-x-3.5 after:bottom-0.5 after:h-0.5",
+    active: "text-brand-700 after:opacity-100",
+    inactive: "text-stone-600 after:opacity-0 hover:bg-brand-50 hover:text-foreground",
   },
-  default: {
-    active: "bg-surface text-foreground shadow-[0_1px_2px_rgba(48,26,19,0.12),0_0_0_1px_rgba(48,26,19,0.06)]",
-    inactive: "text-stone-600 hover:bg-surface/70 hover:text-foreground",
+  // Phones and tablets: the header's second row, four equal tabs whose
+  // underline sits on the header's bottom edge - an app-style tab bar.
+  tabs: {
+    base: "w-full rounded-t-md px-1 pb-3 pt-1.5 text-[15px] after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-b-none",
+    active: "text-brand-700 after:opacity-100",
+    inactive: "text-stone-500 after:opacity-0 hover:text-foreground",
   },
 };
 
-/**
- * The Stays / Explore / Travel / Services navigation, with the current
- * route's section shown selected (aria-current="page"). The variant follows
- * the header's tone (light over the homepage video) unless one is given.
- * Full width with four equal tabs on phones, sized to its content from sm.
- */
-export function SectionPills({ variant, className }: { variant?: Variant; className?: string }) {
+/** The Stays / Explore / Travel / Services navigation, with the current route's section marked (aria-current="page"). */
+export function SectionPills({ variant, className }: { variant: Variant; className?: string }) {
   const active = activeSiteSection(usePathname());
-  const tone = useNavTone();
-  const resolved = variant ?? (tone === "hero" ? "hero" : "default");
-  const styles = ITEM_STYLES[resolved];
+  const styles = ITEM_STYLES[variant];
 
   return (
     <nav aria-label="Sections" className={className}>
-      <ul
-        className={cn(
-          "grid w-full grid-cols-4 gap-0.5 rounded-xl border p-[3px] sm:inline-grid sm:w-auto",
-          TRACK_STYLES[resolved],
-        )}
-      >
+      <ul className={cn(variant === "tabs" ? "grid grid-cols-4" : "flex items-center gap-1")}>
         {SITE_SECTIONS.map((section) => {
           const isActive = section.key === active;
           return (
@@ -61,7 +46,7 @@ export function SectionPills({ variant, className }: { variant?: Variant; classN
               <Link
                 href={section.href}
                 aria-current={isActive ? "page" : undefined}
-                className={cn(ITEM_BASE, "w-full", isActive ? styles.active : styles.inactive)}
+                className={cn(ITEM_BASE, styles.base, isActive ? styles.active : styles.inactive)}
               >
                 {section.label}
               </Link>
@@ -74,18 +59,17 @@ export function SectionPills({ variant, className }: { variant?: Variant; classN
 }
 
 /**
- * The section row under the header on phones and tablets, on the homepage
- * and each section's own pages. From lg the same control sits inside the
- * header (see Navbar), so this hides there. Renders nothing outside the
- * four sections.
+ * The header's tab row below lg, on the homepage and each section's own
+ * pages (from lg the same navigation sits inline in the header - see
+ * Navbar). Renders nothing outside the four sections.
  */
 export function SectionPillsBar() {
   const pathname = usePathname();
   if (!activeSiteSection(pathname)) return null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-6 sm:pt-4 lg:hidden">
-      <SectionPills variant="default" className="flex justify-center sm:justify-start" />
+    <div className="mx-auto w-full max-w-6xl px-3 sm:px-6 lg:hidden">
+      <SectionPills variant="tabs" className="sm:max-w-md" />
     </div>
   );
 }

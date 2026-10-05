@@ -77,16 +77,14 @@ export function GuestMenu() {
         aria-controls="guest-menu-panel"
         aria-label="Account menu"
         className={cn(
-          // Outlined, matching the signed-in UserMenu trigger, so the page's
-          // one solid brand-coloured button is its main action (Search).
-          "focus-ring flex items-center gap-2 rounded-xl border border-border-subtle bg-surface py-1.5 pl-3 pr-1 text-stone-700 hover:shadow-[var(--shadow-card)] active:bg-surface-muted",
+          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-2 pl-3 pr-1.5 text-white hover:bg-brand-700 active:bg-brand-800",
           // Over the homepage video: the same quiet glass as the section
           // control, so the hero's one solid brand-coloured button is Search.
           isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
         )}
       >
         <Menu className="h-4 w-4" />
-        <CircleUserRound className="h-8 w-8 text-brand-600" strokeWidth={1.5} />
+        <CircleUserRound className="h-7 w-7 text-white/90" strokeWidth={1.5} />
       </button>
 
       <div
