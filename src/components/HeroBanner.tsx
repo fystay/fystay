@@ -11,8 +11,12 @@ import { cn } from "@/lib/cn";
  * autoplaying so it reads as ambient scenery behind the headline and
  * search, never the thing competing with them.
  *
- * Exactly one encode is ever downloaded: a ~1MB 854x480 file for screens
- * up to 640px wide, a ~2MB 1280x720 one above that. The choice is made here
+ * The clip is cut to open on the Tower (the original's own end-to-start
+ * jump sits mid-clip under a 1s crossfade, so the loop point is seamless
+ * footage) and slowed to 85% so it reads as calm scenery behind the text;
+ * the poster is that opening frame. Exactly one encode is ever downloaded:
+ * a ~1.4MB 854x480 file for screens up to 640px wide, a ~4.5MB 1280x720 one
+ * above that. The choice is made here
  * with matchMedia rather than <source media="...">, which Chromium doesn't
  * reliably honour for video - phones were fetching the small file and then
  * playing (and downloading) the large one as well. Until a source is

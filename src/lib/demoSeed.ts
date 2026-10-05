@@ -32,7 +32,7 @@ const TOWN_COVER_PHOTOS: Partial<Record<string, string[]>> = {
   Blackpool: [
     "/images/destinations/blackpool-tile.jpg",
     "/images/destinations/blackpool-hero.jpg",
-    "/videos/hero-blackpool-pier-poster.jpg",
+    "/images/listings/blackpool-pier.jpg",
   ],
   Fleetwood: ["/images/listings/fleetwood-cover.jpg"],
   Lytham: ["/images/destinations/lytham-st-annes.jpg"],
@@ -41,7 +41,12 @@ const TOWN_COVER_PHOTOS: Partial<Record<string, string[]>> = {
   "Thornton-Cleveleys": ["/images/destinations/cleveleys.jpg"],
 };
 
-const ALL_TOWN_COVER_PHOTOS = new Set(Object.values(TOWN_COVER_PHOTOS).flat());
+// Covers this seed used to hand out, still recognised as its own so a re-run
+// replaces them: the homepage hero's poster frame was a Blackpool cover until
+// the hero changed, and listings repeating the hero's picture weakened it.
+const RETIRED_TOWN_COVER_PHOTOS = ["/videos/hero-blackpool-pier-poster.jpg"];
+
+const ALL_TOWN_COVER_PHOTOS = new Set([...Object.values(TOWN_COVER_PHOTOS).flat(), ...RETIRED_TOWN_COVER_PHOTOS]);
 
 /** The cover for one demo listing: its town's photos in turn, by the listing's position among that town's demo listings. */
 function townCoverPhoto(city: string, title: string): string | undefined {
