@@ -39,6 +39,28 @@ remaining item.
   Run #15 was cancelled during the move; **run #16 (commit `7f41a73`) is
   waiting for the owner's approval**.
 
+## Connection audit after the move (6 Oct evening)
+
+- **Code:** all checks green on `239ec44` (lint, typecheck, 1,102 unit,
+  110 end-to-end on a production build, GitHub CI on `fystay/fystay`).
+- **Preview database:** all 47 migrations; every one of the 550 columns the
+  code expects is present, none extra.
+- **Production database:** short exactly the 26 columns of the three
+  pending migrations, nothing else. 0 listings, 1 user, **no admin yet**.
+  Run #16 still "waiting" when last checked; if approval doesn't take,
+  re-check Settings → Environments → production → Required reviewers
+  (the repo now belongs to an organisation).
+- **Security:** every public table has row-level security with no policies
+  (deny-all over Supabase's REST API; the app connects as the database
+  owner), storage buckets identical in both projects. Only advisor warning:
+  `rls_auto_enable()` (known P2).
+- **Stripe:** both the sandbox and the live account list **no webhook
+  endpoints**, although this doc said sandbox ones were set. Without them
+  bookings paid on Preview never get confirmed. Recreate them against the
+  new Vercel Preview address once it exists.
+- **Vercel:** new project, not readable from the cloud session that did this
+  audit (connector scope). Variables, Git link and domain still to confirm.
+
 ## Step 1: finish the database update and check the live site
 
 1. **Owner:** GitHub → Actions → "Production database migration" → run #16
