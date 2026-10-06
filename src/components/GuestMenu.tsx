@@ -89,6 +89,9 @@ export function GuestMenu() {
       <div
         ref={menuRef}
         id="guest-menu-panel"
+        // Closed, it's only faded out (so it can animate open) - inert keeps its
+        // links out of the tab order and away from screen readers until then.
+        inert={!open}
         className={cn(
           "absolute right-0 z-20 mt-2 w-52 origin-top-right overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-[var(--shadow-popover)]",
           "transition-all duration-150",

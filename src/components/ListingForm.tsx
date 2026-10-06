@@ -406,6 +406,10 @@ export function ListingForm({ listingId, initialValues }: Props) {
               value={values.address}
               onChange={(e) => update("address", e.target.value)}
             />
+            <FieldHint>
+              Only shown to guests once they&apos;ve booked, and in their check-in reminder. Leave it
+              blank and you&apos;ll need to send each guest the address yourself.
+            </FieldHint>
           </Field>
         </CardContent>
       </Card>

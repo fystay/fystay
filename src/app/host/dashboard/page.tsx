@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { averageRating } from "@/lib/reviews";
 import { computeOccupancyRate, summarizeEarnings } from "@/lib/hostStats";
-import { expireStaleBookingRequests } from "@/lib/bookingLifecycle";
+import { expireAbandonedCheckouts, expireStaleBookingRequests } from "@/lib/bookingLifecycle";
 import { hostAcceptsPaidBookings, isConnectReady } from "@/lib/stripeConnect";
 import { formatPrice } from "@/lib/format";
 import { HostListingRow } from "@/components/HostListingRow";
@@ -39,6 +39,7 @@ export default async function HostDashboardPage({
   if (session.user.role !== "HOST") redirect("/host");
 
   await expireStaleBookingRequests(prisma, { hostId: session.user.id });
+  await expireAbandonedCheckouts(prisma, { hostId: session.user.id });
 
   const listings = await prisma.listing.findMany({
     where: { hostId: session.user.id },
@@ -47,7 +48,12 @@ export default async function HostDashboardPage({
       // what got cancelled (and any refund) without them ever disappearing
       // from the dashboard the moment they're no longer active.
       bookings: {
-        where: { status: { in: ["PENDING", "CONFIRMED", "CANCELLED", "REFUNDED"] } },
+        where: {
+          status: { in: ["PENDING", "CONFIRMED", "CANCELLED", "REFUNDED"] },
+          // A reservation cancelled before anyone paid (an abandoned checkout,
+          // a declined or lapsed request) was never a stay - leave it out.
+          NOT: { status: "CANCELLED", paymentStatus: "UNPAID", paidAt: null },
+        },
         include: { changeRequests: { orderBy: { createdAt: "desc" } } },
         orderBy: { checkIn: "asc" },
       },
@@ -206,8 +212,8 @@ export default async function HostDashboardPage({
           className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900"
         >
           <p>
-            <strong className="font-semibold">Guests can&apos;t book your listings yet.</strong> Finish
-            setting up your Stripe account so bookings can pay you out automatically.
+            <strong className="font-semibold">Your listings are hidden from guests for now.</strong> They
+            appear in search and can be booked as soon as your Stripe payouts are set up.
           </p>
           <Link href="/host/payouts" className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
             {host.stripeConnectAccountId ? "Finish Stripe setup" : "Set up Stripe payouts"}

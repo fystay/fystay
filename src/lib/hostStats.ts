@@ -1,28 +1,44 @@
+import { applyDiscountsToApplicationFee } from "@/lib/pricing";
+
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 export type RevenueBooking = {
-  nightlyPriceCents: number;
-  cleaningFeeCents: number;
   totalPriceCents: number;
+  serviceFeeCents: number;
+  taxCents: number;
+  creditAppliedCents: number;
+  promoDiscountCents: number;
   refundedAmountCents: number | null;
   paymentStatus: "UNPAID" | "PAID" | "PARTIALLY_REFUNDED" | "REFUNDED";
 };
 
 /**
- * What the host actually earns from one booking, in cents: the nightly rate
- * plus cleaning fee, excluding the platform's guest service fee (and any
- * future tax, always 0 today) - see GUEST_SERVICE_FEE_RATE in pricing.ts for
- * why that cut is the platform's, not the host's. A refund reduces this
- * proportionally, on the assumption a refund returns the same percentage of
- * every line in the price breakdown (how cancellation refunds are computed
- * throughout this app - see cancellationPolicy.ts).
+ * What the host actually earns from one booking, in cents - exactly what
+ * Stripe transfers to them at checkout: the amount the guest paid minus
+ * FYStay's application fee (the guest service fee and tax, less any
+ * referral credit or promo code FYStay absorbs - see /api/checkout and
+ * applyDiscountsToApplicationFee). That's the whole stay (every night,
+ * after any weekly/monthly/last-minute discount) plus the cleaning fee. A
+ * refund reduces this proportionally, on the assumption a refund returns
+ * the same percentage of every line in the price breakdown (how
+ * cancellation refunds are computed throughout this app - see
+ * cancellationPolicy.ts).
  */
 export function hostRevenueCents(booking: RevenueBooking): number {
   if (booking.paymentStatus === "UNPAID" || booking.totalPriceCents <= 0) return 0;
-  const hostGrossCents = booking.nightlyPriceCents + booking.cleaningFeeCents;
+  const hostGrossCents = hostPayoutCents(booking);
   const refundedCents = booking.refundedAmountCents ?? 0;
   const keptFraction = Math.max(0, 1 - refundedCents / booking.totalPriceCents);
   return Math.round(hostGrossCents * keptFraction);
+}
+
+/** The host's transfer for a booking before any refund - the same sum /api/checkout sends to Stripe. */
+export function hostPayoutCents(booking: Omit<RevenueBooking, "refundedAmountCents" | "paymentStatus">): number {
+  const applicationFeeCents = applyDiscountsToApplicationFee(
+    booking.serviceFeeCents + booking.taxCents,
+    booking.creditAppliedCents + booking.promoDiscountCents,
+  );
+  return Math.max(0, booking.totalPriceCents - applicationFeeCents);
 }
 
 export type EarningsBooking = RevenueBooking & { checkIn: Date };

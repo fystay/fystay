@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SearchX, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { prisma } from "@/lib/prisma";
+import { bookableHostWhere } from "@/lib/stripeConnect";
 import {
   blockingBookingWhere,
   blockingRanges,
@@ -108,6 +109,7 @@ export async function ListingsGrid({
         // a suspended listing is excluded from search exactly like an
         // unpublished one.
         suspendedAt: null,
+        ...bookableHostWhere(),
         maxGuests: { gte: guestsNeeded },
         ...(city
           ? {
@@ -403,7 +405,7 @@ async function NoResults({
       city.toLowerCase().includes(town.searchCity.toLowerCase()),
   );
   const largest = knownTown
-    ? (await prisma.listing.aggregate({ where: { published: true, suspendedAt: null }, _max: { maxGuests: true } }))
+    ? (await prisma.listing.aggregate({ where: { published: true, suspendedAt: null, ...bookableHostWhere() }, _max: { maxGuests: true } }))
         ._max.maxGuests
     : null;
 

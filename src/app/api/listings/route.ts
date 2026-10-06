@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { bookableHostWhere } from "@/lib/stripeConnect";
 import { auth } from "@/auth";
 import {
   blockingBookingWhere,
@@ -133,6 +134,7 @@ async function getHandler(request: Request) {
       // schema comment. Its own host (or an admin) can still reach it
       // directly by id (see the listing detail page), just not find it here.
       suspendedAt: null,
+      ...bookableHostWhere(),
       ...(city
         ? {
             OR: [

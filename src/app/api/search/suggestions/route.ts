@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { bookableHostWhere } from "@/lib/stripeConnect";
 import { LANDMARKS } from "@/lib/landmarks";
 import { popularDestinations, rankDestinations, rankHotels, rankLandmarks } from "@/lib/searchSuggestions";
 
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
   try {
     const cityAggregates = await prisma.listing.groupBy({
       by: ["city", "country"],
-      where: { published: true },
+      where: { published: true, suspendedAt: null, ...bookableHostWhere() },
       _count: { _all: true },
     });
     const cities = cityAggregates.map((row) => ({
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
     const [destinations, matchingListings] = await Promise.all([
       Promise.resolve(rankDestinations(cities, query, MAX_RESULTS_PER_GROUP)),
       prisma.listing.findMany({
-        where: { published: true, suspendedAt: null, title: { contains: query, mode: "insensitive" } },
+        where: { published: true, suspendedAt: null, ...bookableHostWhere(), title: { contains: query, mode: "insensitive" } },
         select: { id: true, title: true, city: true, country: true, photos: true },
         take: 20,
       }),

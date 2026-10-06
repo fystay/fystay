@@ -75,6 +75,9 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
       <div
         ref={menuRef}
         id="user-menu-panel"
+        // Closed, it's only faded out (so it can animate open) - inert keeps its
+        // links out of the tab order and away from screen readers until then.
+        inert={!open}
         className={cn(
           "absolute right-0 z-20 mt-2 max-h-[70vh] w-56 origin-top-right overflow-y-auto rounded-xl border border-border-subtle bg-surface p-2 shadow-[var(--shadow-popover)]",
           "transition-all duration-150",

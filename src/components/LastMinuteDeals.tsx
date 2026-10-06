@@ -2,6 +2,7 @@ import { BadgePercent } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { bookableHostWhere } from "@/lib/stripeConnect";
 import { blockingBookingWhere, blockingRanges, isRangeAvailable, isRoomTypeRangeAvailable } from "@/lib/availability";
 import { activePriceDrop, hasLastMinuteDeal, possibleDealWhere } from "@/lib/deals";
 import { todayStayDate } from "@/lib/stayDates";
@@ -27,7 +28,7 @@ export async function LastMinuteDeals() {
     auth(),
     prisma.listing
       .findMany({
-        where: { published: true, suspendedAt: null, ...possibleDealWhere(now) },
+        where: { published: true, suspendedAt: null, ...bookableHostWhere(), ...possibleDealWhere(now) },
         include: {
           reviews: { where: { status: "PUBLISHED" }, select: { rating: true } },
           bookings: { where: blockingBookingWhere(now), select: { checkIn: true, checkOut: true } },

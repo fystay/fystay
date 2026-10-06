@@ -95,7 +95,7 @@ export default async function HostPayoutsPage({
             <>
               <p className="text-sm text-stone-600">
                 <strong className="font-semibold text-foreground">
-                  Guests can&apos;t book your listings until this is complete.
+                  Your listings stay hidden from guests until this is complete.
                 </strong>{" "}
                 {started
                   ? "Stripe still needs a few more details before you can be paid."

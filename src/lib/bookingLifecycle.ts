@@ -140,11 +140,11 @@ export async function releaseUnpaidBooking(
  * reserved and closed the tab before paying, so no Stripe payment page ever
  * existed to expire on its own. Without this they'd sit in "My trips" as
  * "Pending payment" for ever. Lazy, like completePastBookings (run when a
- * guest's bookings are read), plus the daily cron sweep with no scope.
+ * guest's or host's bookings are read), plus the daily cron sweep with no scope.
  */
 export async function expireAbandonedCheckouts(
   prisma: PrismaClient,
-  scope: { guestId?: string } = {},
+  scope: { guestId?: string; hostId?: string } = {},
   now: Date = new Date(),
 ): Promise<number> {
   const cutoff = new Date(now.getTime() - ABANDONED_CHECKOUT_MINUTES * 60 * 1000);
@@ -155,6 +155,7 @@ export async function expireAbandonedCheckouts(
       approvalStatus: { in: ["NONE", "APPROVED"] },
       updatedAt: { lt: cutoff },
       ...(scope.guestId && { guestId: scope.guestId }),
+      ...(scope.hostId && { listing: { hostId: scope.hostId } }),
     },
     select: { id: true, guestId: true, creditAppliedCents: true, promoCodeId: true },
   });

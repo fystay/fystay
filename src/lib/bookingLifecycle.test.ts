@@ -79,6 +79,12 @@ describe("expireAbandonedCheckouts", () => {
     expect(booking.updateMany.mock.calls[0][0].where).toMatchObject({ updatedAt: { lt: cutoff } });
   });
 
+  it("can be scoped to one host's listings, for the host dashboard", async () => {
+    const { prisma, booking } = fakePrisma();
+    await expireAbandonedCheckouts(prisma, { hostId: "h1" });
+    expect(booking.findMany.mock.calls[0][0].where).toMatchObject({ listing: { hostId: "h1" } });
+  });
+
   it("waits past both the 30-minute hold and a Stripe payment page's 31-minute life", () => {
     expect(ABANDONED_CHECKOUT_MINUTES).toBeGreaterThan(31);
   });

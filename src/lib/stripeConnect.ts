@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 
@@ -103,6 +104,20 @@ export function hostAcceptsPaidBookings(host: {
   stripeConnectPayoutsEnabled: boolean;
 }): boolean {
   return !getStripeClient() || isConnectReady(host);
+}
+
+/**
+ * The same rule as a listing filter, for everywhere guests browse (search,
+ * the homepage rows, suggestions, the sitemap): a listing whose host can't
+ * be paid yet isn't shown at all, so no guest finds a stay only to be told
+ * it can't be booked. The host still sees it in their dashboard and can
+ * open its page. With no Stripe key configured nothing is filtered, the
+ * same as hostAcceptsPaidBookings.
+ */
+export function bookableHostWhere(): Prisma.ListingWhereInput {
+  return getStripeClient()
+    ? { host: { stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true } }
+    : {};
 }
 
 /**

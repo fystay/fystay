@@ -9,6 +9,7 @@ import { DeleteListingButton } from "@/components/DeleteListingButton";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { isOptimizableImage } from "@/lib/image";
+import { hostPayoutCents, hostRevenueCents } from "@/lib/hostStats";
 
 const bookingStatusVariant = {
   PENDING: "warning",
@@ -17,6 +18,19 @@ const bookingStatusVariant = {
   COMPLETED: "brand",
   REFUNDED: "neutral",
 } as const;
+
+const bookingStatusLabel = {
+  CONFIRMED: "Confirmed",
+  CANCELLED: "Cancelled",
+  COMPLETED: "Completed",
+  REFUNDED: "Refunded",
+} as const;
+
+/** Plain words for the host: a pending booking is either theirs to approve or the guest's to pay. */
+function statusLabel(booking: { status: keyof typeof bookingStatusVariant; approvalStatus: string }): string {
+  if (booking.status !== "PENDING") return bookingStatusLabel[booking.status];
+  return booking.approvalStatus === "PENDING" ? "Needs your reply" : "Awaiting payment";
+}
 
 // A listing can accumulate dozens of confirmed future bookings; dumping
 // every one inline turns the dashboard into an unreadable wall of rows, so
@@ -68,6 +82,11 @@ export function HostListingRow({
       checkOut: Date;
       guests: number;
       totalPriceCents: number;
+      serviceFeeCents: number;
+      taxCents: number;
+      creditAppliedCents: number;
+      promoDiscountCents: number;
+      approvalStatus: string;
       status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "REFUNDED";
       paymentStatus: "UNPAID" | "PAID" | "PARTIALLY_REFUNDED" | "REFUNDED";
       refundedAmountCents: number | null;
@@ -121,7 +140,7 @@ export function HostListingRow({
                 {listing.city}, {listing.country} · {formatPrice(listing.pricePerNightCents)}/night
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+            <div className="-ml-2 flex flex-wrap items-center gap-1 sm:ml-0 sm:shrink-0">
               <Link
                 href={`/host/listings/${listing.id}/calendar`}
                 className="focus-ring flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-stone-700 hover:bg-surface-muted"
@@ -198,9 +217,12 @@ export function HostListingRow({
                       <span>
                         {formatStayDate(booking.checkIn)} –{" "}
                         {formatStayDate(booking.checkOut)} · {booking.guests} guest
-                        {booking.guests > 1 ? "s" : ""} · {formatPrice(booking.totalPriceCents)}
+                        {booking.guests > 1 ? "s" : ""}
+                        {!isCancelled && (
+                          <> · you earn {formatPrice(hostPayoutCents(booking))}</>
+                        )}
                       </span>
-                      <Badge variant={bookingStatusVariant[booking.status]}>{booking.status}</Badge>
+                      <Badge variant={bookingStatusVariant[booking.status]}>{statusLabel(booking)}</Badge>
                       {approvedRequest && <Badge variant="warning">Modified</Badge>}
                     </div>
 
@@ -219,8 +241,9 @@ export function HostListingRow({
                       <p className="text-xs text-stone-500">
                         {paymentStatusLabel[booking.paymentStatus]}
                         {booking.refundedAmountCents
-                          ? ` · ${formatPrice(booking.refundedAmountCents)} refunded`
+                          ? ` · ${formatPrice(booking.refundedAmountCents)} refunded to the guest`
                           : ""}
+                        {` · you keep ${formatPrice(hostRevenueCents(booking))}`}
                       </p>
                     )}
                   </li>

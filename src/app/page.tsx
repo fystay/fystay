@@ -12,6 +12,7 @@ import {
   Star,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { bookableHostWhere } from "@/lib/stripeConnect";
 import { auth } from "@/auth";
 import { SearchBar } from "@/components/SearchBar";
 import { HeroBanner } from "@/components/HeroBanner";
@@ -88,7 +89,7 @@ async function PopularStaysSection() {
   const [session, listings] = await Promise.all([
     auth(),
     prisma.listing.findMany({
-      where: { published: true, suspendedAt: null },
+      where: { published: true, suspendedAt: null, ...bookableHostWhere() },
       select: {
         id: true,
         title: true,
@@ -428,7 +429,7 @@ function PopularStaysSkeleton() {
  * this is the one place on the page that needs exactly that number.
  */
 async function LiveStayCount() {
-  const count = await prisma.listing.count({ where: { published: true } });
+  const count = await prisma.listing.count({ where: { published: true, suspendedAt: null, ...bookableHostWhere() } });
   if (count === 0) return null;
 
   return (

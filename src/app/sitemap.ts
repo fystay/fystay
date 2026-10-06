@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
+import { bookableHostWhere } from "@/lib/stripeConnect";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_URL } from "@/lib/seo";
 
@@ -34,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // request.
   const listings = await prisma.listing
     .findMany({
-      where: { published: true, suspendedAt: null },
+      where: { published: true, suspendedAt: null, ...bookableHostWhere() },
       select: { id: true, updatedAt: true },
     })
     .catch(() => []);

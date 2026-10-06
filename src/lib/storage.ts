@@ -5,6 +5,9 @@ import { assertNoProductionDatabaseOutsideProduction } from "@/lib/databaseIdent
 const LISTING_PHOTOS_BUCKET = "listing-photos";
 const AVATARS_BUCKET = "avatars";
 
+/** What the person sees when storage refuses a file - the storage error itself goes to the server log, not the page. */
+export const UPLOAD_FAILED_MESSAGE = "We couldn't upload that photo. Please try again in a moment.";
+
 function getStorageClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -40,7 +43,8 @@ export async function uploadListingPhoto(
     .upload(path, file, { contentType: file.type, upsert: false });
 
   if (error) {
-    return { error: error.message };
+    console.error("Listing photo upload failed", { error: error.message });
+    return { error: UPLOAD_FAILED_MESSAGE };
   }
 
   const { data } = client.storage.from(LISTING_PHOTOS_BUCKET).getPublicUrl(path);
@@ -73,7 +77,8 @@ export async function uploadUserAvatar(
     .upload(path, file, { contentType: file.type, upsert: false });
 
   if (error) {
-    return { error: error.message };
+    console.error("Profile photo upload failed", { error: error.message });
+    return { error: UPLOAD_FAILED_MESSAGE };
   }
 
   const { data } = client.storage.from(AVATARS_BUCKET).getPublicUrl(path);

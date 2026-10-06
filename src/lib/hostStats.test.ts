@@ -9,9 +9,12 @@ import {
 } from "./hostStats";
 
 function booking(overrides: Partial<Parameters<typeof hostRevenueCents>[0]> = {}) {
+  // Two nights at £50 plus £20 cleaning (£120 for the host) and a £12 service fee.
   return {
-    nightlyPriceCents: 10000,
-    cleaningFeeCents: 2000,
+    serviceFeeCents: 1200,
+    taxCents: 0,
+    creditAppliedCents: 0,
+    promoDiscountCents: 0,
     totalPriceCents: 13200,
     refundedAmountCents: null,
     paymentStatus: "PAID" as const,
@@ -25,8 +28,19 @@ describe("hostRevenueCents", () => {
   });
 
   it("excludes the guest service fee from a fully paid, unrefunded booking", () => {
-    // nightly 10000 + cleaning 2000 = 12000 host revenue, service fee (1200) excluded
+    // 13200 paid - 1200 service fee = 12000, every night plus cleaning
     expect(hostRevenueCents(booking())).toBe(12000);
+  });
+
+  it("counts every night of the stay, not just one", () => {
+    // 7 nights at £100 less a £70 weekly discount, £20 cleaning, £65 service fee
+    expect(hostRevenueCents(booking({ totalPriceCents: 71500, serviceFeeCents: 6500 }))).toBe(65000);
+  });
+
+  it("isn't reduced by a promo code or referral credit - FYStay absorbs those out of its fee", () => {
+    expect(
+      hostRevenueCents(booking({ totalPriceCents: 12700, creditAppliedCents: 300, promoDiscountCents: 200 })),
+    ).toBe(12000);
   });
 
   it("reduces revenue proportionally for a partial refund", () => {

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
-import { connectFlagsFromV2Account, hostConnectAccountParams, isConnectReady } from "./stripeConnect";
+import { bookableHostWhere, connectFlagsFromV2Account, hostConnectAccountParams, isConnectReady } from "./stripeConnect";
 
 type Status = "active" | "pending" | "restricted" | "unsupported";
 
@@ -63,5 +63,21 @@ describe("hostConnectAccountParams", () => {
     expect(params.defaults?.responsibilities).toEqual({ fees_collector: "application", losses_collector: "application" });
     expect(params.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.requested).toBe(true);
     expect(params.configuration?.merchant).toBeUndefined();
+  });
+});
+
+describe("bookableHostWhere", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("shows guests only listings whose host can be paid once Stripe is live", () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
+    expect(bookableHostWhere()).toEqual({
+      host: { stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true },
+    });
+  });
+
+  it("filters nothing without a Stripe key, where bookings confirm without payment", () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "");
+    expect(bookableHostWhere()).toEqual({});
   });
 });

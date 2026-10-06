@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { bookableHostWhere } from "@/lib/stripeConnect";
 import { liveSpotlightWhere, SPOTLIGHT_SLOTS } from "@/lib/listingPromotions";
 import { averageRating } from "@/lib/reviews";
 import { SpotlightShowcase, type SpotlightSlide } from "@/components/SpotlightShowcase";
@@ -29,7 +30,7 @@ export async function SpotlightStays() {
     // the row is simply left out and the error reported.
     prisma.listingPromotion
       .findMany({
-        where: liveSpotlightWhere(now),
+        where: { ...liveSpotlightWhere(now), AND: [{ listing: bookableHostWhere() }] },
         orderBy: { startsAt: "asc" },
         distinct: ["listingId"],
         take: SPOTLIGHT_SLOTS,
