@@ -36,8 +36,7 @@ remaining item.
   (`20261005120000_add_listing_promotions`, `20261005140000_add_listing_deals`,
   `20261005180000_add_listing_promotion_stats`). Until they're applied, the live
   homepage shows no stays (Spotlight, Last Minute Deals and Explore are empty).
-  Run #15 was cancelled during the move; **run #16 (commit `7f41a73`) is
-  waiting for the owner's approval**.
+  Applied on 6 Oct by run #17 (see the connection audit below).
 
 ## Connection audit after the move (6 Oct evening)
 
@@ -45,11 +44,12 @@ remaining item.
   110 end-to-end on a production build, GitHub CI on `fystay/fystay`).
 - **Preview database:** all 47 migrations; every one of the 550 columns the
   code expects is present, none extra.
-- **Production database:** short exactly the 26 columns of the three
-  pending migrations, nothing else. 0 listings, 1 user, **no admin yet**.
-  Run #16 still "waiting" when last checked; if approval doesn't take,
-  re-check Settings → Environments → production → Required reviewers
-  (the repo now belongs to an organisation).
+- **Production database: up to date.** Run #17 (commit `e6e3ef5`, 6 Oct
+  19:53 UTC) applied the three pending migrations; all 550 columns present,
+  drift check "No drift: production matches schema.prisma". 0 listings,
+  1 user, **no admin yet**. (Run #16 couldn't be approved from the GitHub
+  phone app; the owner turned Required reviewers off on the `Production`
+  environment to release it. **Check it has been turned back on.**)
 - **Security:** every public table has row-level security with no policies
   (deny-all over Supabase's REST API; the app connects as the database
   owner), storage buckets identical in both projects. Only advisor warning:
