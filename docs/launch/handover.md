@@ -48,8 +48,10 @@ remaining item.
   19:53 UTC) applied the three pending migrations; all 550 columns present,
   drift check "No drift: production matches schema.prisma". 0 listings,
   1 user, **no admin yet**. (Run #16 couldn't be approved from the GitHub
-  phone app; the owner turned Required reviewers off on the `Production`
-  environment to release it. **Check it has been turned back on.**)
+  phone app: the required reviewer was still the old `mosssirisom` account
+  while the owner now signs in as `fystay`. Reviewer re-set to `fystay` the
+  same evening.) Approvals come from the owner's `fystay` account; Claude's
+  GitHub connection acts as `mosssirisom` and can't approve deployments.
 - **Security:** every public table has row-level security with no policies
   (deny-all over Supabase's REST API; the app connects as the database
   owner), storage buckets identical in both projects. Only advisor warning:
