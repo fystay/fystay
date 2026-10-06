@@ -8,6 +8,7 @@ import { activePriceDrop, hasLastMinuteDeal, possibleDealWhere } from "@/lib/dea
 import { todayStayDate } from "@/lib/stayDates";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { ListingCard } from "@/components/ListingCard";
+import { HomeSectionEmpty } from "@/components/HomeSectionEmpty";
 
 const MAX_DEALS = 12;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -17,15 +18,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * src/lib/deals.ts) - a last-minute deal with at least one night still free
  * inside its window, or a live price drop - biggest saving first. A
  * last-minute deal with nothing left to book in its window isn't a deal
- * anyone can take, so it doesn't count. Renders nothing when there are no
- * deals, and leaves itself out rather than failing the page on an error.
+ * anyone can take, so it doesn't count. With no deals (or on an error,
+ * which never fails the page), the heading still shows, with a note in
+ * place of the stays.
  */
 export async function LastMinuteDeals() {
   const now = new Date();
   const today = todayStayDate(now);
 
   const [session, listings] = await Promise.all([
-    auth(),
+    auth().catch(() => null),
     prisma.listing
       .findMany({
         where: { published: true, suspendedAt: null, ...bookableHostWhere(), ...possibleDealWhere(now) },
@@ -79,7 +81,16 @@ export async function LastMinuteDeals() {
     .sort((a, b) => b.saving - a.saving)
     .slice(0, MAX_DEALS);
 
-  if (deals.length === 0) return null;
+  if (deals.length === 0) {
+    return (
+      <LastMinuteDealsSection>
+        <HomeSectionEmpty
+          message="No last-minute deals today. Deals from local hosts show here as soon as they're added."
+          link={{ href: "/search", label: "Browse all stays" }}
+        />
+      </LastMinuteDealsSection>
+    );
+  }
 
   const savedListingIds = session?.user
     ? new Set(
@@ -87,20 +98,13 @@ export async function LastMinuteDeals() {
           await prisma.savedListing.findMany({
             where: { userId: session.user.id, listingId: { in: deals.map((d) => d.card.id) } },
             select: { listingId: true },
-          })
+          }).catch(() => [])
         ).map((saved) => saved.listingId),
       )
     : new Set<string>();
 
   return (
-    <section className="mt-10 sm:mt-14" aria-labelledby="last-minute-deals-heading">
-      <div className="mb-5 sm:mb-6">
-        <h2 id="last-minute-deals-heading" className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
-          <BadgePercent className="h-5 w-5 text-brand-600" aria-hidden />
-          Last Minute Deals
-        </h2>
-        <p className="mt-1 text-sm text-stone-500">Stays coming up soon for less, plus genuine price drops from local hosts.</p>
-      </div>
+    <LastMinuteDealsSection>
       <LargeCardRail label="Last Minute Deals">
         {deals.map(({ card }) => (
           <ListingCard
@@ -113,6 +117,21 @@ export async function LastMinuteDeals() {
           />
         ))}
       </LargeCardRail>
+    </LastMinuteDealsSection>
+  );
+}
+
+function LastMinuteDealsSection({ children }: { children: React.ReactNode }) {
+  return (
+    <section className="mt-10 sm:mt-14" aria-labelledby="last-minute-deals-heading">
+      <div className="mb-5 sm:mb-6">
+        <h2 id="last-minute-deals-heading" className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
+          <BadgePercent className="h-5 w-5 text-brand-600" aria-hidden />
+          Last Minute Deals
+        </h2>
+        <p className="mt-1 text-sm text-stone-500">Stays coming up soon for less, plus genuine price drops from local hosts.</p>
+      </div>
+      {children}
     </section>
   );
 }

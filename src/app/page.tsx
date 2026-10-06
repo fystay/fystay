@@ -32,7 +32,9 @@ import { SpotlightStays } from "@/components/SpotlightStays";
 import { LastMinuteDeals } from "@/components/LastMinuteDeals";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
+import { HomeSectionEmpty } from "@/components/HomeSectionEmpty";
 import { cn } from "@/lib/cn";
+import * as Sentry from "@sentry/nextjs";
 
 // The four reasons to trust a booking, shown directly under the hero search
 // so they're read in the same glance as it. Each is already true site-wide:
@@ -84,10 +86,14 @@ export const metadata: Metadata = {
  * shows, and has a "See all" link to the same filter on /search.
  * The selected filter is the homepage's ?stays= value (see PopularStays),
  * so coming Back from the results page shows the filter the guest left on.
+ *
+ * The heading always renders: with no stays (or none readable - a database
+ * outage or one not yet migrated) a note takes the row's place, so only
+ * the stays themselves are ever missing from the page.
  */
 async function PopularStaysSection() {
   const [session, listings] = await Promise.all([
-    auth(),
+    auth().catch(() => null),
     prisma.listing.findMany({
       where: { published: true, suspendedAt: null, ...bookableHostWhere() },
       select: {
@@ -112,9 +118,27 @@ async function PopularStaysSection() {
         priceDroppedAt: true,
         reviews: { where: { status: "PUBLISHED" }, select: { rating: true } },
       },
+    }).catch((error: unknown) => {
+      console.error("Couldn't load the homepage's stays", error);
+      Sentry.captureException(error);
+      return null;
     }),
   ]);
-  if (listings.length < 2) return null;
+  if (!listings || listings.length === 0) {
+    return (
+      <section className="mt-10 sm:mt-14">
+        <SectionHeader title="Explore the Fylde Coast" subtitle="Stays from local hosts, from Fleetwood to Lytham." />
+        <HomeSectionEmpty
+          message={
+            listings
+              ? "New stays from local hosts are being added. Search to see what's available for your dates."
+              : "Stays couldn't be loaded just now. Please try again in a moment."
+          }
+          link={{ href: "/search", label: "Search stays" }}
+        />
+      </section>
+    );
+  }
 
   const ranked = rankByPopularity(listings);
   const filters = buildExploreFilters(ranked);
@@ -125,10 +149,12 @@ async function PopularStaysSection() {
 
   const savedListingIds = session?.user
     ? (
-        await prisma.savedListing.findMany({
-          where: { userId: session.user.id, listingId: { in: [...shownIds] } },
-          select: { listingId: true },
-        })
+        await prisma.savedListing
+          .findMany({
+            where: { userId: session.user.id, listingId: { in: [...shownIds] } },
+            select: { listingId: true },
+          })
+          .catch(() => [])
       ).map((saved) => saved.listingId)
     : [];
 
@@ -136,7 +162,7 @@ async function PopularStaysSection() {
     <section className="mt-10 sm:mt-14">
       <PopularStays
         title="Explore the Fylde Coast"
-        subtitle={`${listings.length} stays from local hosts. Narrow it down by the kind of stay or by town.`}
+        subtitle={`${listings.length} stay${listings.length === 1 ? "" : "s"} from local hosts. Narrow it down by the kind of stay or by town.`}
         listings={shown}
         filters={filters}
         savedListingIds={savedListingIds}
@@ -147,7 +173,13 @@ async function PopularStaysSection() {
 }
 
 export default async function Home() {
-  const travelOfferings = await getActiveOfferings();
+  // Partner offerings are an optional extra on this row: if they can't be
+  // read, the row shows FYStay's own services and the page still renders.
+  const travelOfferings = await getActiveOfferings().catch((error: unknown) => {
+    console.error("Couldn't load travel offerings", error);
+    Sentry.captureException(error);
+    return [];
+  });
 
   // WebSite + SearchAction tells Google this site has an internal search it
   // can offer directly in results (a "sitelinks search box"), targeting the
@@ -429,7 +461,9 @@ function PopularStaysSkeleton() {
  * this is the one place on the page that needs exactly that number.
  */
 async function LiveStayCount() {
-  const count = await prisma.listing.count({ where: { published: true, suspendedAt: null, ...bookableHostWhere() } });
+  const count = await prisma.listing
+    .count({ where: { published: true, suspendedAt: null, ...bookableHostWhere() } })
+    .catch(() => 0);
   if (count === 0) return null;
 
   return (
