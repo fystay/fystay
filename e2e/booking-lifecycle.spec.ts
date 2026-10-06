@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { generateBookingReference } from "../src/lib/bookingReference";
 
 // What happens to reservations that never become stays, and to cancelled
@@ -13,6 +14,10 @@ try {
 }
 
 const prisma = new PrismaClient();
+// Its own guest, not the shared guest@fystay.dev: the abandoned-checkout test
+// changes the guest's credit balance, which a booking test running alongside
+// would otherwise pick up at checkout.
+const GUEST_PASSWORD = "lifecycleguest123";
 
 function addDays(days: number): Date {
   const d = new Date();
@@ -33,12 +38,23 @@ test.describe("booking lifecycle", () => {
   let listingId: string;
   let listingTitle: string;
   let guestId: string;
+  let guestEmail: string;
 
   test.beforeAll(async () => {
     const host = await prisma.user.findUniqueOrThrow({ where: { email: "host@fystay.dev" } });
-    const guest = await prisma.user.findUniqueOrThrow({ where: { email: "guest@fystay.dev" } });
+    const suffix = generateBookingReference().toLowerCase();
+    guestEmail = `e2e-lifecycle-guest-${suffix}@fystay.dev`;
+    const guest = await prisma.user.create({
+      data: {
+        email: guestEmail,
+        name: "Lifecycle Guest",
+        passwordHash: await bcrypt.hash(GUEST_PASSWORD, 10),
+        role: "GUEST",
+        referralCode: `LIFE${suffix}`,
+      },
+    });
     guestId = guest.id;
-    listingTitle = `E2E fixture: lifecycle listing ${generateBookingReference()}`;
+    listingTitle = `E2E fixture: lifecycle listing ${suffix}`;
     const listing = await prisma.listing.create({
       data: {
         title: listingTitle,
@@ -57,8 +73,11 @@ test.describe("booking lifecycle", () => {
   });
 
   test.afterAll(async () => {
-    await prisma.booking.deleteMany({ where: { listingId } });
-    await prisma.listing.delete({ where: { id: listingId } });
+    if (listingId) {
+      await prisma.booking.deleteMany({ where: { listingId } });
+      await prisma.listing.delete({ where: { id: listingId } });
+    }
+    if (guestEmail) await prisma.user.deleteMany({ where: { email: guestEmail } });
     await prisma.$disconnect();
   });
 
@@ -86,7 +105,7 @@ test.describe("booking lifecycle", () => {
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
     await prisma.$executeRaw`UPDATE "Booking" SET "createdAt" = ${twoHoursAgo}, "updatedAt" = ${twoHoursAgo} WHERE id = ${abandoned.id}`;
 
-    await login(page, "guest@fystay.dev", "guestpass123");
+    await login(page, guestEmail, GUEST_PASSWORD);
     await page.goto("/bookings");
     await expect(page.getByRole("heading", { name: "My trips" })).toBeVisible();
     await expect(page.getByText(abandoned.reference)).toHaveCount(0);
@@ -108,7 +127,6 @@ test.describe("booking lifecycle", () => {
       new RegExp(`/listings/${listingId}\\?checkIn=`),
     );
 
-    await prisma.user.update({ where: { id: guestId }, data: { creditBalanceCents: before.creditBalanceCents } });
   });
 
   test("an unpaid booking's confirmation page sends the guest to pay, not to a payment that never happened", async ({
@@ -131,7 +149,7 @@ test.describe("booking lifecycle", () => {
       },
     });
 
-    await login(page, "guest@fystay.dev", "guestpass123");
+    await login(page, guestEmail, GUEST_PASSWORD);
     await page.goto(`/bookings/${pending.id}/confirmation`);
     await expect(page).toHaveURL(new RegExp(`/checkout/${pending.id}$`));
     await expect(page.getByRole("heading", { name: "Confirm and pay" })).toBeVisible();
@@ -164,7 +182,7 @@ test.describe("booking lifecycle", () => {
       },
     });
 
-    await login(page, "guest@fystay.dev", "guestpass123");
+    await login(page, guestEmail, GUEST_PASSWORD);
     await page.goto(`/bookings/${cancelled.id}`);
     await expect(page.getByText("This booking was cancelled")).toBeVisible();
     await expect(page.getByText(/£110 of the £220 you paid was refunded to your original payment method/)).toBeVisible();
