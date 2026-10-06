@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
 import { cn } from "@/lib/cn";
 import { useNavTone } from "@/components/NavTone";
-import { PRIMARY_NAV_LINKS } from "@/lib/primaryNav";
 
 type Props = {
   name: string;
@@ -91,22 +90,9 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
           </Badge>
         </div>
 
-        {/* The four sections and About - lg:hidden because DesktopNavLinks
-            already renders these in the navbar itself from lg: up. Below
-            lg, this was this site's *only* route to Destinations for a
-            signed-in guest too - nothing else on a phone links to it. */}
-        <div className="border-b border-border-subtle py-1 lg:hidden">
-          {PRIMARY_NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="block rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-surface-muted"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
+        {/* Account actions only: the four sections are the tab row under
+            the header on every page (see SectionPillsBar), so they aren't
+            repeated here. */}
 
         <div className="flex flex-col py-1">
           {role === "HOST" && (

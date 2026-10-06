@@ -61,6 +61,25 @@ test("on phones the sections sit under the header as four equal tabs", async ({ 
   }
 });
 
+test("on phones the tabs are on every page, and the account menu holds only account actions", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/about");
+  // Outside the four sections: the same tabs, none selected.
+  await expect(sectionNav(page).getByRole("link")).toHaveText(["Stays", "Explore", "Travel", "Services"]);
+  await expect(sectionNav(page).locator("[aria-current]")).toHaveCount(0);
+
+  const menuButton = page.getByRole("button", { name: "Account menu" });
+  const menu = page.locator("#guest-menu-panel");
+  await expect(async () => {
+    await menuButton.click();
+    await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
+  await expect(menu.getByRole("link", { name: "Log in" })).toBeVisible();
+  for (const label of ["Stays", "Explore", "Travel", "Services", "About"]) {
+    await expect(menu.getByRole("link", { name: label, exact: true })).toHaveCount(0);
+  }
+});
+
 test("selecting a pill does not change the size of the row (no layout shift)", async ({ page }) => {
   await page.goto("/search");
   const widths = async () =>

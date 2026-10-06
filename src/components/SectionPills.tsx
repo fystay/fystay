@@ -170,14 +170,13 @@ export function SectionPills({ variant, className }: { variant: Variant; classNa
 }
 
 /**
- * The header's tab row below lg, on the homepage and each section's own
- * pages (from lg the same navigation sits inline in the header - see
- * Navbar). Renders nothing outside the four sections.
+ * The header's tab row below lg, on every page (from lg the same
+ * navigation sits inline in the header - see Navbar). Outside the four
+ * sections (account, trips, legal...) it shows with none selected, so a
+ * phone always has the same way round the site - the account menu only
+ * holds account actions.
  */
 export function SectionPillsBar() {
-  const pathname = usePathname();
-  if (!activeSiteSection(pathname)) return null;
-
   return (
     <div className="mx-auto w-full max-w-6xl px-3 sm:px-6 lg:hidden">
       <SectionPills variant="tabs" className="sm:max-w-md" />

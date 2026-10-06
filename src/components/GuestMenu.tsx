@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CircleUserRound, Home, Menu } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { PRIMARY_NAV_LINKS } from "@/lib/primaryNav";
 import { useNavTone } from "@/components/NavTone";
 
 /**
@@ -105,25 +104,9 @@ export function GuestMenu() {
           aria-hidden
         />
         <div className="max-h-[70vh] overflow-y-auto p-1.5">
-          {/* The four sections and About - lg:hidden because DesktopNavLinks
-              already renders these in the navbar itself from lg: up.
-              Below lg, this was this site's *only* route to Destinations -
-              nothing else on a phone links to it at all, not even the
-              footer - so a mobile visitor genuinely could not reach that
-              page before this existed. */}
-          <div className="lg:hidden">
-            {PRIMARY_NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-stone-700 hover:bg-brand-50"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="my-1 border-t border-border-subtle" />
-          </div>
+          {/* Account actions only: the four sections are the tab row under the
+              header on every page (see SectionPillsBar), so they aren't
+              repeated here. */}
           <Link
             href={authHref("/register")}
             onClick={goToAuth("/register")}
