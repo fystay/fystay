@@ -10,11 +10,9 @@ the tests still to run.
 **Production now (6 October 2026):** commit `e665a30`, `fystay.vercel.app`.
 Newer fixes are on Preview only until a fresh Production build.
 
-**Production database:** three migrations pending
-(`20261005120000_add_listing_promotions`, `20261005140000_add_listing_deals`,
-`20261005180000_add_listing_promotion_stats`). Workflow run #15 (commit
-`0d35420`) is waiting for approval. Until it runs, the live homepage shows no
-stays.
+**Production database:** up to date (all 49 migrations, applied by workflow
+run #17 on 6 Oct, no drift; rechecked 6 Oct 20:00 UTC). 0 listings, 0 bookings,
+no admin yet.
 
 Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-setup.md) ·
 [launch runbook](launch-runbook.md) ·
