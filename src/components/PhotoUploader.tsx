@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
+import { PHOTO_TOO_LARGE_MESSAGE, preparePhotoForUpload } from "@/lib/photoUpload";
 
 export function PhotoUploader({
   photos,
@@ -34,20 +35,24 @@ export function PhotoUploader({
     setUploading(true);
     const uploaded: string[] = [];
 
-    for (const file of Array.from(fileList)) {
-      const formData = new FormData();
-      formData.append("file", file);
-
+    for (const original of Array.from(fileList)) {
       try {
+        const file = await preparePhotoForUpload(original);
+        const formData = new FormData();
+        formData.append("file", file);
         const res = await fetch("/api/uploads", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok) {
-          toast.error(data.error ?? `Couldn't upload ${file.name}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.url) {
+          toast.error(data.error ?? `We couldn't upload ${original.name}. Please try again.`);
           continue;
         }
         uploaded.push(data.url);
-      } catch {
-        toast.error(`Couldn't upload ${file.name}`);
+      } catch (error) {
+        toast.error(
+          error instanceof Error && error.message === PHOTO_TOO_LARGE_MESSAGE
+            ? `${original.name}: ${PHOTO_TOO_LARGE_MESSAGE}`
+            : `We couldn't upload ${original.name}. Please try again.`,
+        );
       }
     }
 

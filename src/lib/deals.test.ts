@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { computeBookingPricing } from "./pricing";
 import {
+  dealNightlyPriceCents,
   activePriceDrop,
   daysUntilStay,
   lastMinuteDiscountFor,
@@ -96,5 +98,23 @@ describe("listingDeal", () => {
 
   it("is null for a listing with no deal", () => {
     expect(listingDeal(none, now)).toBeNull();
+  });
+});
+
+describe("dealNightlyPriceCents", () => {
+  it("shows pence when the deal lands on them, and whole pounds when it doesn't", () => {
+    expect(dealNightlyPriceCents(4200, 15)).toBe(3570); // £42 at 15% off = £35.70
+    expect(dealNightlyPriceCents(5000, 10)).toBe(4500); // £50 at 10% off = £45
+  });
+
+  it("matches what checkout charges for one night, for every price and deal size", () => {
+    for (let price = 1000; price <= 60000; price += 137) {
+      for (let percent = 5; percent <= 50; percent++) {
+        const checkout = computeBookingPricing({ nights: 1, pricePerNightCents: price, lastMinuteDiscountPercent: percent });
+        expect(dealNightlyPriceCents(price, percent)).toBe(
+          checkout.nightlySubtotalCents - checkout.lengthOfStayDiscountCents,
+        );
+      }
+    }
   });
 });

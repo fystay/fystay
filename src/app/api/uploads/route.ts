@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { uploadListingPhoto } from "@/lib/storage";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { MAX_UPLOAD_BYTES, PHOTO_TOO_LARGE_MESSAGE } from "@/lib/photoUpload";
 
-const MAX_SIZE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 export async function POST(request: Request) {
@@ -30,12 +30,12 @@ export async function POST(request: Request) {
   }
   if (!ALLOWED_TYPES.has(file.type)) {
     return NextResponse.json(
-      { error: "Photos must be JPEG, PNG, WebP, or GIF" },
+      { error: "Photos must be JPG, PNG, WebP or GIF files." },
       { status: 400 },
     );
   }
-  if (file.size > MAX_SIZE_BYTES) {
-    return NextResponse.json({ error: "Photos must be under 8MB" }, { status: 400 });
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ error: PHOTO_TOO_LARGE_MESSAGE }, { status: 400 });
   }
 
   const result = await uploadListingPhoto(file, session.user.id);

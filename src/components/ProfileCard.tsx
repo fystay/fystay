@@ -9,8 +9,8 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldError, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { PHOTO_TOO_LARGE_MESSAGE, preparePhotoForUpload } from "@/lib/photoUpload";
 
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 /**
  * Name and photo - the two profile details with no verification story of
@@ -65,19 +65,22 @@ export function ProfileCard({
     e.target.value = "";
     if (!file) return;
 
-    if (file.size > MAX_AVATAR_BYTES) {
-      toast.error("Photos must be under 5MB");
-      return;
-    }
-
     setUploadingAvatar(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch("/api/account/avatar", { method: "POST", body: formData });
-    const data = await res.json();
+    let data: { error?: string } = {};
+    let ok = false;
+    try {
+      const prepared = await preparePhotoForUpload(file);
+      const formData = new FormData();
+      formData.append("file", prepared);
+      const res = await fetch("/api/account/avatar", { method: "POST", body: formData });
+      data = await res.json().catch(() => ({}));
+      ok = res.ok;
+    } catch (error) {
+      data = { error: error instanceof Error && error.message === PHOTO_TOO_LARGE_MESSAGE ? error.message : undefined };
+    }
     setUploadingAvatar(false);
-    if (!res.ok) {
-      toast.error(data.error ?? "Couldn't upload that photo.");
+    if (!ok) {
+      toast.error(data.error ?? "We couldn't upload that photo. Please try again.");
       return;
     }
     toast.success("Photo updated");
@@ -101,7 +104,7 @@ export function ProfileCard({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/jpeg,image/png,image/webp"
             onChange={handleAvatarChange}
             aria-label="Profile photo"
             className="sr-only"

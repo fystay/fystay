@@ -3,12 +3,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadUserAvatar } from "@/lib/storage";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { MAX_UPLOAD_BYTES, PHOTO_TOO_LARGE_MESSAGE } from "@/lib/photoUpload";
 
 // Matches the "avatars" Supabase bucket's own configured limit/allow-list
 // exactly (see storage.ts) - rejecting here first gives a real error
 // message instead of a generic 502 once the upload itself is rejected.
-const MAX_SIZE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+// The avatars bucket itself only accepts these three.
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /**
  * Any signed-in role (unlike /api/uploads, which is host-only for listing
@@ -35,10 +36,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
   if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json({ error: "Photos must be JPEG, PNG, WebP, or GIF" }, { status: 400 });
+    return NextResponse.json({ error: "Photos must be JPG, PNG or WebP files." }, { status: 400 });
   }
-  if (file.size > MAX_SIZE_BYTES) {
-    return NextResponse.json({ error: "Photos must be under 5MB" }, { status: 400 });
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ error: PHOTO_TOO_LARGE_MESSAGE }, { status: 400 });
   }
 
   const result = await uploadUserAvatar(file, session.user.id);

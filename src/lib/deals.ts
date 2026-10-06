@@ -118,6 +118,16 @@ export function possibleDealWhere(now: Date = new Date()): Prisma.ListingWhereIn
   };
 }
 
+/**
+ * The nightly rate shown on a card for a last-minute deal: the full rate
+ * less the deal, rounded to the penny exactly as checkout rounds a one-night
+ * stay (computeBookingPricing), so the card never promises a price checkout
+ * won't charge.
+ */
+export function dealNightlyPriceCents(pricePerNightCents: number, percentOff: number): number {
+  return pricePerNightCents - Math.round((pricePerNightCents * percentOff) / 100);
+}
+
 export type ListingDeal =
   | { kind: "last_minute"; percentOff: number; windowDays: number }
   | { kind: "price_drop"; percentOff: number; fromCents: number };

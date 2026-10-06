@@ -16,7 +16,7 @@ import { EntryLocationMeta } from "@/components/EntryLocationMeta";
 import { CrossfadeImages } from "@/components/CrossfadeImages";
 import { useAutoRotate } from "@/hooks/useAutoRotate";
 import { LARGE_CARD_IMAGE_CLASS } from "@/components/LargeCard";
-import { lastMinuteDiscountFor, listingDeal } from "@/lib/deals";
+import { dealNightlyPriceCents, lastMinuteDiscountFor, listingDeal } from "@/lib/deals";
 import { parseStayDate } from "@/lib/stayDates";
 
 export type ListingCardData = {
@@ -198,7 +198,7 @@ export function ListingCard({
       : null;
   const shownNightlyCents =
     lastMinutePercent !== null
-      ? listing.pricePerNightCents - Math.round((listing.pricePerNightCents * lastMinutePercent) / 100)
+      ? dealNightlyPriceCents(listing.pricePerNightCents, lastMinutePercent)
       : listing.pricePerNightCents;
   const struckNightlyCents =
     deal?.kind === "price_drop" ? deal.fromCents : lastMinutePercent !== null ? listing.pricePerNightCents : null;
