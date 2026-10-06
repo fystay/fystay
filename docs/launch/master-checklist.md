@@ -3,24 +3,21 @@
 **The single remaining-work list.** Update this file instead of re-auditing.
 When an item is done, move it to COMPLETE with the commit or date.
 
-Last full audit: 1 October 2026.
+Last full audit: 6 October 2026 (Stage 3 launch audit). **Start with
+[handover.md](handover.md)**: current state, launch blockers in order, and
+the tests still to run.
 
-**Production now (2 October 2026):** commit `b225c38`, deployment
-`dpl_AKEpMP9VuEpTJo9dzv7xZtZRSVBa`, `fystay.vercel.app`. Fresh Production
-build. Post-deploy checks passed:
-- pages 200;
-- no `//` in robots.txt, the sitemap or canonical URLs;
-- password reset returns no link;
-- cron rejects a spoofed header and a wrong secret;
-- Stripe unconfigured;
-- `/admin/listings` live (login-gated);
-- no runtime errors.
+**Production now (6 October 2026):** commit `e665a30`, `fystay.vercel.app`.
+Newer fixes are on Preview only until a fresh Production build.
 
-Production database migrations are current (latest
-`20261001160000_normalize_stay_dates_to_utc_midnight`, applied 1 October;
-none added since).
+**Production database:** three migrations pending
+(`20261005120000_add_listing_promotions`, `20261005140000_add_listing_deals`,
+`20261005180000_add_listing_promotion_stats`). Workflow run #15 (commit
+`0d35420`) is waiting for approval. Until it runs, the live homepage shows no
+stays.
 
-Related: [launch runbook](launch-runbook.md) ·
+Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-setup.md) ·
+[launch runbook](launch-runbook.md) ·
 [environment variables](environment-variables.md) ·
 [legal drafts](legal-drafts.md)
 
@@ -66,7 +63,7 @@ and deployed (see COMPLETE).
 | Item | Notes |
 |---|---|
 | The Stripe architecture decision | Destination charges and the 10% guest fee are unchanged; direct charges and Managed Risk remain parked. |
-| Live `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET` | Production has no Stripe variables, so checkout correctly says payments are unavailable. |
+| Live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET` (no publishable key needed) | Production has no Stripe variables, so checkout correctly says payments are unavailable. Exact steps: [stripe-and-email-setup.md](stripe-and-email-setup.md). |
 | Live webhook endpoints (`/api/webhooks/stripe` for account and Connect events) | Register on the final domain. |
 | A live end-to-end test booking and refund with a real card | Repeat the sandbox test plan in Production. |
 | Hosts onboard Stripe Connect | Paid bookings are refused until the host's account can receive payouts. |
