@@ -11,7 +11,17 @@ remaining item.
   get confirmation, manage, cancel and review. Hosts can list, connect payouts
   (Stripe Connect), receive bookings, see earnings and manage calendars.
   Admins have `/admin`. The homepage design is **frozen**.
-- **Code:** repo `mosssirisom/fystay`, branch `claude/airbnb-competitor-1fjjpk`.
+- **New homes (moved 6 Oct evening):** GitHub repo `fystay/fystay`
+  (transferred, so Actions secrets, the `production` approval environment and
+  run history came with it); Supabase organisation "FYStay" (same two project
+  IDs below, so database addresses are unchanged); Vercel team `fystay1`,
+  project `fystay` (`prj_p09hGcqAc1k06y3c0lCFS60sQUcZ`). That Vercel project
+  was **created new** on 6 Oct, not transferred: every environment variable
+  has to be re-entered there by the owner (list:
+  [environment-variables.md](environment-variables.md)), it has to be linked
+  to `fystay/fystay`, and the `fystay.vercel.app` address stays with the old
+  project until that one is deleted or the domain is moved.
+- **Code:** repo `fystay/fystay`, branch `claude/airbnb-competitor-1fjjpk`.
   The latest commit passes all tests (1,102 unit, 110 end-to-end on a
   production build, typecheck, lint, GitHub CI).
 - **Preview** (Vercel preview deployments): its own Supabase project
@@ -26,12 +36,12 @@ remaining item.
   (`20261005120000_add_listing_promotions`, `20261005140000_add_listing_deals`,
   `20261005180000_add_listing_promotion_stats`). Until they're applied, the live
   homepage shows no stays (Spotlight, Last Minute Deals and Explore are empty).
-  The approved workflow run **#15 (commit `0d35420`) was waiting for the owner's
-  approval** when this was written.
+  Run #15 was cancelled during the move; **run #16 (commit `7f41a73`) is
+  waiting for the owner's approval**.
 
 ## Step 1: finish the database update and check the live site
 
-1. **Owner:** GitHub → Actions → "Production database migration" → run #15
+1. **Owner:** GitHub → Actions → "Production database migration" → run #16
    → Review deployments → approve. If it was cancelled, start a new run from
    branch `claude/airbnb-competitor-1fjjpk` with the newest full commit SHA,
    `drift_check: report`. Runbook: `docs/production-database-migrations.md`.
