@@ -12,6 +12,11 @@ export const MAX_CITY_SECTIONS = 2;
 export const POPULAR_STAYS_LIMIT = 12;
 export const MAX_POPULAR_TOWN_FILTERS = 6;
 const RECENT_WINDOW_DAYS = 30;
+/** Bedrooms that make a stay family-sized - the same bar as /search?minBedrooms=2. */
+export const FAMILY_MIN_BEDROOMS = 2;
+/** "Top rated" needs a high average from more than one or two stays, so a single 5-star review can't earn it. */
+export const TOP_RATED_MIN_AVERAGE = 4.5;
+export const TOP_RATED_MIN_REVIEWS = 3;
 
 export type MarketplaceListing = {
   id: string;
@@ -119,4 +124,21 @@ export function rankByPopularity<T extends MarketplaceListing & { reviews: { rat
       b.reviews.length - a.reviews.length ||
       b.createdAt.getTime() - a.createdAt.getTime(),
   );
+}
+
+export function isFamilySized(listing: { bedrooms: number }): boolean {
+  return listing.bedrooms >= FAMILY_MIN_BEDROOMS;
+}
+
+/** A host-set weekly or monthly discount - what the card's "x% off weekly/monthly" badge shows. */
+export function hasLongStayDiscount(listing: {
+  weeklyDiscountPercent: number | null;
+  monthlyDiscountPercent: number | null;
+}): boolean {
+  return (listing.weeklyDiscountPercent ?? 0) > 0 || (listing.monthlyDiscountPercent ?? 0) > 0;
+}
+
+export function isTopRated(reviews: { rating: number }[]): boolean {
+  if (reviews.length < TOP_RATED_MIN_REVIEWS) return false;
+  return reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length >= TOP_RATED_MIN_AVERAGE;
 }

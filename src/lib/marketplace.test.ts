@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   beachStaysSection,
   groupByCity,
+  hasLongStayDiscount,
   isBeachStay,
+  isFamilySized,
+  isTopRated,
   rankByPopularity,
   recentlyAddedSection,
   type MarketplaceListing,
@@ -139,5 +142,41 @@ describe("rankByPopularity", () => {
     const input = [rated("a", []), rated("b", [5])];
     rankByPopularity(input);
     expect(input.map((l) => l.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("isFamilySized", () => {
+  it("needs two or more bedrooms", () => {
+    expect(isFamilySized({ bedrooms: 1 })).toBe(false);
+    expect(isFamilySized({ bedrooms: 2 })).toBe(true);
+    expect(isFamilySized({ bedrooms: 4 })).toBe(true);
+  });
+});
+
+describe("hasLongStayDiscount", () => {
+  it("is true for a weekly or a monthly discount", () => {
+    expect(hasLongStayDiscount({ weeklyDiscountPercent: 10, monthlyDiscountPercent: null })).toBe(true);
+    expect(hasLongStayDiscount({ weeklyDiscountPercent: null, monthlyDiscountPercent: 20 })).toBe(true);
+  });
+
+  it("is false with no discount, or a zero one", () => {
+    expect(hasLongStayDiscount({ weeklyDiscountPercent: null, monthlyDiscountPercent: null })).toBe(false);
+    expect(hasLongStayDiscount({ weeklyDiscountPercent: 0, monthlyDiscountPercent: 0 })).toBe(false);
+  });
+});
+
+describe("isTopRated", () => {
+  const ratings = (...values: number[]) => values.map((rating) => ({ rating }));
+
+  it("needs at least three reviews, so one or two 5-star reviews aren't enough", () => {
+    expect(isTopRated([])).toBe(false);
+    expect(isTopRated(ratings(5))).toBe(false);
+    expect(isTopRated(ratings(5, 5))).toBe(false);
+    expect(isTopRated(ratings(5, 5, 5))).toBe(true);
+  });
+
+  it("needs an average of 4.5 or more", () => {
+    expect(isTopRated(ratings(5, 4, 5, 4))).toBe(true);
+    expect(isTopRated(ratings(5, 4, 4, 4))).toBe(false);
   });
 });

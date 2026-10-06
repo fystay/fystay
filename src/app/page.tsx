@@ -22,14 +22,17 @@ import { buttonVariants } from "@/components/ui/Button";
 import { LargeCard } from "@/components/LargeCard";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { FYSTAY_SERVICES } from "@/lib/services";
-import { TripTypeCategories } from "@/components/TripTypeCategories";
 import { TravelAddonCard } from "@/components/TravelAddonsSection";
 import { PopularStays, type PopularStaysFilter } from "@/components/PopularStays";
 import { Reveal } from "@/components/Reveal";
 import {
   beachStaysSection,
   groupByCity,
+  hasLongStayDiscount,
+  isFamilySized,
+  isTopRated,
   MAX_POPULAR_TOWN_FILTERS,
+  MIN_LISTINGS_PER_SECTION,
   POPULAR_STAYS_LIMIT,
   rankByPopularity,
 } from "@/lib/marketplace";
@@ -111,10 +114,13 @@ export const metadata: Metadata = {
 
 /**
  * The homepage's one browse row of stays (see PopularStays): the most
- * popular published stays, with a filter for each town that has enough
- * stays to make one (the busiest MAX_POPULAR_TOWN_FILTERS) and one for sea
- * views. A search instead takes the visitor to the dedicated /search
- * results page, so there's no "active search" state to reconcile here.
+ * popular published stays, narrowed by the kind of stay first (top rated,
+ * family-sized, long-stay discounts, sea views), then by town (the busiest
+ * MAX_POPULAR_TOWN_FILTERS). Each filter appears only once enough stays
+ * genuinely match it, and matches only what the card itself shows (its
+ * rating, bedrooms or "x% off weekly" badge). A search instead takes the
+ * visitor to the dedicated /search results page, so there's no "active
+ * search" state to reconcile here.
  */
 async function PopularStaysSection() {
   const [session, listings] = await Promise.all([
@@ -149,15 +155,21 @@ async function PopularStaysSection() {
 
   const ranked = rankByPopularity(listings);
   const top = (subset: typeof ranked) => subset.slice(0, POPULAR_STAYS_LIMIT).map((listing) => listing.id);
+  const kind = (key: string, label: string, matches: typeof ranked): PopularStaysFilter[] =>
+    matches.length >= MIN_LISTINGS_PER_SECTION ? [{ key, label, group: "kind", listingIds: top(matches) }] : [];
   const seaViews = beachStaysSection(ranked);
   const filters: PopularStaysFilter[] = [
-    { key: "all", label: "All", listingIds: top(ranked) },
+    { key: "all", label: "All", group: "kind", listingIds: top(ranked) },
+    ...kind("top-rated", "Top rated", ranked.filter((listing) => isTopRated(listing.reviews))),
+    ...kind("families", "Families", ranked.filter(isFamilySized)),
+    ...kind("long-stay", "Long-stay discounts", ranked.filter(hasLongStayDiscount)),
+    ...kind("sea-views", "Sea views", seaViews?.listings ?? []),
     ...groupByCity(ranked, { maxSections: MAX_POPULAR_TOWN_FILTERS }).map((town) => ({
       key: town.key,
       label: town.listings[0].city,
+      group: "town" as const,
       listingIds: top(town.listings),
     })),
-    ...(seaViews ? [{ key: seaViews.key, label: "Sea views", listingIds: top(seaViews.listings) }] : []),
   ];
 
   // Each stay is sent to the browser once; the filters refer to it by id.
@@ -177,7 +189,7 @@ async function PopularStaysSection() {
     <section className="mt-10 sm:mt-14">
       <SectionHeader
         title="Explore the Fylde Coast"
-        subtitle={`${listings.length} local stays from Fleetwood to Lytham - pick a town to narrow it down.`}
+        subtitle={`${listings.length} local stays from Fleetwood to Lytham - narrow it down by town or the kind of stay you're after.`}
         link={{ href: "/search", label: "See all stays" }}
       />
       <PopularStays
@@ -343,26 +355,18 @@ export default async function Home() {
         </Suspense>
 
         {/* Genuine last-minute deals and price drops (see LastMinuteDeals) -
-            renders nothing on a day with no deals; the town rows further
-            down still list every stay. */}
+            renders nothing on a day with no deals; the browse row below
+            still lists every stay. */}
         <Suspense fallback={null}>
           <LastMinuteDeals />
         </Suspense>
 
-        {/* The homepage's browse row of stays, with a filter for each town
-            (see PopularStaysSection). The towns themselves have their own
-            Discover section (/destinations), so they aren't repeated here. */}
+        {/* The homepage's browse row of stays, filtered by kind of stay or
+            by town (see PopularStaysSection). The towns themselves have their
+            own Discover section (/destinations), so they aren't repeated here. */}
         <Suspense fallback={null}>
           <PopularStaysSection />
         </Suspense>
-
-        <section className="mt-10 sm:mt-14">
-          <SectionHeader
-            title="Find your perfect stay"
-            subtitle="Browse by what you're after, not just where you're going."
-          />
-          <TripTypeCategories />
-        </section>
 
         {/* Getting here, and everything else FYStay offers, as one row:
             first the services FYStay offers through independent partners

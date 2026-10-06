@@ -12,10 +12,27 @@ try {
 
 const prisma = new PrismaClient();
 
+test.afterAll(async () => {
+  await prisma.$disconnect();
+});
+
 // The homepage's Explore the Fylde Coast row of stays and its filter
-// buttons (one per town with enough stays, plus Sea views).
-const townButton = (page: Page, name: string) =>
-  page.getByRole("group", { name: "Show stays in" }).getByRole("button", { name, exact: true });
+// buttons: the kind of stay (Top rated, Families, Long-stay discounts, Sea
+// views), then one per town with enough stays.
+const filterButton = (page: Page, name: string) =>
+  page.getByRole("group", { name: "Filter stays" }).getByRole("button", { name, exact: true });
+const townButton = filterButton;
+
+const exploreRow = (page: Page) =>
+  page.locator("section", { has: page.getByRole("heading", { name: "Explore the Fylde Coast" }) });
+
+/** The ids of the stays the row is showing right now. */
+async function shownListingIds(page: Page): Promise<string[]> {
+  const hrefs = await exploreRow(page)
+    .locator("a[href^='/listings/']:visible")
+    .evaluateAll((links) => links.map((link) => link.getAttribute("href")!));
+  return [...new Set(hrefs.map((href) => href.split("/")[2].split(/[?#]/)[0]))];
+}
 
 test("Explore the Fylde Coast offers a town or sea-views filter only once real data supports it", async ({ page }) => {
   const host = await prisma.user.findUniqueOrThrow({ where: { email: "host@fystay.dev" } });
@@ -109,18 +126,51 @@ test("Explore the Fylde Coast offers a town or sea-views filter only once real d
       await expect(townButton(page, "Sea views")).toBeVisible();
       await townButton(page, fixtureCity).click();
       await expect(townButton(page, fixtureCity)).toHaveAttribute("aria-pressed", "true");
-      const row = page.locator("section", { has: page.getByRole("heading", { name: "Explore the Fylde Coast" }) });
+      const row = exploreRow(page);
       await expect(row.getByText("E2E fixture: second stay, same fixture city").first()).toBeVisible();
 
       // The dedicated results page never renders this browse row at all;
       // it's only for the homepage.
       await page.goto(`/search?city=${encodeURIComponent(fixtureCity)}`);
-      await expect(page.getByRole("group", { name: "Show stays in" })).toHaveCount(0);
+      await expect(page.getByRole("group", { name: "Filter stays" })).toHaveCount(0);
     } finally {
       await prisma.listing.deleteMany({ where: { id: { in: [second.id, ...extras.map((e) => e.id)] } } });
     }
   } finally {
     await prisma.listing.delete({ where: { id: first.id } });
-    await prisma.$disconnect();
   }
+});
+
+test("the kind-of-stay filters show only stays that really match, and come before the towns", async ({ page }) => {
+  // The demo seed has plenty of family-sized stays and a few with weekly or
+  // monthly discounts.
+  await page.goto("/");
+  const labels = await page.getByRole("group", { name: "Filter stays" }).getByRole("button").allTextContents();
+  expect(labels[0]).toBe("All");
+  expect(labels.indexOf("Families")).toBeGreaterThan(0);
+  expect(labels.indexOf("Long-stay discounts")).toBeGreaterThan(0);
+  expect(labels.indexOf("Families")).toBeLessThan(labels.indexOf("Blackpool"));
+
+  await filterButton(page, "Families").click();
+  await expect(filterButton(page, "Families")).toHaveAttribute("aria-pressed", "true");
+  const families = await shownListingIds(page);
+  expect(families.length).toBeGreaterThan(1);
+  const familyStays = await prisma.listing.findMany({ where: { id: { in: families } }, select: { bedrooms: true } });
+  expect(familyStays.every((listing) => listing.bedrooms >= 2)).toBe(true);
+  // :visible - the row also renders a hidden sizing copy of its first card.
+  await expect(exploreRow(page).locator("p:visible", { hasText: /\b\d+ bedrooms\b/ }).first()).toBeVisible();
+
+  await filterButton(page, "Long-stay discounts").click();
+  const discounted = await shownListingIds(page);
+  expect(discounted.length).toBeGreaterThan(1);
+  const discountedStays = await prisma.listing.findMany({
+    where: { id: { in: discounted } },
+    select: { weeklyDiscountPercent: true, monthlyDiscountPercent: true },
+  });
+  expect(
+    discountedStays.every((listing) => (listing.weeklyDiscountPercent ?? 0) > 0 || (listing.monthlyDiscountPercent ?? 0) > 0),
+  ).toBe(true);
+
+  // The old "Find your perfect stay" tiles are gone; this row replaces them.
+  await expect(page.getByRole("heading", { name: "Find your perfect stay" })).toHaveCount(0);
 });
