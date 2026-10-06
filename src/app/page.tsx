@@ -19,8 +19,7 @@ import { auth } from "@/auth";
 import { SearchBar } from "@/components/SearchBar";
 import { HeroBanner } from "@/components/HeroBanner";
 import { buttonVariants } from "@/components/ui/Button";
-import { ExploreDestinations } from "@/components/ExploreDestinations";
-import { LargeCard, LargeCardRailSkeleton } from "@/components/LargeCard";
+import { LargeCard } from "@/components/LargeCard";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { FYSTAY_SERVICES } from "@/lib/services";
 import { TripTypeCategories } from "@/components/TripTypeCategories";
@@ -177,8 +176,8 @@ async function PopularStaysSection() {
   return (
     <section className="mt-10 sm:mt-14">
       <SectionHeader
-        title="Popular stays"
-        subtitle={`${listings.length} local stays across the Fylde Coast.`}
+        title="Explore the Fylde Coast"
+        subtitle={`${listings.length} local stays from Fleetwood to Lytham - pick a town to narrow it down.`}
         link={{ href: "/search", label: "See all stays" }}
       />
       <PopularStays
@@ -350,19 +349,9 @@ export default async function Home() {
           <LastMinuteDeals />
         </Suspense>
 
-        {/* Each town links to its own /destinations/[slug] landing page (see
-            lib/destinations.ts). */}
-        <Reveal className="mt-10 sm:mt-14">
-          <SectionHeader
-            title="Explore the Fylde Coast"
-            subtitle="Six towns we actually know, each with real local stays and its own Local Guide."
-            link={{ href: "/destinations", label: "All towns" }}
-          />
-          <Suspense fallback={<LargeCardRailSkeleton />}>
-            <ExploreDestinations variant="large" />
-          </Suspense>
-        </Reveal>
-
+        {/* The homepage's browse row of stays, with a filter for each town
+            (see PopularStaysSection). The towns themselves have their own
+            Discover section (/destinations), so they aren't repeated here. */}
         <Suspense fallback={null}>
           <PopularStaysSection />
         </Suspense>

@@ -1,6 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
+import { PrismaClient } from "@prisma/client";
 
-const RAILS = ["Last Minute Deals", "Explore the Fylde Coast", "More from FYStay"];
+// Playwright's test process doesn't load .env the way `next dev` does; CI
+// sets the variables directly instead.
+try {
+  process.loadEnvFile();
+} catch {
+  // no .env file, so assume the environment already has DATABASE_URL set
+}
+
+const RAILS = ["Last Minute Deals", "More from FYStay"];
 
 function rail(page: Page, label: string) {
   // The carousel itself - a homepage row's <section> can share its name.
@@ -38,32 +47,61 @@ test.describe("phone", () => {
 
   test("a rail scrolls sideways and its cards open their pages", async ({ page }) => {
     await page.goto("/");
-    const explore = rail(page, "Explore the Fylde Coast");
-    const scroller = explore.locator("ul");
+    const deals = rail(page, "Last Minute Deals");
+    await deals.scrollIntoViewIfNeeded();
+    const scroller = deals.locator("ul");
     await scroller.evaluate((el) => el.scrollBy({ left: el.clientWidth, behavior: "instant" }));
     await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
 
     await scroller.evaluate((el) => el.scrollTo({ left: 0, behavior: "instant" }));
-    await explore.getByRole("link").first().click();
-    await expect(page).toHaveURL(/\/destinations\/[a-z-]+$/);
+    // :visible - the rail also renders a hidden sizing copy of its first card.
+    await deals.locator("a[href^='/listings/']:visible").first().click();
+    await expect(page).toHaveURL(/\/listings\/[^/]+$/);
   });
 });
 
 test("desktop shows about three cards, with arrows to move along", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/");
-  // Explore always has six towns, so unlike Services (three cards, which
-  // all fit at this size) it always has somewhere to scroll to.
-  const explore = rail(page, "Explore the Fylde Coast");
-  await explore.scrollIntoViewIfNeeded();
-  const [first] = await slotBoxes(page, "Explore the Fylde Coast");
-  const railWidth = await explore.locator("ul").evaluate((el) => el.clientWidth);
-  expect(railWidth / first.width).toBeGreaterThan(3);
-  expect(railWidth / first.width).toBeLessThan(3.7);
+  // Three cards fit at this size, so the row needs more than that to have
+  // somewhere to scroll to: two extra (small, so last-sorted) deals of its own.
+  const prisma = new PrismaClient();
+  const host = await prisma.user.findUniqueOrThrow({ where: { email: "host@fystay.dev" } });
+  const extras = await Promise.all(
+    [1, 2].map((n) =>
+      prisma.listing.create({
+        data: {
+          title: `E2E fixture: rail deal ${n} ${Date.now()}`,
+          description: "Temporary listing created for this test.",
+          city: "Blackpool",
+          country: "England",
+          pricePerNightCents: 9000,
+          maxGuests: 2,
+          photos: [],
+          amenities: ["Wifi"],
+          hostId: host.id,
+          lastMinuteDiscountPercent: 5,
+          lastMinuteWindowDays: 14,
+        },
+      }),
+    ),
+  );
 
-  const next = explore.getByRole("button", { name: "Next" });
-  await expect(next).toBeVisible();
-  await next.click();
-  await expect.poll(() => explore.locator("ul").evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
-  await expect(explore.getByRole("button", { name: "Previous" })).toBeVisible();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    const deals = rail(page, "Last Minute Deals");
+    await deals.scrollIntoViewIfNeeded();
+    const [first] = await slotBoxes(page, "Last Minute Deals");
+    const railWidth = await deals.locator("ul").evaluate((el) => el.clientWidth);
+    expect(railWidth / first.width).toBeGreaterThan(3);
+    expect(railWidth / first.width).toBeLessThan(3.7);
+
+    const next = deals.getByRole("button", { name: "Next" });
+    await expect(next).toBeVisible();
+    await next.click();
+    await expect.poll(() => deals.locator("ul").evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+    await expect(deals.getByRole("button", { name: "Previous" })).toBeVisible();
+  } finally {
+    await prisma.listing.deleteMany({ where: { id: { in: extras.map((listing) => listing.id) } } });
+    await prisma.$disconnect();
+  }
 });

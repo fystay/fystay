@@ -12,12 +12,12 @@ try {
 
 const prisma = new PrismaClient();
 
-// The homepage's Popular stays row and its filter buttons (one per town
-// with enough stays, plus Sea views).
+// The homepage's Explore the Fylde Coast row of stays and its filter
+// buttons (one per town with enough stays, plus Sea views).
 const townButton = (page: Page, name: string) =>
-  page.getByRole("group", { name: "Show popular stays in" }).getByRole("button", { name, exact: true });
+  page.getByRole("group", { name: "Show stays in" }).getByRole("button", { name, exact: true });
 
-test("Popular stays offers a town or sea-views filter only once real data supports it", async ({ page }) => {
+test("Explore the Fylde Coast offers a town or sea-views filter only once real data supports it", async ({ page }) => {
   const host = await prisma.user.findUniqueOrThrow({ where: { email: "host@fystay.dev" } });
 
   // A city name unique to this test run, not a real seeded (or otherwise
@@ -51,7 +51,7 @@ test("Popular stays offers a town or sea-views filter only once real data suppor
   try {
     // One listing in a brand-new city isn't enough to offer it as a filter.
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Popular stays" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Explore the Fylde Coast" })).toBeVisible();
     await expect(townButton(page, fixtureCity)).toHaveCount(0);
 
     // A second listing in the same fixture city, with a beach-style
@@ -109,13 +109,13 @@ test("Popular stays offers a town or sea-views filter only once real data suppor
       await expect(townButton(page, "Sea views")).toBeVisible();
       await townButton(page, fixtureCity).click();
       await expect(townButton(page, fixtureCity)).toHaveAttribute("aria-pressed", "true");
-      const row = page.locator("section", { has: page.getByRole("heading", { name: "Popular stays" }) });
+      const row = page.locator("section", { has: page.getByRole("heading", { name: "Explore the Fylde Coast" }) });
       await expect(row.getByText("E2E fixture: second stay, same fixture city").first()).toBeVisible();
 
       // The dedicated results page never renders this browse row at all;
       // it's only for the homepage.
       await page.goto(`/search?city=${encodeURIComponent(fixtureCity)}`);
-      await expect(page.getByRole("group", { name: "Show popular stays in" })).toHaveCount(0);
+      await expect(page.getByRole("group", { name: "Show stays in" })).toHaveCount(0);
     } finally {
       await prisma.listing.deleteMany({ where: { id: { in: [second.id, ...extras.map((e) => e.id)] } } });
     }

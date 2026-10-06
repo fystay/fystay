@@ -6,8 +6,8 @@
  * been supplied a real photo of.
  *
  * `hero` backs the /destinations/[slug] page's full-bleed banner
- * (TownHero); `tile` backs the smaller "Explore the Fylde Coast" homepage
- * card (ExploreDestinations) - deliberately separate fields since a wide
+ * (TownHero); `tile` backs the smaller town card on the /destinations
+ * index - deliberately separate fields since a wide
  * establishing shot that works as a banner can crop badly into a 4:3 tile,
  * and vice versa. Where only one real photo exists for a town, both point
  * at it; that's a placeholder-photo-parity trade-off, not a bug.
