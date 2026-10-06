@@ -283,9 +283,10 @@ test.describe("booking modification and cancellation", () => {
       await hostPage.goto("/host/dashboard");
 
       const listingRow = hostPage.locator(".p-4", { hasText: listing.title });
-      await expect(listingRow.getByText("CANCELLED", { exact: true })).toBeVisible();
+      await expect(listingRow.getByText("Cancelled", { exact: true })).toBeVisible();
       await expect(listingRow.getByText("Fully refunded")).toBeVisible();
-      await expect(listingRow.getByText("£220 refunded")).toBeVisible();
+      await expect(listingRow.getByText("£220 refunded to the guest")).toBeVisible();
+      await expect(listingRow.getByText("you keep £0")).toBeVisible();
     } finally {
       // DB cleanup first and unguarded: it's what actually matters for
       // later tests/retries. hostContext.close() is best-effort after -
