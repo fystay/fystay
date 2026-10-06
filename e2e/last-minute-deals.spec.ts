@@ -40,9 +40,17 @@ test("Last Minute Deals shows a real last-minute deal, and the quoted price incl
   }
   expect(pricing).toMatchObject({ lengthOfStayDiscountLabel: "last_minute", lengthOfStayDiscountPercent: 20 });
 
-  // Outside the window the deal doesn't apply.
-  const later = await (
-    await page.request.get(`/api/listings/${listingId}/availability?checkIn=${isoInDays(60)}&checkOut=${isoInDays(62)}&guests=1`)
-  ).json();
-  expect(later.pricing.lengthOfStayDiscountLabel).toBeNull();
+  // Outside the window the deal doesn't apply - checked on the first two free
+  // nights from day 60 (another spec books random dates on this listing).
+  let laterPricing: { lengthOfStayDiscountLabel: string | null } | null = null;
+  for (let start = 60; start <= 90 && !laterPricing; start += 3) {
+    const quote = await (
+      await page.request.get(
+        `/api/listings/${listingId}/availability?checkIn=${isoInDays(start)}&checkOut=${isoInDays(start + 2)}&guests=1`,
+      )
+    ).json();
+    if (quote.available) laterPricing = quote.pricing;
+  }
+  expect(laterPricing).not.toBeNull();
+  expect(laterPricing!.lengthOfStayDiscountLabel).toBeNull();
 });
