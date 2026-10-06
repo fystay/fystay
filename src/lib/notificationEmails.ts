@@ -1,6 +1,8 @@
 import { getResendClient, EMAIL_FROM } from "@/lib/email";
 import { formatPrice } from "@/lib/format";
 import { SUPPORT_EMAIL } from "@/lib/seo";
+import { BASE_URL } from "@/lib/baseUrl";
+import { escapeHtml, renderEmail, type EmailDetail } from "@/lib/emailLayout";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   weekday: "short",
@@ -37,25 +39,34 @@ export type BookingEmailContext = {
 // reason, a note left for a provider) - the latter is interpolated
 // directly into HTML sent to someone else, so it's escaped here rather
 // than trusted, the same way any other HTML-templating layer would.
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+// (escapeHtml lives in emailLayout.ts, shared with the layout itself.)
 
 function dateRange(checkIn: Date, checkOut: Date): string {
   return `${dateFormatter.format(checkIn)} – ${dateFormatter.format(checkOut)}`;
 }
 
-function stayLine(ctx: BookingEmailContext): string {
-  return `${dateRange(ctx.checkIn, ctx.checkOut)} (${ctx.nights} night${ctx.nights === 1 ? "" : "s"}, ${ctx.guests} guest${ctx.guests === 1 ? "" : "s"})`;
+// Where a host's links go: their dashboard lists every booking and request.
+// (ctx.bookingUrl is the guest's own booking page, which a host can't open.)
+const HOST_DASHBOARD_URL = `${BASE_URL}/host/dashboard`;
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** The stay at a glance, for an email's details table. */
+function stayDetails(ctx: BookingEmailContext, extra: EmailDetail[] = []): EmailDetail[] {
+  return [
+    { label: "Stay", value: ctx.listingTitle },
+    { label: "Check-in", value: dateFormatter.format(ctx.checkIn) },
+    { label: "Check-out", value: `${dateFormatter.format(ctx.checkOut)} (${plural(ctx.nights, "night")})` },
+    { label: "Guests", value: String(ctx.guests) },
+    ...extra,
+    { label: "Booking reference", value: ctx.reference },
+  ];
 }
 
+const greeting = (name: string | null) => `Hi ${escapeHtml(name ?? "there")},`;
+
 /**
- * Sends both sides of a just-confirmed booking - the guest's receipt and
+ * Sends both sides of a just-confirmed booking - the guest's confirmation and
  * the host's new-booking alert - or silently does nothing if Resend isn't
  * configured (e.g. local development), matching every other email send in
  * this app (see src/app/api/auth/forgot-password/route.ts). Failures are
@@ -75,15 +86,16 @@ export async function sendBookingConfirmedEmails(ctx: BookingEmailContext): Prom
         from: EMAIL_FROM,
         to: ctx.guestEmail,
         subject: `Booking confirmed: ${ctx.listingTitle}`,
-        html: `
-          <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-          <p>Your booking is confirmed - see you in ${escapeHtml(ctx.city)}.</p>
-          <p><strong>${escapeHtml(ctx.listingTitle)}</strong><br>
-          ${stayLine(ctx)}<br>
-          Total paid: ${formatPrice(ctx.totalPriceCents)}<br>
-          Booking reference: ${ctx.reference}</p>
-          <p><a href="${ctx.bookingUrl}">View your booking</a></p>
-        `,
+        html: renderEmail({
+          preheader: `${dateRange(ctx.checkIn, ctx.checkOut)} · ${formatPrice(ctx.totalPriceCents)} paid · ${ctx.reference}`,
+          heading: "Your booking is confirmed",
+          intro: `${greeting(ctx.guestName)} your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong> is booked and paid for - see you in ${escapeHtml(ctx.city)}.`,
+          details: stayDetails(ctx, [{ label: "Total paid", value: formatPrice(ctx.totalPriceCents) }]),
+          paragraphs: [
+            `Your booking page has the address and check-in details from ${escapeHtml(ctx.hostName)}, a way to message them, and the cancellation policy for this stay. You'll also get a reminder a few days before you arrive.`,
+          ],
+          cta: { label: "View your booking", url: ctx.bookingUrl },
+        }),
       }),
     );
   }
@@ -93,13 +105,15 @@ export async function sendBookingConfirmedEmails(ctx: BookingEmailContext): Prom
       from: EMAIL_FROM,
       to: ctx.hostEmail,
       subject: `New booking: ${ctx.listingTitle}`,
-      html: `
-        <p>Hi ${escapeHtml(ctx.hostName)},</p>
-        <p>You have a new confirmed booking for <strong>${escapeHtml(ctx.listingTitle)}</strong>.</p>
-        <p>${stayLine(ctx)}<br>
-        Booking reference: ${ctx.reference}</p>
-        <p><a href="${ctx.bookingUrl}">View on your dashboard</a></p>
-      `,
+      html: renderEmail({
+        audience: "host",
+        preheader: `${ctx.guestName ?? "A guest"} · ${dateRange(ctx.checkIn, ctx.checkOut)}`,
+        heading: "You have a new booking",
+        intro: `${greeting(ctx.hostName)} ${escapeHtml(ctx.guestName ?? "A guest")} has booked <strong>${escapeHtml(ctx.listingTitle)}</strong> and paid in full.`,
+        details: stayDetails(ctx),
+        paragraphs: ["Their contact details are on your dashboard, and they can message you through FYStay."],
+        cta: { label: "Open your dashboard", url: HOST_DASHBOARD_URL },
+      }),
     }),
   );
 
@@ -107,7 +121,8 @@ export async function sendBookingConfirmedEmails(ctx: BookingEmailContext): Prom
 }
 
 /**
- * Sends both sides of a just-cancelled booking. refundCents is whatever the
+ * Sends both sides of a just-cancelled booking (by the guest, or by FYStay
+ * support - so neither email says who). refundCents is whatever the
  * cancellation policy actually paid back (see src/lib/cancellationPolicy.ts)
  * - never assumed to be the full amount, and 0 is a valid, expected value
  * for a late cancellation under a strict policy.
@@ -121,8 +136,8 @@ export async function sendBookingCancelledEmails(
 
   const refundLine =
     refundCents > 0
-      ? `A refund of ${formatPrice(refundCents)} is on its way back to your original payment method.`
-      : `Per the cancellation policy for this stay, no refund applies.`;
+      ? `A refund of <strong>${formatPrice(refundCents)}</strong> is on its way to your original payment method. Refunds usually take 5-10 working days to show on your statement.`
+      : "Under this stay's cancellation policy, no refund applies.";
 
   const sends: Promise<unknown>[] = [];
 
@@ -132,15 +147,14 @@ export async function sendBookingCancelledEmails(
         from: EMAIL_FROM,
         to: ctx.guestEmail,
         subject: `Booking cancelled: ${ctx.listingTitle}`,
-        html: `
-          <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-          <p>Your booking has been cancelled.</p>
-          <p><strong>${escapeHtml(ctx.listingTitle)}</strong><br>
-          ${stayLine(ctx)}<br>
-          Booking reference: ${ctx.reference}</p>
-          <p>${refundLine}</p>
-          <p><a href="${ctx.bookingUrl}">View your booking</a></p>
-        `,
+        html: renderEmail({
+          preheader: refundCents > 0 ? `${formatPrice(refundCents)} refund on its way` : `Booking ${ctx.reference} cancelled`,
+          heading: "Your booking is cancelled",
+          intro: `${greeting(ctx.guestName)} your booking at <strong>${escapeHtml(ctx.listingTitle)}</strong> has been cancelled.`,
+          details: stayDetails(ctx, refundCents > 0 ? [{ label: "Refund", value: formatPrice(refundCents) }] : []),
+          paragraphs: [refundLine],
+          cta: { label: "View your booking", url: ctx.bookingUrl },
+        }),
       }),
     );
   }
@@ -150,13 +164,14 @@ export async function sendBookingCancelledEmails(
       from: EMAIL_FROM,
       to: ctx.hostEmail,
       subject: `Booking cancelled: ${ctx.listingTitle}`,
-      html: `
-        <p>Hi ${escapeHtml(ctx.hostName)},</p>
-        <p>A guest has cancelled their booking for <strong>${escapeHtml(ctx.listingTitle)}</strong>, and those dates are open again.</p>
-        <p>${stayLine(ctx)}<br>
-        Booking reference: ${ctx.reference}</p>
-        <p><a href="${ctx.bookingUrl}">View on your dashboard</a></p>
-      `,
+      html: renderEmail({
+        audience: "host",
+        preheader: `${dateRange(ctx.checkIn, ctx.checkOut)} is open again`,
+        heading: "A booking was cancelled",
+        intro: `${greeting(ctx.hostName)} the booking below for <strong>${escapeHtml(ctx.listingTitle)}</strong> has been cancelled, and those dates are open to book again.`,
+        details: stayDetails(ctx),
+        cta: { label: "Open your dashboard", url: HOST_DASHBOARD_URL },
+      }),
     }),
   );
 
@@ -182,14 +197,17 @@ export async function sendBookingRequestReceivedEmail(
     from: EMAIL_FROM,
     to: ctx.hostEmail,
     subject: `Booking request: ${ctx.listingTitle}`,
-    html: `
-      <p>Hi ${escapeHtml(ctx.hostName)},</p>
-      <p>${escapeHtml(ctx.guestName ?? "A guest")} would like to book <strong>${escapeHtml(ctx.listingTitle)}</strong>.</p>
-      <p>${stayLine(ctx)}<br>
-      Total: ${formatPrice(ctx.totalPriceCents)}</p>
-      <p>Please respond within ${hoursToRespond} hours, or the request expires and the guest is notified automatically.</p>
-      <p><a href="${ctx.bookingUrl}">Review this request</a></p>
-    `,
+    html: renderEmail({
+      audience: "host",
+      preheader: `Reply within ${hoursToRespond} hours`,
+      heading: "New booking request",
+      intro: `${greeting(ctx.hostName)} ${escapeHtml(ctx.guestName ?? "A guest")} would like to book <strong>${escapeHtml(ctx.listingTitle)}</strong>.`,
+      details: stayDetails(ctx, [{ label: "Total", value: formatPrice(ctx.totalPriceCents) }]),
+      paragraphs: [
+        `Please accept or decline within ${hoursToRespond} hours. If you don't, the request expires, the dates are released and the guest is told. They're only charged if you accept and they pay.`,
+      ],
+      cta: { label: "Review this request", url: HOST_DASHBOARD_URL },
+    }),
   });
 }
 
@@ -213,25 +231,34 @@ export async function sendBookingRequestRespondedEmail(
     outcome === "approved"
       ? `Request approved: ${ctx.listingTitle}`
       : `Request not approved: ${ctx.listingTitle}`;
-  const bodyLine =
+  const host = escapeHtml(ctx.hostName);
+  const content =
     outcome === "approved"
-      ? `Great news - ${escapeHtml(ctx.hostName)} approved your request. Complete payment to confirm your stay.`
+      ? {
+          heading: "Your request was approved",
+          intro: `${greeting(ctx.guestName)} good news - ${host} approved your request. Pay now to confirm your stay; the dates are held for you for a short while.`,
+          paragraphs: [`You haven't been charged yet. Your booking is confirmed once payment goes through.`],
+          cta: { label: "Pay and confirm", url: ctx.bookingUrl },
+        }
       : outcome === "declined"
-        ? `${escapeHtml(ctx.hostName)} wasn't able to accept your request for these dates.`
-        : `${escapeHtml(ctx.hostName)} didn't respond in time, so this request has expired. Any credit you applied has been returned to your account.`;
-  const linkLabel = outcome === "approved" ? "Complete your booking" : "View details";
+        ? {
+            heading: "Your request wasn't accepted",
+            intro: `${greeting(ctx.guestName)} ${host} wasn't able to accept your request for these dates.`,
+            paragraphs: ["You haven't been charged, and any credit you applied is back in your account."],
+            cta: { label: "View details", url: ctx.bookingUrl },
+          }
+        : {
+            heading: "Your request has expired",
+            intro: `${greeting(ctx.guestName)} ${host} didn't reply in time, so this request has expired and the dates have been released.`,
+            paragraphs: ["You haven't been charged, and any credit you applied is back in your account."],
+            cta: { label: "View details", url: ctx.bookingUrl },
+          };
 
   await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject,
-    html: `
-      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>${bodyLine}</p>
-      <p><strong>${escapeHtml(ctx.listingTitle)}</strong><br>
-      ${stayLine(ctx)}</p>
-      <p><a href="${ctx.bookingUrl}">${linkLabel}</a></p>
-    `,
+    html: renderEmail({ preheader: `${ctx.listingTitle} · ${dateRange(ctx.checkIn, ctx.checkOut)}`, details: stayDetails(ctx), ...content }),
   });
 }
 
@@ -251,14 +278,17 @@ export async function sendBookingUnavailableRefundedEmail(
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: `Booking not completed: ${ctx.listingTitle}`,
-    html: `
-      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>Your payment came through after your hold on these dates had expired, and the dates had been booked by someone else in the meantime. We've cancelled this booking and refunded your payment of ${formatPrice(refundCents)} in full. Refunds usually reach your card within 5-10 working days.</p>
-      <p><strong>${escapeHtml(ctx.listingTitle)}</strong><br>
-      ${stayLine(ctx)}<br>
-      Reference: ${escapeHtml(ctx.reference)}</p>
-      <p>Sorry for the inconvenience. If you have any questions, contact us at ${SUPPORT_EMAIL}.</p>
-    `,
+    html: renderEmail({
+      preheader: `${formatPrice(refundCents)} refunded in full`,
+      heading: "We couldn't complete this booking",
+      intro: `${greeting(ctx.guestName)} your payment came through after the hold on these dates had ended, and another guest had booked them in the meantime.`,
+      details: stayDetails(ctx, [{ label: "Refunded", value: formatPrice(refundCents) }]),
+      paragraphs: [
+        `We've cancelled the booking and refunded <strong>${formatPrice(refundCents)}</strong> in full to your original payment method. Refunds usually take 5-10 working days to show on your statement.`,
+        "We're sorry for the trouble - the property's page will show if other dates suit you.",
+      ],
+      cta: { label: "View details", url: ctx.bookingUrl },
+    }),
   });
 }
 
@@ -280,15 +310,16 @@ export async function sendDepositAuthorizationRequestEmail(
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: `Action needed: authorize your security deposit for ${ctx.listingTitle}`,
-    html: `
-      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>Your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong> is coming up. This listing requires a
-      refundable security deposit hold of ${formatPrice(depositCents)} - this places a hold on your
-      card, it does not charge you. It's released automatically after your stay unless the host
-      files a damage claim.</p>
-      <p>${stayLine(ctx)}</p>
-      <p><a href="${authorizeUrl}">Authorize your security deposit</a></p>
-    `,
+    html: renderEmail({
+      preheader: `A ${formatPrice(depositCents)} hold, not a charge`,
+      heading: "Please authorise your security deposit",
+      intro: `${greeting(ctx.guestName)} your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong> is coming up, and it has a refundable security deposit of ${formatPrice(depositCents)}.`,
+      details: stayDetails(ctx, [{ label: "Deposit hold", value: formatPrice(depositCents) }]),
+      paragraphs: [
+        "This places a temporary hold on your card - it doesn't charge you. The hold is released automatically after your stay unless the host reports damage.",
+      ],
+      cta: { label: "Authorise the deposit", url: authorizeUrl },
+    }),
   });
 }
 
@@ -314,26 +345,31 @@ export async function sendArrivalReminderEmail(
   const resend = getResendClient();
   if (!resend || !ctx.guestEmail) return;
 
-  const detailLines = [
-    details.address && `<strong>Address:</strong> ${escapeHtml(details.address)}`,
-    details.checkInTime && `<strong>Check-in:</strong> ${escapeHtml(details.checkInTime)}`,
-    details.checkInInstructions && `<strong>Getting in:</strong> ${escapeHtml(details.checkInInstructions)}`,
-    details.wifiNetwork &&
-      `<strong>Wifi:</strong> ${escapeHtml(details.wifiNetwork)}${details.wifiPassword ? ` / ${escapeHtml(details.wifiPassword)}` : ""}`,
-  ].filter(Boolean);
+  const arrival: EmailDetail[] = [
+    ...(details.address ? [{ label: "Address", value: details.address }] : []),
+    ...(details.checkInTime ? [{ label: "Check-in from", value: details.checkInTime }] : []),
+    ...(details.wifiNetwork
+      ? [{ label: "Wifi", value: `${details.wifiNetwork}${details.wifiPassword ? ` / ${details.wifiPassword}` : ""}` }]
+      : []),
+  ];
 
   await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: `Your stay at ${ctx.listingTitle} is coming up`,
-    html: `
-      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>Just a heads-up that your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong> is coming up.</p>
-      <p>${stayLine(ctx)}<br>
-      Booking reference: ${ctx.reference}</p>
-      ${detailLines.length > 0 ? `<p>${detailLines.join("<br>")}</p>` : ""}
-      <p><a href="${ctx.bookingUrl}">View your booking</a></p>
-    `,
+    html: renderEmail({
+      preheader: `Check-in ${dateFormatter.format(ctx.checkIn)}${details.address ? ` · ${details.address}` : ""}`,
+      heading: "Your stay is coming up",
+      intro: `${greeting(ctx.guestName)} here's everything you need for your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong>.`,
+      details: [...stayDetails(ctx), ...arrival],
+      paragraphs: [
+        ...(details.checkInInstructions
+          ? [`<strong>Getting in:</strong> ${escapeHtml(details.checkInInstructions)}`]
+          : []),
+        `Need anything before you arrive? You can message ${escapeHtml(ctx.hostName)} from your booking page.`,
+      ],
+      cta: { label: "View your booking", url: ctx.bookingUrl },
+    }),
   });
 }
 
@@ -353,14 +389,13 @@ export async function sendReviewRequestEmail(ctx: BookingEmailContext, reviewUrl
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: `How was your stay at ${ctx.listingTitle}?`,
-    html: `
-      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>We hope you had a great time at <strong>${escapeHtml(ctx.listingTitle)}</strong>. Other guests find your
-      review genuinely useful when deciding where to stay - it only takes a minute.</p>
-      <p>${stayLine(ctx)}<br>
-      Booking reference: ${ctx.reference}</p>
-      <p><a href="${reviewUrl}">Leave a review</a></p>
-    `,
+    html: renderEmail({
+      preheader: "It takes a minute and helps the next guest choose",
+      heading: "How was your stay?",
+      intro: `${greeting(ctx.guestName)} thanks for staying at <strong>${escapeHtml(ctx.listingTitle)}</strong>. A short review helps other guests choose - and only guests who've stayed can leave one.`,
+      details: stayDetails(ctx),
+      cta: { label: "Leave a review", url: reviewUrl },
+    }),
   });
 }
 
@@ -384,16 +419,16 @@ export async function sendTransferUpsellEmail(
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: "One less thing to arrange",
-    html: `
-      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>Your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong> is booked. If you're flying in, why not
-      arrange your airport transfer at the same time?</p>
-      <p>${escapeHtml(transfer.providerName)} provides premium Tesla transfers directly to your accommodation,
-      from ${formatPrice(transfer.priceCents)}.</p>
-      <p>${stayLine(ctx)}<br>
-      Booking reference: ${ctx.reference}</p>
-      <p><a href="${transfer.transferUrl}">Arrange my transfer</a></p>
-    `,
+    html: renderEmail({
+      preheader: `${transfer.providerName} airport transfers from ${formatPrice(transfer.priceCents)}`,
+      heading: "Flying in? Your transfer can be sorted too",
+      intro: `${greeting(ctx.guestName)} your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong> is booked. If you're arriving by air, you can add an airport transfer to the same booking.`,
+      details: stayDetails(ctx, [{ label: "Transfer", value: `From ${formatPrice(transfer.priceCents)}` }]),
+      paragraphs: [
+        `${escapeHtml(transfer.providerName)}, a FYStay service partner, drives you door to door in a fully electric Tesla. You pay through FYStay - no separate account - and they contact you to confirm pickup times.`,
+      ],
+      cta: { label: "Add a transfer", url: transfer.transferUrl },
+    }),
   });
 }
 
@@ -416,22 +451,32 @@ export async function sendDepositResolvedEmail(
     outcome.outcome === "released"
       ? `Your security deposit has been released: ${ctx.listingTitle}`
       : `Your security deposit was claimed: ${ctx.listingTitle}`;
-  const bodyLine =
-    outcome.outcome === "released"
-      ? `Your ${formatPrice(outcome.depositCents)} security deposit hold has been released in full - nothing was claimed.`
-      : `${escapeHtml(ctx.hostName)} claimed ${formatPrice(outcome.capturedCents)} of your ${formatPrice(outcome.depositCents)} security deposit. Reason given: "${escapeHtml(outcome.reason)}"`;
 
   await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject,
-    html: `
-      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>${bodyLine}</p>
-      <p><strong>${escapeHtml(ctx.listingTitle)}</strong><br>
-      ${stayLine(ctx)}</p>
-      <p><a href="${ctx.bookingUrl}">View your booking</a></p>
-    `,
+    html: renderEmail(
+      outcome.outcome === "released"
+        ? {
+            preheader: "Nothing was claimed",
+            heading: "Your deposit has been released",
+            intro: `${greeting(ctx.guestName)} your ${formatPrice(outcome.depositCents)} security deposit hold has been released in full - nothing was claimed.`,
+            details: stayDetails(ctx),
+            paragraphs: ["Your bank may take a few days to remove the hold from your statement."],
+            cta: { label: "View your booking", url: ctx.bookingUrl },
+          }
+        : {
+            preheader: `${formatPrice(outcome.capturedCents)} claimed from your deposit`,
+            heading: "Part of your deposit was claimed",
+            intro: `${greeting(ctx.guestName)} ${escapeHtml(ctx.hostName)} claimed ${formatPrice(outcome.capturedCents)} of your ${formatPrice(outcome.depositCents)} security deposit. The reason they gave: "${escapeHtml(outcome.reason)}"`,
+            details: stayDetails(ctx, [{ label: "Claimed", value: formatPrice(outcome.capturedCents) }]),
+            paragraphs: [
+              `If you think this is wrong, write to ${SUPPORT_EMAIL} with your booking reference and we'll look into it.`,
+            ],
+            cta: { label: "View your booking", url: ctx.bookingUrl },
+          },
+    ),
   });
 }
 
@@ -469,16 +514,22 @@ export async function sendTripExtraProviderEmail(ctx: TripExtraEmailContext): Pr
     from: EMAIL_FROM,
     to: ctx.providerEmail,
     subject: `New booking request: ${ctx.offeringName}`,
-    html: `
-      <p>Hi ${escapeHtml(ctx.providerName)},</p>
-      <p>FYStay has a new paid booking request for <strong>${escapeHtml(ctx.offeringName)}</strong>
-      (${formatPrice(ctx.priceCents)}, already paid).</p>
-      <p><strong>Guest:</strong> ${escapeHtml(ctx.guestName ?? "Not given")}<br>
-      <strong>Contact:</strong> ${escapeHtml(ctx.guestEmail ?? "Not given")}<br>
-      <strong>Stay:</strong> ${escapeHtml(ctx.listingTitle)}, ${dateRange(ctx.checkIn, ctx.checkOut)}</p>
-      ${ctx.guestNotes ? `<p><strong>Guest notes:</strong> ${escapeHtml(ctx.guestNotes)}</p>` : ""}
-      <p>Please confirm this directly with the guest.</p>
-    `,
+    html: renderEmail({
+      audience: "partner",
+      preheader: `${ctx.guestName ?? "A guest"} · ${dateRange(ctx.checkIn, ctx.checkOut)} · already paid`,
+      heading: `New ${ctx.offeringName} booking`,
+      intro: `Hi ${escapeHtml(ctx.providerName)}, a FYStay guest has booked and paid for <strong>${escapeHtml(ctx.offeringName)}</strong> (${formatPrice(ctx.priceCents)}).`,
+      details: [
+        { label: "Guest", value: ctx.guestName ?? "Not given" },
+        { label: "Contact", value: ctx.guestEmail ?? "Not given" },
+        { label: "Staying at", value: ctx.listingTitle },
+        { label: "Dates", value: dateRange(ctx.checkIn, ctx.checkOut) },
+      ],
+      paragraphs: [
+        ...(ctx.guestNotes ? [`<strong>Guest notes:</strong> ${escapeHtml(ctx.guestNotes)}`] : []),
+        "Please contact the guest directly to confirm the pickup details.",
+      ],
+    }),
   });
 
   return !error && Boolean(data);
@@ -497,14 +548,20 @@ export async function sendTripExtraGuestConfirmationEmail(ctx: TripExtraEmailCon
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: `You're all set: ${ctx.offeringName}`,
-    html: `
-      <p>Hi ${escapeHtml(ctx.guestName ?? "there")},</p>
-      <p>Your <strong>${escapeHtml(ctx.offeringName)}</strong> (${formatPrice(ctx.priceCents)}) is booked and paid for
-      as part of your trip to <strong>${escapeHtml(ctx.listingTitle)}</strong>.</p>
-      <p>${escapeHtml(ctx.providerName)} has been sent your booking request and will be in touch directly to confirm
-      the details with you.</p>
-      <p><a href="${ctx.bookingUrl}">View your booking</a></p>
-    `,
+    html: renderEmail({
+      preheader: `${ctx.providerName} will be in touch to confirm the details`,
+      heading: `Your ${ctx.offeringName} is booked`,
+      intro: `${greeting(ctx.guestName)} your <strong>${escapeHtml(ctx.offeringName)}</strong> is booked and paid for, as part of your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong>.`,
+      details: [
+        { label: "Provided by", value: ctx.providerName },
+        { label: "Your stay", value: dateRange(ctx.checkIn, ctx.checkOut) },
+        { label: "Paid", value: formatPrice(ctx.priceCents) },
+      ],
+      paragraphs: [
+        `${escapeHtml(ctx.providerName)} has your booking and will contact you directly to confirm pickup times. It's listed on your FYStay booking too.`,
+      ],
+      cta: { label: "View your booking", url: ctx.bookingUrl },
+    }),
   });
 }
 
@@ -572,13 +629,19 @@ export async function sendListingPromotionConfirmedEmail(ctx: {
     from: EMAIL_FROM,
     to: ctx.hostEmail,
     subject: `Spotlight booked: ${ctx.listingTitle}`,
-    html: `
-      <p>Hi ${escapeHtml(ctx.hostName)},</p>
-      <p>Thanks - <strong>${escapeHtml(ctx.listingTitle)}</strong> is booked into Spotlight stays on the FYStay
-      homepage (${formatPrice(ctx.priceCents)}).</p>
-      <p>${startsNow ? "It's live now" : `It goes live on ${dateFormatter.format(ctx.startsAt)}`} and runs until
-      ${dateFormatter.format(ctx.endsAt)}.</p>
-      <p><a href="${ctx.manageUrl}">See your Spotlight placements</a></p>
-    `,
+    html: renderEmail({
+      audience: "host",
+      preheader: startsNow ? "Live now on the homepage" : `Goes live ${dateFormatter.format(ctx.startsAt)}`,
+      heading: "Your Spotlight placement is booked",
+      intro: `${greeting(ctx.hostName)} thanks - <strong>${escapeHtml(ctx.listingTitle)}</strong> is booked into Spotlight stays on the FYStay homepage.`,
+      details: [
+        { label: "Listing", value: ctx.listingTitle },
+        { label: startsNow ? "Live from" : "Goes live", value: startsNow ? "Now" : dateFormatter.format(ctx.startsAt) },
+        { label: "Runs until", value: dateFormatter.format(ctx.endsAt) },
+        { label: "Paid", value: formatPrice(ctx.priceCents) },
+      ],
+      paragraphs: ["Stripe has sent your payment receipt separately. You can see how often it's seen and clicked on your Spotlight page."],
+      cta: { label: "See your Spotlight placements", url: ctx.manageUrl },
+    }),
   });
 }

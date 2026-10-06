@@ -8,6 +8,7 @@ import { getActiveOfferingByCategory } from "@/lib/travelAddons";
 import { TravelAddonLanding } from "@/components/travel-extras/TravelAddonLanding";
 import { cn } from "@/lib/cn";
 import type { ExtraCategory } from "@prisma/client";
+import { todayStayDate } from "@/lib/stayDates";
 
 const CATEGORIES: ExtraCategory[] = ["AIRPORT_TRANSFER", "ATTRACTION_TICKET", "CAR_HIRE"];
 
@@ -64,10 +65,12 @@ export default async function TravelExtrasPage({
   }
 
   const session = await auth();
+  // The guest's next stay - a transfer for a trip that's already happened
+  // is no use to anyone.
   const eligibleBooking = session?.user
     ? await prisma.booking.findFirst({
-        where: { guestId: session.user.id, status: { in: ["CONFIRMED", "COMPLETED"] } },
-        orderBy: { checkIn: "desc" },
+        where: { guestId: session.user.id, status: "CONFIRMED", checkOut: { gte: todayStayDate() } },
+        orderBy: { checkIn: "asc" },
         select: { id: true },
       })
     : null;

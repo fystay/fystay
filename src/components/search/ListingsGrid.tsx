@@ -32,6 +32,8 @@ import {
 } from "@/lib/listingSearch";
 import { availableAmenityCategories } from "@/lib/amenityCategories";
 import { PROPERTY_TYPES } from "@/lib/propertyType";
+import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
+import { todayStayDate } from "@/lib/stayDates";
 import { Pagination } from "@/components/Pagination";
 
 // The homepage's Explore filters that the filter panel doesn't cover, shown
@@ -160,13 +162,27 @@ export async function ListingsGrid({
   // with a note saying so, rather than filtering results by a broken range.
   const parsedCheckIn = checkInParam ? new Date(checkInParam) : null;
   const parsedCheckOut = checkOutParam ? new Date(checkOutParam) : null;
-  const datesUsable =
+  const datesReadable =
     !!parsedCheckIn &&
     !!parsedCheckOut &&
     !Number.isNaN(parsedCheckIn.getTime()) &&
-    !Number.isNaN(parsedCheckOut.getTime()) &&
-    parsedCheckOut > parsedCheckIn;
-  const invalidDates = Boolean(checkInParam || checkOutParam) && !datesUsable;
+    !Number.isNaN(parsedCheckOut.getTime());
+  const datesInPast = datesReadable && parsedCheckIn! < todayStayDate();
+  const datesUsable = datesReadable && parsedCheckOut! > parsedCheckIn! && !datesInPast;
+  // Say exactly what's wrong with the dates and what to do, rather than
+  // silently pricing (or filtering by) dates nobody can book.
+  const dateProblem: string | null =
+    !(checkInParam || checkOutParam) || datesUsable
+      ? null
+      : checkInParam && !checkOutParam
+        ? "Add a check-out date to see prices for your stay. Showing all stays for now."
+        : !checkInParam && checkOutParam
+          ? "Add a check-in date to see prices for your stay. Showing all stays for now."
+          : !datesReadable
+            ? "We couldn't read those dates - please pick them again. Showing all stays for now."
+            : datesInPast
+              ? "Those dates have passed - pick new ones to see prices. Showing all stays for now."
+              : "Check your dates - check-out needs to be after check-in. Showing all stays for now.";
   const checkIn = datesUsable ? parsedCheckIn : null;
   const checkOut = datesUsable ? parsedCheckOut : null;
   const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : undefined;
@@ -271,9 +287,9 @@ export async function ListingsGrid({
     <div
       className={cn("flex flex-col gap-5", showResultsView && "animate-search-reveal-in")}
     >
-      {invalidDates && (
+      {dateProblem && (
         <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Check your dates - check-out needs to be after check-in. Showing all stays for now.
+          {dateProblem}
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
@@ -305,13 +321,12 @@ export async function ListingsGrid({
       </div>
 
       {results.length === 0 ? (
-        <div className="mt-8 flex flex-col items-center gap-3 text-center">
-          <SearchX className="h-8 w-8 text-stone-300" />
-          <p className="font-medium text-foreground">No stays match your search</p>
-          <p className="max-w-sm text-sm text-stone-500">
-            Try different dates, a wider price range, or fewer filters.
-          </p>
-        </div>
+        <NoResults
+          city={city}
+          guestsNeeded={guestsNeeded}
+          datesFiltered={Boolean(checkIn && checkOut) && listings.length > 0 && dateFiltered.length === 0}
+          searchParams={searchParams}
+        />
       ) : view === "map" ? (
         (() => {
           // Every current town geocodes (see src/lib/geocoding.ts), so this
@@ -361,6 +376,81 @@ export async function ListingsGrid({
           </div>
           <Pagination page={paginated.page} totalPages={paginated.totalPages} />
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Why a search came back empty, and the one most useful thing to try - in
+ * order: a place FYStay doesn't cover, more guests than any stay sleeps,
+ * nothing free on those dates, or (otherwise) the filters.
+ */
+async function NoResults({
+  city,
+  guestsNeeded,
+  datesFiltered,
+  searchParams,
+}: {
+  city: string;
+  guestsNeeded: number;
+  datesFiltered: boolean;
+  searchParams: SearchParams;
+}) {
+  const knownTown = !city || FYLDE_COAST_DESTINATIONS.some(
+    (town) =>
+      town.searchCity.toLowerCase().includes(city.toLowerCase()) ||
+      city.toLowerCase().includes(town.searchCity.toLowerCase()),
+  );
+  const largest = knownTown
+    ? (await prisma.listing.aggregate({ where: { published: true, suspendedAt: null }, _max: { maxGuests: true } }))
+        ._max.maxGuests
+    : null;
+
+  let title = "No stays match your search";
+  let hint: React.ReactNode = "Try removing a filter or widening your price range.";
+  if (!knownTown) {
+    title = `FYStay doesn't cover ${city} yet`;
+    hint = (
+      <>
+        We&apos;re local to the Fylde Coast. Try{" "}
+        {FYLDE_COAST_DESTINATIONS.map((town, i) => (
+          <span key={town.slug}>
+            {i > 0 && (i === FYLDE_COAST_DESTINATIONS.length - 1 ? " or " : ", ")}
+            <Link href={`/search?city=${encodeURIComponent(town.searchCity)}`} className="font-medium text-brand-700 underline underline-offset-2">
+              {town.name}
+            </Link>
+          </span>
+        ))}
+        .
+      </>
+    );
+  } else if (largest !== null && guestsNeeded > largest) {
+    title = `No stays sleep ${guestsNeeded} guests`;
+    hint = `The largest stay on FYStay sleeps ${largest}. You could book two stays nearby instead.`;
+  } else if (datesFiltered) {
+    title = city ? `Nothing in ${city} is free on those dates` : "Nothing is free on those dates";
+    hint = "Try moving your dates by a few days, or search nearby towns.";
+  }
+
+  const filterKeys = ["propertyType", "amenities", "minPrice", "maxPrice", "minBedrooms", "minBathrooms", "minRating", "longStay", "topRated", "page"];
+  const hasFilters = Object.keys(searchParams).some((key) => filterKeys.includes(key) && key !== "page");
+  // Clearing filters keeps where, when and who.
+  const kept = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (!filterKeys.includes(key) && typeof value === "string") kept.set(key, value);
+  }
+  const clearedHref = kept.size > 0 ? `/search?${kept}` : "/search";
+
+  return (
+    <div className="mt-8 flex flex-col items-center gap-3 text-center">
+      <SearchX className="h-8 w-8 text-stone-300" />
+      <p className="font-medium text-foreground">{title}</p>
+      <p className="max-w-md text-sm text-stone-500">{hint}</p>
+      {hasFilters && knownTown && (
+        <Link href={clearedHref} className="mt-1 text-sm font-medium text-brand-700 underline underline-offset-2">
+          Clear all filters
+        </Link>
       )}
     </div>
   );

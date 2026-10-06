@@ -7,6 +7,8 @@ import { buttonVariants } from "@/components/ui/Button";
 import { trackAddonEvent } from "@/lib/analytics";
 import { useViewOnce } from "@/hooks/useViewOnce";
 import { cn } from "@/lib/cn";
+import { formatPrice } from "@/lib/format";
+import { PARTNER_LABEL } from "@/lib/partnerServices";
 import { travelAddonContextSummary, type TravelAddonContext, type TravelAddonOffering } from "@/lib/travelAddons";
 
 const CATEGORY_ICONS: Record<TravelAddonOffering["category"], LucideIcon> = {
@@ -63,7 +65,9 @@ export function TravelAddonLanding({
         </div>
         <div>
           <h1 className="text-2xl font-bold text-foreground">{offering.name}</h1>
-          <p className="text-sm text-stone-500">Provided by {offering.providerName}</p>
+          <p className="text-sm text-stone-500">
+            Provided by {offering.providerName} · {PARTNER_LABEL}
+          </p>
         </div>
       </div>
 
@@ -81,9 +85,7 @@ export function TravelAddonLanding({
         <CardContent className="flex flex-col gap-4 p-6">
           <div className="flex items-baseline justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Price</p>
-            <p className="text-2xl font-bold text-foreground">
-              £{(offering.priceCents / 100).toFixed(2)}
-            </p>
+            <p className="text-2xl font-bold text-foreground">{formatPrice(offering.priceCents)}</p>
           </div>
 
           {offering.features.length > 0 && (
@@ -111,6 +113,30 @@ export function TravelAddonLanding({
           </p>
         </CardContent>
       </Card>
+
+      {/* What actually happens, step by step - so it never feels like being
+          sent off to another company's website to start again. */}
+      <section aria-labelledby="how-it-works" className="mt-8">
+        <h2 id="how-it-works" className="text-lg font-semibold text-foreground">
+          How it works
+        </h2>
+        <ol className="mt-3 flex flex-col gap-3">
+          {[
+            eligibleBookingId
+              ? "Open your upcoming FYStay booking."
+              : "Book your stay on FYStay - you'll need a confirmed booking first.",
+            `Add the ${offering.name.toLowerCase()} from your booking page and pay with your FYStay account - no separate sign-up.`,
+            `${offering.providerName} gets your booking straight away and contacts you directly to confirm the details. It shows on your FYStay booking too.`,
+          ].map((step, i) => (
+            <li key={step} className="flex gap-3 text-sm text-stone-600">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
+                {i + 1}
+              </span>
+              <span className="pt-0.5">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }
