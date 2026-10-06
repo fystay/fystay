@@ -67,7 +67,8 @@ test("guest can leave a review for a completed stay", async ({ page }) => {
     // Scoped to the overall rating: each optional category picker
     // (Cleanliness, Accuracy, ...) has its own identically-labelled radios.
     await page.getByRole("radiogroup", { name: "Overall rating" }).getByRole("radio", { name: "5 stars" }).click();
-    await page.locator("textarea").fill(comment);
+    // The open review window only: each reviewable stay keeps its own (closed) form in the page.
+    await page.getByRole("dialog").getByPlaceholder("How was your stay?").fill(comment);
     await page.getByRole("button", { name: "Submit review" }).click();
 
     await expect(thisBooking.getByText("You reviewed this stay")).toBeVisible();
