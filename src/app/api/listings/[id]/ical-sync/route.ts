@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { syncListingIcalImport } from "@/lib/icalSync";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /** Host-triggered "Sync now" for a listing's configured icalImportUrl - see the nightly cron sweep in /api/cron/sync-ical-imports for the background counterpart. */
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -32,3 +33,5 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     );
   }
 }
+
+export const POST = withApiErrorHandling(postHandler);

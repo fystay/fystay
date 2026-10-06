@@ -3,10 +3,11 @@ import { auth } from "@/auth";
 import { uploadListingPhoto } from "@/lib/storage";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { MAX_UPLOAD_BYTES, PHOTO_TOO_LARGE_MESSAGE } from "@/lib/photoUpload";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user || session.user.role !== "HOST") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -45,3 +46,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ url: result.url }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

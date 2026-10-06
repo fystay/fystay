@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { withHostScope } from "@/lib/pms/hostScopedPrisma";
-import { LIVE_PMS_PROVIDERS, PMS_PROVIDER_LABEL } from "@/lib/pms/registry";
+import { isPmsProviderConnectable, PMS_PROVIDER_LABEL } from "@/lib/pms/registry";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 export type PmsConnectionSummary = {
   provider: string;
@@ -29,7 +30,7 @@ export type PmsConnectionSummary = {
  * always shows all three ("Connect" for the two not yet set up), matching
  * the brief's own "Cloudbeds — Connected ... SiteMinder — Connect" example.
  */
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -47,7 +48,7 @@ export async function GET() {
       return {
         provider,
         label: PMS_PROVIDER_LABEL[provider],
-        live: LIVE_PMS_PROVIDERS.includes(provider),
+        live: isPmsProviderConnectable(provider),
         connected: connection?.status === "CONNECTED",
         status: connection?.status ?? "DISCONNECTED",
         externalPropertyName: connection?.externalPropertyName ?? null,
@@ -62,3 +63,5 @@ export async function GET() {
 
   return NextResponse.json({ connections: summaries });
 }
+
+export const GET = withApiErrorHandling(getHandler);

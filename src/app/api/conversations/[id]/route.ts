@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { isConversationParticipant, otherParticipant } from "@/lib/messaging";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * A conversation's full message history, oldest first. Reading it also
@@ -9,7 +10,7 @@ import { isConversationParticipant, otherParticipant } from "@/lib/messaging";
  * separate "mark as read" action anywhere in the UI, the same way opening
  * an email thread marks it read.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -54,3 +55,5 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     },
   });
 }
+
+export const GET = withApiErrorHandling(getHandler);

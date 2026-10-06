@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { auth } from "@/auth";
 import { withHostScope } from "@/lib/pms/hostScopedPrisma";
-import { LIVE_PMS_PROVIDERS, PMS_PROVIDER_LABEL } from "@/lib/pms/registry";
+import { isPmsProviderConnectable, PMS_PROVIDER_LABEL } from "@/lib/pms/registry";
 import { IntegrationCard, type IntegrationSummary } from "@/components/host/pms/IntegrationCard";
 import { IntegrationBanner } from "@/components/host/pms/IntegrationBanner";
 
@@ -35,7 +35,7 @@ export default async function HostIntegrationsPage({
     return {
       provider,
       label: PMS_PROVIDER_LABEL[provider],
-      live: LIVE_PMS_PROVIDERS.includes(provider),
+      live: isPmsProviderConnectable(provider),
       connected: connection?.status === "CONNECTED",
       status: connection?.status ?? "DISCONNECTED",
       externalPropertyName: connection?.externalPropertyName ?? null,

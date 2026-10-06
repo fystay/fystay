@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /** A ticket's full thread plus its linked context (about-user/booking), for the admin detail/reply page. */
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -31,3 +32,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({ ticket });
 }
+
+export const GET = withApiErrorHandling(getHandler);

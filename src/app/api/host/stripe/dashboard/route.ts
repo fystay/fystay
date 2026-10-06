@@ -3,13 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { BASE_URL } from "@/lib/baseUrl";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Sends an already-onboarded host to their own Stripe Express dashboard
  * (payout history, bank details, tax info) via a fresh, single-use login
  * link - FYStay never stores or shows any of that itself.
  */
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user || session.user.role !== "HOST") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -29,3 +30,5 @@ export async function GET() {
   const loginLink = await stripe.accounts.createLoginLink(user.stripeConnectAccountId);
   return NextResponse.redirect(loginLink.url);
 }
+
+export const GET = withApiErrorHandling(getHandler);

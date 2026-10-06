@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revokeAllSessions } from "@/lib/sessionRevocation";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Self-service "sign out of all devices" - bumps sessionVersion so every
@@ -12,7 +13,7 @@ import { revokeAllSessions } from "@/lib/sessionRevocation";
  * leaving the current tab showing a page whose session has already been
  * revoked server-side.
  */
-export async function POST() {
+async function postHandler() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,3 +23,5 @@ export async function POST() {
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withApiErrorHandling(postHandler);

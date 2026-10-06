@@ -97,7 +97,7 @@ export function IntegrationCard({ summary }: { summary: IntegrationSummary }) {
           ) : summary.live ? (
             <span>Not connected</span>
           ) : (
-            <span>Coming soon - plugs into the same integration architecture as Cloudbeds.</span>
+            <span>Coming soon.</span>
           )}
         </div>
       </div>
@@ -129,7 +129,7 @@ export function IntegrationCard({ summary }: { summary: IntegrationSummary }) {
 
 function StatusBadge({ summary }: { summary: IntegrationSummary }) {
   if (!summary.connected) {
-    return <Badge variant={summary.live ? "neutral" : "neutral"}>{summary.live ? "Not connected" : "Coming soon"}</Badge>;
+    return <Badge variant="neutral">{summary.live ? "Not connected" : "Coming soon"}</Badge>;
   }
   if (summary.lastSyncStatus === "FAILURE") return <Badge variant="danger">Sync error</Badge>;
   if (summary.status === "ERROR") return <Badge variant="danger">Connection error</Badge>;

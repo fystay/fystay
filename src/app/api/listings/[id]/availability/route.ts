@@ -15,6 +15,7 @@ import { lastMinuteDiscountFor } from "@/lib/deals";
 import { computePromoDiscount, normalizePromoCode, validatePromoCode } from "@/lib/promoCode";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
 import { parseStayDate, todayStayDate } from "@/lib/stayDates";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const querySchema = z.object({
   checkIn: z.string().min(1),
@@ -58,7 +59,7 @@ async function previewPromoDiscount(
  * everything itself, since availability can change between this check and
  * that request.
  */
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const parsed = querySchema.safeParse({
@@ -235,3 +236,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({ available: true, nights, pricing, promo });
 }
+
+export const GET = withApiErrorHandling(getHandler);

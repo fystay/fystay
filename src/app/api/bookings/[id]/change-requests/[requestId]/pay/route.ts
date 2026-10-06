@@ -9,8 +9,9 @@ import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/st
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { refundAcrossPayments } from "@/lib/connectRefunds";
 import { BASE_URL } from "@/lib/baseUrl";
+import { withApiErrorHandling } from "@/lib/apiError";
 
-export async function POST(
+async function postHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string; requestId: string }> },
 ) {
@@ -179,3 +180,4 @@ export async function applyApprovedChange(requestId: string, paymentIntentId?: s
   ]);
 }
 
+export const POST = withApiErrorHandling(postHandler);

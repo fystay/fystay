@@ -5,7 +5,7 @@ import { withHostScope } from "@/lib/pms/hostScopedPrisma";
 import { getPmsAdapter } from "@/lib/pms/registry";
 import { parseProvider } from "@/lib/pms/routeHelpers";
 import { encryptPmsCredentials } from "@/lib/pms/crypto";
-import { PmsAdapterError } from "@/lib/pms/types";
+import { pmsErrorForHost } from "@/lib/pms/types";
 import { SITE_URL } from "@/lib/seo";
 import { withApiErrorHandling } from "@/lib/apiError";
 
@@ -53,7 +53,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ pro
     try {
       authorizationUrl = adapter.getAuthorizationUrl({ state, redirectUri: callbackUrl(provider) });
     } catch (error) {
-      const message = error instanceof PmsAdapterError ? error.message : "Could not start connection";
+      const message = pmsErrorForHost(error, "We couldn't start the connection. Please try again.");
       return NextResponse.json({ error: message }, { status: 400 });
     }
     return NextResponse.json({ authorizationUrl });
@@ -72,7 +72,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ pro
   try {
     verification = await adapter.verifyApiKeyCredentials(body);
   } catch (error) {
-    const message = error instanceof PmsAdapterError ? error.message : "Could not verify credentials";
+    const message = pmsErrorForHost(error, "We couldn't check those details. Please try again.");
     return NextResponse.json({ error: message }, { status: 400 });
   }
   if (!verification.ok) {

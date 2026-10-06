@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Lists ReviewReport rows for the admin moderation queue
@@ -10,7 +11,7 @@ import { auth } from "@/auth";
  * through day to day); ?status=all shows the full history including past
  * decisions, and ?status=DISMISSED/ACTIONED shows just one outcome.
  */
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -47,3 +48,5 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ reports });
 }
+
+export const GET = withApiErrorHandling(getHandler);

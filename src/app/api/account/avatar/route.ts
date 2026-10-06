@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { uploadUserAvatar } from "@/lib/storage";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { MAX_UPLOAD_BYTES, PHOTO_TOO_LARGE_MESSAGE } from "@/lib/photoUpload";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 // Matches the "avatars" Supabase bucket's own configured limit/allow-list
 // exactly (see storage.ts) - rejecting here first gives a real error
@@ -16,7 +17,7 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
  * photos) - a guest's own avatar is just as real a profile detail as a
  * host's.
  */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -54,3 +55,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ url: result.url }, { status: 201 });
 }
+
+export const POST = withApiErrorHandling(postHandler);

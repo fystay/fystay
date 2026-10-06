@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildTotpUri, generateTotpSecret } from "@/lib/twoFactor";
 import { encryptTwoFactorSecret, isTwoFactorConfigured } from "@/lib/twoFactorCrypto";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Starts (or restarts) 2FA enrollment: generates a fresh secret, stores it
@@ -14,7 +15,7 @@ import { encryptTwoFactorSecret, isTwoFactorConfigured } from "@/lib/twoFactorCr
  * before verifying just replaces the pending secret - no separate "cancel"
  * endpoint needed.
  */
-export async function POST() {
+async function postHandler() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isTwoFactorConfigured()) {
@@ -47,3 +48,5 @@ export async function POST() {
     qrCodeDataUrl,
   });
 }
+
+export const POST = withApiErrorHandling(postHandler);

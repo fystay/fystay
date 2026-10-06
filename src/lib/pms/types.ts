@@ -197,3 +197,25 @@ export class PmsAdapterError extends Error {
     this.statusCode = options.statusCode;
   }
 }
+
+/**
+ * What a host is told when a connected system (Cloudbeds etc.) fails: plain
+ * words about what to do, never the provider's raw response, a status code
+ * or a configuration variable name. The technical message is logged for
+ * FYStay instead.
+ */
+export function pmsErrorForHost(error: unknown, fallback: string): string {
+  console.error("Connected system error", error);
+  if (!(error instanceof PmsAdapterError)) return fallback;
+  const status = error.statusCode;
+  if (status === 401 || status === 403) {
+    return "The connection was refused. Please disconnect and connect your account again.";
+  }
+  if (error.retryable) {
+    return "The connected system isn't responding right now. Please try again in a few minutes.";
+  }
+  if (status === undefined) {
+    return "This connection isn't available yet. Please contact FYStay support if you need it.";
+  }
+  return fallback;
+}

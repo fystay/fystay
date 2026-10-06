@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canActionReport } from "@/lib/reviews";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * An admin's call that a reported review didn't warrant action - the
  * review itself is left exactly as it was, only this report's own status
  * moves to DISMISSED so it drops out of the default (OPEN) queue.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -36,3 +37,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ report: updated });
 }
+
+export const POST = withApiErrorHandling(postHandler);

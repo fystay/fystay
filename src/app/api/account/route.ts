@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { anonymizeAccount, findAccountDeletionBlocks } from "@/lib/accountDeletion";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /** Self-service account deletion - see accountDeletion.ts for exactly what this does and doesn't touch. */
-export async function DELETE() {
+async function deleteHandler() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -16,3 +17,5 @@ export async function DELETE() {
   await anonymizeAccount(prisma, session.user.id);
   return NextResponse.json({ deleted: true });
 }
+
+export const DELETE = withApiErrorHandling(deleteHandler);

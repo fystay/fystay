@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { hostConnectAccountParams } from "@/lib/stripeConnect";
 import { BASE_URL } from "@/lib/baseUrl";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Starts (or resumes) a host's Stripe onboarding as a Connect recipient
@@ -13,7 +14,7 @@ import { BASE_URL } from "@/lib/baseUrl";
  * expires before the host finishes) can point straight back here to mint a
  * fresh one, rather than needing a second route.
  */
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user || session.user.role !== "HOST") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -53,3 +54,5 @@ export async function GET() {
 
   return NextResponse.redirect(accountLink.url);
 }
+
+export const GET = withApiErrorHandling(getHandler);

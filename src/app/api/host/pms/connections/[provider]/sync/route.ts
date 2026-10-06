@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { withHostScope } from "@/lib/pms/hostScopedPrisma";
 import { parseProvider } from "@/lib/pms/routeHelpers";
 import { runConnectionSync } from "@/lib/pms/sync";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 // A sync fans out to one live API call per mapped room (rates,
 // restrictions, reservations) - generous but bounded, matching the same
@@ -12,7 +13,7 @@ import { runConnectionSync } from "@/lib/pms/sync";
 export const maxDuration = 60;
 
 /** The host-facing "Sync now" button - runs the same full pull the nightly reconciliation cron does, on demand, for one connection. */
-export async function POST(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
+async function postHandler(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: providerParam } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,3 +36,5 @@ export async function POST(_request: Request, { params }: { params: Promise<{ pr
   const summary = await runConnectionSync(prisma, connection.id);
   return NextResponse.json({ summary });
 }
+
+export const POST = withApiErrorHandling(postHandler);

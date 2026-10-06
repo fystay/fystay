@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { LocalPlaceCategory } from "@prisma/client";
 import { getTownPlaces } from "@/lib/localData/places";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const RATE_LIMIT = 60;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -25,7 +26,7 @@ const VALID_CATEGORIES = new Set<string>([
   "OTHER",
 ]);
 
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const rateLimit = await checkRateLimit({
     key: `local-places:${clientIp(request)}`,
     limit: RATE_LIMIT,
@@ -51,3 +52,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Local places are temporarily unavailable" }, { status: 503 });
   }
 }
+
+export const GET = withApiErrorHandling(getHandler);

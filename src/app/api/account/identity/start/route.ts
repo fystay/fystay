@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { createIdentityVerificationSession } from "@/lib/identity";
 import { BASE_URL } from "@/lib/baseUrl";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Starts (or restarts) a Stripe Identity check for the signed-in user and
@@ -12,7 +13,7 @@ import { BASE_URL } from "@/lib/baseUrl";
  * identity.verification_session.* webhook events (see the Stripe webhook
  * route) - this endpoint only ever sets PENDING.
  */
-export async function POST() {
+async function postHandler() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -58,3 +59,5 @@ export async function POST() {
 
   return NextResponse.json({ url: verificationSession.url });
 }
+
+export const POST = withApiErrorHandling(postHandler);

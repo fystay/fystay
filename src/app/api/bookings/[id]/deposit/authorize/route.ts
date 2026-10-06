@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { createDepositCheckoutSession, needsDepositAuthorization } from "@/lib/securityDeposit";
 import { BASE_URL } from "@/lib/baseUrl";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Guest-triggered version of the same authorization the daily
@@ -14,7 +15,7 @@ import { BASE_URL } from "@/lib/baseUrl";
  * risk the card hold expiring before check-in even arrives (see that
  * function's own comment).
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -76,3 +77,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ url: checkoutSession.url });
 }
+
+export const POST = withApiErrorHandling(postHandler);

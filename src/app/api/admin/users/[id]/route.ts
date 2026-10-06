@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getUserDetailForAdmin } from "@/lib/adminUserLookup";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * "What's going on with this account" for support - role, verification/2FA
@@ -8,7 +9,7 @@ import { getUserDetailForAdmin } from "@/lib/adminUserLookup";
  * a separate self-service feature already) - just enough for a support
  * conversation.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -25,3 +26,5 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ user });
 }
+
+export const GET = withApiErrorHandling(getHandler);

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { MIN_QUERY_LENGTH, searchUsersForAdmin } from "@/lib/adminUserLookup";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /** Same reasoning as /api/admin/bookings - refuses a trivial query rather than paging the whole users table. */
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,3 +24,5 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ users });
 }
+
+export const GET = withApiErrorHandling(getHandler);

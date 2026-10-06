@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canCancelBooking } from "@/lib/changeRequests";
 import { cancelBookingAndRefund } from "@/lib/bookingCancellation";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Cancels a booking and, if it was paid for, refunds it per the listing's
@@ -15,7 +16,7 @@ import { cancelBookingAndRefund } from "@/lib/bookingCancellation";
  * computation ahead of time purely so the guest isn't surprised, but this
  * is the only place the numbers that actually move money get decided.
  */
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -43,3 +44,5 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   return NextResponse.json({ booking: updated, refund });
 }
+
+export const POST = withApiErrorHandling(postHandler);

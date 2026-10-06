@@ -5,10 +5,11 @@ import { withHostScope } from "@/lib/pms/hostScopedPrisma";
 import { getPmsAdapter } from "@/lib/pms/registry";
 import { parseProvider } from "@/lib/pms/routeHelpers";
 import { getValidCredentials } from "@/lib/pms/sync";
-import { PmsAdapterError } from "@/lib/pms/types";
+import { pmsErrorForHost } from "@/lib/pms/types";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /** Lists this connection's PMS rooms for its chosen property, alongside which of them are already mapped - what the host-facing mapping table (Cloudbeds room ⇄ FYStay listing/room type) renders directly. */
-export async function GET(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
+async function getHandler(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: providerParam } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,7 +52,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 
     return NextResponse.json({ rooms: roomsWithMapping });
   } catch (error) {
-    const message = error instanceof PmsAdapterError ? error.message : "Could not list rooms";
+    const message = pmsErrorForHost(error, "We couldn't load your rooms. Please try again.");
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }
+
+export const GET = withApiErrorHandling(getHandler);

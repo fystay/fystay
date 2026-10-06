@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { previewMessage } from "@/lib/messaging";
 import type { SupportTicketStatus } from "@prisma/client";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 const STATUS_VALUES: SupportTicketStatus[] = ["OPEN", "RESOLVED", "CLOSED"];
 
@@ -12,7 +13,7 @@ const STATUS_VALUES: SupportTicketStatus[] = ["OPEN", "RESOLVED", "CLOSED"];
  * reasoning as most support/moderation queues in this app. Pass
  * ?status=RESOLVED|CLOSED|ALL to see something else.
  */
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -46,3 +47,5 @@ export async function GET(request: Request) {
     })),
   });
 }
+
+export const GET = withApiErrorHandling(getHandler);

@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { isTicketOpener } from "@/lib/supportTickets";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /** A ticket's full thread - visible only to the person who opened it or an admin. */
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -31,3 +32,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({ ticket });
 }
+
+export const GET = withApiErrorHandling(getHandler);

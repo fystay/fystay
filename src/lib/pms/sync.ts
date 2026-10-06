@@ -4,6 +4,7 @@ import { getPmsAdapter } from "@/lib/pms/registry";
 import { decryptPmsCredentials, encryptPmsCredentials } from "@/lib/pms/crypto";
 import {
   PmsAdapterError,
+  pmsErrorForHost,
   type PmsAdapter,
   type PmsExternalReservation,
 } from "@/lib/pms/types";
@@ -327,10 +328,9 @@ async function markConnectionError(prisma: PrismaClient, connectionId: string, m
   void message;
 }
 
+/** Stored on sync logs, which hosts see on their Integrations page - so plain words, with the detail logged. */
 function errorMessage(error: unknown): string {
-  if (error instanceof PmsAdapterError) return error.message;
-  if (error instanceof Error) return error.message;
-  return "Unknown error";
+  return pmsErrorForHost(error, "Something went wrong with this sync. It will be retried automatically.");
 }
 
 const MAX_PUSH_ATTEMPTS = 5;

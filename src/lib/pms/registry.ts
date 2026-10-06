@@ -25,6 +25,17 @@ export function getPmsAdapter(provider: PmsProvider): PmsAdapter {
 /** Providers with a real (non-stub) implementation, for the "Connect" UI to show as actually connectable today rather than listing every enum value as equally ready. */
 export const LIVE_PMS_PROVIDERS: PmsProvider[] = ["CLOUDBEDS"];
 
+/** The app credentials each live provider needs before a host can connect - the same configuration-presence gate as every other integration. */
+const PROVIDER_CONFIG_ENV: Partial<Record<PmsProvider, string[]>> = {
+  CLOUDBEDS: ["CLOUDBEDS_CLIENT_ID", "CLOUDBEDS_CLIENT_SECRET"],
+};
+
+/** Whether a host can actually connect this provider here: implemented, and FYStay's own credentials for it are set. Otherwise the UI shows it as coming soon. */
+export function isPmsProviderConnectable(provider: PmsProvider): boolean {
+  if (!LIVE_PMS_PROVIDERS.includes(provider)) return false;
+  return (PROVIDER_CONFIG_ENV[provider] ?? []).every((name) => Boolean(process.env[name]));
+}
+
 export const PMS_PROVIDER_LABEL: Record<PmsProvider, string> = {
   CLOUDBEDS: "Cloudbeds",
   SITEMINDER: "SiteMinder",

@@ -6,6 +6,7 @@ import { getPmsAdapter } from "@/lib/pms/registry";
 import { parseProvider } from "@/lib/pms/routeHelpers";
 import { encryptPmsCredentials } from "@/lib/pms/crypto";
 import { SITE_URL } from "@/lib/seo";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * The OAuth2 redirect target every provider's consent screen sends the
@@ -17,7 +18,7 @@ import { SITE_URL } from "@/lib/seo";
  * returning raw JSON, since this URL is only ever hit by a full-page
  * browser redirect, never fetch().
  */
-export async function GET(request: Request, { params }: { params: Promise<{ provider: string }> }) {
+async function getHandler(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: providerParam } = await params;
   const url = new URL(request.url);
   const redirectTarget = new URL("/host/integrations", SITE_URL);
@@ -93,3 +94,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
   redirectTarget.searchParams.set("pms_connected", provider);
   return NextResponse.redirect(redirectTarget);
 }
+
+export const GET = withApiErrorHandling(getHandler);

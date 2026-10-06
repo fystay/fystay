@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildAccountDataExport } from "@/lib/accountData";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /** Self-service "download my data" - see buildAccountDataExport for exactly what's included. Returned as a downloadable file rather than inline JSON so a browser click reliably saves it. */
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -17,3 +18,5 @@ export async function GET() {
     },
   });
 }
+
+export const GET = withApiErrorHandling(getHandler);

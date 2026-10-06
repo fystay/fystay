@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTownWeather } from "@/lib/localData/weather";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 // Generous - this endpoint only ever reads a cache (a live Open-Meteo call
 // happens at most once per town per 45-minute TTL, regardless of how many
@@ -15,7 +16,7 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
  * /api/local/* route) exists so no browser code ever calls a third-party
  * API, or holds a key for one, directly.
  */
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const rateLimit = await checkRateLimit({
     key: `local-weather:${clientIp(request)}`,
     limit: RATE_LIMIT,
@@ -39,3 +40,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Weather is temporarily unavailable" }, { status: 503 });
   }
 }
+
+export const GET = withApiErrorHandling(getHandler);

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { bookableHostWhere } from "@/lib/stripeConnect";
 import { LANDMARKS } from "@/lib/landmarks";
 import { popularDestinations, rankDestinations, rankHotels, rankLandmarks } from "@/lib/searchSuggestions";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 // Small, fixed limits keep this fast: the client debounces keystrokes and
 // aborts stale requests, but the query itself should stay cheap regardless.
@@ -12,7 +13,7 @@ const MAX_RESULTS_PER_GROUP = 5;
 // them when a query happens to match several.
 const MAX_LANDMARK_RESULTS = 4;
 
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = (searchParams.get("q") ?? "").trim();
 
@@ -55,3 +56,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Search is temporarily unavailable" }, { status: 503 });
   }
 }
+
+export const GET = withApiErrorHandling(getHandler);

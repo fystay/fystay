@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canActionReport } from "@/lib/reviews";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * An admin upholding a report: the reported review is taken down
@@ -18,7 +19,7 @@ import { canActionReport } from "@/lib/reviews";
  * would misrepresent that as "not actionable" when it was, in fact, acted
  * on - just via a different reporter's report on the same review.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
@@ -56,3 +57,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   return NextResponse.json({ report: updatedReport });
 }
+
+export const POST = withApiErrorHandling(postHandler);

@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { withHostScope } from "@/lib/pms/hostScopedPrisma";
 import { parseProvider } from "@/lib/pms/routeHelpers";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /** The "view errors" detail behind the integrations page's summary card - the last 20 sync attempts for this connection, most recent first. */
-export async function GET(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
+async function getHandler(_request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: providerParam } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -28,3 +29,5 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
   if (!logs) return NextResponse.json({ error: "Not connected" }, { status: 404 });
   return NextResponse.json({ logs });
 }
+
+export const GET = withApiErrorHandling(getHandler);

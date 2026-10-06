@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { MIN_QUERY_LENGTH, searchBookingsForAdmin } from "@/lib/adminBookingLookup";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * Support's booking lookup - by reference, guest name/email, or host
@@ -10,7 +11,7 @@ import { MIN_QUERY_LENGTH, searchBookingsForAdmin } from "@/lib/adminBookingLook
  * docs/product-strategy.md's prioritization notes - not something to bolt
  * onto this endpoint).
  */
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,3 +31,5 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ bookings });
 }
+
+export const GET = withApiErrorHandling(getHandler);

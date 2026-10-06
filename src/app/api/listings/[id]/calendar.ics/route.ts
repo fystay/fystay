@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateIcs, type IcsEvent } from "@/lib/ical";
+import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
  * A listing's calendar as a public .ics feed, for a host to subscribe to
@@ -12,7 +13,7 @@ import { generateIcs, type IcsEvent } from "@/lib/ical";
  * payment) or ICAL_IMPORT blocks (re-exporting an imported event back out
  * would loop between two synced calendars).
  */
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const token = new URL(request.url).searchParams.get("token");
   if (!token) {
@@ -67,3 +68,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     },
   });
 }
+
+export const GET = withApiErrorHandling(getHandler);
