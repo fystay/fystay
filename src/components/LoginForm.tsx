@@ -10,13 +10,18 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldError, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { AuthErrorBanner, SocialSignInButtons, useOAuthErrorMessage } from "@/components/SocialSignInButtons";
 import { safeRedirectPath } from "@/lib/safeRedirect";
 
-function LoginFormInner({ googleEnabled }: { googleEnabled: boolean }) {
+type SocialProviders = { google: boolean; apple: boolean };
+
+type LoginFormProps = { providers: SocialProviders; rememberedProvider: string | null };
+
+function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = safeRedirectPath(searchParams.get("callbackUrl"));
+  const { message: oauthError, showHandOffError } = useOAuthErrorMessage(searchParams, rememberedProvider);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,16 +84,8 @@ function LoginFormInner({ googleEnabled }: { googleEnabled: boolean }) {
 
       <Card>
         <CardContent className="pt-5">
-          {googleEnabled && (
-            <>
-              <GoogleSignInButton callbackUrl={callbackUrl} />
-              <div className="my-4 flex items-center gap-3 text-xs text-stone-500">
-                <span className="h-px flex-1 bg-border-subtle" />
-                or
-                <span className="h-px flex-1 bg-border-subtle" />
-              </div>
-            </>
-          )}
+          <AuthErrorBanner message={oauthError} />
+          <SocialSignInButtons providers={providers} callbackUrl={callbackUrl} onError={showHandOffError} />
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             {needsCode ? (
               <Field>
@@ -172,17 +169,17 @@ function LoginFormInner({ googleEnabled }: { googleEnabled: boolean }) {
           href={callbackUrl !== "/" ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/register"}
           className="font-medium text-brand-700 hover:underline"
         >
-          Sign up
+          Create one
         </Link>
       </p>
     </div>
   );
 }
 
-export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function LoginForm(props: LoginFormProps) {
   return (
     <Suspense>
-      <LoginFormInner googleEnabled={googleEnabled} />
+      <LoginFormInner {...props} />
     </Suspense>
   );
 }

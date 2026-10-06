@@ -1,12 +1,16 @@
 import { cache } from "react";
-import NextAuth, { CredentialsSignin } from "next-auth";
+import NextAuth, { CredentialsSignin, type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+import Apple from "next-auth/providers/apple";
+import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { googleSignInEnabled } from "@/lib/authProviders";
+import { appleSignInEnabled, googleSignInEnabled } from "@/lib/authProviders";
+import { createAppleClientSecret } from "@/lib/appleClientSecret";
+import { claimIsTrue, isOAuthProvider, resolveOAuthSignIn } from "@/lib/oauthAccounts";
+import { deployedOverHttps, LINK_INTENT_COOKIE, linkIntentSecret, verifyLinkIntent } from "@/lib/oauthLinkIntent";
 import { peekRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rateLimit";
-import { generateReferralCode } from "@/lib/referral";
 import { decryptTwoFactorSecret } from "@/lib/twoFactorCrypto";
 import { verifyAndConsumeBackupCode, verifyTotpCode } from "@/lib/twoFactor";
 import { isSuspended } from "@/lib/suspension";
@@ -58,6 +62,42 @@ class AccountSuspendedError extends CredentialsSignin {
 // own account for doing nothing wrong.
 const LOGIN_RATE_LIMIT = { limit: 10, windowMs: 15 * 60 * 1000 };
 
+/**
+ * Apple returns to /api/auth/callback/apple with a cross-site form POST
+ * (response_mode=form_post), and browsers don't send SameSite=Lax cookies
+ * on those - so the state, nonce and callback-url cookies Auth.js set when
+ * the flow started would be missing and every Apple sign-in would fail its
+ * checks. On https deployments those four short-lived, httpOnly cookies are
+ * SameSite=None (which requires Secure). Plain-http local development keeps
+ * the defaults: browsers reject SameSite=None without Secure, and Apple
+ * doesn't allow http or localhost return URLs anyway.
+ */
+const crossSiteCallbackCookie = { options: { sameSite: "none" as const, secure: true } };
+
+/** Apple's client secret is a JWT signed with our key; a bad key turns Apple off rather than breaking every login. */
+function appleClientSecret(): string | null {
+  try {
+    return createAppleClientSecret({
+      clientId: process.env.APPLE_CLIENT_ID!,
+      teamId: process.env.APPLE_TEAM_ID!,
+      keyId: process.env.APPLE_KEY_ID!,
+      privateKey: process.env.APPLE_PRIVATE_KEY!,
+    });
+  } catch (error) {
+    console.error("Sign in with Apple is off: APPLE_PRIVATE_KEY couldn't be read as an EC private key.", {
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return null;
+  }
+}
+const appleSecret = appleSignInEnabled ? appleClientSecret() : null;
+
+/** Where a refused Google/Apple sign-in lands: the page it started from, with a reason it can explain. */
+function oauthRefusalRedirect(reason: string, provider: string, linking: boolean): string {
+  const params = new URLSearchParams({ error: reason, provider });
+  return linking ? `/account?connect=${provider}&${params}` : `/login?${params}`;
+}
+
 const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
   // Trust the Host header from the deployment platform's proxy (Vercel, etc.).
   // Without this, NextAuth v5 rejects every request in production mode
@@ -67,7 +107,19 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
+    // Provider errors (a cancelled Google/Apple screen, a misconfigured
+    // provider) come back to the login page as ?error=..., which LoginForm
+    // turns into a friendly message - never Auth.js's own error page.
+    error: "/login",
   },
+  ...(deployedOverHttps() && {
+    cookies: {
+      state: crossSiteCallbackCookie,
+      nonce: crossSiteCallbackCookie,
+      pkceCodeVerifier: crossSiteCallbackCookie,
+      callbackUrl: crossSiteCallbackCookie,
+    } as NextAuthConfig["cookies"],
+  }),
   providers: [
     Credentials({
       credentials: {
@@ -169,12 +221,14 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
     ...(googleSignInEnabled
       ? [
           Google({
-            // The default profile() return has no `role` (or sessionVersion)
-            // field, which this app's User type (src/types/next-auth.d.ts)
-            // requires - both are only ever placeholders for the moment
-            // between sign-in and the jwt callback below, which always
-            // overwrites them with the real values from this account's own
-            // User row.
+            // Passed explicitly: Auth.js would otherwise only look for
+            // AUTH_GOOGLE_ID/AUTH_GOOGLE_SECRET, while googleSignInEnabled
+            // (which shows the button) checks these two.
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            // role and sessionVersion are placeholders the jwt callback
+            // below always replaces from the account's own User row; the
+            // id here is Google's, not FYStay's (see resolveOAuthSignIn).
             profile(profile) {
               return {
                 id: profile.sub,
@@ -188,65 +242,87 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
           }),
         ]
       : []),
+    ...(appleSecret
+      ? [
+          Apple({
+            clientId: process.env.APPLE_CLIENT_ID,
+            clientSecret: appleSecret,
+            // Apple sends the person's name only on their very first
+            // consent (as a separate "user" form field Auth.js folds into
+            // the profile), never a photo, and the email may be a private
+            // relay address. No name means none - not the email address,
+            // which is what the stock profile() would use as a name.
+            profile(profile) {
+              const name = [profile.user?.name?.firstName, profile.user?.name?.lastName]
+                .filter(Boolean)
+                .join(" ");
+              return {
+                id: profile.sub,
+                name: name || null,
+                email: profile.email,
+                image: null,
+                role: "GUEST",
+                sessionVersion: 1,
+              };
+            },
+          }),
+        ]
+      : []),
   ],
+  events: {
+    // A half-finished "Connect Google/Apple" must not outlive the person who
+    // started it: on a shared computer, the next person's Google sign-in
+    // would otherwise be linked to the account that just signed out.
+    async signOut() {
+      (await cookies()).delete(LINK_INTENT_COOKIE);
+    },
+  },
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider !== "google") return true;
-      if (!user.email) return false;
+    async signIn({ user, account, profile }) {
+      if (!account || !isOAuthProvider(account.provider)) return true;
+      const provider = account.provider;
 
-      const email = user.email.toLowerCase();
+      // "Connect Google/Apple" from the account page: a signed, short-lived
+      // cookie set after the person re-entered their password (see
+      // src/lib/oauthLinkIntent.ts). Read once, then cleared.
+      const cookieStore = await cookies();
+      const intent = cookieStore.get(LINK_INTENT_COOKIE)?.value;
+      const secret = linkIntentSecret();
+      const linkToUserId = intent && secret ? verifyLinkIntent(intent, provider, secret) : null;
+      if (intent) cookieStore.delete(LINK_INTENT_COOKIE);
 
-      // A suspended account must be blocked from signing back in via
-      // Google exactly as it is via Credentials (see AccountSuspendedError
-      // above) - checked before the upsert below so re-authenticating
-      // never looks like a no-op success. A brand-new email has no row
-      // yet, so nothing to suspend - existing is simply undefined and this
-      // is a no-op for it, same as before this check existed.
-      const existing = await prisma.user.findUnique({
-        where: { email },
-        select: { suspendedAt: true },
+      const result = await resolveOAuthSignIn(prisma, {
+        provider,
+        providerAccountId: account.providerAccountId,
+        email: user.email,
+        emailVerified: claimIsTrue(profile?.email_verified),
+        name: user.name,
+        image: user.image,
+        linkToUserId,
       });
-      if (existing && isSuspended(existing)) return false;
-
-      // Credentials sign-in already resolved to a real User row in
-      // authorize() above; Google only ever hands back its own profile, so
-      // the first time a given email signs in this way, create the User
-      // row that everything else in this app (bookings, listings, reviews)
-      // actually points to. passwordHash stays null - see the schema
-      // comment on User.passwordHash for why that's a real, expected state
-      // rather than a bug.
-      await prisma.user.upsert({
-        where: { email },
-        update: {},
-        // Google sign-in has no form step to carry a ?ref= code through,
-        // so this account never gets a welcome credit that way - it still
-        // needs its own shareable referralCode, though, to refer others.
-        // termsAcceptedAt is set here, not on update: this is the one
-        // moment the account is actually created, and GoogleSignInButton
-        // shows the Terms/Privacy disclosure right by the button that
-        // triggers this exact flow.
-        create: {
-          email,
-          name: user.name ?? email,
-          image: user.image,
-          referralCode: generateReferralCode(),
-          termsAcceptedAt: new Date(),
-        },
-      });
+      if (!result.ok) return oauthRefusalRedirect(result.reason, provider, Boolean(linkToUserId));
+      if (linkToUserId) return `/account?connected=${provider}`;
       return true;
     },
     async jwt({ token, user, account }) {
-      if (account?.provider === "google" && user?.email) {
-        // Google's own profile has no idea about this app's id/role - look
-        // up the real User row signIn() above just found-or-created.
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email.toLowerCase() },
+      if (account && isOAuthProvider(account.provider)) {
+        // The provider's profile knows nothing of this app's id or role -
+        // signIn() above just found, created or linked the FYStay account
+        // this identity belongs to, so read it from there.
+        const identity = await prisma.authIdentity.findUnique({
+          where: {
+            provider_providerAccountId: { provider: account.provider, providerAccountId: account.providerAccountId },
+          },
+          select: { user: { select: { id: true, role: true, sessionVersion: true, name: true, image: true } } },
         });
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role;
-          token.sessionVersion = dbUser.sessionVersion;
-        }
+        if (!identity) return null;
+        token.id = identity.user.id;
+        token.role = identity.user.role;
+        token.sessionVersion = identity.user.sessionVersion;
+        // The account's own name and photo, not the provider's: someone who
+        // edited their name on FYStay keeps seeing it in the header.
+        token.name = identity.user.name;
+        token.picture = identity.user.image;
         // Freshly stamped from the row just read above - nothing further
         // to validate this same call.
         return token;

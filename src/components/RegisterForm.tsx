@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldHint, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { AuthErrorBanner, SocialSignInButtons, useOAuthErrorMessage } from "@/components/SocialSignInButtons";
 import { cn } from "@/lib/cn";
 import { SITE_NAME } from "@/lib/seo";
 import { sanitizeCallbackUrl } from "@/lib/safeRedirect";
@@ -22,10 +22,15 @@ const roleOptions = [
   { value: "HOST" as const, label: "Host my place", icon: Home },
 ];
 
-function RegisterFormInner({ googleEnabled }: { googleEnabled: boolean }) {
+type SocialProviders = { google: boolean; apple: boolean };
+
+type RegisterFormProps = { providers: SocialProviders; rememberedProvider: string | null };
+
+function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = sanitizeCallbackUrl(searchParams.get("callbackUrl"));
+  const { message: oauthError, showHandOffError } = useOAuthErrorMessage(searchParams, rememberedProvider);
   // Only ever read, never validated client-side - an invalid or stale code
   // simply gets no welcome credit (see /api/signup), never a signup error.
   const referralCode = searchParams.get("ref")?.trim() || undefined;
@@ -101,7 +106,7 @@ function RegisterFormInner({ googleEnabled }: { googleEnabled: boolean }) {
     <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
       <div className="mb-8 flex flex-col items-center text-center">
         <Logo size="xl" className="mb-3" />
-        <h1 className="text-2xl font-bold">Create your account</h1>
+        <h1 className="text-2xl font-bold">Create your {SITE_NAME} account</h1>
         <p className="mt-1 text-sm text-stone-500">
           {callbackUrl?.startsWith("/listings/")
             ? "It's free - we'll take you straight back to your stay with your dates saved."
@@ -119,16 +124,8 @@ function RegisterFormInner({ googleEnabled }: { googleEnabled: boolean }) {
 
       <Card>
         <CardContent className="pt-5">
-          {googleEnabled && (
-            <>
-              <GoogleSignInButton callbackUrl={callbackUrl ?? undefined} />
-              <div className="my-4 flex items-center gap-3 text-xs text-stone-500">
-                <span className="h-px flex-1 bg-border-subtle" />
-                or
-                <span className="h-px flex-1 bg-border-subtle" />
-              </div>
-            </>
-          )}
+          <AuthErrorBanner message={oauthError} />
+          <SocialSignInButtons providers={providers} callbackUrl={callbackUrl ?? "/"} onError={showHandOffError} />
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             <fieldset>
               <legend className="mb-1.5 text-sm font-medium text-stone-800">I want to</legend>
@@ -223,7 +220,7 @@ function RegisterFormInner({ googleEnabled }: { googleEnabled: boolean }) {
             </label>
 
             <Button type="submit" loading={loading} className="w-full">
-              Sign up
+              Create account
             </Button>
           </form>
         </CardContent>
@@ -242,10 +239,10 @@ function RegisterFormInner({ googleEnabled }: { googleEnabled: boolean }) {
   );
 }
 
-export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function RegisterForm(props: RegisterFormProps) {
   return (
     <Suspense>
-      <RegisterFormInner googleEnabled={googleEnabled} />
+      <RegisterFormInner {...props} />
     </Suspense>
   );
 }

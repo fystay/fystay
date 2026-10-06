@@ -52,7 +52,8 @@ Stripe's hosted page); it's harmless on Preview and not needed on Production.
 
 | Variable(s) | Feature | Production |
 |---|---|---|
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Sign in with Google. These only switch the button on; Auth.js reads the credentials from `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`, so set both pairs (same values) if this is ever enabled. | Unset (button hidden) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (secret) | "Continue with Google". Both set = button on. `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` are **not** needed (fixed 6 Oct; delete them if present). Setup: [social-sign-in.md](social-sign-in.md) | Unset (button hidden) |
+| `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (secret) | "Continue with Apple". All four set = button on. The private key is the whole `.p8` file. Setup: [social-sign-in.md](social-sign-in.md) | Unset (button hidden) |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | Phone verification | Unset |
 | `PMS_ENCRYPTION_KEY` | Storing PMS credentials; `openssl rand -hex 32`, never change | Unset |
 | `CLOUDBEDS_CLIENT_ID`, `CLOUDBEDS_CLIENT_SECRET`, `CLOUDBEDS_WEBHOOK_SECRET`, `SITEMINDER_WEBHOOK_SECRET`, `SUPERCONTROL_WEBHOOK_SECRET` | PMS integrations | Unset |

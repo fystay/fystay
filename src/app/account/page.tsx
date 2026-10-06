@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { UserCircle } from "lucide-react";
 import { auth } from "@/auth";
@@ -12,6 +13,9 @@ import { ProfileCard } from "@/components/ProfileCard";
 import { EmailChangeCard } from "@/components/EmailChangeCard";
 import { SecuritySessionsCard } from "@/components/SecuritySessionsCard";
 import { TwoFactorCard } from "@/components/TwoFactorCard";
+import { SignInMethodsCard, type ConnectedIdentity } from "@/components/SignInMethodsCard";
+import { enabledSocialProviders } from "@/lib/authProviders";
+import { isOAuthProvider } from "@/lib/oauthProviders";
 import { isTwoFactorConfigured } from "@/lib/twoFactorCrypto";
 
 export const metadata: Metadata = { title: "Account", robots: { index: false } };
@@ -33,8 +37,12 @@ export default async function AccountPage() {
       identityVerificationStatus: true,
       passwordHash: true,
       twoFactorEnabledAt: true,
+      authIdentities: { select: { provider: true, email: true }, orderBy: { createdAt: "asc" } },
     },
   });
+  const identities: ConnectedIdentity[] = user.authIdentities.flatMap(({ provider, email }) =>
+    isOAuthProvider(provider) ? [{ provider, email }] : [],
+  );
   // Google-only accounts never go through the password/code check in
   // src/auth.ts's authorize() at all, so 2FA has nothing to actually gate
   // for them - offering the toggle would promise a protection it can't
@@ -76,6 +84,13 @@ export default async function AccountPage() {
             configured={isTwoFactorConfigured()}
           />
         )}
+        <Suspense>
+          <SignInMethodsCard
+            hasPassword={hasPassword}
+            identities={identities}
+            providers={enabledSocialProviders()}
+          />
+        </Suspense>
         <SecuritySessionsCard />
         <PrivacyDataCard hasPassword={hasPassword} />
       </div>

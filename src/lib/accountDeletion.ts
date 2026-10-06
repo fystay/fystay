@@ -46,26 +46,32 @@ export async function findAccountDeletionBlocks(
  * FYStay's own financial records) are entitled to keep.
  */
 export async function anonymizeAccount(prisma: PrismaClient, userId: string): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      name: "Deleted user",
-      email: `deleted-${userId}@fystay.invalid`,
-      passwordHash: null,
-      phone: null,
-      phoneVerifiedAt: null,
-      image: null,
-      twoFactorSecretCiphertext: null,
-      twoFactorEnabledAt: null,
-      twoFactorBackupCodeHashes: [],
-      deletedAt: new Date(),
-      // Kills every other still-live session this account had (a second
-      // tab, another device) immediately, not just the one making this
-      // request - see src/lib/sessionRevocation.ts. deletedAt alone
-      // wouldn't do that: an already-issued JWT isn't re-checked against
-      // it without this bump, only clearing passwordHash, which blocks a
-      // *new* login, not an existing one.
-      sessionVersion: { increment: 1 },
-    },
-  });
+  await prisma.$transaction([
+    // Releases any connected Google/Apple account, so signing in with it
+    // later starts a fresh FYStay account instead of landing on this
+    // deleted one (see resolveOAuthSignIn).
+    prisma.authIdentity.deleteMany({ where: { userId } }),
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: "Deleted user",
+        email: `deleted-${userId}@fystay.invalid`,
+        passwordHash: null,
+        phone: null,
+        phoneVerifiedAt: null,
+        image: null,
+        twoFactorSecretCiphertext: null,
+        twoFactorEnabledAt: null,
+        twoFactorBackupCodeHashes: [],
+        deletedAt: new Date(),
+        // Kills every other still-live session this account had (a second
+        // tab, another device) immediately, not just the one making this
+        // request - see src/lib/sessionRevocation.ts. deletedAt alone
+        // wouldn't do that: an already-issued JWT isn't re-checked against
+        // it without this bump, only clearing passwordHash, which blocks a
+        // *new* login, not an existing one.
+        sessionVersion: { increment: 1 },
+      },
+    }),
+  ]);
 }

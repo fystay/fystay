@@ -257,6 +257,7 @@ model User {
   savedPlaces         SavedPlace[]
   passwordResetTokens PasswordResetToken[]
   emailChangeTokens   EmailChangeToken[]
+  authIdentities      AuthIdentity[]
   reviewReports       ReviewReport[]
   guestConversations  Conversation[]       @relation("GuestConversations")
   hostConversations   Conversation[]       @relation("HostConversations")
@@ -294,6 +295,29 @@ model User {
 // hash of the token is stored, so a database leak alone can't be used to
 // reset anyone's password (same principle as storing password hashes, not
 // passwords).
+// A "Continue with Google/Apple" identity that signs in to this account.
+// Accounts are matched on the provider's own stable id (providerAccountId,
+// the OIDC "sub"), never on email alone: an email can change on either
+// side, and Apple may hand out a private relay address. One provider
+// identity belongs to exactly one account; an account can have several
+// (see src/lib/oauthAccounts.ts for when one gets linked).
+model AuthIdentity {
+  id                String   @id @default(cuid())
+  provider          String
+  providerAccountId String
+  // The email the provider reported when this identity was linked - shown
+  // on the account page so a person can tell which Google account it is.
+  // May be an Apple private relay address.
+  email             String?
+  createdAt         DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
 model PasswordResetToken {
   id        String    @id @default(cuid())
   tokenHash String    @unique

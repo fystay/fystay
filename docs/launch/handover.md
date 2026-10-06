@@ -64,6 +64,15 @@ remaining item.
 - **Vercel:** new project, not readable from the cloud session that did this
   audit (connector scope). Variables, Git link and domain still to confirm.
 
+## Google and Apple sign-in (built 6 Oct, late evening)
+
+Built into the existing Auth.js login (Supabase is not the login system).
+Hidden until the owner adds the credentials. **Before deploying it to
+Production, run the migration workflow** for
+`20261006220000_add_auth_identities` (the account page reads the new
+table). Owner setup, public vs secret values, and test steps:
+[social-sign-in.md](social-sign-in.md).
+
 ## Security pass (6 Oct, late evening)
 
 - **Fixed: calendar import could reach internal addresses.** A host's

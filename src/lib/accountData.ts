@@ -26,6 +26,9 @@ export async function buildAccountDataExport(prisma: PrismaClient, userId: strin
       referralCode: true,
       creditBalanceCents: true,
       createdAt: true,
+      // Which Google/Apple accounts can sign in to this one, and the email
+      // each reported - the provider's own id isn't the person's data.
+      authIdentities: { select: { provider: true, email: true, createdAt: true } },
     },
   });
 

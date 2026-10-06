@@ -37,7 +37,7 @@ and deployed (see COMPLETE).
 | ~~Delete `SEED_ADMIN_SECRET` from Vercel Production~~ | Done: Preview only, checked 6 Oct. | Done |
 | ~~Delete `PROD_DIRECT_URL` from Vercel Production~~ | Done: not in Vercel Production, checked 6 Oct. Keep the GitHub secret. | Done |
 | `PMS_ENCRYPTION_KEY` | Only if hosts may connect a property-management system at launch. | No |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | "Continue with Google". Hidden until set. | No |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`; `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | "Continue with Google / Apple". Hidden until set. Run migration `20261006220000_add_auth_identities` first. Setup: [social-sign-in.md](social-sign-in.md) | No |
 
 ## REQUIRES DOMAIN
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LegalPageLayout, LegalSection } from "@/components/legal/LegalPageLayout";
 import { describeOperator, getCompanyInfo } from "@/lib/companyInfo";
 import { PRIVACY_EMAIL, SITE_URL, pageMetadata } from "@/lib/seo";
-import { googleSignInEnabled } from "@/lib/authProviders";
+import { appleSignInEnabled, googleSignInEnabled } from "@/lib/authProviders";
 import { isPhoneVerificationConfigured } from "@/lib/phoneVerification";
 
 export const metadata = pageMetadata({
@@ -115,6 +115,13 @@ export default function PrivacyPolicyPage() {
             <li>
               <span className="font-medium text-foreground">Google</span> - if you choose to sign in
               with Google, to confirm your identity.
+            </li>
+          )}
+          {appleSignInEnabled && (
+            <li>
+              <span className="font-medium text-foreground">Apple</span> - if you choose to sign in
+              with Apple, to confirm your identity. If you use Apple&rsquo;s &ldquo;Hide My Email&rdquo;,
+              our emails to you are forwarded by Apple.
             </li>
           )}
           <li>

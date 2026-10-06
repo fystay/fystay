@@ -284,6 +284,12 @@
       "files": {
         "migration.sql": "d22a1fec7e90d60988f512c9efafc35cab81ccf6dcdc2f7f60f72e3c38313ad5"
       }
+    },
+    {
+      "name": "20261006220000_add_auth_identities",
+      "files": {
+        "migration.sql": "0f20ee21d7579cdb26db2a465138bc063baa460a0d43678631112d6a3886464e"
+      }
     }
   ],
   "retired": [
