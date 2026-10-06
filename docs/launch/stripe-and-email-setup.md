@@ -16,7 +16,7 @@ email key means nothing is sent.
 |---|---|---|
 | Stripe account mode | "FYStay sandbox" (test mode), already set up | Your Stripe account in **live mode** |
 | `STRIPE_SECRET_KEY` | `sk_test_...` (set) | `sk_live_...` (you add it) |
-| Webhooks | Sandbox endpoints pointing at the Preview branch address (set) | New live-mode endpoints pointing at the live domain |
+| Webhooks | Sandbox endpoints pointing at the Preview branch address (**missing**, see §0 below) | New live-mode endpoints pointing at the live domain |
 | Cards | Test cards only (4242 4242 4242 4242) | Real cards |
 | Email | Not configured, so nothing is sent | Resend with your own domain |
 
@@ -24,6 +24,37 @@ The app enforces the split itself (`stripeKeyMatchesEnvironment` in
 `src/lib/stripe.ts`). A test key on Production is ignored, so payments are
 refused rather than taken in test mode. A live key on Preview is ignored,
 so no real card can ever be charged from a test site.
+
+## 0. Stripe, test mode (Preview) - do this first
+
+Checked 6 Oct (evening): the "FYStay sandbox" account has **no webhook
+endpoints**. Without them a test payment succeeds on Stripe's page but the
+booking never becomes confirmed, so the hand test in handover.md Step 3
+can't pass. Set them up once the new Vercel project is linked to GitHub and
+has built the branch.
+
+1. **Find the stable Preview address.** Vercel → project → Deployments →
+   the newest Preview of branch `claude/airbnb-competitor-1fjjpk` → the
+   *branch* domain (it contains `git-claude-airbnb-competitor`), not the
+   one-off address with random letters, which changes on every build.
+2. **Let Stripe through Vercel's login wall.** Preview sites are protected
+   by Vercel Authentication, which turns Stripe away (401). Vercel →
+   project → Settings → Deployment Protection → **Protection Bypass for
+   Automation** → create a secret. Don't paste it anywhere except step 3.
+3. **Create the two endpoints in the sandbox** (Stripe → switch to "FYStay
+   sandbox" → Developers → Webhooks → Add endpoint), both with the address
+   `https://<branch domain>/api/webhooks/stripe?x-vercel-protection-bypass=<secret from step 2>`
+   and API version `2026-08-26.dahlia`:
+   - **A. "Your account"**: the same events as A in §1 below.
+   - **B. "Connected accounts"**: `account.updated`.
+4. **Vercel → Settings → Environment Variables, Preview only, Sensitive:**
+   `STRIPE_WEBHOOK_SECRET` = A's signing secret,
+   `STRIPE_CONNECT_WEBHOOK_SECRET` = B's signing secret, and
+   `STRIPE_SECRET_KEY` = the sandbox `sk_test_...` key (after rolling it,
+   handover Step 2 #7). Then redeploy the branch.
+5. **Check:** Stripe → the endpoint → "Send test event"
+   (`checkout.session.expired`) should show **200**. A 401 means step 2's
+   bypass is missing; a 400 "Invalid signature" means the wrong `whsec_`.
 
 ## 1. Stripe, live mode
 

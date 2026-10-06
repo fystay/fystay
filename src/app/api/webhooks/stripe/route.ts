@@ -308,7 +308,7 @@ async function postHandler(request: Request) {
       // every other branch here, so a redelivered event never re-sends the
       // provider/guest emails for an extra that's already been marked paid.
       const bookingExtraId = checkoutSession.metadata?.bookingExtraId;
-      if (bookingExtraId) {
+      if (bookingExtraId && isCheckoutSessionPaid(checkoutSession)) {
         const { count } = await prisma.bookingExtra.updateMany({
           where: { id: bookingExtraId, status: "PENDING_PAYMENT" },
           data: {

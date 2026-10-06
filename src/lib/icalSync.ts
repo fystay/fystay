@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { parseIcsEvents } from "@/lib/icalParse";
+import { safeFetchText } from "@/lib/safeFetch";
 
 export type ExistingImportedBlock = { externalUid: string; startDate: Date; endDate: Date };
 export type FetchedIcsEvent = { uid: string; start: Date; end: Date };
@@ -57,14 +58,15 @@ export async function syncListingIcalImport(
   const listing = await prisma.listing.findUnique({ where: { id: listingId }, select: { id: true, icalImportUrl: true } });
   if (!listing?.icalImportUrl) return null;
 
-  const response = await fetch(listing.icalImportUrl, {
-    headers: { Accept: "text/calendar, text/plain, */*" },
+  // The URL is whatever the host typed, so it's fetched through safeFetchText
+  // (public addresses only, time and size limits), never a bare fetch().
+  const response = await safeFetchText(listing.icalImportUrl, {
+    accept: "text/calendar, text/plain, */*",
   });
   if (!response.ok) {
     throw new Error(`Import feed returned ${response.status}`);
   }
-  const text = await response.text();
-  const fetched = parseIcsEvents(text);
+  const fetched = parseIcsEvents(response.text);
 
   const existing = await prisma.availabilityBlock.findMany({
     where: { listingId, source: "ICAL_IMPORT" },

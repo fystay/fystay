@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { httpUrlSchema } from "@/lib/validation";
+import { isFetchableUrl } from "@/lib/safeFetch";
 import { geocodeListing } from "@/lib/geocoding";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { withApiErrorHandling } from "@/lib/apiError";
@@ -49,7 +50,10 @@ const updateListingSchema = z
     quietHoursStart: z.string().max(50).nullable().optional(),
     quietHoursEnd: z.string().max(50).nullable().optional(),
     additionalRules: z.string().max(2000).nullable().optional(),
-    icalImportUrl: httpUrlSchema.nullable().optional(),
+    icalImportUrl: httpUrlSchema
+      .refine(isFetchableUrl, { message: "Use the calendar's public web link (http or https)" })
+      .nullable()
+      .optional(),
   })
   .refine(
     (data) =>
