@@ -16,6 +16,7 @@ import { evidenceDueByDate, mapStripeDisputeStatus } from "@/lib/paymentDisputes
 import type Stripe from "stripe";
 import { BASE_URL } from "@/lib/baseUrl";
 import { activatePaidPromotion } from "@/lib/listingPromotions";
+import { releaseUnpaidBooking } from "@/lib/bookingLifecycle";
 import { notifyListingPromotionActivated } from "@/lib/listingPromotionNotifications";
 
 /**
@@ -423,12 +424,15 @@ async function postHandler(request: Request) {
     // start a fresh session.
     // Only the booking's current session counts: a guest who restarted
     // checkout after this one expired is paying through a newer session.
+    // Any referral credit or promo code it reserved is given back - the
+    // guest was never charged (see releaseUnpaidBooking).
     const bookingId = event.data.object.metadata?.bookingId;
     if (bookingId) {
-      await prisma.booking.updateMany({
-        where: { id: bookingId, status: "PENDING", stripeSessionId: event.data.object.id },
-        data: { status: "CANCELLED" },
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: { id: true, guestId: true, creditAppliedCents: true, promoCodeId: true },
       });
+      if (booking) await releaseUnpaidBooking(prisma, booking, { stripeSessionId: event.data.object.id });
     } else if (event.data.object.metadata?.purpose === "listing_promotion") {
       // An abandoned Spotlight checkout: never charged, so it's simply
       // closed off. Scoped to this session and to unpaid, like the above.

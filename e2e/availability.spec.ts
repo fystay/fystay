@@ -215,7 +215,7 @@ test.describe("availability system", () => {
     expect(result.available).toBe(true);
   });
 
-  test("7. booking fails with a clear message if the dates become unavailable after the initial check", async ({
+  test("7. booking fails with a clear message if the dates are taken after the guest chose them", async ({
     page,
   }) => {
     await login(page, "guest@fystay.dev", "guestpass123");
@@ -228,10 +228,7 @@ test.describe("availability system", () => {
     const monthsAdvanced = await selectDay(page, raceCheckIn, 0);
     await selectDay(page, raceCheckOut, monthsAdvanced);
 
-    await Promise.all([
-      page.waitForResponse((r) => r.url().includes("/availability") && r.request().method() === "GET"),
-      page.getByRole("button", { name: "Check dates & price" }).click(),
-    ]);
+    // One press from chosen dates to checkout - no separate check step.
     await expect(page.getByRole("button", { name: "Reserve your stay" })).toBeVisible({
       timeout: 15_000,
     });
@@ -261,10 +258,10 @@ test.describe("availability system", () => {
       // toast notification, which would otherwise make this an ambiguous
       // match for a plain page-wide text locator.
       await expect(page.locator("#booking-widget").getByText(/not available/i)).toBeVisible();
-      // The flow requires re-checking, rather than silently letting a stale
-      // "available" state through to checkout.
-      await expect(page.getByRole("button", { name: "Check dates & price" })).toBeVisible();
+      // The server's own check catches it: no checkout, and the guest can
+      // simply pick other dates and press Reserve again.
       expect(page.url()).not.toContain("/checkout/");
+      await expect(page.getByRole("button", { name: "Reserve your stay" })).toBeEnabled();
     } finally {
       await prisma.booking.delete({ where: { id: racingBooking.id } });
     }

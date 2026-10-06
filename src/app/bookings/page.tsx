@@ -5,7 +5,7 @@ import { Luggage } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { blockingBookingWhere } from "@/lib/availability";
-import { completePastBookings } from "@/lib/bookingLifecycle";
+import { completePastBookings, expireAbandonedCheckouts, isAbandonedReservation } from "@/lib/bookingLifecycle";
 import { Card } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { BookingsTabs } from "@/components/BookingsTabs";
@@ -36,8 +36,9 @@ export default async function BookingsPage() {
   }
 
   await completePastBookings(prisma, session.user.id);
+  await expireAbandonedCheckouts(prisma, { guestId: session.user.id });
 
-  const [bookings, airportTransferOffering] = await Promise.all([
+  const [allBookings, airportTransferOffering] = await Promise.all([
     prisma.booking.findMany({
       where: { guestId: session.user.id },
       include: {
@@ -56,6 +57,8 @@ export default async function BookingsPage() {
     }),
     getActiveOfferingByCategory("AIRPORT_TRANSFER"),
   ]);
+  // A reservation that was never paid for isn't a trip (see isAbandonedReservation).
+  const bookings = allBookings.filter((booking) => !isAbandonedReservation(booking));
 
   // "Your journey" (item 5 of the cross-sell brief) only ever needs to
   // know whether *a* paid airport transfer exists per booking, not which

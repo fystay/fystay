@@ -591,8 +591,11 @@ body {
   }
 }
 
-/* react-day-picker theming: align its accent with the brand palette. */
-.rdp-root {
+/* react-day-picker theming: align its accent with the brand palette.
+   "html" outranks the library's own .rdp-root defaults, whose stylesheet
+   loads later with the calendar (same specificity, so it used to win and
+   paint the picker in its default blue). */
+html .rdp-root {
   --rdp-accent-color: var(--color-brand-600);
   --rdp-accent-background-color: var(--color-brand-50);
   --rdp-today-color: var(--color-brand-700);

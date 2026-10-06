@@ -102,7 +102,11 @@ function RegisterFormInner({ googleEnabled }: { googleEnabled: boolean }) {
       <div className="mb-8 flex flex-col items-center text-center">
         <Logo size="xl" className="mb-3" />
         <h1 className="text-2xl font-bold">Create your account</h1>
-        <p className="mt-1 text-sm text-stone-500">Join {SITE_NAME} in a few seconds</p>
+        <p className="mt-1 text-sm text-stone-500">
+          {callbackUrl?.startsWith("/listings/")
+            ? "It's free - we'll take you straight back to your stay with your dates saved."
+            : `Join ${SITE_NAME} in a few seconds`}
+        </p>
       </div>
 
       {referralCode && (

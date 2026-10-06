@@ -16,7 +16,7 @@ import {
 import { computeBookingPricing } from "@/lib/pricing";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { generateBookingReference } from "@/lib/bookingReference";
-import { completePastBookings, expireStaleBookingRequests } from "@/lib/bookingLifecycle";
+import { completePastBookings, expireAbandonedCheckouts, expireStaleBookingRequests } from "@/lib/bookingLifecycle";
 import { computeCreditToApply } from "@/lib/referral";
 import { computePromoDiscount, normalizePromoCode, validatePromoCode } from "@/lib/promoCode";
 import { sendBookingRequestReceivedEmail } from "@/lib/notificationEmails";
@@ -53,6 +53,7 @@ async function getHandler() {
 
   await completePastBookings(prisma, session.user.id);
   await expireStaleBookingRequests(prisma, { guestId: session.user.id });
+  await expireAbandonedCheckouts(prisma, { guestId: session.user.id });
 
   const bookings = await prisma.booking.findMany({
     where: { guestId: session.user.id },

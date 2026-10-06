@@ -11,6 +11,7 @@ import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
 import { isBookingHoldActive, isRequestedRangeStillAvailable } from "@/lib/availability";
 import { BASE_URL } from "@/lib/baseUrl";
+import { releaseUnpaidBooking } from "@/lib/bookingLifecycle";
 
 /**
  * Just over Stripe's 30-minute minimum Checkout Session lifetime - the
@@ -90,12 +91,9 @@ async function postHandler(request: Request) {
       checkOut: booking.checkOut,
     }))
   ) {
-    await prisma.booking.updateMany({
-      where: { id: booking.id, status: "PENDING" },
-      data: { status: "CANCELLED" },
-    });
+    await releaseUnpaidBooking(prisma, booking);
     return NextResponse.json(
-      { error: "Sorry, these dates were booked by someone else while your hold expired. Please choose new dates." },
+      { error: "Sorry, these dates were booked by someone else while your hold expired. You haven't been charged - please choose new dates." },
       { status: 409 },
     );
   }

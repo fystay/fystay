@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cancellationStanding,
   computeCancellationRefund,
   daysBeforeCheckIn,
   resolveCancellationPolicy,
@@ -117,5 +118,38 @@ describe("computeCancellationRefund", () => {
     const refund = computeCancellationRefund({ policy, amountPaidCents: 101, checkIn: daysFromNow(10) });
     expect(refund.refundCents).toBe(51);
     expect(refund.nonRefundableCents).toBe(50);
+  });
+});
+
+describe("cancellationStanding", () => {
+  const moderate = resolveCancellationPolicy({ cancellationPolicy: "MODERATE" });
+  const checkIn = new Date("2026-12-06T00:00:00Z");
+  const at = (iso: string) => new Date(iso);
+
+  it("gives the full-refund deadline while it still applies, up to and including that day", () => {
+    expect(cancellationStanding(moderate, checkIn, at("2026-11-20T12:00:00Z"))).toEqual({
+      refundPercent: 100,
+      until: new Date("2026-12-01T00:00:00Z"),
+    });
+    expect(cancellationStanding(moderate, checkIn, at("2026-12-01T20:00:00Z")).refundPercent).toBe(100);
+  });
+
+  it("moves to the next tier's deadline after that", () => {
+    expect(cancellationStanding(moderate, checkIn, at("2026-12-03T09:00:00Z"))).toEqual({
+      refundPercent: 50,
+      until: new Date("2026-12-05T00:00:00Z"),
+    });
+  });
+
+  it("has no deadline once nothing is refundable", () => {
+    expect(cancellationStanding(moderate, checkIn, at("2026-12-06T09:00:00Z"))).toEqual({ refundPercent: 0, until: null });
+  });
+
+  it("agrees with what a cancellation would actually refund", () => {
+    for (const now of ["2026-11-01T10:00:00Z", "2026-12-02T10:00:00Z", "2026-12-05T23:00:00Z", "2026-12-07T10:00:00Z"]) {
+      const standing = cancellationStanding(moderate, checkIn, at(now));
+      const refund = computeCancellationRefund({ policy: moderate, amountPaidCents: 10000, checkIn, now: at(now) });
+      expect(refund.refundPercent).toBe(standing.refundPercent);
+    }
   });
 });

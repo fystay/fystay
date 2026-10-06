@@ -78,3 +78,14 @@ const ukDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
 export function formatDateTime(date: Date | string): string {
   return ukDateTimeFormatter.format(new Date(date));
 }
+
+const ukTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/London",
+});
+
+/** A moment's UK clock time alone, e.g. "14:32" - for a deadline later today. */
+export function formatUkTime(date: Date | string): string {
+  return ukTimeFormatter.format(new Date(date));
+}

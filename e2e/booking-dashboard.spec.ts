@@ -184,8 +184,10 @@ test.describe("customer booking dashboard", () => {
     await expect(main.getByRole("button", { name: "Request changes" })).toBeVisible();
     await expect(main.getByRole("button", { name: "Cancel booking" })).toBeVisible();
     await expect(main.getByRole("link", { name: "View receipt" })).toBeVisible();
-    await expect(main.getByRole("link", { name: "Contact host" })).toBeVisible();
+    await expect(main.getByRole("button", { name: "Message host" })).toBeVisible();
     await expect(main.getByRole("link", { name: "Rebook this stay" })).toHaveCount(0);
+    // Where the stay stands under its policy today, before any Cancel press.
+    await expect(main.getByText(/Free cancellation until|refund if you cancel by|can no longer be refunded/)).toBeVisible();
   });
 
   test("a completed booking's detail page offers rebook and a receipt but not modify or cancel", async ({
@@ -198,12 +200,12 @@ test.describe("customer booking dashboard", () => {
     await expect(main.getByText("Completed", { exact: true })).toBeVisible();
     await expect(main.getByRole("link", { name: "Rebook this stay" })).toBeVisible();
     await expect(main.getByRole("link", { name: "View receipt" })).toBeVisible();
-    await expect(main.getByRole("link", { name: "Contact host" })).toBeVisible();
+    await expect(main.getByRole("button", { name: "Message host" })).toBeVisible();
     await expect(main.getByRole("button", { name: "Request changes" })).toHaveCount(0);
     await expect(main.getByRole("button", { name: "Cancel booking" })).toHaveCount(0);
   });
 
-  test("a pending, unpaid booking's detail page hides the receipt, contact host and exact address", async ({
+  test("a pending, unpaid booking's detail page hides the receipt, host's email and exact address", async ({
     page,
   }) => {
     await login(page, "guest@fystay.dev", "guestpass123");
@@ -213,8 +215,10 @@ test.describe("customer booking dashboard", () => {
     await expect(main.getByText("Pending payment", { exact: true })).toBeVisible();
     await expect(main.getByRole("button", { name: "Cancel booking" })).toBeVisible();
     await expect(main.getByRole("link", { name: "View receipt" })).toHaveCount(0);
-    await expect(main.getByRole("link", { name: "Contact host" })).toHaveCount(0);
+    await expect(main.getByText("host@fystay.dev")).toHaveCount(0);
     await expect(main.getByText("1 Fixture Street, DashboardTestCity")).toHaveCount(0);
+    // It says how long the dates are held, and that nothing's been charged.
+    await expect(main.getByText(/holding these dates for you until \d\d:\d\d/)).toBeVisible();
   });
 
   test("the receipt page shows the real price breakdown for a paid booking and a friendly message for an unpaid one", async ({

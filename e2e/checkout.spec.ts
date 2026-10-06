@@ -176,6 +176,9 @@ test.describe("checkout and payment", () => {
     await expect(main.getByText("Jamie Guest")).toBeVisible();
     await expect(main.getByText("07700 123456")).toBeVisible();
     await expect(main.getByText("Paid", { exact: true })).toBeVisible();
-    await expect(main.getByRole("link", { name: "View my trips" })).toBeVisible();
+    await expect(main.getByRole("link", { name: "View booking" })).toHaveAttribute("href", `/bookings/${booking.id}`);
+    // Where it stands on cancellation, and who the host is, without leaving the page.
+    await expect(main.getByText(/Free cancellation until|refund if you cancel by|non-refundable/)).toBeVisible();
+    await expect(main.getByText(/^Hosted by /)).toBeVisible();
   });
 });

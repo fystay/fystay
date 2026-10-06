@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { prisma } from "@/lib/prisma";
-import { expireStaleBookingRequests } from "@/lib/bookingLifecycle";
+import { expireAbandonedCheckouts, expireStaleBookingRequests } from "@/lib/bookingLifecycle";
 import { sendBookingRequestRespondedEmail } from "@/lib/notificationEmails";
 import { BASE_URL } from "@/lib/baseUrl";
 
@@ -23,6 +23,9 @@ async function getHandler(request: Request) {
 
   const baseUrl = BASE_URL;
   const expired = await expireStaleBookingRequests(prisma);
+  // Same daily backstop for reservations nobody paid for (see
+  // expireAbandonedCheckouts) - no email: the guest chose not to pay.
+  const abandonedCheckouts = await expireAbandonedCheckouts(prisma);
 
   for (const booking of expired) {
     try {
@@ -49,7 +52,7 @@ async function getHandler(request: Request) {
     }
   }
 
-  return NextResponse.json({ expiredAt: new Date().toISOString(), count: expired.length });
+  return NextResponse.json({ expiredAt: new Date().toISOString(), count: expired.length, abandonedCheckouts });
 }
 
 export const GET = withApiErrorHandling(getHandler);

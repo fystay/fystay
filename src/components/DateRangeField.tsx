@@ -6,15 +6,18 @@ import "react-day-picker/style.css";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+const dateFormatter = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
 
 export function DateRangeField({
+  id,
   range,
   onChange,
   disabledRanges,
   minNights = 1,
   maxNights,
 }: {
+  /** On the trigger button, so another control (e.g. "Choose your dates") can open the calendar. */
+  id?: string;
   range: DateRange | undefined;
   onChange: (range: DateRange | undefined) => void;
   disabledRanges: Matcher[];
@@ -55,6 +58,7 @@ export function DateRangeField({
   return (
     <div ref={containerRef} className="relative">
       <button
+        id={id}
         ref={triggerRef}
         type="button"
         aria-haspopup="dialog"

@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, DoorOpen, Hourglass, Wifi } from "lucide-react";
+import { ArrowLeft, CalendarClock, CircleCheck, DoorOpen, Hourglass, ReceiptText, Wifi } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { blockingBookingWhere, PENDING_BOOKING_HOLD_MINUTES } from "@/lib/availability";
-import { completePastBookings, expireStaleBookingRequests } from "@/lib/bookingLifecycle";
+import {
+  completePastBookings,
+  expireAbandonedCheckouts,
+  expireStaleBookingRequests,
+  isAbandonedReservation,
+} from "@/lib/bookingLifecycle";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { canCancelBooking, canRequestBookingChange } from "@/lib/changeRequests";
@@ -17,12 +22,14 @@ import { BookingSummaryCard } from "@/components/BookingSummaryCard";
 import { RequestChangeDialog } from "@/components/RequestChangeDialog";
 import { CancelBookingButton } from "@/components/CancelBookingButton";
 import { ChangeRequestStatus } from "@/components/ChangeRequestStatus";
-import { previewCancellation } from "@/lib/cancellationPolicy";
+import { cancellationStanding, previewCancellation, resolveCancellationPolicy } from "@/lib/cancellationPolicy";
+import { ContactHostButton } from "@/components/ContactHostButton";
 import { needsDepositAuthorization } from "@/lib/securityDeposit";
 import { DepositStatusCard } from "@/components/DepositStatusCard";
 import { TripExtrasCard } from "@/components/TripExtrasCard";
 import type { BadgeProps } from "@/components/ui/Badge";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatPrice, formatStayDate, formatUkTime } from "@/lib/format";
+import { buildStayQuery } from "@/lib/stayQuery";
 import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
 
 export const metadata: Metadata = { title: "Booking details", robots: { index: false } };
@@ -59,6 +66,7 @@ export default async function BookingDetailPage({
 
   await completePastBookings(prisma, session.user.id);
   await expireStaleBookingRequests(prisma, { guestId: session.user.id });
+  await expireAbandonedCheckouts(prisma, { guestId: session.user.id });
 
   const booking = await prisma.booking.findUnique({
     where: { id },
@@ -128,9 +136,25 @@ export default async function BookingDetailPage({
   // cutoff rather than inventing a second one.
   const isUnpaidInstantBooking = booking.status === "PENDING" && booking.approvalStatus === "NONE";
   const now = new Date();
-  const instantBookingHoldExpired =
-    isUnpaidInstantBooking &&
-    booking.createdAt.getTime() + PENDING_BOOKING_HOLD_MINUTES * 60 * 1000 <= now.getTime();
+  const holdEndsAt = new Date(booking.createdAt.getTime() + PENDING_BOOKING_HOLD_MINUTES * 60 * 1000);
+  const instantBookingHoldExpired = isUnpaidInstantBooking && holdEndsAt <= now;
+  const abandoned = isAbandonedReservation(booking);
+  // "Book again" lands on the listing with this stay's dates and guests
+  // already chosen, not a blank calendar.
+  const rebookHref = `/listings/${booking.listingId}${buildStayQuery({
+    checkIn: booking.checkIn.toISOString().slice(0, 10),
+    checkOut: booking.checkOut.toISOString().slice(0, 10),
+    adults: String(booking.guests),
+  })}`;
+  const policy = resolveCancellationPolicy(booking.listing);
+  // Where a paid, upcoming stay stands under its policy today - the same
+  // rule the Cancel button refunds by (see cancellationStanding).
+  const standing =
+    booking.status === "CONFIRMED" && booking.paymentStatus === "PAID"
+      ? cancellationStanding(policy, booking.checkIn, now)
+      : null;
+  const wasCancelledAfterPaying =
+    (booking.status === "CANCELLED" || booking.status === "REFUNDED") && booking.paidAt !== null;
 
   const canModify = canRequestBookingChange(booking, hasPendingChangeRequest);
   const canCancel = canCancelBooking(booking);
@@ -186,10 +210,7 @@ export default async function BookingDetailPage({
                   These dates were held for {PENDING_BOOKING_HOLD_MINUTES} minutes and have since
                   been released. Book again to hold them once more.
                 </p>
-                <Link
-                  href={`/listings/${booking.listingId}`}
-                  className={cn(buttonVariants({ size: "sm" }), "mt-3")}
-                >
+                <Link href={rebookHref} className={cn(buttonVariants({ size: "sm" }), "mt-3")}>
                   Book again
                 </Link>
               </>
@@ -197,8 +218,8 @@ export default async function BookingDetailPage({
               <>
                 <p className="font-medium text-brand-900">Payment still needed</p>
                 <p className="text-sm text-brand-800">
-                  Your dates are held for {PENDING_BOOKING_HOLD_MINUTES} minutes from when you
-                  reserved - complete payment to confirm this stay.
+                  We&apos;re holding these dates for you until {formatUkTime(holdEndsAt)}. Pay before
+                  then to confirm your stay - you haven&apos;t been charged yet.
                 </p>
                 <Link
                   href={`/checkout/${booking.id}`}
@@ -207,6 +228,45 @@ export default async function BookingDetailPage({
                   Complete payment
                 </Link>
               </>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {abandoned && (
+        <Card className="mt-4 flex flex-row items-start gap-3 border-brand-100 bg-brand-50 p-4">
+          <Hourglass className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden />
+          <div>
+            <p className="font-medium text-brand-900">This reservation wasn&apos;t completed</p>
+            <p className="text-sm text-brand-800">
+              It wasn&apos;t paid for in time, so the dates were released. You haven&apos;t been charged.
+            </p>
+            <Link href={rebookHref} className={cn(buttonVariants({ size: "sm" }), "mt-3")}>
+              Book again
+            </Link>
+          </div>
+        </Card>
+      )}
+
+      {wasCancelledAfterPaying && (
+        <Card className="mt-4 flex flex-row items-start gap-3 p-4">
+          <ReceiptText className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden />
+          <div className="text-sm text-stone-600">
+            <p className="font-medium text-foreground">This booking was cancelled</p>
+            {booking.refundedAmountCents && booking.refundedAmountCents > 0 ? (
+              <p className="mt-0.5">
+                {formatPrice(booking.refundedAmountCents)}{" "}
+                {booking.refundedAmountCents < booking.totalPriceCents && (
+                  <>of the {formatPrice(booking.totalPriceCents)} you paid </>
+                )}
+                was refunded to your original payment method
+                {booking.refundedAt && <> on {formatDate(booking.refundedAt)}</>}. Refunds usually
+                take 5-10 working days to show on your statement.
+              </p>
+            ) : (
+              <p className="mt-0.5">
+                No refund was due under this stay&apos;s {policy.label.toLowerCase()} cancellation policy.
+              </p>
             )}
           </div>
         </Card>
@@ -273,27 +333,34 @@ export default async function BookingDetailPage({
         />
       )}
 
-      {extraOfferings.length > 0 && (
-        <div id="trip-extras" className="mt-4 scroll-mt-24">
-          <TripExtrasCard
-            bookingId={booking.id}
-            offerings={extraOfferings.map((offering) => ({
-              id: offering.id,
-              name: offering.name,
-              description: offering.description,
-              priceCents: offering.priceCents,
-              providerName: offering.provider.name,
-              category: offering.category,
-            }))}
-            paidOfferingIds={paidBookingExtras.map((extra) => extra.offeringId)}
-          />
-        </div>
-      )}
-
-      <PhotoGallery photos={booking.listing.photos} title={booking.listing.title} />
-
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+      {/* The stay itself first - what, when, how much, can I cancel - then
+          the place, the host and what you can do; extras and photos after. */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:mt-8 lg:grid-cols-3 lg:gap-8">
         <div className="flex flex-col gap-6 lg:col-span-2">
+          {standing && canCancel && (
+            <Card>
+              <CardContent className="flex items-start gap-3 p-5">
+                {standing.refundPercent === 100 ? (
+                  <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+                ) : (
+                  <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden />
+                )}
+                <div className="text-sm text-stone-600">
+                  <p className="font-medium text-foreground">
+                    {standing.until
+                      ? standing.refundPercent === 100
+                        ? `Free cancellation until ${formatStayDate(standing.until)}`
+                        : `${standing.refundPercent}% refund if you cancel by ${formatStayDate(standing.until)}`
+                      : "This stay can no longer be refunded"}
+                  </p>
+                  <p className="mt-0.5">
+                    {policy.label} policy: {policy.description}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>Where you&apos;re staying</CardTitle>
@@ -302,7 +369,11 @@ export default async function BookingDetailPage({
               <p>
                 {booking.listing.city}, {booking.listing.country}
               </p>
-              {canSeeStayDetails && booking.listing.address && <p>{booking.listing.address}</p>}
+              {canSeeStayDetails && booking.listing.address ? (
+                <p className="font-medium text-foreground">{booking.listing.address}</p>
+              ) : (
+                canSeeStayDetails && <p>Your host will share the exact address before you arrive.</p>
+              )}
             </CardContent>
           </Card>
 
@@ -351,14 +422,17 @@ export default async function BookingDetailPage({
             <CardHeader>
               <CardTitle>Your host</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center gap-3">
-              <Avatar name={booking.listing.host.name} src={booking.listing.host.image} />
-              <div>
-                <p className="font-medium text-foreground">{booking.listing.host.name}</p>
-                {canSeeStayDetails && booking.listing.host.email && (
-                  <p className="text-sm text-stone-500">{booking.listing.host.email}</p>
-                )}
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <Avatar name={booking.listing.host.name} src={booking.listing.host.image} />
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">{booking.listing.host.name}</p>
+                  {canSeeStayDetails && booking.listing.host.email && (
+                    <p className="truncate text-sm text-stone-500">{booking.listing.host.email}</p>
+                  )}
+                </div>
               </div>
+              <ContactHostButton listingId={booking.listingId} hostName={booking.listing.host.name} isLoggedIn />
             </CardContent>
           </Card>
 
@@ -424,18 +498,7 @@ export default async function BookingDetailPage({
                   </Link>
                 )}
 
-                {canSeeStayDetails && booking.listing.host.email && (
-                  <a
-                    href={`mailto:${booking.listing.host.email}?subject=${encodeURIComponent(
-                      `Booking ${booking.reference} — ${booking.listing.title}`,
-                    )}`}
-                    className={actionLinkClass}
-                  >
-                    Contact host
-                  </a>
-                )}
-
-                {canRebook && (
+                {canRebook && !abandoned && (
                   <Link href={`/listings/${booking.listingId}`} className={actionLinkClass}>
                     Rebook this stay
                   </Link>
@@ -445,7 +508,8 @@ export default async function BookingDetailPage({
           </Card>
         </div>
 
-        <div>
+        {/* First on a phone: the booking itself before everything else. */}
+        <div className="order-first lg:order-none">
           <BookingSummaryCard
             listing={{
               title: booking.listing.title,
@@ -473,6 +537,27 @@ export default async function BookingDetailPage({
             paymentStatus={booking.paymentStatus}
           />
         </div>
+      </div>
+
+      {extraOfferings.length > 0 && (
+        <div id="trip-extras" className="mt-8 scroll-mt-24">
+          <TripExtrasCard
+            bookingId={booking.id}
+            offerings={extraOfferings.map((offering) => ({
+              id: offering.id,
+              name: offering.name,
+              description: offering.description,
+              priceCents: offering.priceCents,
+              providerName: offering.provider.name,
+              category: offering.category,
+            }))}
+            paidOfferingIds={paidBookingExtras.map((extra) => extra.offeringId)}
+          />
+        </div>
+      )}
+
+      <div className="mt-8">
+        <PhotoGallery photos={booking.listing.photos} title={booking.listing.title} />
       </div>
     </div>
   );

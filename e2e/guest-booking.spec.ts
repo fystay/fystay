@@ -75,14 +75,7 @@ test("guest can log in, book a listing, and see it in their trips", async ({ pag
 
   await expect(page.getByText(/Total/)).toBeVisible();
 
-  // Waiting on the actual response (rather than a short default toBeVisible
-  // timeout) matters here: these are freshly-created routes that a dev
-  // server compiles on first hit, which under CI's parallel workers can
-  // comfortably exceed a 5s default.
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/availability") && r.request().method() === "GET"),
-    page.getByRole("button", { name: "Check dates & price" }).click(),
-  ]);
+  // One press from chosen dates to checkout - no separate check step.
   await expect(page.getByRole("button", { name: "Reserve your stay" })).toBeVisible({
     timeout: 15_000,
   });
@@ -91,9 +84,7 @@ test("guest can log in, book a listing, and see it in their trips", async ({ pag
     page.getByRole("button", { name: "Reserve your stay" }).click(),
   ]);
 
-  // Instant Book goes through the optional airport-transfer step first.
-  await page.waitForURL(/\/checkout\/[^/]+\/transfer$/, { timeout: 15_000 });
-  await page.getByRole("link", { name: "Skip for now" }).click();
+  // Reserving goes straight to checkout (no in-between transfer step).
   await page.waitForURL(/\/checkout\/[^/]+$/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Confirm and pay" })).toBeVisible();
   // Name/email are prefilled from the account; only phone is missing.

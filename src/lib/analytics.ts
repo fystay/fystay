@@ -17,8 +17,8 @@
  * autocomplete and typo-safety at call sites. `transfer_intent_added` and
  * `transfer_added` are deliberately separate names, not the same event
  * fired from two places - the former is a pre-checkout click with no
- * money moved yet (TransferStepCard's "Add airport transfer" button,
- * fired client-side), the latter only ever fires server-side once a
+ * money moved yet (the former pre-checkout "Complete your trip" step's
+ * button - that step is gone, but the name stays for existing data), the latter only ever fires server-side once a
  * purchase actually completes (see the extras route's own comment) -
  * merging them would conflate clicks with real revenue in any future
  * report built on this data. */

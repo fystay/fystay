@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft, Info } from "lucide-react";
+import { ChevronLeft, Hourglass, Info } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { PENDING_BOOKING_HOLD_MINUTES } from "@/lib/availability";
@@ -12,6 +12,9 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
+import { formatUkTime } from "@/lib/format";
+import { buildStayQuery } from "@/lib/stayQuery";
+import { isAbandonedReservation } from "@/lib/bookingLifecycle";
 
 export const metadata: Metadata = { title: "Confirm and pay", robots: { index: false } };
 
@@ -38,6 +41,17 @@ export default async function CheckoutPage({
     notFound();
   }
 
+  // Back to the listing with this stay still chosen, not a blank calendar.
+  const listingHref = `/listings/${booking.listingId}${buildStayQuery({
+    checkIn: booking.checkIn.toISOString().slice(0, 10),
+    checkOut: booking.checkOut.toISOString().slice(0, 10),
+    adults: String(booking.guests),
+  })}`;
+
+  // A reservation that lapsed unpaid explains itself on its own page.
+  if (isAbandonedReservation(booking)) {
+    redirect(`/bookings/${booking.id}`);
+  }
   if (booking.status !== "PENDING") {
     redirect(`/bookings/${booking.id}/confirmation`);
   }
@@ -48,16 +62,31 @@ export default async function CheckoutPage({
     redirect(`/bookings/${booking.id}`);
   }
 
-  const holdExpiresAt = new Date(
-    booking.createdAt.getTime() + PENDING_BOOKING_HOLD_MINUTES * 60 * 1000,
-  );
+  // An approved request's hold starts when the host approved it, an instant
+  // booking's when it was made (see isBookingHoldActive).
+  const holdStartedAt =
+    booking.approvalStatus === "APPROVED" && booking.hostRespondedAt ? booking.hostRespondedAt : booking.createdAt;
+  const holdExpiresAt = new Date(holdStartedAt.getTime() + PENDING_BOOKING_HOLD_MINUTES * 60 * 1000);
   const expired = holdExpiresAt <= new Date();
   const cancellationPolicy = resolveCancellationPolicy(booking.listing);
+  // A returning guest isn't asked for the same phone number every time: the
+  // one on their last booking (or their verified account number) is filled in.
+  const knownPhone =
+    booking.guestPhone ??
+    (
+      await prisma.booking.findFirst({
+        where: { guestId: session.user.id, guestPhone: { not: null }, id: { not: booking.id } },
+        orderBy: { createdAt: "desc" },
+        select: { guestPhone: true },
+      })
+    )?.guestPhone ??
+    (await prisma.user.findUnique({ where: { id: session.user.id }, select: { phone: true } }))?.phone ??
+    "";
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
       <Link
-        href={`/listings/${booking.listingId}`}
+        href={listingHref}
         className="focus-ring -ml-1 inline-flex items-center gap-1 rounded-lg py-1 pr-2 text-sm font-medium text-stone-600 hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -65,6 +94,14 @@ export default async function CheckoutPage({
       </Link>
 
       <h1 className="mt-3 text-2xl font-bold text-foreground">Confirm and pay</h1>
+
+      {!expired && (
+        <p className="mt-2 flex items-center gap-2 text-sm text-stone-600">
+          <Hourglass className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />
+          We&apos;re holding these dates for you until {formatUkTime(holdExpiresAt)}. You won&apos;t be
+          charged until you pay.
+        </p>
+      )}
 
       {cancelled === "1" && !expired && (
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -77,16 +114,14 @@ export default async function CheckoutPage({
       {expired ? (
         <Card className="mt-6 p-6 text-center">
           <CardContent className="flex flex-col items-center gap-3 p-0">
-            <p className="font-medium text-foreground">This reservation hold has expired</p>
+            <p className="font-medium text-foreground">Your hold on these dates has ended</p>
             <p className="max-w-sm text-sm text-stone-500">
-              We held these dates for {PENDING_BOOKING_HOLD_MINUTES} minutes while you checked
-              out. Please go back and select your dates again.
+              We hold dates for {PENDING_BOOKING_HOLD_MINUTES} minutes while you check out, and
+              you haven&apos;t been charged. Go back to reserve them again - if they&apos;re still
+              free, it takes one tap.
             </p>
-            <Link
-              href={`/listings/${booking.listingId}`}
-              className={cn(buttonVariants(), "mt-2")}
-            >
-              Back to listing
+            <Link href={listingHref} className={cn(buttonVariants(), "mt-2")}>
+              Reserve again
             </Link>
           </CardContent>
         </Card>
@@ -97,7 +132,7 @@ export default async function CheckoutPage({
               bookingId={booking.id}
               defaultName={booking.guestName ?? session.user.name ?? ""}
               defaultEmail={booking.guestEmail ?? session.user.email ?? ""}
-              defaultPhone={booking.guestPhone ?? ""}
+              defaultPhone={knownPhone}
               guests={booking.guests}
               totalPriceCents={booking.totalPriceCents}
             />

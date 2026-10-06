@@ -26,7 +26,7 @@ import { hasParking, isPetFriendly } from "@/lib/search";
 import { auth } from "@/auth";
 import { BookingWidget } from "@/components/BookingWidget";
 import { HotelBookingWidget } from "@/components/HotelBookingWidget";
-import { MobileBookingBar } from "@/components/MobileBookingBar";
+import { HotelRoomsBar } from "@/components/HotelRoomsBar";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { AmenitiesSection } from "@/components/AmenitiesSection";
 import { NearbyAttractions } from "@/components/NearbyAttractions";
@@ -541,7 +541,8 @@ export default async function ListingDetailPage({
         </div>
       </div>
 
-      <MobileBookingBar pricePerNightCents={listing.pricePerNightCents} />
+      {/* A non-hotel listing's widget renders its own bar, with the chosen dates' total. */}
+      {listing.propertyType === "HOTEL" && <HotelRoomsBar pricePerNightCents={listing.pricePerNightCents} />}
     </div>
   );
 }

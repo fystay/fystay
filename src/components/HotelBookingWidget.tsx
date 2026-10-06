@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { type DateRange } from "react-day-picker";
@@ -101,8 +101,8 @@ function Stepper({
  * The HOTEL analogue of BookingWidget: one shared date range (dates apply
  * regardless of which room type a guest ultimately picks - standard hotel-
  * site UX), a list of room types with their own price/capacity, and the
- * same two-step "check availability -> reserve/request" flow per room
- * type, just carrying roomTypeId + roomsBooked instead of listingId.
+ * same one-press reserve/request per room type, just carrying roomTypeId +
+ * roomsBooked instead of listingId.
  * Deliberately one room type per booking (confirmed product decision) -
  * booking two different room types is two separate reservations.
  */
@@ -266,15 +266,11 @@ function RoomTypeBookingCard({
   const [guests, setGuests] = useState(() =>
     initialGuests ? Math.min(initialGuests, roomType.maxGuests) : roomType.maxGuests,
   );
-  const [checking, setChecking] = useState(false);
   const [reserving, setReserving] = useState(false);
+  // See BookingWidget: set before the re-render, so a double-tap sends one request.
+  const reservingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [checkedSelection, setCheckedSelection] = useState<{
-    checkIn: string;
-    checkOut: string;
-    guests: number;
-    roomsBooked: number;
-  } | null>(null);
+  const [showPromo, setShowPromo] = useState(false);
 
   const nights = range?.from && range?.to ? nightsBetween(range.from, range.to) : 0;
   const pricing =
@@ -291,14 +287,6 @@ function RoomTypeBookingCard({
           ),
         })
       : null;
-
-  const availabilityChecked = Boolean(
-    checkedSelection &&
-      (range?.from && toStayDateString(range.from)) === checkedSelection.checkIn &&
-      (range?.to && toStayDateString(range.to)) === checkedSelection.checkOut &&
-      guests === checkedSelection.guests &&
-      roomsBooked === checkedSelection.roomsBooked,
-  );
 
   const {
     promoCodeInput,
@@ -331,55 +319,18 @@ function RoomTypeBookingCard({
     setGuests((g) => Math.min(g, roomType.maxGuests * next));
   }
 
-  async function handleCheckAvailability() {
+  // One press to checkout, as in BookingWidget: POST /api/bookings re-checks
+  // this room type's availability itself, so there's no separate check step.
+  async function handleReserve() {
+    if (reservingRef.current) return;
     setError(null);
+    toast.dismiss();
     if (!range?.from || !range?.to) {
-      setError("Select your dates above first.");
+      setError("Choose your dates above first.");
       return;
     }
 
-    setChecking(true);
-    try {
-      const params = new URLSearchParams({
-        checkIn: toStayDateString(range.from),
-        checkOut: toStayDateString(range.to),
-        guests: String(guests),
-        roomTypeId: roomType.id,
-        roomsBooked: String(roomsBooked),
-      });
-      const res = await fetch(`/api/listings/${listingId}/availability?${params}`);
-      const data = await res.json();
-
-      if (!res.ok || !data.available) {
-        const message = data.error ?? "Those dates aren't available for this room type.";
-        setError(message);
-        toast.error(message);
-        return;
-      }
-
-      setCheckedSelection({
-        checkIn: toStayDateString(range.from),
-        checkOut: toStayDateString(range.to),
-        guests,
-        roomsBooked,
-      });
-      toast.success("Good news — this room type is available.");
-    } catch {
-      setError("Something went wrong. Please try again.");
-      toast.error("Something went wrong. Please try again.");
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  async function handleContinueToCheckout() {
-    setError(null);
-    // See BookingWidget.tsx's own copy of this same fix: without it, the
-    // "this room type is available" toast from the check above can still
-    // be on-screen after navigating to checkout.
-    toast.dismiss();
-    if (!range?.from || !range?.to) return;
-
+    reservingRef.current = true;
     setReserving(true);
     try {
       const bookingRes = await fetch("/api/bookings", {
@@ -394,11 +345,12 @@ function RoomTypeBookingCard({
           promoCode: promoCodeToSubmit,
         }),
       });
-      const bookingData = await bookingRes.json();
-      if (!bookingRes.ok) {
-        setError(bookingData.error ?? "Could not create booking.");
-        toast.error(bookingData.error ?? "Could not create booking.");
-        setCheckedSelection(null);
+      const bookingData = await bookingRes.json().catch(() => null);
+      if (!bookingRes.ok || !bookingData?.booking) {
+        const message = bookingData?.error ?? "We couldn't reserve this room. Please try again.";
+        setError(message);
+        toast.error(message);
+        reservingRef.current = false;
         setReserving(false);
         return;
       }
@@ -407,11 +359,12 @@ function RoomTypeBookingCard({
         toast.success("Request sent - the host has 24 hours to respond.");
         router.push(`/bookings/${bookingData.booking.id}`);
       } else {
-        router.push(`/checkout/${bookingData.booking.id}/transfer`);
+        router.push(`/checkout/${bookingData.booking.id}`);
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Something went wrong. Please check your connection and try again.");
       toast.error("Something went wrong. Please try again.");
+      reservingRef.current = false;
       setReserving(false);
     }
   }
@@ -508,7 +461,7 @@ function RoomTypeBookingCard({
             <span>{formatPrice(pricing.totalPriceCents - promoDiscountCents)}</span>
           </div>
 
-          {availabilityChecked &&
+          {isLoggedIn &&
             (promoActive ? (
               <div className="flex items-center justify-between rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs text-brand-800">
                 <span>
@@ -518,6 +471,14 @@ function RoomTypeBookingCard({
                   Remove
                 </button>
               </div>
+            ) : !showPromo ? (
+              <button
+                type="button"
+                onClick={() => setShowPromo(true)}
+                className="focus-ring self-start rounded-sm text-xs font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
+              >
+                Have a promo code?
+              </button>
             ) : (
               <div className="flex flex-col gap-1.5">
                 <div className="flex gap-2">
@@ -554,21 +515,10 @@ function RoomTypeBookingCard({
           >
             Log in to book
           </Button>
-        ) : availabilityChecked ? (
-          <Button onClick={handleContinueToCheckout} loading={reserving} size="sm" className="w-full">
+        ) : (
+          <Button onClick={handleReserve} loading={reserving} size="sm" className="w-full">
             {instantBook ? "Reserve" : "Request to book"}
             <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
-          </Button>
-        ) : (
-          <Button
-            onClick={handleCheckAvailability}
-            loading={checking}
-            disabled={!range}
-            size="sm"
-            variant="secondary"
-            className="w-full"
-          >
-            Check availability & price
           </Button>
         )}
       </div>

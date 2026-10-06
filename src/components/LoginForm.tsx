@@ -69,7 +69,12 @@ function LoginFormInner({ googleEnabled }: { googleEnabled: boolean }) {
       <div className="mb-8 flex flex-col items-center text-center">
         <Logo size="xl" className="mb-3" />
         <h1 className="text-2xl font-bold">Welcome back</h1>
-        <p className="mt-1 text-sm text-stone-500">Log in to continue to {SITE_NAME}</p>
+        <p className="mt-1 text-sm text-stone-500">
+          {/* Arriving from "Log in to book": say the stay is waiting for them. */}
+          {callbackUrl.startsWith("/listings/")
+            ? "Log in to book your stay - your dates are saved."
+            : `Log in to continue to ${SITE_NAME}`}
+        </p>
       </div>
 
       <Card>

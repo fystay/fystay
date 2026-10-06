@@ -1,4 +1,4 @@
-import { differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays, subDays } from "date-fns";
 
 /**
  * A host's refund rules for a guest-initiated cancellation. Modeled as an
@@ -133,6 +133,27 @@ export function computeCancellationRefund(params: {
   const refundCents = Math.round((amountPaidCents * refundPercent) / 100);
 
   return { refundPercent, refundCents, nonRefundableCents: amountPaidCents - refundCents };
+}
+
+/**
+ * Where a stay stands under its policy today: the refund a cancellation
+ * right now would give, and the last day that refund still applies (null
+ * once nothing is refundable) - the same tiers computeCancellationRefund
+ * charges by, so "Free cancellation until 1 Dec" is exactly what the
+ * cancel button will do on 1 Dec. A tier for N days applies while at least
+ * N calendar days remain, i.e. up to and including check-in minus N days.
+ */
+export function cancellationStanding(
+  policy: CancellationPolicy,
+  checkIn: Date,
+  now: Date = new Date(),
+): { refundPercent: number; until: Date | null } {
+  const days = daysBeforeCheckIn(checkIn, now);
+  const tier = [...policy.tiers]
+    .sort((a, b) => b.minDaysBeforeCheckIn - a.minDaysBeforeCheckIn)
+    .find((t) => days >= t.minDaysBeforeCheckIn);
+  const refundPercent = tier?.refundPercent ?? 0;
+  return { refundPercent, until: refundPercent > 0 && tier ? subDays(checkIn, tier.minDaysBeforeCheckIn) : null };
 }
 
 export type CancellationPreview = CancellationRefund & {
