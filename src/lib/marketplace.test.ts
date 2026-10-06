@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  beachStaysSection,
+  buildExploreFilters,
   groupByCity,
   hasLongStayDiscount,
-  isBeachStay,
+  isSeaView,
   isFamilySized,
   isTopRated,
   rankByPopularity,
   recentlyAddedSection,
+  townSlug,
+  type ExploreListing,
   type MarketplaceListing,
 } from "./marketplace";
 
@@ -20,16 +22,17 @@ function listing(overrides: Partial<MarketplaceListing> & { id: string }): Marke
   };
 }
 
-describe("isBeachStay", () => {
-  it("matches sea/ocean/beach amenities case-insensitively", () => {
-    expect(isBeachStay(["Wifi", "Sea view"])).toBe(true);
-    expect(isBeachStay(["OCEAN VIEW"])).toBe(true);
-    expect(isBeachStay(["Beach access"])).toBe(true);
+describe("isSeaView", () => {
+  it("matches a sea or ocean view, however the host wrote it", () => {
+    expect(isSeaView(["Wifi", "Sea view"])).toBe(true);
+    expect(isSeaView(["OCEAN VIEW"])).toBe(true);
+    expect(isSeaView(["Sea-view balcony"])).toBe(true);
   });
 
-  it("returns false when nothing matches", () => {
-    expect(isBeachStay(["Wifi", "Kitchen"])).toBe(false);
-    expect(isBeachStay([])).toBe(false);
+  it("doesn't count beach access or the word 'sea' alone as a view", () => {
+    expect(isSeaView(["Beach access"])).toBe(false);
+    expect(isSeaView(["Near the sea"])).toBe(false);
+    expect(isSeaView([])).toBe(false);
   });
 });
 
@@ -68,23 +71,6 @@ describe("groupByCity", () => {
     const sections = groupByCity(listings, { maxSections: 2 });
 
     expect(sections.map((s) => s.title)).toEqual(["Popular in B", "Popular in C"]);
-  });
-});
-
-describe("beachStaysSection", () => {
-  it("returns null when fewer than the minimum qualify", () => {
-    const listings = [listing({ id: "1", amenities: ["Sea view"] })];
-    expect(beachStaysSection(listings)).toBeNull();
-  });
-
-  it("returns a section once enough listings qualify", () => {
-    const listings = [
-      listing({ id: "1", amenities: ["Sea view"] }),
-      listing({ id: "2", amenities: ["Ocean view"] }),
-      listing({ id: "3", amenities: ["Wifi"] }),
-    ];
-    const section = beachStaysSection(listings);
-    expect(section?.listings.map((l) => l.id)).toEqual(["1", "2"]);
   });
 });
 
@@ -178,5 +164,60 @@ describe("isTopRated", () => {
   it("needs an average of 4.5 or more", () => {
     expect(isTopRated(ratings(5, 4, 5, 4))).toBe(true);
     expect(isTopRated(ratings(5, 4, 4, 4))).toBe(false);
+  });
+});
+
+describe("townSlug", () => {
+  it("makes a town name URL-safe", () => {
+    expect(townSlug("Blackpool")).toBe("blackpool");
+    expect(townSlug("St Annes")).toBe("st-annes");
+    expect(townSlug("Poulton-le-Fylde")).toBe("poulton-le-fylde");
+  });
+});
+
+describe("buildExploreFilters", () => {
+  function stay(id: string, overrides: Partial<ExploreListing> = {}): ExploreListing {
+    return {
+      id,
+      city: "Blackpool",
+      amenities: [],
+      createdAt: new Date("2026-01-01"),
+      bedrooms: 1,
+      weeklyDiscountPercent: null,
+      monthlyDiscountPercent: null,
+      reviews: [],
+      ...overrides,
+    };
+  }
+
+  it("offers only filters real stays back, each linking to the same filter on the results page", () => {
+    const filters = buildExploreFilters([
+      stay("1", { bedrooms: 3, amenities: ["Sea view"] }),
+      stay("2", { bedrooms: 2, weeklyDiscountPercent: 10 }),
+      stay("3", { city: "St Annes", amenities: ["Sea view"] }),
+      stay("4", { city: "St Annes" }),
+      stay("5", { city: "Lytham" }),
+    ]);
+
+    expect(filters.map((filter) => [filter.key, filter.group, filter.href])).toEqual([
+      ["all", "kind", "/search"],
+      ["families", "kind", "/search?minBedrooms=2"],
+      ["sea-views", "kind", "/search?amenities=sea_view"],
+      ["blackpool", "town", "/search?city=Blackpool"],
+      ["st-annes", "town", "/search?city=St%20Annes"],
+    ]);
+    expect(filters.find((filter) => filter.key === "families")?.listingIds).toEqual(["1", "2"]);
+    expect(filters.find((filter) => filter.key === "st-annes")?.seeAllLabel).toBe("See all St Annes stays");
+  });
+
+  it("adds Top rated and Long-stay discounts once two stays qualify", () => {
+    const fiveStars = [{ rating: 5 }, { rating: 5 }, { rating: 5 }];
+    const filters = buildExploreFilters([
+      stay("1", { reviews: fiveStars, monthlyDiscountPercent: 20 }),
+      stay("2", { reviews: fiveStars, weeklyDiscountPercent: 5 }),
+    ]);
+    expect(filters.map((filter) => filter.label)).toEqual(["All", "Top rated", "Long-stay discounts", "Blackpool"]);
+    expect(filters.find((filter) => filter.key === "long-stay")?.href).toBe("/search?longStay=1");
+    expect(filters.find((filter) => filter.key === "top-rated")?.href).toBe("/search?topRated=1");
   });
 });

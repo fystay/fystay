@@ -1,16 +1,13 @@
 // The site's top-level pages, shared between DesktopNavLinks (lg: only) and
 // the mobile GuestMenu/UserMenu dropdowns (<lg: only) - one list instead of
-// two copies that could quietly drift apart. "Hotels" links to /hotels -
-// FYStay's own affiliate hotel search (see src/lib/hotelProviders/), a
-// deliberately separate page from "Stays" (/search, FYStay's own directly-
-// booked listings): the two are never the same booking flow, so the nav
-// keeps them as two distinct entries rather than merging them.
+// two copies that could quietly drift apart. It's the same four sections as
+// the section pills (see siteSections.ts), plus About, so a menu never
+// offers a page under a different name from the pills. Affiliate hotels
+// (/hotels) sit inside Stays rather than having a link of their own.
 import { SITE_SECTIONS } from "@/lib/siteSections";
 
 export const PRIMARY_NAV_LINKS = [
-  { href: "/search", label: "Stays" },
-  { href: "/hotels", label: "Hotels" },
-  { href: "/destinations", label: "Destinations" },
+  ...SITE_SECTIONS.map(({ href, label }) => ({ href, label })),
   { href: "/about", label: "About" },
 ];
 

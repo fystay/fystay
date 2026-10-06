@@ -1,6 +1,7 @@
 import { averageRating } from "@/lib/reviews";
 import { matchesAmenityCategories } from "@/lib/amenityCategories";
 import { distanceMiles } from "@/lib/geo";
+import { hasLongStayDiscount, isTopRated } from "@/lib/marketplace";
 import type { PropertyType } from "@/lib/propertyType";
 
 export type SearchableListing = {
@@ -11,6 +12,8 @@ export type SearchableListing = {
   bathrooms: number;
   amenities: string[];
   reviews: { rating: number }[];
+  weeklyDiscountPercent?: number | null;
+  monthlyDiscountPercent?: number | null;
   latitude?: number | null;
   longitude?: number | null;
 };
@@ -23,6 +26,10 @@ export type ListingFilters = {
   minBathrooms?: number;
   amenityCategories?: string[];
   minRating?: number;
+  /** Only stays with a weekly or monthly discount (?longStay=1). */
+  longStayDiscount?: boolean;
+  /** Only stays rated 4.5+ from 3+ reviews (?topRated=1) - the homepage's Top rated. */
+  topRated?: boolean;
 };
 
 /**
@@ -62,6 +69,16 @@ export function applyListingFilters<T extends SearchableListing>(
       // No reviews at all can't be claimed to meet a rating bar.
       if (rating === null || rating < filters.minRating) return false;
     }
+    if (
+      filters.longStayDiscount &&
+      !hasLongStayDiscount({
+        weeklyDiscountPercent: listing.weeklyDiscountPercent ?? null,
+        monthlyDiscountPercent: listing.monthlyDiscountPercent ?? null,
+      })
+    ) {
+      return false;
+    }
+    if (filters.topRated && !isTopRated(listing.reviews)) return false;
     return true;
   });
 }
@@ -175,6 +192,8 @@ export function parseListingFiltersFromParams(
     minBathrooms: Number.isInteger(minBathroomsRaw) && minBathroomsRaw > 0 ? minBathroomsRaw : undefined,
     amenityCategories: amenityCategories.length > 0 ? amenityCategories : undefined,
     minRating: Number.isFinite(minRatingRaw) && minRatingRaw > 0 ? minRatingRaw : undefined,
+    longStayDiscount: searchParams.longStay === "1" || undefined,
+    topRated: searchParams.topRated === "1" || undefined,
   };
 }
 

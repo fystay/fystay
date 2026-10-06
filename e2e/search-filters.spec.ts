@@ -65,7 +65,7 @@ test("Blackpool + under £150 + parking genuinely narrows results to matching li
   try {
     await page.goto("/search?city=Blackpool&adults=2&maxPrice=150&amenities=parking");
 
-    await expect(page.getByRole("heading", { name: "Search results" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Stays in Blackpool" })).toBeVisible();
     // The real seeded Blackpool listing (£75/night, parking) genuinely matches.
     await expect(
       page.getByText("Seafront apartment overlooking Blackpool promenade"),

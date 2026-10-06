@@ -1,9 +1,11 @@
+import { matchesAmenityCategories } from "@/lib/amenityCategories";
+
 /**
- * Browse-by-category sections shown below the main search results on the
- * homepage (e.g. "Popular in Blackpool", "Beach stays"). Every section here
- * is derived from real listing data with a minimum-count threshold, so a
- * category only appears once the catalog actually supports it, rather than
- * ever padding the page with a near-empty or fabricated row.
+ * The homepage's browse row of stays (Explore the Fylde Coast) and its
+ * filters (e.g. Families, Blackpool). Every filter here is derived from
+ * real listing data with a minimum-count threshold, so it only appears once
+ * the catalog actually supports it, rather than ever padding the page with
+ * a near-empty or fabricated option.
  */
 
 export const MIN_LISTINGS_PER_SECTION = 2;
@@ -32,9 +34,14 @@ export type MarketplaceSection<T> = {
   listings: T[];
 };
 
-/** A freeform-amenities heuristic, matching the same pattern as isPetFriendly. */
-export function isBeachStay(amenities: string[]): boolean {
-  return amenities.some((amenity) => /sea|ocean|beach/i.test(amenity));
+/**
+ * A stay the host has marked with a sea view - the same test as the search
+ * page's "Sea view" filter (amenityCategories.ts), so the homepage's Sea
+ * views and its "See all" results always agree. "Beach access" alone isn't
+ * a sea view.
+ */
+export function isSeaView(amenities: string[]): boolean {
+  return matchesAmenityCategories(amenities, ["sea_view"]);
 }
 
 /** Groups listings by city, keeping only cities with enough listings to read as a real category. */
@@ -62,20 +69,6 @@ export function groupByCity<T extends MarketplaceListing>(
       subtitle: `${cityListings.length} local stay${cityListings.length === 1 ? "" : "s"} to explore`,
       listings: cityListings,
     }));
-}
-
-export function beachStaysSection<T extends MarketplaceListing>(
-  listings: T[],
-  minPerSection = MIN_LISTINGS_PER_SECTION,
-): MarketplaceSection<T> | null {
-  const beachListings = listings.filter((listing) => isBeachStay(listing.amenities));
-  if (beachListings.length < minPerSection) return null;
-  return {
-    key: "beach-stays",
-    title: "Beach stays",
-    subtitle: "Places with sea views, right on the coast",
-    listings: beachListings,
-  };
 }
 
 /**
@@ -141,4 +134,96 @@ export function hasLongStayDiscount(listing: {
 export function isTopRated(reviews: { rating: number }[]): boolean {
   if (reviews.length < TOP_RATED_MIN_REVIEWS) return false;
   return reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length >= TOP_RATED_MIN_AVERAGE;
+}
+
+/** A town's name as it appears in a URL, e.g. "St Annes" -> "st-annes". */
+export function townSlug(city: string): string {
+  return city
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export type ExploreListing = MarketplaceListing & {
+  bedrooms: number;
+  weeklyDiscountPercent: number | null;
+  monthlyDiscountPercent: number | null;
+  reviews: { rating: number }[];
+};
+
+export type ExploreFilter = {
+  /** Also the homepage's ?stays= value, so the selection survives going Back. */
+  key: string;
+  label: string;
+  /** "kind" filters (All, Top rated, Families...) come first, then "town" ones. */
+  group: "kind" | "town";
+  /** The same filter on the full results page, and the link's wording. */
+  href: string;
+  seeAllLabel: string;
+  listingIds: string[];
+};
+
+/**
+ * The row's filters, from listings already in popularity order (see
+ * rankByPopularity): All, then the kind of stay, then the busiest towns.
+ * Each kind or town filter appears only once at least
+ * MIN_LISTINGS_PER_SECTION stays genuinely match it, and links to /search
+ * with the matching filter applied, so "See all" shows the same stays and
+ * more.
+ */
+export function buildExploreFilters<T extends ExploreListing>(ranked: T[]): ExploreFilter[] {
+  const top = (subset: T[]) => subset.slice(0, POPULAR_STAYS_LIMIT).map((listing) => listing.id);
+  const kind = (
+    key: string,
+    label: string,
+    matches: T[],
+    href: string,
+    seeAllLabel: string,
+  ): ExploreFilter[] =>
+    matches.length >= MIN_LISTINGS_PER_SECTION
+      ? [{ key, label, group: "kind", href, seeAllLabel, listingIds: top(matches) }]
+      : [];
+
+  return [
+    { key: "all", label: "All", group: "kind", href: "/search", seeAllLabel: "See all stays", listingIds: top(ranked) },
+    ...kind(
+      "top-rated",
+      "Top rated",
+      ranked.filter((listing) => isTopRated(listing.reviews)),
+      "/search?topRated=1",
+      "See all top-rated stays",
+    ),
+    ...kind(
+      "families",
+      "Families",
+      ranked.filter(isFamilySized),
+      `/search?minBedrooms=${FAMILY_MIN_BEDROOMS}`,
+      "See all family stays",
+    ),
+    ...kind(
+      "long-stay",
+      "Long-stay discounts",
+      ranked.filter(hasLongStayDiscount),
+      "/search?longStay=1",
+      "See all long-stay discounts",
+    ),
+    ...kind(
+      "sea-views",
+      "Sea views",
+      ranked.filter((listing) => isSeaView(listing.amenities)),
+      "/search?amenities=sea_view",
+      "See all sea-view stays",
+    ),
+    ...groupByCity(ranked, { maxSections: MAX_POPULAR_TOWN_FILTERS }).map((town): ExploreFilter => {
+      const city = town.listings[0].city;
+      return {
+        key: townSlug(city),
+        label: city,
+        group: "town",
+        href: `/search?city=${encodeURIComponent(city)}`,
+        seeAllLabel: `See all ${city} stays`,
+        listingIds: top(town.listings),
+      };
+    }),
+  ];
 }

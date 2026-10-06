@@ -4,6 +4,7 @@ import { formatPriceIn, isCurrencyCode } from "./currency";
 describe("formatPriceIn", () => {
   it("formats GBP identically to the base currency (perGBP: 1)", () => {
     expect(formatPriceIn(7500, "GBP")).toBe("£75");
+    expect(formatPriceIn(3570, "GBP")).toBe("£35.70");
   });
 
   it("converts to USD using the static rate", () => {

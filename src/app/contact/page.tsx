@@ -71,7 +71,7 @@ export default function ContactPage() {
       <p className="mt-8 text-sm text-stone-500">
         For common questions you can also check the{" "}
         <Link href="/help" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
-          Help center
+          Help centre
         </Link>{" "}
         or{" "}
         <Link href="/safety" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">

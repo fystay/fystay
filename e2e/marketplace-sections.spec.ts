@@ -174,3 +174,46 @@ test("the kind-of-stay filters show only stays that really match, and come befor
   // The old "Find your perfect stay" tiles are gone; this row replaces them.
   await expect(page.getByRole("heading", { name: "Find your perfect stay" })).toHaveCount(0);
 });
+
+test("See all follows the chosen filter to the results page, and Back keeps it", async ({ page }) => {
+  await page.goto("/");
+  const row = exploreRow(page);
+  const seeAll = row.getByRole("link", { name: /^See all/ });
+  await expect(seeAll).toHaveAttribute("href", "/search");
+
+  await expect(async () => {
+    await filterButton(page, "Blackpool").click();
+    await expect(filterButton(page, "Blackpool")).toHaveAttribute("aria-pressed", "true", { timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
+  await expect(page).toHaveURL(/[?&]stays=blackpool\b/);
+  await expect(seeAll).toHaveAttribute("href", "/search?city=Blackpool");
+
+  await seeAll.click();
+  await expect(page).toHaveURL(/\/search\?city=Blackpool$/);
+  await expect(page.getByRole("heading", { name: "Stays in Blackpool" })).toBeVisible();
+  const blackpoolStays = await prisma.listing.count({
+    where: { published: true, suspendedAt: null, city: { contains: "Blackpool", mode: "insensitive" } },
+  });
+  await expect(page.getByText(`Blackpool · ${blackpoolStays} stay${blackpoolStays === 1 ? "" : "s"}`)).toBeVisible();
+
+  await page.goBack();
+  await expect(filterButton(page, "Blackpool")).toHaveAttribute("aria-pressed", "true");
+  await expect(row.getByRole("link", { name: /^See all/ })).toHaveAttribute("href", "/search?city=Blackpool");
+});
+
+test("the long-stay filter carries to the results page as a chip that can be removed", async ({ page }) => {
+  await page.goto("/search?longStay=1");
+  const chip = page.getByRole("link", { name: "Remove filter: Long-stay discounts" });
+  await expect(chip).toBeVisible();
+  const discounted = await prisma.listing.count({
+    where: {
+      published: true,
+      suspendedAt: null,
+      OR: [{ weeklyDiscountPercent: { gt: 0 } }, { monthlyDiscountPercent: { gt: 0 } }],
+    },
+  });
+  await expect(page.getByText(`${discounted} stay${discounted === 1 ? "" : "s"}`, { exact: true })).toBeVisible();
+  await chip.click();
+  await expect(page).toHaveURL(/\/search$/);
+  await expect(chip).toHaveCount(0);
+});

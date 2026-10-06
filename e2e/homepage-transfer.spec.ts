@@ -31,10 +31,17 @@ test("More from FYStay leads with EV Exec as a FYStay service partner, booked th
   await expect(page.getByText("EV Exec").first()).toBeVisible();
 });
 
-test("the Hosting card in More from FYStay still opens the host guide", async ({ page }) => {
+test("More from FYStay is guest services around the stay, each opening its own page", async ({ page }) => {
   await page.goto("/");
   const row = moreFromFyStay(page);
   await row.scrollIntoViewIfNeeded();
-  await row.locator("a:visible", { hasText: "Hosting" }).first().click();
-  await expect(page).toHaveURL(/\/host-guide$/);
+  // Hosting has its own card at the end of the page, not a slot in this row.
+  await expect(row.locator("a:visible", { hasText: "Hosting" })).toHaveCount(0);
+  await row.locator("a:visible", { hasText: "Local Guides" }).first().click();
+  await expect(page).toHaveURL(/\/destinations$/);
+
+  await page.goto("/");
+  await moreFromFyStay(page).scrollIntoViewIfNeeded();
+  await moreFromFyStay(page).locator("a:visible", { hasText: "Help & support" }).first().click();
+  await expect(page).toHaveURL(/\/help$/);
 });

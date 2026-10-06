@@ -105,7 +105,7 @@ export function GuestMenu() {
           aria-hidden
         />
         <div className="max-h-[70vh] overflow-y-auto p-1.5">
-          {/* Stays/Destinations/About - lg:hidden because DesktopNavLinks
+          {/* The four sections and About - lg:hidden because DesktopNavLinks
               already renders these in the navbar itself from lg: up.
               Below lg, this was this site's *only* route to Destinations -
               nothing else on a phone links to it at all, not even the

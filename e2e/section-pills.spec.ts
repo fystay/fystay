@@ -2,8 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 const SECTIONS = [
   { label: "Stays", path: "/search" },
-  { label: "Discover", path: "/destinations" },
-  { label: "Journeys", path: "/travel-extras" },
+  { label: "Explore", path: "/destinations" },
+  { label: "Travel", path: "/travel-extras" },
   { label: "Services", path: "/services" },
 ];
 
@@ -14,7 +14,7 @@ function sectionNav(page: Page) {
 test("the homepage shows the four section pills with Stays pressed", async ({ page }) => {
   await page.goto("/");
   const nav = sectionNav(page);
-  await expect(nav.getByRole("link")).toHaveText(["Stays", "Discover", "Journeys", "Services"]);
+  await expect(nav.getByRole("link")).toHaveText(["Stays", "Explore", "Travel", "Services"]);
   await expect(nav.getByRole("link", { name: "Stays" })).toHaveAttribute("aria-current", "page");
   await expect(nav.locator("[aria-current]")).toHaveCount(1);
 });
@@ -42,9 +42,10 @@ test("on desktop the sections sit in the header, each offered once", async ({ pa
     const header = page.locator("header");
     await expect(header.getByRole("navigation", { name: "Sections" })).toBeVisible();
     // exact: the logo link's name includes its "Hotels · B&Bs · Apartments" tagline.
-    await expect(header.getByRole("link", { name: "Hotels", exact: true })).toBeVisible();
     await expect(header.getByRole("link", { name: "About", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Stays", exact: true })).toHaveCount(1);
+    // One set of names: no competing "Hotels" or "Destinations" link.
+    await expect(header.getByRole("link", { name: "Hotels", exact: true })).toHaveCount(0);
     await expect(header.getByRole("link", { name: "Destinations", exact: true })).toHaveCount(0);
   }
 });

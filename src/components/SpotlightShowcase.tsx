@@ -211,7 +211,9 @@ export function SpotlightShowcase({
             <Sparkles className="h-5 w-5 text-brand-600" aria-hidden />
             Spotlight stays
           </h2>
-          <p className="mt-1 text-sm text-stone-500">Featured by local hosts, who pay for these spots.</p>
+          {/* Paid placements: each one carries a "Promoted" label (below), so
+              the heading can stay plain rather than reading like an advert. */}
+          <p className="mt-1 text-sm text-stone-500">Featured by local hosts.</p>
         </div>
         {rotates && (
           <div className="flex shrink-0 items-center gap-1">

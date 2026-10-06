@@ -6,10 +6,10 @@ const columns = [
   {
     heading: "Support",
     links: [
-      { label: "Help center", href: "/help" },
+      { label: "Help centre", href: "/help" },
       { label: "Trust & Safety", href: "/safety" },
       { label: "Cancellation options", href: "/cancellation-policies" },
-      { label: "Travel extras", href: "/travel-extras" },
+      { label: "Airport transfers", href: "/travel-extras" },
     ],
   },
   {

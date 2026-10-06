@@ -1,8 +1,15 @@
+/**
+ * Whole pounds as "£75"; an amount with pence (a percentage discount, a
+ * fee) in full as "£35.70" - never rounded, so a price on screen is always
+ * exactly what's charged.
+ */
 export function formatPrice(cents: number): string {
+  const digits = Math.round(cents) % 100 === 0 ? 0 : 2;
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "GBP",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(cents / 100);
 }
 

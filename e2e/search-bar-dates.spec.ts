@@ -82,7 +82,7 @@ test("pressing Search on the homepage navigates to the dedicated results page", 
 
   await page.getByRole("button", { name: "Search", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "Search results" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Stays on the Fylde Coast" })).toBeVisible();
   expect(page.url()).toContain("/search");
 });
 

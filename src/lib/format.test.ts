@@ -6,8 +6,10 @@ describe("formatPrice", () => {
     expect(formatPrice(7500)).toBe("£75");
   });
 
-  it("rounds to the nearest pound rather than showing pence", () => {
-    expect(formatPrice(7550)).toBe("£76"); // 75.50 -> rounds up
+  it("shows pence in full when there are any, so it's exactly what's charged", () => {
+    expect(formatPrice(7550)).toBe("£75.50");
+    expect(formatPrice(3570)).toBe("£35.70");
+    expect(formatPrice(5805)).toBe("£58.05");
   });
 
   it("formats zero", () => {

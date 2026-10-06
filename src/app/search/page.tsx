@@ -23,6 +23,7 @@ export default async function SearchPage({
   const resolvedSearchParams = await searchParams;
   const nearParam = typeof resolvedSearchParams.near === "string" ? resolvedSearchParams.near : "";
   const landmark = nearParam ? findLandmarkByName(nearParam) : undefined;
+  const city = typeof resolvedSearchParams.city === "string" ? resolvedSearchParams.city.trim() : "";
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
@@ -32,13 +33,13 @@ export default async function SearchPage({
 
       <div className="mt-8">
         <h1 className="text-xl font-bold text-foreground sm:text-2xl">
-          {landmark ? `Stays near ${landmark.name}` : "Search results"}
+          {landmark ? `Stays near ${landmark.name}` : city ? `Stays in ${city}` : "Stays on the Fylde Coast"}
         </h1>
-        <p className="mt-1 text-sm text-stone-500">
-          {landmark
-            ? `Sorted by distance from ${landmark.name}, ${landmark.town} - use Sort to change that.`
-            : "Refine with filters and sorting to find exactly what you're after."}
-        </p>
+        {landmark && (
+          <p className="mt-1 text-sm text-stone-500">
+            Sorted by distance from {landmark.name}, {landmark.town} - use Sort to change that.
+          </p>
+        )}
         <div className="mt-6">
           <Suspense fallback={<SearchResultsLoader />}>
             <ListingsGrid searchParams={resolvedSearchParams} showResultsView />

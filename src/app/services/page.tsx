@@ -5,7 +5,7 @@ import { FYSTAY_SERVICES } from "@/lib/services";
 
 export const metadata = pageMetadata({
   title: "Services",
-  description: "Everything FYStay offers beyond the stay itself - trip extras, hosting and help - in one place.",
+  description: "Everything FYStay offers around your stay - airport transfers, Local Guides, help and hosting - in one place.",
   path: "/services",
 });
 
@@ -14,8 +14,7 @@ export default function ServicesPage() {
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Services</h1>
       <p className="mt-2 max-w-2xl text-sm text-stone-500 sm:text-base">
-        Everything FYStay offers beyond the stay itself. More services for guests and hosts will appear
-        here as they launch.
+        Everything FYStay offers around your stay, for guests and hosts.
       </p>
 
       <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">

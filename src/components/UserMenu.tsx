@@ -91,7 +91,7 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
           </Badge>
         </div>
 
-        {/* Stays/Destinations/About - lg:hidden because DesktopNavLinks
+        {/* The four sections and About - lg:hidden because DesktopNavLinks
             already renders these in the navbar itself from lg: up. Below
             lg, this was this site's *only* route to Destinations for a
             signed-in guest too - nothing else on a phone links to it. */}

@@ -59,7 +59,7 @@ test.describe("favourites / wishlist", () => {
       // server-rendered button before its onClick is attached - simply gets
       // retried once hydration is done, rather than failing the test.
       const saveButton = page.getByRole("button", { name: "Save to wishlist" });
-      const dialog = page.getByRole("dialog", { name: "Save this property" });
+      const dialog = page.getByRole("dialog", { name: "Save this stay" });
       await expect(async () => {
         await saveButton.click();
         await expect(dialog).toBeVisible({ timeout: 1000 });
@@ -82,14 +82,20 @@ test.describe("favourites / wishlist", () => {
     }
   });
 
-  test("a signed-up guest lands back on the property they were trying to save", async ({ page }) => {
+  test("a guest who signs up from the prompt lands back on the property, already saved", async ({ page }) => {
     const listing = await createListing();
     const email = `e2e-favourite-signup-${generateBookingReference()}@fystay.dev`.toLowerCase();
 
     try {
       await page.goto(`/listings/${listing.id}`);
-      await page.getByRole("button", { name: "Save to wishlist" }).click();
-      await page.getByRole("dialog", { name: "Save this property" }).getByRole("link", { name: "Create account" }).click();
+      // Only one sign-in prompt exists, and only once it's asked for.
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      const dialog = page.getByRole("dialog", { name: "Save this stay" });
+      await expect(async () => {
+        await page.getByRole("button", { name: "Save to wishlist" }).click();
+        await expect(dialog).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 10_000 });
+      await dialog.getByRole("link", { name: "Create account" }).click();
       await page.waitForURL(/\/register\?callbackUrl=/);
 
       await page.fill("#name", "New Favourite Fan");
@@ -99,6 +105,15 @@ test.describe("favourites / wishlist", () => {
       await page.getByRole("button", { name: "Sign up" }).click();
 
       await page.waitForURL(new RegExp(`/listings/${listing.id}$`));
+
+      // The save they started finishes by itself - no second tap.
+      await expect(page.getByRole("button", { name: "Remove from wishlist" })).toBeVisible();
+      await expect
+        .poll(async () => {
+          const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+          return user ? prisma.savedListing.count({ where: { userId: user.id, listingId: listing.id } }) : 0;
+        })
+        .toBe(1);
     } finally {
       const user = await prisma.user.findUnique({ where: { email } });
       if (user) {

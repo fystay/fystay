@@ -4,8 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { withApiErrorHandling } from "@/lib/apiError";
 
+// Without `saved` this toggles (the heart's own tap). With it, it sets that
+// state and is safe to repeat - used to finish a save a guest started
+// before signing in (see SaveButton), which must never undo an earlier save.
 const toggleWishlistSchema = z.object({
   listingId: z.string().min(1),
+  saved: z.boolean().optional(),
 });
 
 async function postHandler(request: Request) {
@@ -36,6 +40,10 @@ async function postHandler(request: Request) {
       userId_listingId: { userId: session.user.id, listingId: parsed.data.listingId },
     },
   });
+
+  const wantSaved = parsed.data.saved ?? !existing;
+  if (existing && wantSaved) return NextResponse.json({ saved: true });
+  if (!existing && !wantSaved) return NextResponse.json({ saved: false });
 
   if (existing) {
     await prisma.savedListing.delete({ where: { id: existing.id } });

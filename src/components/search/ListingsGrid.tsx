@@ -1,4 +1,5 @@
-import { SearchX } from "lucide-react";
+import Link from "next/link";
+import { SearchX, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { prisma } from "@/lib/prisma";
 import {
@@ -32,6 +33,25 @@ import {
 import { availableAmenityCategories } from "@/lib/amenityCategories";
 import { PROPERTY_TYPES } from "@/lib/propertyType";
 import { Pagination } from "@/components/Pagination";
+
+// The homepage's Explore filters that the filter panel doesn't cover, shown
+// as chips beside the result count so a guest arriving from "See all
+// long-stay discounts" can see why the list is narrowed - and undo it.
+const PAGE_ONLY_FILTERS = [
+  { param: "longStay", label: "Long-stay discounts" },
+  { param: "topRated", label: "Top rated" },
+];
+
+/** The current results URL without one filter, and back to its first page. */
+function withoutParam(searchParams: SearchParams, param: string): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (key === param || key === "page" || typeof value !== "string") continue;
+    params.set(key, value);
+  }
+  const query = params.toString();
+  return query ? `/search?${query}` : "/search";
+}
 
 // Every candidate that could plausibly match a search, fetched once and
 // then filtered/sorted in memory (see the rest of this file) - Postgres
@@ -259,9 +279,21 @@ export async function ListingsGrid({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm font-medium text-stone-500">
+            {city && <span className="text-foreground">{city} · </span>}
             {results.length} stay{results.length === 1 ? "" : "s"}
           </p>
           <div className="flex flex-wrap items-center gap-2">
+            {PAGE_ONLY_FILTERS.filter(({ param }) => searchParams[param] === "1").map(({ param, label }) => (
+              <Link
+                key={param}
+                href={withoutParam(searchParams, param)}
+                aria-label={`Remove filter: ${label}`}
+                className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-full border border-brand-700 bg-brand-50 pl-3.5 pr-2.5 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-100"
+              >
+                {label}
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            ))}
             <FilterSheet
               availablePropertyTypes={availablePropertyTypes}
               availableAmenityCategories={amenityCategories}

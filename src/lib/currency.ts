@@ -1,3 +1,5 @@
+import { formatPrice } from "@/lib/format";
+
 export type CurrencyCode = "GBP" | "USD" | "EUR";
 
 type CurrencyDef = {
@@ -35,6 +37,10 @@ function currencyDef(code: CurrencyCode): CurrencyDef {
  * display currency - see the perGBP doc comment above on why this is never
  * the amount actually charged. */
 export function formatPriceIn(gbpCents: number, currency: CurrencyCode): string {
+  // GBP is the real price: shown exactly, pence and all when there are any
+  // (see formatPrice). A converted price is only approximate, so it's
+  // rounded to whole units rather than implying a precision it doesn't have.
+  if (currency === "GBP") return formatPrice(gbpCents);
   const def = currencyDef(currency);
   const convertedAmount = (gbpCents / 100) * def.perGBP;
   return new Intl.NumberFormat(def.locale, {

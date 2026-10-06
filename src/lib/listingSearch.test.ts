@@ -81,6 +81,25 @@ describe("applyListingFilters", () => {
     expect(applyListingFilters(listings, { minRating: 4 }).map((l) => l.id)).toEqual(["great"]);
   });
 
+  it("filters to stays with a weekly or monthly discount", () => {
+    const listings = [
+      listing({ id: "weekly", weeklyDiscountPercent: 10 }),
+      listing({ id: "monthly", monthlyDiscountPercent: 25 }),
+      listing({ id: "none" }),
+      listing({ id: "zero", weeklyDiscountPercent: 0 }),
+    ];
+    expect(applyListingFilters(listings, { longStayDiscount: true }).map((l) => l.id)).toEqual(["weekly", "monthly"]);
+  });
+
+  it("filters to top-rated stays: 4.5+ from at least three reviews", () => {
+    const listings = [
+      listing({ id: "top", reviews: [{ rating: 5 }, { rating: 5 }, { rating: 4 }] }),
+      listing({ id: "one-review", reviews: [{ rating: 5 }] }),
+      listing({ id: "lower", reviews: [{ rating: 4 }, { rating: 4 }, { rating: 4 }] }),
+    ];
+    expect(applyListingFilters(listings, { topRated: true }).map((l) => l.id)).toEqual(["top"]);
+  });
+
   it("the exact required combination genuinely narrows results: under £150 + parking", () => {
     // City, dates, and guest capacity are already handled by the database
     // query and the existing availability filter before this ever runs -
@@ -164,6 +183,13 @@ describe("parseListingFiltersFromParams", () => {
       minBathrooms: 1,
       minRating: 4,
     });
+  });
+
+  it("reads the homepage's long-stay and top-rated filters", () => {
+    const filters = parseListingFiltersFromParams({ longStay: "1", topRated: "1" }, PROPERTY_TYPES);
+    expect(filters.longStayDiscount).toBe(true);
+    expect(filters.topRated).toBe(true);
+    expect(parseListingFiltersFromParams({ longStay: "yes" }, PROPERTY_TYPES).longStayDiscount).toBeUndefined();
   });
 
   it("drops an unrecognized property type rather than crashing or matching everything", () => {

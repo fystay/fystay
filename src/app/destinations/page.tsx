@@ -6,7 +6,7 @@ import { DESTINATION_PHOTOS } from "@/lib/destinationPhotos";
 import { cn } from "@/lib/cn";
 
 export const metadata = pageMetadata({
-  title: "Destinations",
+  title: "Explore the Fylde Coast",
   description:
     "Every Fylde Coast town FYStay covers - Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood and Thornton-Cleveleys - each with real local stays and its own Local Guide.",
   path: "/destinations",

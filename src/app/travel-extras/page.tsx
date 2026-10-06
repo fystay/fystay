@@ -18,7 +18,7 @@ const CATEGORIES: ExtraCategory[] = ["AIRPORT_TRANSFER", "ATTRACTION_TICKET", "C
 // and /hotels/[destination]/[hotelSlug] are deliberately noindexed for -
 // this page follows that same convention rather than indexing whichever
 // query-param combination a crawler happens to hit first.
-export const metadata: Metadata = { title: "Travel extras", robots: { index: false, follow: true } };
+export const metadata: Metadata = { title: "Travel", robots: { index: false, follow: true } };
 
 type SearchParams = {
   category?: string;

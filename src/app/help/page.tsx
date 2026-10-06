@@ -3,7 +3,7 @@ import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Help center",
+  title: "Help centre",
   description: "Answers to common questions about booking, hosting and managing your account on FYStay.",
   path: "/help",
 });
@@ -112,7 +112,7 @@ export default function HelpCenterPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }}
       />
-      <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Help center</h1>
+      <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Help centre</h1>
       <p className="mt-2 text-sm text-stone-500">
         Answers to common questions about booking, hosting, and managing your account.
       </p>

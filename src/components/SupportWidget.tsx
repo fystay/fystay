@@ -118,7 +118,7 @@ export function SupportWidget() {
             className="mt-2 flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-medium text-foreground transition hover:bg-surface-muted"
           >
             <HelpCircle className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />
-            Browse the Help center
+            Browse the Help centre
           </Link>
         </div>
       )}

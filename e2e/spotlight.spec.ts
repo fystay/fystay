@@ -51,7 +51,7 @@ test("a featured listing shows in the Spotlight showcase, labelled Promoted, and
   await page.goto("/");
   const spotlight = showcase(page);
   await spotlight.scrollIntoViewIfNeeded();
-  await expect(spotlight.getByText("who pay for these spots")).toBeVisible();
+  await expect(spotlight.getByText("Featured by local hosts.")).toBeVisible();
   await expect(spotlight.getByText("Promoted", { exact: true })).toBeVisible();
   await impression;
 
