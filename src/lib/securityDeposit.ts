@@ -79,7 +79,8 @@ export async function createDepositCheckoutSession(
     bookingId: string;
     depositCents: number;
     listingTitle: string;
-    guestEmail?: string | null;
+    /** The guest's Stripe customer (src/lib/stripeCustomer.ts). */
+    customerId: string;
     successUrl: string;
     cancelUrl: string;
   },
@@ -87,7 +88,7 @@ export async function createDepositCheckoutSession(
   return stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
-    customer_email: params.guestEmail ?? undefined,
+    customer: params.customerId,
     line_items: [
       {
         price_data: {

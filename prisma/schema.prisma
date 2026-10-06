@@ -171,6 +171,13 @@ model User {
   // webhook) rather than being collapsed into one "ready" flag, since a host
   // can have charges enabled but payouts still restricted (e.g. missing bank
   // details) and the UI needs to tell those apart.
+  // This person as a Stripe Customer (cus_...), created server-side the
+  // first time they pay for anything and reused for every payment after,
+  // so their payments group under one customer in Stripe. Never set from
+  // the browser; see src/lib/stripeCustomer.ts. Separate test/live values
+  // live in the separate Preview/Production databases.
+  stripeCustomerId String? @unique
+
   stripeConnectAccountId        String? @unique
   stripeConnectDetailsSubmitted Boolean @default(false)
   stripeConnectChargesEnabled   Boolean @default(false)
@@ -2202,4 +2209,13 @@ model ListingPromotionStat {
   clicks      Int              @default(0)
 
   @@unique([promotionId, day])
+}
+
+// One row per payment alert already sent to the ops inbox (see the Stripe
+// webhook's refund handlers), keyed by what it was about - e.g.
+// "refund-failed:re_123". Stripe delivers events at least once, sometimes
+// twice; this is what keeps a repeat delivery from emailing twice.
+model PaymentAlertSent {
+  key       String   @id
+  createdAt DateTime @default(now())
 }

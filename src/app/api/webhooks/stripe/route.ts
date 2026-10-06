@@ -9,15 +9,16 @@ import { awardReferralBonusIfEligible } from "@/lib/referral";
 import { depositClaimDeadline } from "@/lib/securityDeposit";
 import { pushBookingReservation } from "@/lib/pms/sync";
 import { notifyTripExtraPaid } from "@/app/api/bookings/[id]/extras/route";
-import { sendBookingUnavailableRefundedEmail, sendDisputeAlertEmail } from "@/lib/notificationEmails";
+import { sendBookingUnavailableRefundedEmail, sendDisputeAlertEmail, sendPaymentOpsAlertEmail } from "@/lib/notificationEmails";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
-import { refundAcrossPayments } from "@/lib/connectRefunds";
+import { isFystayRefund, refundAcrossPayments } from "@/lib/connectRefunds";
 import { evidenceDueByDate, mapStripeDisputeStatus } from "@/lib/paymentDisputes";
 import type Stripe from "stripe";
 import { BASE_URL } from "@/lib/baseUrl";
 import { activatePaidPromotion } from "@/lib/listingPromotions";
 import { releaseUnpaidBooking } from "@/lib/bookingLifecycle";
 import { notifyListingPromotionActivated } from "@/lib/listingPromotionNotifications";
+import { Prisma } from "@prisma/client";
 
 /**
  * Whether a completed Checkout Session has actually been paid. "unpaid" is
@@ -38,7 +39,11 @@ function isCheckoutSessionPaid(session: Stripe.Checkout.Session): boolean {
  * Returns true when the payment was handled this way (or already had been,
  * on a redelivered event), so the caller must not confirm the booking.
  */
-async function refundIfNotConfirmable(bookingId: string, checkoutSession: Stripe.Checkout.Session): Promise<boolean> {
+async function refundIfNotConfirmable(
+  bookingId: string,
+  checkoutSession: Stripe.Checkout.Session,
+  options: { amountMismatch?: boolean } = {},
+): Promise<boolean> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: { listing: { include: { host: true } } },
@@ -53,7 +58,7 @@ async function refundIfNotConfirmable(bookingId: string, checkoutSession: Stripe
   if (booking.status === "CANCELLED") {
     // A redelivery of a payment this function already refunded.
     if (booking.paymentStatus === "REFUNDED" && booking.stripePaymentIntentId === paymentIntentId) return true;
-  } else {
+  } else if (!options.amountMismatch) {
     const stillAvailable = await isRequestedRangeStillAvailable(prisma, {
       listingId: booking.listingId,
       roomTypeId: booking.roomTypeId,
@@ -71,6 +76,8 @@ async function refundIfNotConfirmable(bookingId: string, checkoutSession: Stripe
       stripe,
       [{ paymentIntentId, viaConnect: booking.hostPaidViaConnect }],
       paidCents,
+      // The same delivery arriving twice at once must not refund twice.
+      `unconfirmable-payment:${booking.id}`,
     );
   }
 
@@ -94,10 +101,12 @@ async function refundIfNotConfirmable(bookingId: string, checkoutSession: Stripe
   console.warn("Payment refunded instead of confirming the booking", {
     bookingId: booking.id,
     paymentIntentId,
-    reason: booking.status === "CANCELLED" ? "booking_cancelled" : "dates_taken",
+    reason: options.amountMismatch ? "amount_mismatch" : booking.status === "CANCELLED" ? "booking_cancelled" : "dates_taken",
   });
 
-  if (cancelled.count > 0 && booking.status === "PENDING") {
+  // The "those dates were just taken" email; an amount mismatch is FYStay's
+  // problem to investigate, not something to explain to the guest that way.
+  if (cancelled.count > 0 && booking.status === "PENDING" && !options.amountMismatch) {
     const baseUrl = BASE_URL;
     await sendBookingUnavailableRefundedEmail(
       {
@@ -126,7 +135,33 @@ async function refundIfNotConfirmable(bookingId: string, checkoutSession: Stripe
  * checkout.session.completed (card payments) and
  * checkout.session.async_payment_succeeded (delayed payment methods).
  */
+/**
+ * Whether Stripe took exactly what FYStay's own server-side total says this
+ * booking costs. Checkout Sessions are only ever built from that total, so
+ * a mismatch means a bug or tampering - never something to confirm a stay on.
+ */
+function paidAmountMatches(
+  session: Pick<Stripe.Checkout.Session, "amount_total" | "currency">,
+  totalPriceCents: number,
+): boolean {
+  return session.amount_total === totalPriceCents && session.currency?.toLowerCase() === "gbp";
+}
+
 async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Checkout.Session): Promise<void> {
+  const expected = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { status: true, totalPriceCents: true },
+  });
+  if (expected?.status === "PENDING" && !paidAmountMatches(checkoutSession, expected.totalPriceCents)) {
+    console.error("Checkout payment doesn't match the booking total - refunding instead of confirming", {
+      bookingId,
+      expectedCents: expected.totalPriceCents,
+      paidCents: checkoutSession.amount_total,
+      currency: checkoutSession.currency,
+    });
+    await refundIfNotConfirmable(bookingId, checkoutSession, { amountMismatch: true });
+    return;
+  }
   if (await refundIfNotConfirmable(bookingId, checkoutSession)) return;
 
   // Stripe's own docs are explicit that a webhook endpoint must tolerate
@@ -258,6 +293,99 @@ async function activateListingPromotion(checkoutSession: Stripe.Checkout.Session
     typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null,
   );
   if (activated) await notifyListingPromotionActivated(promotionId);
+}
+
+/**
+ * Records that an ops alert was sent, returning false if it already was -
+ * so a repeated delivery of the same Stripe event emails once.
+ */
+async function claimPaymentAlert(key: string): Promise<boolean> {
+  try {
+    await prisma.paymentAlertSent.create({ data: { key } });
+    return true;
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return false;
+    throw error;
+  }
+}
+
+/** Sends an ops alert once per key; if sending fails, the claim is released so Stripe's retry sends it. */
+async function sendPaymentAlertOnce(key: string, send: () => Promise<void>): Promise<void> {
+  if (!(await claimPaymentAlert(key))) return;
+  try {
+    await send();
+  } catch (error) {
+    await prisma.paymentAlertSent.delete({ where: { key } }).catch(() => {});
+    throw error;
+  }
+}
+
+/** Which booking a payment belongs to, for an alert (the booking's own payment, or a trip extra on it). */
+async function bookingReferenceForPayment(paymentIntentId: string | null): Promise<string | null> {
+  if (!paymentIntentId) return null;
+  const booking = await prisma.booking.findFirst({
+    where: { OR: [{ stripePaymentIntentId: paymentIntentId }, { extras: { some: { stripePaymentIntentId: paymentIntentId } } }] },
+    select: { reference: true },
+  });
+  return booking?.reference ?? null;
+}
+
+function paymentIntentIdOf(value: string | { id: string } | null | undefined): string | null {
+  return typeof value === "string" ? value : (value?.id ?? null);
+}
+
+/**
+ * A refund made by hand in the Stripe Dashboard, not through FYStay: the
+ * money has gone back, but FYStay's booking still reads as paid. FYStay
+ * stays the record of what a booking is, so this doesn't rewrite the
+ * booking - it tells the ops inbox, once per refund, to put it right.
+ */
+async function alertOnRefundsMadeOutsideFystay(stripe: Stripe, charge: Stripe.Charge): Promise<void> {
+  const refunds = await stripe.refunds.list({ charge: charge.id, limit: 100 });
+  const outside = refunds.data.filter((refund) => !isFystayRefund(refund) && refund.status !== "failed");
+  if (outside.length === 0) return;
+
+  const paymentIntentId = paymentIntentIdOf(charge.payment_intent);
+  const bookingReference = await bookingReferenceForPayment(paymentIntentId);
+  for (const refund of outside) {
+    await sendPaymentAlertOnce(`refund-outside-fystay:${refund.id}`, () =>
+      sendPaymentOpsAlertEmail({
+        subject: "Refund made outside FYStay",
+        summary:
+          "Someone refunded a payment directly in the Stripe Dashboard. The guest has their money back, but FYStay's booking record wasn't changed and still shows it as paid.",
+        amountCents: refund.amount,
+        bookingReference,
+        action: bookingReference
+          ? `If the stay is off, cancel booking ${bookingReference} in FYStay's admin (Bookings) and set the refund to only what's still owed on top of this (0% if this was the whole amount) - FYStay would otherwise refund again. If it was a goodwill refund on a stay that's going ahead, no change is needed.`
+          : "This payment isn't linked to a FYStay booking (it may be a Spotlight purchase or a date-change payment) - check it in Stripe.",
+        stripeUrl: paymentIntentId
+          ? `https://dashboard.stripe.com/payments/${paymentIntentId}`
+          : "https://dashboard.stripe.com/payments",
+      }),
+    );
+  }
+}
+
+/**
+ * Stripe couldn't put a refund back on the guest's card (a closed account,
+ * say) - the money returned to FYStay's Stripe balance, and the guest was
+ * promised it. A person has to arrange it another way.
+ */
+async function alertOnFailedRefund(refund: Stripe.Refund): Promise<void> {
+  const paymentIntentId = paymentIntentIdOf(refund.payment_intent);
+  const bookingReference = await bookingReferenceForPayment(paymentIntentId);
+  await sendPaymentAlertOnce(`refund-failed:${refund.id}`, () =>
+    sendPaymentOpsAlertEmail({
+      subject: "A refund couldn't be delivered",
+      summary: `Stripe couldn't return this refund to the guest's card (${refund.failure_reason ?? "no reason given"}). The money is back in FYStay's Stripe balance.`,
+      amountCents: refund.amount,
+      bookingReference,
+      action: "Contact the guest and arrange the refund another way (e.g. a bank transfer), then note it on the booking's support ticket.",
+      stripeUrl: paymentIntentId
+        ? `https://dashboard.stripe.com/payments/${paymentIntentId}`
+        : "https://dashboard.stripe.com/refunds",
+    }),
+  );
 }
 
 async function postHandler(request: Request) {
@@ -475,6 +603,10 @@ async function postHandler(request: Request) {
     event.type === "charge.dispute.closed"
   ) {
     await upsertPaymentDispute(event.data.object);
+  } else if (event.type === "charge.refunded") {
+    await alertOnRefundsMadeOutsideFystay(stripe, event.data.object);
+  } else if (event.type === "refund.failed") {
+    await alertOnFailedRefund(event.data.object);
   }
 
   return NextResponse.json({ received: true });

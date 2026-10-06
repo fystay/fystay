@@ -1,4 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
+import { getStripeClient } from "@/lib/stripe";
+import { deleteStripeCustomer } from "@/lib/stripeCustomer";
 
 export type AccountDeletionBlock =
   | "upcoming_bookings_as_guest"
@@ -46,6 +48,10 @@ export async function findAccountDeletionBlocks(
  * FYStay's own financial records) are entitled to keep.
  */
 export async function anonymizeAccount(prisma: PrismaClient, userId: string): Promise<void> {
+  const { stripeCustomerId } = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { stripeCustomerId: true },
+  });
   await prisma.$transaction([
     // Releases any connected Google/Apple account, so signing in with it
     // later starts a fresh FYStay account instead of landing on this
@@ -63,6 +69,7 @@ export async function anonymizeAccount(prisma: PrismaClient, userId: string): Pr
         twoFactorSecretCiphertext: null,
         twoFactorEnabledAt: null,
         twoFactorBackupCodeHashes: [],
+        stripeCustomerId: null,
         deletedAt: new Date(),
         // Kills every other still-live session this account had (a second
         // tab, another device) immediately, not just the one making this
@@ -74,4 +81,9 @@ export async function anonymizeAccount(prisma: PrismaClient, userId: string): Pr
       },
     }),
   ]);
+
+  // Their name and email in Stripe go too; past payments stay there as
+  // financial records (see deleteStripeCustomer).
+  const stripe = stripeCustomerId ? getStripeClient() : null;
+  if (stripe && stripeCustomerId) await deleteStripeCustomer(stripe, stripeCustomerId);
 }

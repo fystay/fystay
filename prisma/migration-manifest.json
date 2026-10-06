@@ -290,6 +290,18 @@
       "files": {
         "migration.sql": "0f20ee21d7579cdb26db2a465138bc063baa460a0d43678631112d6a3886464e"
       }
+    },
+    {
+      "name": "20261006230000_add_user_stripe_customer",
+      "files": {
+        "migration.sql": "d068e672837cb2fdbbfec0af91de4120233f3a1d3cb19070799b8fd7cdb151a5"
+      }
+    },
+    {
+      "name": "20261006233000_add_payment_alerts",
+      "files": {
+        "migration.sql": "4c12a99da9deab93ed590e1e71cd572c4d5913059da1d44ed76dfebf384dc32c"
+      }
     }
   ],
   "retired": [

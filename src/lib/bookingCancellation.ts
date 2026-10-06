@@ -35,6 +35,14 @@ export type CancellableBooking = Booking & {
  * own cancellation-policy tiers. Every other caller omits it and gets the
  * exact same policy-driven refund the guest-facing flow always has.
  */
+/** Thrown when another request cancelled (or otherwise moved on) this booking first. */
+export class BookingAlreadyProcessedError extends Error {
+  constructor() {
+    super("This booking has already been cancelled or completed.");
+    this.name = "BookingAlreadyProcessedError";
+  }
+}
+
 export async function cancelBookingAndRefund(
   prisma: PrismaClient,
   booking: CancellableBooking,
@@ -52,20 +60,40 @@ export async function cancelBookingAndRefund(
     refundPercentOverride,
   });
 
+  // Claim the cancellation before any money moves: of two cancellations
+  // racing on one booking (a double tap, or the guest and support at the
+  // same moment), only the one that flips the status gets to refund -
+  // otherwise both would, and a 50% policy would pay out 100%.
+  const claimed = await prisma.booking.updateMany({
+    where: { id: booking.id, status: booking.status, paymentStatus: booking.paymentStatus },
+    data: { status: "CANCELLED" },
+  });
+  if (claimed.count === 0) throw new BookingAlreadyProcessedError();
+
   const stripe = getStripeClient();
   if (stripe && wasPaid && refund.refundCents > 0 && booking.stripePaymentIntentId) {
-    // totalPriceCents includes any paid date changes, which were separate
-    // payments - so the refund is spread across all of them rather than
-    // asked of the original payment alone (which Stripe would reject if it
-    // came to more than that payment). Each destination-charge payment
-    // reverses the same proportion of the host's payout and FYStay's fee
-    // as it refunds - see Booking.hostPaidViaConnect and connectRefunds.ts.
-    const changeRequests = await prisma.bookingChangeRequest.findMany({
-      where: { bookingId: booking.id, paidAt: { not: null } },
-      select: { stripeSessionId: true, paidAt: true, hostPaidViaConnect: true },
-    });
-    const payments = await bookingPayments(stripe, { ...booking, changeRequests });
-    await refundAcrossPayments(stripe, payments, refund.refundCents);
+    try {
+      // totalPriceCents includes any paid date changes, which were separate
+      // payments - so the refund is spread across all of them rather than
+      // asked of the original payment alone (which Stripe would reject if it
+      // came to more than that payment). Each destination-charge payment
+      // reverses the same proportion of the host's payout and FYStay's fee
+      // as it refunds - see Booking.hostPaidViaConnect and connectRefunds.ts.
+      const changeRequests = await prisma.bookingChangeRequest.findMany({
+        where: { bookingId: booking.id, paidAt: { not: null } },
+        select: { stripeSessionId: true, paidAt: true, hostPaidViaConnect: true },
+      });
+      const payments = await bookingPayments(stripe, { ...booking, changeRequests });
+      await refundAcrossPayments(stripe, payments, refund.refundCents, `booking-cancel:${booking.id}`);
+    } catch (error) {
+      // Stripe refused the refund: put the booking back as it was, so it's
+      // never left cancelled without the money the policy promised.
+      await prisma.booking.updateMany({
+        where: { id: booking.id, status: "CANCELLED" },
+        data: { status: booking.status },
+      });
+      throw error;
+    }
   }
 
   const paymentStatus = !wasPaid

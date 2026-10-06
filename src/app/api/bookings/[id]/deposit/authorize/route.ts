@@ -5,6 +5,7 @@ import { getStripeClient } from "@/lib/stripe";
 import { createDepositCheckoutSession, needsDepositAuthorization } from "@/lib/securityDeposit";
 import { BASE_URL } from "@/lib/baseUrl";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 
 /**
  * Guest-triggered version of the same authorization the daily
@@ -65,7 +66,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     bookingId: booking.id,
     depositCents: booking.securityDepositCents,
     listingTitle: booking.listing.title,
-    guestEmail: booking.guestEmail,
+    customerId: await getOrCreateStripeCustomer(stripe, prisma, booking.guestId),
     successUrl: `${baseUrl}/bookings/${booking.id}?deposit_authorized=1`,
     cancelUrl: `${baseUrl}/bookings/${booking.id}`,
   });

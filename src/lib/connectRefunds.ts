@@ -9,6 +9,17 @@ import type Stripe from "stripe";
  * refund while the host keeps the money.
  */
 
+/**
+ * Marks a refund as made by FYStay itself (cancellations, date changes,
+ * unconfirmable payments), so the webhook can tell those apart from a
+ * refund someone made by hand in the Stripe Dashboard.
+ */
+export const FYSTAY_REFUND_METADATA = { source: "fystay" } as const;
+
+export function isFystayRefund(refund: { metadata?: Record<string, string> | null }): boolean {
+  return refund.metadata?.source === FYSTAY_REFUND_METADATA.source;
+}
+
 type PaymentToRefund = {
   paymentIntentId: string;
   /** Whether this payment was a destination charge to the host (Booking.hostPaidViaConnect). */
@@ -32,7 +43,11 @@ export async function refundChangeDifference(
   payment: PaymentToRefund,
   split: { refundCents: number; platformShareCents: number },
 ): Promise<void> {
-  await stripe.refunds.create({ payment_intent: payment.paymentIntentId, amount: split.refundCents });
+  await stripe.refunds.create({
+    payment_intent: payment.paymentIntentId,
+    amount: split.refundCents,
+    metadata: FYSTAY_REFUND_METADATA,
+  });
   if (!payment.viaConnect) return;
 
   const charge = await latestCharge(stripe, payment.paymentIntentId);
@@ -62,6 +77,13 @@ export async function refundAcrossPayments(
   stripe: Stripe,
   payments: PaymentToRefund[],
   amountCents: number,
+  /**
+   * Names this refund for Stripe's idempotency (with each payment and
+   * amount appended), so the same refund requested twice - a duplicate
+   * webhook, a retried request - is made once and the second call gets
+   * the first one back.
+   */
+  idempotencyKey?: string,
 ): Promise<void> {
   let remaining = amountCents;
   for (const payment of [...payments].reverse()) {
@@ -70,11 +92,15 @@ export async function refundAcrossPayments(
     const refundable = charge ? charge.amount - charge.amount_refunded : 0;
     const amount = Math.min(remaining, refundable);
     if (amount <= 0) continue;
-    await stripe.refunds.create({
-      payment_intent: payment.paymentIntentId,
-      amount,
-      ...(payment.viaConnect && { reverse_transfer: true, refund_application_fee: true }),
-    });
+    await stripe.refunds.create(
+      {
+        payment_intent: payment.paymentIntentId,
+        amount,
+        metadata: FYSTAY_REFUND_METADATA,
+        ...(payment.viaConnect && { reverse_transfer: true, refund_application_fee: true }),
+      },
+      idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${payment.paymentIntentId}:${amount}` } : undefined,
+    );
     remaining -= amount;
   }
   if (remaining > 0) {

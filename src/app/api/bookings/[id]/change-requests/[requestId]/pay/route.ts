@@ -10,6 +10,7 @@ import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { refundAcrossPayments } from "@/lib/connectRefunds";
 import { BASE_URL } from "@/lib/baseUrl";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 
 async function postHandler(
   _request: Request,
@@ -83,6 +84,7 @@ async function postHandler(
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
+    customer: await getOrCreateStripeCustomer(stripe, prisma, changeRequest.booking.guestId),
     line_items: [
       {
         price_data: {

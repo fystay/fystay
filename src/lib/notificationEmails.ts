@@ -608,6 +608,37 @@ export async function sendDisputeAlertEmail(details: {
 }
 
 /**
+ * A payment problem someone at FYStay has to act on - a refund made in the
+ * Stripe Dashboard instead of through FYStay (so FYStay's own booking
+ * record doesn't know about it), or a refund Stripe couldn't deliver to the
+ * guest's card. Same inbox as chargebacks.
+ */
+export async function sendPaymentOpsAlertEmail(details: {
+  subject: string;
+  summary: string;
+  amountCents: number;
+  bookingReference: string | null;
+  action: string;
+  stripeUrl: string;
+}): Promise<void> {
+  const resend = getResendClient();
+  if (!resend) return;
+
+  await resend.emails.send({
+    from: EMAIL_FROM,
+    to: process.env.DISPUTE_ALERT_EMAIL || SUPPORT_EMAIL,
+    subject: `${details.subject}: ${formatPrice(details.amountCents)}${details.bookingReference ? ` (booking ${details.bookingReference})` : ""}`,
+    html: `
+      <p>${escapeHtml(details.summary)}</p>
+      <p><strong>Amount:</strong> ${formatPrice(details.amountCents)}<br>
+      ${details.bookingReference ? `<strong>Booking:</strong> ${details.bookingReference}<br>` : ""}</p>
+      <p><strong>What to do:</strong> ${escapeHtml(details.action)}</p>
+      <p><a href="${details.stripeUrl}">Open it in Stripe</a></p>
+    `,
+  });
+}
+
+/**
  * Tells a host their paid Spotlight placement is booked in (see
  * src/lib/listingPromotions.ts) - sent once, when payment lands. Stripe
  * sends the payment receipt itself; this says what the money bought.

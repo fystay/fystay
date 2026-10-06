@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canCancelBooking } from "@/lib/changeRequests";
-import { cancelBookingAndRefund } from "@/lib/bookingCancellation";
+import { BookingAlreadyProcessedError, cancelBookingAndRefund } from "@/lib/bookingCancellation";
 import { withApiErrorHandling } from "@/lib/apiError";
 
 /**
@@ -40,7 +40,16 @@ async function postHandler(_request: Request, { params }: { params: Promise<{ id
     );
   }
 
-  const { updated, refund } = await cancelBookingAndRefund(prisma, booking);
+  let result;
+  try {
+    result = await cancelBookingAndRefund(prisma, booking);
+  } catch (error) {
+    if (error instanceof BookingAlreadyProcessedError) {
+      return NextResponse.json({ error: "This booking has already been cancelled" }, { status: 409 });
+    }
+    throw error;
+  }
+  const { updated, refund } = result;
 
   return NextResponse.json({ booking: updated, refund });
 }

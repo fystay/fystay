@@ -10,6 +10,7 @@ import {
 } from "@/lib/securityDeposit";
 import { sendDepositAuthorizationRequestEmail, sendDepositResolvedEmail } from "@/lib/notificationEmails";
 import { BASE_URL } from "@/lib/baseUrl";
+import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 
 /**
  * Daily housekeeping for security deposits (see src/lib/securityDeposit.ts
@@ -52,7 +53,7 @@ async function getHandler(request: Request) {
         bookingId: booking.id,
         depositCents: booking.securityDepositCents,
         listingTitle: booking.listing.title,
-        guestEmail: booking.guestEmail,
+        customerId: await getOrCreateStripeCustomer(stripe, prisma, booking.guestId),
         successUrl: `${baseUrl}/bookings/${booking.id}?deposit_authorized=1`,
         cancelUrl: `${baseUrl}/bookings/${booking.id}`,
       });

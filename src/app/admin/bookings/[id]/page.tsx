@@ -10,6 +10,7 @@ import { SectionHeading } from "@/components/SectionHeading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
 import { AdminCancelBookingDialog } from "@/components/admin/AdminCancelBookingDialog";
+import { stripeDashboardPaymentUrl } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Booking detail", robots: { index: false } };
 
@@ -129,9 +130,33 @@ export default async function AdminBookingDetailPage({
                 <span className="text-stone-500">Paid via Connect:</span>{" "}
                 {booking.hostPaidViaConnect ? "Yes" : "No"}
               </p>
+              {/* The original booking payment's split (date-change payments are listed below). */}
+              <p>
+                <span className="text-stone-500">FYStay fee:</span>{" "}
+                {booking.hostPaidViaConnect && booking.applicationFeeCents !== null
+                  ? formatPrice(booking.applicationFeeCents)
+                  : "—"}
+              </p>
+              <p>
+                <span className="text-stone-500">Host receives:</span>{" "}
+                {booking.hostPaidViaConnect && booking.applicationFeeCents !== null
+                  ? formatPrice(booking.totalPriceCents - booking.applicationFeeCents)
+                  : "—"}
+              </p>
               <p className="col-span-2 break-all">
                 <span className="text-stone-500">Stripe payment intent:</span>{" "}
-                {booking.stripePaymentIntentId ?? "—"}
+                {booking.stripePaymentIntentId ? (
+                  <a
+                    href={stripeDashboardPaymentUrl(booking.stripePaymentIntentId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-brand-700 hover:underline"
+                  >
+                    {booking.stripePaymentIntentId} (open in Stripe)
+                  </a>
+                ) : (
+                  "—"
+                )}
               </p>
               <p className="col-span-2 break-all">
                 <span className="text-stone-500">Stripe checkout session:</span>{" "}

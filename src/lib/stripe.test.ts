@@ -47,3 +47,15 @@ describe("getStripeClient", () => {
     expect(getStripeClient()).not.toBeNull();
   });
 });
+
+describe("stripeDashboardPaymentUrl", () => {
+  it("points test payments at Stripe's test area and live ones at live", async () => {
+    const { stripeDashboardPaymentUrl } = await import("./stripe");
+    expect(stripeDashboardPaymentUrl("pi_1", { STRIPE_SECRET_KEY: "sk_test_x" } as never)).toBe(
+      "https://dashboard.stripe.com/test/payments/pi_1",
+    );
+    expect(stripeDashboardPaymentUrl("pi_1", { STRIPE_SECRET_KEY: "sk_live_x" } as never)).toBe(
+      "https://dashboard.stripe.com/payments/pi_1",
+    );
+  });
+});

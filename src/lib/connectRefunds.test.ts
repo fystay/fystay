@@ -35,7 +35,7 @@ describe("refundChangeDifference", () => {
     const { stripe, calls } = fakeStripe({ pi_1: { amount: 33000 } });
     // A 3-night stay shortened by a night: £110 back = £100 host + £10 FYStay.
     await refundChangeDifference(stripe, { paymentIntentId: "pi_1", viaConnect: true }, { refundCents: 11000, platformShareCents: 1000 });
-    expect(calls.refunds).toEqual([{ payment_intent: "pi_1", amount: 11000 }]);
+    expect(calls.refunds).toEqual([{ payment_intent: "pi_1", amount: 11000, metadata: { source: "fystay" } }]);
     expect(calls.reversals).toEqual([["tr_pi_1", { amount: 11000 }]]);
     expect(calls.feeRefunds).toEqual([["fee_pi_1", { amount: 1000 }]]);
   });
@@ -43,7 +43,7 @@ describe("refundChangeDifference", () => {
   it("is a plain refund when the payment never went to the host", async () => {
     const { stripe, calls } = fakeStripe({ pi_1: { amount: 33000 } });
     await refundChangeDifference(stripe, { paymentIntentId: "pi_1", viaConnect: false }, { refundCents: 11000, platformShareCents: 1000 });
-    expect(calls.refunds).toEqual([{ payment_intent: "pi_1", amount: 11000 }]);
+    expect(calls.refunds).toEqual([{ payment_intent: "pi_1", amount: 11000, metadata: { source: "fystay" } }]);
     expect(calls.reversals).toEqual([]);
     expect(calls.feeRefunds).toEqual([]);
   });
@@ -61,8 +61,8 @@ describe("refundAcrossPayments", () => {
       40000,
     );
     expect(calls.refunds).toEqual([
-      { payment_intent: "pi_change", amount: 11000, reverse_transfer: true, refund_application_fee: true },
-      { payment_intent: "pi_booking", amount: 29000, reverse_transfer: true, refund_application_fee: true },
+      { payment_intent: "pi_change", amount: 11000, metadata: { source: "fystay" }, reverse_transfer: true, refund_application_fee: true },
+      { payment_intent: "pi_booking", amount: 29000, metadata: { source: "fystay" }, reverse_transfer: true, refund_application_fee: true },
     ]);
   });
 
@@ -76,7 +76,15 @@ describe("refundAcrossPayments", () => {
       ],
       5000,
     );
-    expect(calls.refunds).toEqual([{ payment_intent: "pi_old", amount: 5000 }]);
+    expect(calls.refunds).toEqual([{ payment_intent: "pi_old", amount: 5000, metadata: { source: "fystay" } }]);
+  });
+
+  it("names each refund for Stripe's idempotency when asked, so a repeat returns the first", async () => {
+    const { stripe } = fakeStripe({ pi_booking: { amount: 33000 } });
+    await refundAcrossPayments(stripe, [{ paymentIntentId: "pi_booking", viaConnect: true }], 12000, "booking-cancel:bk_1");
+    expect(stripe.refunds.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 12000 }), {
+      idempotencyKey: "booking-cancel:bk_1:pi_booking:12000",
+    });
   });
 });
 

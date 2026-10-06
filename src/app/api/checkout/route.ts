@@ -12,6 +12,7 @@ import { awardReferralBonusIfEligible } from "@/lib/referral";
 import { isBookingHoldActive, isRequestedRangeStillAvailable } from "@/lib/availability";
 import { BASE_URL } from "@/lib/baseUrl";
 import { releaseUnpaidBooking } from "@/lib/bookingLifecycle";
+import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 
 /**
  * Just over Stripe's 30-minute minimum Checkout Session lifetime - the
@@ -267,7 +268,8 @@ async function postHandler(request: Request) {
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
-    customer_email: booking.guestEmail ?? undefined,
+    // The guest's own Stripe customer (created once, then reused).
+    customer: await getOrCreateStripeCustomer(stripe, prisma, booking.guestId),
     line_items: lineItems,
     ...(discounts && { discounts }),
     metadata: { bookingId: booking.id },

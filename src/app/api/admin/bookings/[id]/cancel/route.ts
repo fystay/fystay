@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { cancelBookingAndRefund } from "@/lib/bookingCancellation";
+import { BookingAlreadyProcessedError, cancelBookingAndRefund } from "@/lib/bookingCancellation";
 import { withApiErrorHandling } from "@/lib/apiError";
 
 const adminCancelSchema = z.object({
@@ -68,9 +68,19 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { reason, refundPercent } = parsed.data;
-  const { updated, refund } = await cancelBookingAndRefund(prisma, booking, {
-    refundPercentOverride: refundPercent,
-  });
+  let result;
+  try {
+    result = await cancelBookingAndRefund(prisma, booking, { refundPercentOverride: refundPercent });
+  } catch (error) {
+    if (error instanceof BookingAlreadyProcessedError) {
+      return NextResponse.json(
+        { error: "This booking was just cancelled by someone else - nothing more to do" },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
+  const { updated, refund } = result;
 
   console.log("[admin-booking-cancel]", {
     bookingId: booking.id,

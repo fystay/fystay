@@ -46,7 +46,10 @@ has built the branch.
    `https://<branch domain>/api/webhooks/stripe?x-vercel-protection-bypass=<secret from step 2>`
    and API version `2026-08-26.dahlia`:
    - **A. "Your account"**: the same events as A in §1 below.
-   - **B. "Connected accounts"**: `account.updated`.
+   - **B. "Connected accounts"**: `account.updated`. (FYStay also re-checks a
+     host's payout status live with Stripe at every checkout and on their
+     payouts page, so a missed event only delays a newly ready host appearing
+     in search.)
 4. **Vercel → Settings → Environment Variables, Preview only, Sensitive:**
    `STRIPE_WEBHOOK_SECRET` = A's signing secret,
    `STRIPE_CONNECT_WEBHOOK_SECRET` = B's signing secret, and
@@ -82,6 +85,8 @@ the version the app's Stripe library speaks.
 - `checkout.session.expired`: abandoned payment page, so the dates are freed and credit or promo returned
 - `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`: chargebacks, alerting `DISPUTE_ALERT_EMAIL`
 - `identity.verification_session.verified`, `identity.verification_session.requires_input`: host ID checks (only if you turn on Stripe Identity)
+- `charge.refunded`: a refund made by hand in the Stripe Dashboard (not through FYStay) emails `DISPUTE_ALERT_EMAIL`, because FYStay's booking record doesn't know about it
+- `refund.failed`: a refund Stripe couldn't put back on the guest's card emails `DISPUTE_ALERT_EMAIL`, so someone can pay the guest another way
 
 **B. "Connected accounts" events**, giving `STRIPE_CONNECT_WEBHOOK_SECRET`:
 - `account.updated`: keeps each host's payout status current. Hosts also get a fresh check when they come back from Stripe onboarding.

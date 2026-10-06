@@ -10,6 +10,7 @@ import { sendTripExtraGuestConfirmationEmail } from "@/lib/notificationEmails";
 import { fulfillBookingExtra } from "@/lib/tripExtraFulfillment";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { BASE_URL } from "@/lib/baseUrl";
+import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 
 /**
  * Lists what's available to add to this booking (see
@@ -189,7 +190,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
-    customer_email: booking.guestEmail ?? undefined,
+    customer: await getOrCreateStripeCustomer(stripe, prisma, session.user.id),
     line_items: [
       {
         price_data: {

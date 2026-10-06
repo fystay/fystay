@@ -17,6 +17,7 @@ import {
   spotlightAvailability,
 } from "@/lib/listingPromotions";
 import { notifyListingPromotionActivated } from "@/lib/listingPromotionNotifications";
+import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 
 const purchaseSchema = z.object({
   listingId: z.string().min(1),
@@ -149,7 +150,7 @@ async function postHandler(request: Request) {
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
-    customer_email: listing.host.email,
+    customer: await getOrCreateStripeCustomer(stripe, prisma, session.user.id),
     line_items: [
       {
         price_data: {

@@ -40,3 +40,13 @@ export function allowsUnpaidConfirmation(env: EnvSource = process.env): boolean 
 
 export const PAYMENTS_UNAVAILABLE_MESSAGE =
   "Online payment isn't available yet, so this booking can't be confirmed. Your dates are still held - please try again later.";
+
+/**
+ * A link straight to a payment in the Stripe Dashboard, for admin pages -
+ * test-mode payments live under /test. Only says which mode the key is in,
+ * never anything about the key itself.
+ */
+export function stripeDashboardPaymentUrl(paymentIntentId: string, env: EnvSource = process.env): string {
+  const testMode = !/^(sk|rk)_live_/.test(env.STRIPE_SECRET_KEY ?? "");
+  return `https://dashboard.stripe.com/${testMode ? "test/" : ""}payments/${encodeURIComponent(paymentIntentId)}`;
+}

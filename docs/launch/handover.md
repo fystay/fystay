@@ -64,6 +64,16 @@ remaining item.
 - **Vercel:** new project, not readable from the cloud session that did this
   audit (connector scope). Variables, Git link and domain still to confirm.
 
+## Stripe review (6 Oct, night)
+
+Architecture confirmed with Stripe's planner (hosted Checkout + Connect
+marketplace with destination charges; no Billing). Hardening done and two
+more migrations to run in Production with the others:
+`20261006230000_add_user_stripe_customer`, `20261006233000_add_payment_alerts`
+(already applied on Preview). Webhook endpoint A gains `charge.refunded` and
+`refund.failed`. **Owner decisions waiting** (payout timing, refund split,
+fee model): [stripe-architecture.md](stripe-architecture.md).
+
 ## Google and Apple sign-in (built 6 Oct, late evening)
 
 Built into the existing Auth.js login (Supabase is not the login system).
