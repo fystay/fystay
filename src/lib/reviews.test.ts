@@ -45,6 +45,15 @@ describe("canReviewBooking", () => {
     ).toBe(false);
   });
 
+  it("rejects a booking that was never paid for, whatever its status says", () => {
+    expect(
+      canReviewBooking({ status: "CONFIRMED", checkOut: new Date("2026-06-10"), paymentStatus: "UNPAID" }, now),
+    ).toBe(false);
+    expect(
+      canReviewBooking({ status: "COMPLETED", checkOut: new Date("2026-06-10"), paymentStatus: "PAID" }, now),
+    ).toBe(true);
+  });
+
   it("rejects a booking that already has a review", () => {
     expect(
       canReviewBooking(

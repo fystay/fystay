@@ -2,6 +2,8 @@ export type ReviewableBooking = {
   status: string;
   checkOut: Date;
   review?: unknown | null;
+  /** When given, a booking that was never paid for can't be reviewed, whatever its status says. */
+  paymentStatus?: string;
 };
 
 /** A guest may review a stay once it's paid for, completed, and not already reviewed. */
@@ -9,6 +11,7 @@ export function canReviewBooking(booking: ReviewableBooking, now: Date = new Dat
   return (
     (booking.status === "CONFIRMED" || booking.status === "COMPLETED") &&
     booking.checkOut <= now &&
+    booking.paymentStatus !== "UNPAID" &&
     !booking.review
   );
 }

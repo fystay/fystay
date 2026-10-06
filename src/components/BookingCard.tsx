@@ -60,6 +60,8 @@ export type BookingCardBooking = {
   guests: number;
   lastMinuteDiscountPercent?: number | null;
   totalPriceCents: number;
+  /** What was actually refunded on a cancelled, paid booking (may be part or none). */
+  refundedAmountCents?: number | null;
   review: { rating: number } | null;
   listing: {
     title: string;
@@ -185,7 +187,14 @@ export function BookingCard({
         </div>
 
         <div className="flex items-center justify-between gap-3 sm:block sm:shrink-0 sm:text-right">
-          <p className="font-semibold text-foreground">{formatPrice(booking.totalPriceCents)}</p>
+          <div>
+            <p className="font-semibold text-foreground">{formatPrice(booking.totalPriceCents)}</p>
+            {(status === "CANCELLED" || status === "REFUNDED") && booking.paymentStatus !== "UNPAID" && (
+              <p className="text-xs text-stone-500">
+                {booking.refundedAmountCents ? `${formatPrice(booking.refundedAmountCents)} refunded` : "No refund due"}
+              </p>
+            )}
+          </div>
           <Badge variant={statusVariant[status]} className="sm:mt-1">
             {statusLabel[status] ?? status}
           </Badge>
