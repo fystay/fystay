@@ -30,6 +30,8 @@ and deployed (see COMPLETE).
 
 ## CONFIGURE LATER (Vercel Production variables, no domain needed)
 
+**RED (found 6 Oct):** Production `NEXTAUTH_URL` is the placeholder `https://fystay-xxxxx.vercel.app`. Sign-out redirects to that dead address. Change it to `https://fystay.vercel.app`, then make a fresh Production build.
+
 | Item | Why it matters | Blocks launch? |
 |---|---|---|
 | `TWO_FACTOR_ENCRYPTION_KEY` | 2FA shows "not available" without it. Generate once with `openssl rand -hex 32`; never change it afterwards. | Yes |

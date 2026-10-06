@@ -19,7 +19,7 @@ Secret = mark it **Sensitive** in Vercel. Public = safe to be seen; the
 | `DIRECT_URL` | Prisma direct connection | Secret | Set |
 | `PMS_HOST_SCOPED_DATABASE_URL` | Row-level-security-scoped role for PMS data | Secret | Set |
 | `AUTH_SECRET` | Signs login sessions | Secret | Set |
-| `NEXTAUTH_URL` | Auth origin | Public | Set; update when the domain changes |
+| `NEXTAUTH_URL` | Auth origin: overrides the request's own address for sign-in, sign-out and OAuth redirects | Public | **Wrong (6 Oct):** set to the placeholder `https://fystay-xxxxx.vercel.app` (visible in `/api/auth/providers`), so sign-out sends people to a dead address. Set it to `https://fystay.vercel.app`, then to the custom domain later. Not needed on Preview. |
 | `NEXT_PUBLIC_BASE_URL` | Every absolute link: emails, Stripe redirects, sitemap, canonical URLs | Public | Set (`fystay.vercel.app`, trailing slash now harmless); update for the domain |
 | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Photo/avatar storage | URL public, key **secret** | Set |
 | `CRON_SECRET` | Authenticates Vercel Cron to all `/api/cron/*` routes | Secret | Set, verified |
@@ -52,7 +52,7 @@ Stripe's hosted page); it's harmless on Preview and not needed on Production.
 
 | Variable(s) | Feature | Production |
 |---|---|---|
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Sign in with Google | Unset (button hidden) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Sign in with Google. These only switch the button on; Auth.js reads the credentials from `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`, so set both pairs (same values) if this is ever enabled. | Unset (button hidden) |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | Phone verification | Unset |
 | `PMS_ENCRYPTION_KEY` | Storing PMS credentials; `openssl rand -hex 32`, never change | Unset |
 | `CLOUDBEDS_CLIENT_ID`, `CLOUDBEDS_CLIENT_SECRET`, `CLOUDBEDS_WEBHOOK_SECRET`, `SITEMINDER_WEBHOOK_SECRET`, `SUPERCONTROL_WEBHOOK_SECRET` | PMS integrations | Unset |
@@ -64,6 +64,13 @@ Stripe's hosted page); it's harmless on Preview and not needed on Production.
 | `SENTRY_ORG`, `SENTRY_PROJECT` | Source-map upload target | Set (`fystay` / `fystay-web`) |
 | `SENTRY_AUTH_TOKEN` (secret) | Readable stack traces: enables source-map upload at build | Set (Production + Preview, Sensitive) |
 | Per-route cron secrets (`LOCAL_DATA_`, `ICAL_SYNC_`, `PMS_RECONCILE_`, `BOOKING_LIFECYCLE_`, `BOOKING_REQUEST_`, `SECURITY_DEPOSIT_CRON_SECRET`) | Manual job runs only; `CRON_SECRET` covers everything | Unset (fine) |
+
+## Not read by the app (safe to delete)
+
+| Variable | Where | Why |
+|---|---|---|
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Preview | Checkout is Stripe's hosted page; nothing reads it. |
+| `PROD_DIRECT_URL` | Preview | Only the GitHub migration workflow reads it, from its own secret. |
 
 ## Should not be in Production
 
