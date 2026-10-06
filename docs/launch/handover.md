@@ -72,10 +72,20 @@ remaining item.
   goes through `src/lib/safeFetch.ts` (public addresses only, checked at
   connection time; default ports; 3 redirects, each re-checked; 10s; 2MB),
   and the link is validated when saved.
+- **Fixed: email change and account deletion needed only a signed-in
+  session.** Someone holding a session (a borrowed phone, an unlocked
+  laptop) could move the account to their own inbox, then reset the
+  password from there. Both now ask for the current password (rate-limited;
+  Google-only accounts, which have no password, can still delete).
+- **Fixed: a password-reset link could be used twice** if submitted twice
+  at once, and other unused reset links stayed valid after a reset. The
+  link is now claimed atomically and every other open link for that account
+  stops working.
 - Trip-extra payments now also require Stripe's "paid" status before being
   marked paid (all checkouts are card-only, so this is belt and braces).
 - Reviewed and fine: every booking, listing, message, review, support and
-  admin route checks ownership or the admin role; sessions end on
+  admin route checks ownership or the admin role; sign-up can only create
+  guests or hosts; sessions end on
   suspension, password reset and "sign out everywhere"; Stripe webhooks
   verify signatures; uploads are type- and size-checked and the storage
   buckets enforce the same.

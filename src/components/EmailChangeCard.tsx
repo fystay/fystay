@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/Button";
  */
 export function EmailChangeCard({ currentEmail }: { currentEmail: string }) {
   const [newEmail, setNewEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -30,7 +31,7 @@ export function EmailChangeCard({ currentEmail }: { currentEmail: string }) {
     const res = await fetch("/api/account/email/request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ newEmail: newEmail.trim() }),
+      body: JSON.stringify({ newEmail: newEmail.trim(), currentPassword }),
     });
     const data = await res.json();
     setLoading(false);
@@ -41,6 +42,7 @@ export function EmailChangeCard({ currentEmail }: { currentEmail: string }) {
     }
 
     setSent(true);
+    setCurrentPassword("");
     if (data.devMode) setDevConfirmUrl(data.confirmUrl);
   }
 
@@ -85,24 +87,39 @@ export function EmailChangeCard({ currentEmail }: { currentEmail: string }) {
             <p>Currently {currentEmail}.</p>
             <Field>
               <Label htmlFor="new-email">New email address</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="new-email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  invalid={Boolean(error)}
-                  placeholder="you@example.com"
-                />
-                <Button type="submit" loading={loading} disabled={!newEmail.trim()}>
-                  <Send className="h-4 w-4" aria-hidden />
-                  Send link
-                </Button>
-              </div>
+              <Input
+                id="new-email"
+                type="email"
+                required
+                autoComplete="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                invalid={Boolean(error)}
+                placeholder="you@example.com"
+              />
+            </Field>
+            <Field>
+              <Label htmlFor="email-change-password">Current password</Label>
+              <Input
+                id="email-change-password"
+                type="password"
+                required
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                invalid={Boolean(error)}
+              />
               <FieldError>{error}</FieldError>
             </Field>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={!newEmail.trim() || !currentPassword}
+              className="self-start"
+            >
+              <Send className="h-4 w-4" aria-hidden />
+              Send link
+            </Button>
           </form>
         )}
       </CardContent>

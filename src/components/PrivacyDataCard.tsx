@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 import { cn } from "@/lib/cn";
+import { Field, FieldError, Label } from "@/components/ui/Label";
+import { Input } from "@/components/ui/Input";
 
 const BLOCK_MESSAGES: Record<string, string> = {
   upcoming_bookings_as_guest: "You have an upcoming or in-progress booking - cancel it first.",
@@ -15,18 +17,39 @@ const BLOCK_MESSAGES: Record<string, string> = {
   stripe_connect_active: "Your Stripe payouts account is still active - contact us to close it before deleting your account.",
 };
 
-export function PrivacyDataCard() {
+/** hasPassword: the account signs in with a password, so deleting it asks for that password again. */
+export function PrivacyDataCard({ hasPassword }: { hasPassword: boolean }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  function closeDialog() {
+    setConfirmOpen(false);
+    setPassword("");
+    setPasswordError(null);
+  }
 
   async function handleDelete() {
+    if (hasPassword && !password) {
+      setPasswordError("Enter your password to delete your account.");
+      return;
+    }
     setDeleting(true);
-    const res = await fetch("/api/account", { method: "DELETE" });
+    const res = await fetch("/api/account", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(hasPassword ? { currentPassword: password } : {}),
+    });
     const data = await res.json();
     setDeleting(false);
 
     if (!res.ok) {
-      setConfirmOpen(false);
+      if (res.status === 400 && hasPassword) {
+        setPasswordError(data.error ?? "That password isn't right.");
+        return;
+      }
+      closeDialog();
       const blocks: string[] = data.blocks ?? [];
       if (blocks.length > 0) {
         blocks.forEach((block) => toast.error(BLOCK_MESSAGES[block] ?? "Couldn't delete your account."));
@@ -85,14 +108,32 @@ export function PrivacyDataCard() {
 
       <ConfirmDialog
         open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
+        onClose={closeDialog}
         onConfirm={handleDelete}
         title="Delete your account?"
         description="This can't be undone. Your name, email and phone number are removed everywhere; you'll be signed out immediately."
         confirmLabel="Delete my account"
         loading={deleting}
         danger
-      />
+      >
+        {hasPassword && (
+          <Field className="mt-4">
+            <Label htmlFor="delete-account-password">Your password</Label>
+            <Input
+              id="delete-account-password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setPasswordError(null);
+              }}
+              invalid={Boolean(passwordError)}
+            />
+            <FieldError>{passwordError}</FieldError>
+          </Field>
+        )}
+      </ConfirmDialog>
     </Card>
   );
 }

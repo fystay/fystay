@@ -77,7 +77,7 @@ export default async function AccountPage() {
           />
         )}
         <SecuritySessionsCard />
-        <PrivacyDataCard />
+        <PrivacyDataCard hasPassword={hasPassword} />
       </div>
     </div>
   );

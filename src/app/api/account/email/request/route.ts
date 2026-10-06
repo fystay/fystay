@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -9,7 +10,10 @@ import { withApiErrorHandling } from "@/lib/apiError";
 import { isLocalEnvironment } from "@/lib/deploymentEnvironment";
 import { BASE_URL } from "@/lib/baseUrl";
 
-const requestEmailChangeSchema = z.object({ newEmail: z.string().email() });
+const requestEmailChangeSchema = z.object({
+  newEmail: z.string().email(),
+  currentPassword: z.string().min(1).max(200),
+});
 
 async function postHandler(request: Request) {
   const session = await auth();
@@ -27,7 +31,11 @@ async function postHandler(request: Request) {
   const body = await request.json();
   const parsed = requestEmailChangeSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+    const missingPassword = parsed.error.issues.some((issue) => issue.path[0] === "currentPassword");
+    return NextResponse.json(
+      { error: missingPassword ? "Enter your current password." : "Enter a valid email address." },
+      { status: 400 },
+    );
   }
   const newEmail = parsed.data.newEmail.toLowerCase();
 
@@ -48,6 +56,14 @@ async function postHandler(request: Request) {
       { error: "Accounts signed in with Google can't change their email here." },
       { status: 400 },
     );
+  }
+
+  // The current password, not just a signed-in session: otherwise anyone
+  // holding a session (a borrowed phone, an unlocked laptop) could move the
+  // account to an inbox they control and then reset its password from
+  // there. Guesses are capped by this route's rate limit above.
+  if (!(await bcrypt.compare(parsed.data.currentPassword, user.passwordHash))) {
+    return NextResponse.json({ error: "That password isn't right." }, { status: 400 });
   }
 
   if (newEmail === user.email) {

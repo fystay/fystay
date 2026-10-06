@@ -36,18 +36,37 @@ async function postHandler(request: Request) {
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
 
-  await prisma.$transaction([
+  const used = await prisma.$transaction(async (tx) => {
+    // Claim the link atomically: of two submissions racing on the same
+    // link, only the one that flips usedAt from null gets to set a password.
+    const claimed = await tx.passwordResetToken.updateMany({
+      where: { id: record.id, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count === 0) return false;
+    // Any other reset link still sitting in this person's inbox stops
+    // working too - the password it was meant to replace is gone.
+    await tx.passwordResetToken.updateMany({
+      where: { userId: record.userId, usedAt: null },
+      data: { usedAt: new Date() },
+    });
     // Resetting a password is itself a signal the old one may have been
     // compromised - bumping sessionVersion here signs out every session
     // that was established under it (see src/lib/sessionRevocation.ts),
     // including on a device the real owner no longer has, not just this
     // one's browser.
-    prisma.user.update({
+    await tx.user.update({
       where: { id: record.userId },
       data: { passwordHash, sessionVersion: { increment: 1 } },
-    }),
-    prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
-  ]);
+    });
+    return true;
+  });
+  if (!used) {
+    return NextResponse.json(
+      { error: "This reset link is invalid or has expired. Request a new one." },
+      { status: 400 },
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

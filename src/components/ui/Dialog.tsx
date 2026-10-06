@@ -64,6 +64,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   loading,
   danger,
+  children,
 }: {
   open: boolean;
   onClose: () => void;
@@ -73,10 +74,13 @@ export function ConfirmDialog({
   confirmLabel?: string;
   loading?: boolean;
   danger?: boolean;
+  /** Extra content between the description and the buttons, e.g. a password field. */
+  children?: React.ReactNode;
 }) {
   return (
     <Dialog open={open} onClose={onClose} title={title}>
       <p className="text-sm text-stone-600">{description}</p>
+      {children}
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="outline" onClick={onClose} disabled={loading}>
           Cancel
