@@ -64,6 +64,33 @@ remaining item.
 - **Vercel:** new project, not readable from the cloud session that did this
   audit (connector scope). Variables, Git link and domain still to confirm.
 
+## Live site down after the Vercel move (diagnosed 6 Oct, 23:25 UTC)
+
+`fystay.vercel.app` now answers from a deployment with no database and no
+Auth.js secret: `/api/health` says the database is unreachable and every
+`/api/auth/*` route returns Auth.js's "server configuration" error, so no
+login works (email or Google). The production database's connection log
+shows the previous deployment's connections stopping at about 23:00 UTC.
+That deployment is also an old build (login page still says "Sign up", no
+Google button), and the production database is missing the three newest
+migrations. Google itself is fine: with the current code the callback is
+exactly `https://fystay.vercel.app/api/auth/callback/google` whatever
+`NEXTAUTH_URL` holds (checked), and the OAuth cookies are Secure/HttpOnly.
+
+Fix, in this order:
+1. Vercel (project serving `fystay.vercel.app`) → Production variables: every
+   variable in [environment-variables.md](environment-variables.md), at least
+   `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXTAUTH_URL`
+   (`https://fystay.vercel.app`), `NEXT_PUBLIC_BASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`,
+   the Sentry ones, and `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`. Production
+   branch: `claude/airbnb-competitor-1fjjpk`.
+2. GitHub → "Production database migration" for the newest commit (adds
+   `AuthIdentity`, `User.stripeCustomerId`, `PaymentAlertSent`). **Before**
+   step 3: the newest code reads `User.stripeCustomerId` on every user
+   lookup, so deploying it first would break every page that loads a user.
+3. Vercel → fresh Production build of the newest commit (no build cache).
+
 ## Stripe review (6 Oct, night)
 
 Architecture confirmed with Stripe's planner (hosted Checkout + Connect
