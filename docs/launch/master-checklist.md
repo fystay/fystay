@@ -37,8 +37,8 @@ and deployed (see COMPLETE).
 |---|---|---|
 | `TWO_FACTOR_ENCRYPTION_KEY` | 2FA shows "not available" without it. Generate once with `openssl rand -hex 32`; never change it afterwards. | Yes |
 | **Sentry: live in Production since 2 Oct** (`c12c250`, `dpl_7MkzK9UhuX582sogSSNigb9MsvDw`). Project `fystay/fystay-web` (EU). DSN, org, project and auth token are set for Production + Preview. Source maps upload at build; the release is the commit SHA, with Vercel deploys recorded in Sentry. No personal data is sent. The CSP allows the ingest host. | Done | Done |
-| **Manual:** delete `SEED_ADMIN_SECRET` from Vercel **Production** (keep the Preview copy) | Read only by `/api/admin/seed-demo-data`, which refuses in Production. Can't be deleted with the available tooling. | No (hygiene) |
-| **Manual:** delete `PROD_DIRECT_URL` from Vercel **Production** | Only the migration workflow reads it, from the GitHub "production" environment secret, not Vercel; the app never reads it. Keep the GitHub secret. | No (hygiene) |
+| ~~Delete `SEED_ADMIN_SECRET` from Vercel Production~~ | Done: Preview only, checked 6 Oct. | Done |
+| ~~Delete `PROD_DIRECT_URL` from Vercel Production~~ | Done: not in Vercel Production, checked 6 Oct. Keep the GitHub secret. | Done |
 | `PMS_ENCRYPTION_KEY` | Only if hosts may connect a property-management system at launch. | No |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | "Continue with Google". Hidden until set. | No |
 
@@ -116,8 +116,7 @@ and deployed (see COMPLETE).
 - The Preview database (`sqkpixwvugrxllrxlexs`) is full of demo data. That's
   intended; it never reaches Production.
 
-**Before launch:** nothing to delete. Keep `ALLOW_PRODUCTION_SEED` unset and
-remove `SEED_ADMIN_SECRET` from Production.
+**Before launch:** nothing to delete. Keep `ALLOW_PRODUCTION_SEED` unset.
 
 ## Integration audit (1 October 2026)
 

@@ -1,7 +1,7 @@
 # Environment variables
 
 Every variable the app reads, what it does, and its state in **Vercel
-Production** as of 1 October 2026. Read from the variable list, never the
+Production** as of 6 October 2026. Read from the variable list, never the
 values. `.env.example` holds the developer-facing notes for each one.
 
 **Any change only takes effect after a new Production build**, because
@@ -38,11 +38,15 @@ Secret = mark it **Sensitive** in Vercel. Public = safe to be seen; the
 | `SENTRY_DSN` | Server error reporting (`src/instrumentation.ts`, every generic 500) | Low-sensitivity | Set (Production + Preview), project `fystay/fystay-web` |
 | `NEXT_PUBLIC_SENTRY_DSN` | Browser error reporting (`src/instrumentation-client.ts`); same value as above; the CSP allows its ingest host (`src/lib/sentryCsp.ts`) | Public | Set (Production + Preview) |
 
-## Stripe (parked: do not configure until the Stripe decision)
+## Stripe
 
-`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`
-(secrets), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (public). None are set in
-Production, by design: payments are refused cleanly until they are.
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET`
+(all secrets) are set on **Preview only** (test sandbox). None are set in
+Production, so payments are refused cleanly until they are. What to set and
+how: [stripe-and-email-setup.md](stripe-and-email-setup.md). The app ignores a
+test key on Production and a live key anywhere else.
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` isn't read by the app (checkout is
+Stripe's hosted page); it's harmless on Preview and not needed on Production.
 
 ## Optional
 
@@ -65,6 +69,6 @@ Production, by design: payments are refused cleanly until they are.
 
 | Variable | Why |
 |---|---|
-| `SEED_ADMIN_SECRET` | Demo seeding is refused in Production anyway. **Currently set: remove it.** |
-| `PROD_DIRECT_URL` | Only the GitHub "production" environment (migration workflow) needs it. **Currently set in Vercel Production: remove it.** |
+| `SEED_ADMIN_SECRET` | Demo seeding is refused in Production anyway. Preview only now (removed from Production). |
+| `PROD_DIRECT_URL` | Only the GitHub "production" environment (migration workflow) needs it. Not in Vercel Production. |
 | `ALLOW_PRODUCTION_SEED` | Would allow demo data into Production. Never set. |

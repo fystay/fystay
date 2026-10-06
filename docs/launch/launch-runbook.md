@@ -49,7 +49,6 @@ In Vercel → Settings → Environment Variables, target **Production only**:
 | `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_LEGAL_EMAIL` | from step 2.4 |
 | `NEXT_PUBLIC_BASE_URL`, `NEXTAUTH_URL` | `https://yourdomain` |
 
-Remove from Production: `SEED_ADMIN_SECRET`, `PROD_DIRECT_URL`.
 
 ## 4. Deploy (me)
 
@@ -79,16 +78,11 @@ Remove from Production: `SEED_ADMIN_SECRET`, `PROD_DIRECT_URL`.
 3. Log in again and open `/admin`. Every admin section should load, including
    `/admin/listings`.
 
-## 6. Stripe (parked until you decide)
+## 6. Stripe and email
 
-When the architecture decision is made:
-1. Add the live keys and both webhook secrets to Production.
-2. Register webhooks for `/api/webhooks/stripe` (account and Connect events)
-   on the final domain.
-3. Redeploy.
-4. Make a real booking with a real card, then refund it. Check the split in
-   Stripe: the host receives the accommodation, FYStay keeps the 10% fee.
-5. Onboard hosts through Stripe Connect from `/host/payouts`.
+Follow [stripe-and-email-setup.md](stripe-and-email-setup.md): the exact
+variables, webhook endpoints, events and dashboard settings, and the first
+live booking and refund check. You enter every secret yourself.
 
 ## 7. Soft launch
 
