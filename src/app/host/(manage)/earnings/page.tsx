@@ -89,7 +89,7 @@ export default async function HostEarningsPage({
   const titles = new Map(listings.map((l) => [l.id, l.title]));
 
   const stays = bookings
-    .filter((b) => b.paidAt && b.checkIn >= period.start && b.checkIn < period.end)
+    .filter((b) => b.paymentStatus !== "UNPAID" && b.checkIn >= period.start && b.checkIn < period.end)
     .sort((a, b) => b.checkIn.getTime() - a.checkIn.getTime());
   const shownStays = stays.slice(0, 25 * Math.max(1, Number(params.show) || 1));
 

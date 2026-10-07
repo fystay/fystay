@@ -238,9 +238,9 @@ export default async function HostBookingsPage({
                       </span>
                       <span className="shrink-0 text-right">
                         <span className="block text-sm font-semibold text-foreground">
-                          {formatPrice(b.paidAt ? hostRevenueCents(b) : hostRevenueCents({ ...b, paymentStatus: "PAID" }))}
+                          {formatPrice(hostRevenueCents(b.paymentStatus === "UNPAID" ? { ...b, paymentStatus: "PAID" } : b))}
                         </span>
-                        <span className="block text-[11px] text-stone-500">{b.paidAt ? "your earnings" : "if accepted"}</span>
+                        <span className="block text-[11px] text-stone-500">{b.paymentStatus !== "UNPAID" ? "your earnings" : b.status === "PENDING" ? "if accepted" : "due"}</span>
                       </span>
                     </Link>
                   </li>

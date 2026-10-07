@@ -15,7 +15,11 @@ async function logInAsHost(page: Page) {
 /** Features the host's nth listing for 7 days and returns its title. */
 async function featureListing(page: Page, nth: number): Promise<string> {
   await page.goto("/host/promote");
-  const listing = page.locator("main ul > li").nth(nth);
+  // Scoped to rows that offer a Spotlight purchase - the hosting menu is a list too.
+  const listing = page
+    .locator("main ul > li")
+    .filter({ has: page.getByRole("button", { name: /(Feature for|Add) 7 days/ }) })
+    .nth(nth);
   const title = (await listing.locator("p.font-semibold").first().textContent())!.trim();
   // A listing that's already featured (from an earlier run) offers "Add"
   // instead of "Feature for" - either buys another 7 days.

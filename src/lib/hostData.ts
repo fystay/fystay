@@ -6,9 +6,9 @@ import type { InsightBooking, InsightListing } from "@/lib/hostInsights";
  * Earnings, Listings), so they all count the same bookings the same way.
  *
  * Bookings: every one a guest paid for (any status - a cancelled one may
- * still have earned the host part of its price), plus requests still
- * awaiting the host and checkouts in progress. Never the abandoned
- * reservations that never got as far as a payment or a request.
+ * still have earned the host part of its price), every confirmed stay, and
+ * requests still awaiting the host. Never a checkout still in progress or
+ * abandoned - those aren't stays until the guest pays.
  *
  * Narrow column selects throughout: a host's full history is read for the
  * all-time and best-month figures, so each row carries only what those
@@ -46,7 +46,14 @@ export async function loadHostPortfolio(prisma: PrismaClient, hostId: string) {
     prisma.booking.findMany({
       where: {
         listing: { hostId },
-        OR: [{ paidAt: { not: null } }, { approvalStatus: "AWAITING", status: "PENDING" }],
+        OR: [
+          { paidAt: { not: null } },
+          { paymentStatus: { not: "UNPAID" } },
+          // Confirmed without a recorded payment time: made by support, or
+          // from before paidAt existed. Still a real stay on the calendar.
+          { status: { in: ["CONFIRMED", "COMPLETED"] } },
+          { approvalStatus: "AWAITING", status: "PENDING" },
+        ],
       },
       orderBy: { checkIn: "asc" },
       select: {

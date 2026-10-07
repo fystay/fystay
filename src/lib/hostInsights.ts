@@ -137,7 +137,9 @@ export type PeriodSummary = {
 };
 
 export function summarizePeriod(bookings: InsightBooking[], start: Date, end: Date, today: Date): PeriodSummary {
-  const inPeriod = bookings.filter((b) => b.checkIn >= start && b.checkIn < end && b.paidAt !== null);
+  const inPeriod = bookings.filter(
+    (b) => b.checkIn >= start && b.checkIn < end && (b.paidAt !== null || b.paymentStatus !== "UNPAID" || isLiveStay(b)),
+  );
   const live = inPeriod.filter(isLiveStay);
   const cancelled = inPeriod.filter((b) => b.status === "CANCELLED");
 

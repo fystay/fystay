@@ -34,13 +34,13 @@ test("host can create, edit, and delete a listing", async ({ page }) => {
   await page.getByPlaceholder("Sea view, Garden, EV charger").fill("Ping pong table");
 
   await page.getByRole("button", { name: "Create listing" }).click();
-  await page.waitForURL("/host/dashboard");
-  // Each listing row also renders a (hidden) delete-confirmation dialog
-  // that repeats the title, so scope to the title link to stay unambiguous.
-  await expect(page.getByRole("link", { name: uniqueTitle })).toBeVisible();
+  await page.waitForURL("/host/listings");
+  // Each listing card also renders a (hidden) delete-confirmation dialog
+  // that repeats the title, so scope to the card's heading to stay unambiguous.
+  await expect(page.getByRole("heading", { name: uniqueTitle })).toBeVisible();
 
   // --- Edit ---
-  const row = page.locator(".p-4").filter({ hasText: uniqueTitle });
+  const row = page.locator("article").filter({ has: page.getByRole("heading", { name: uniqueTitle }) });
   await row.getByRole("link", { name: "Edit" }).click();
   await page.waitForURL(/\/host\/listings\/.+\/edit/);
 
@@ -64,16 +64,16 @@ test("host can create, edit, and delete a listing", async ({ page }) => {
 
   await page.fill("#title", updatedTitle);
   await page.getByRole("button", { name: "Save changes" }).click();
-  await page.waitForURL("/host/dashboard");
-  await expect(page.getByRole("link", { name: updatedTitle })).toBeVisible();
+  await page.waitForURL("/host/listings");
+  await expect(page.getByRole("heading", { name: updatedTitle })).toBeVisible();
 
   // --- Delete ---
-  const updatedRow = page.locator(".p-4").filter({ hasText: updatedTitle });
+  const updatedRow = page.locator("article").filter({ has: page.getByRole("heading", { name: updatedTitle }) });
   await updatedRow.getByRole("button", { name: "Delete" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Delete" }).click();
 
-  await expect(page.getByRole("link", { name: updatedTitle })).not.toBeVisible();
+  await expect(page.getByRole("heading", { name: updatedTitle })).not.toBeVisible();
 });
