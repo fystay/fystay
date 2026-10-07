@@ -64,7 +64,27 @@ remaining item.
 - **Vercel:** new project, not readable from the cloud session that did this
   audit (connector scope). Variables, Git link and domain still to confirm.
 
-## Live site down after the Vercel move (diagnosed 6 Oct, 23:25 UTC)
+## Status 7 Oct, 04:40 UTC: live site working again
+
+- `fystay.vercel.app` is served by Vercel project `fystay1/fystay`
+  (`prj_p09hGcqAc1k06y3c0lCFS60sQUcZ`), Production branch
+  `claude/airbnb-competitor-1fjjpk`, building commit `b869748`. Database ok,
+  email/password login ok, Google sign-in ok (owner's test created one
+  Google-linked account; no duplicates).
+- Production database: all migrations applied, including the three from 6 Oct
+  (run 37572239999). The database password must be rotated (it was shared in
+  chat): reset in Supabase, update Vercel `DATABASE_URL`/`DIRECT_URL` and the
+  GitHub `production` secret `PROD_DIRECT_URL`, redeploy. The project's pooler
+  host is `aws-1-eu-west-1.pooler.supabase.com` (not `aws-0`).
+- The Vercel connector works when calls omit the team id/slug (the account's
+  default team is `fystay1`); runtime logs still need the team and fail.
+- Preview has Stripe test variables and two sandbox webhook endpoints
+  (`we_1UNihT…`, `we_1UNihU…`) but **no database variables**, and the
+  endpoint URLs still lack the `x-vercel-protection-bypass` parameter.
+- Still to do: first admin, Preview database variables, then the Stripe test
+  hand test; Resend email; company details; domain; Stripe live.
+
+## Live site down after the Vercel move (diagnosed 6 Oct, 23:25 UTC; fixed 7 Oct)
 
 `fystay.vercel.app` now answers from a deployment with no database and no
 Auth.js secret: `/api/health` says the database is unreachable and every
