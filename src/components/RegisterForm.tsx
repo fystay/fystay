@@ -133,7 +133,11 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
       <Card>
         <CardContent className="pt-5">
           <AuthErrorBanner message={oauthError} />
-          <SocialSignInButtons providers={providers} callbackUrl={callbackUrl ?? "/"} onError={showHandOffError} />
+          <SocialSignInButtons
+            providers={providers}
+            callbackUrl={callbackUrl ?? "/after-sign-in"}
+            onError={showHandOffError}
+          />
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             <fieldset>
               <legend className="mb-1.5 text-sm font-medium text-stone-800">I want to</legend>

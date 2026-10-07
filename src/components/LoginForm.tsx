@@ -107,7 +107,11 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
       <Card>
         <CardContent className="pt-5">
           <AuthErrorBanner message={oauthError} />
-          <SocialSignInButtons providers={providers} callbackUrl={callbackUrl} onError={showHandOffError} />
+          <SocialSignInButtons
+            providers={providers}
+            callbackUrl={callbackUrl === "/" ? "/after-sign-in" : callbackUrl}
+            onError={showHandOffError}
+          />
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             {needsCode ? (
               <Field>
