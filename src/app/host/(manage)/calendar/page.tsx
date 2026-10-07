@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { loadHostPortfolio } from "@/lib/hostData";
 import { addDays, findCalendarConflicts, isLiveStay, ukToday } from "@/lib/hostInsights";
 import { parseStayDate } from "@/lib/stayDates";
 import { cn } from "@/lib/cn";
-import { HostPageHeader, hostPageClassName } from "@/components/host/HostUi";
+import { HostPageEmpty, HostPageHeader, hostPageClassName } from "@/components/host/HostUi";
 import { buttonVariants } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Calendar · Hosting", robots: { index: false } };
@@ -46,6 +46,22 @@ export default async function HostCalendarPage({ searchParams }: { searchParams:
       select: { id: true, listingId: true, roomTypeId: true, startDate: true, endDate: true, source: true },
     }),
   ]);
+
+  if (listings.length === 0) {
+    return (
+      <div className={hostPageClassName()}>
+        <HostPageHeader title="Calendar" />
+        <HostPageEmpty
+          icon={CalendarDays}
+          title="All your properties, on one calendar"
+          action={{ href: "/host/listings/new", label: "Create your first listing" }}
+        >
+          See every stay, request and blocked date across your listings at a glance - and connect your Airbnb or
+          other calendars so dates booked elsewhere are blocked here automatically.
+        </HostPageEmpty>
+      </div>
+    );
+  }
 
   const conflicts = findCalendarConflicts(listings, bookings, blocks);
   const conflictBookings = new Set(conflicts.map((c) => c.bookingId));

@@ -339,3 +339,83 @@ export function GlanceTile({
     </div>
   );
 }
+
+// --- Before the first booking --------------------------------------------------
+
+export type ReadyStep = { key: string; label: string; detail: string; done: boolean; href: string; cta: string; optional?: boolean };
+
+/**
+ * A new host's Today page: instead of empty charts and £0 tiles, the few
+ * things that get a first booking, ticked off from real account data, and
+ * one clear next step. Shown until the first booking arrives.
+ */
+export function FirstGuestChecklist({
+  title,
+  intro,
+  steps,
+  className,
+}: {
+  title: string;
+  intro: string;
+  steps: ReadyStep[];
+  className?: string;
+}) {
+  const required = steps.filter((s) => !s.optional);
+  const done = required.filter((s) => s.done).length;
+  const next = steps.find((s) => !s.done && !s.optional) ?? steps.find((s) => !s.done);
+  return (
+    <Panel className={className} bodyClassName="px-5 pb-5 pt-5 sm:px-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-serif text-2xl text-foreground">{title}</h2>
+          <p className="mt-1 max-w-xl text-sm text-stone-600">{intro}</p>
+        </div>
+        <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-stone-700">
+          {done} of {required.length} done
+        </span>
+      </div>
+      <Meter value={(done / Math.max(1, required.length)) * 100} label="Getting ready" tone="success" className="mt-4" />
+      <ol className="mt-4 flex flex-col divide-y divide-border-subtle">
+        {steps.map((step, i) => {
+          const isNext = step === next;
+          return (
+            <li key={step.key} className="flex items-center gap-3 py-3">
+              {step.done ? (
+                <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600" aria-hidden />
+              ) : (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                    isNext ? "bg-brand-600 text-white" : "bg-surface-muted text-stone-600",
+                  )}
+                >
+                  {i + 1}
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className={cn("block text-sm font-medium", step.done ? "text-stone-500" : "text-foreground")}>
+                  {step.label}
+                  {step.optional && <span className="ml-1 text-xs font-normal text-stone-500">(optional)</span>}
+                  {step.done && <span className="sr-only"> - done</span>}
+                </span>
+                {!step.done && <span className="block text-xs text-stone-500">{step.detail}</span>}
+              </span>
+              {!step.done && (
+                <Link
+                  href={step.href}
+                  className={cn(
+                    "focus-ring shrink-0 rounded-xl px-3.5 py-2 text-sm font-semibold",
+                    isNext ? "bg-brand-600 text-white hover:bg-brand-700" : "text-brand-700 ring-1 ring-border-subtle hover:bg-surface-muted",
+                  )}
+                >
+                  {step.cta}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </Panel>
+  );
+}

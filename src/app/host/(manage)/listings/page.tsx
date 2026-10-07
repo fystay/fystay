@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { CalendarDays, CheckCircle2, Circle, Eye, ImageOff, PencilLine, PlusCircle, Star } from "lucide-react";
+import { CalendarDays, CheckCircle2, Circle, Eye, Home, ImageOff, PencilLine, PlusCircle, Star } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { loadHostPortfolio, type PortfolioListing } from "@/lib/hostData";
@@ -12,7 +12,7 @@ import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 import { formatPrice } from "@/lib/format";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
-import { HostPageHeader, Meter, Pill, hostPageClassName } from "@/components/host/HostUi";
+import { HostPageEmpty, HostPageHeader, Meter, Pill, hostPageClassName } from "@/components/host/HostUi";
 import { PublishToggle } from "@/components/host/PublishToggle";
 import { DeleteListingButton } from "@/components/DeleteListingButton";
 import { buttonVariants } from "@/components/ui/Button";
@@ -74,6 +74,18 @@ export default async function HostListingsPage() {
         </div>
       )}
 
+      {listings.length === 0 && (
+        <HostPageEmpty
+          icon={Home}
+          title="Let's get your first place listed"
+          action={{ href: "/host/listings/new", label: "Create a listing" }}
+          secondary={{ href: "/host-guide", label: "Read the host guide" }}
+        >
+          Add a few photos, your nightly price and your house rules - about ten minutes. You keep your full price:
+          FYStay&apos;s fee is added on top for the guest, and you decide when it goes live.
+        </HostPageEmpty>
+      )}
+
       <ul className="mt-6 grid gap-4 lg:grid-cols-2">
         {listings.map((listing) => (
           <li key={listing.id}>
@@ -84,6 +96,7 @@ export default async function HostListingsPage() {
               rating={averageRating(reviews.filter((r) => r.listingId === listing.id))}
               reviewCount={reviews.filter((r) => r.listingId === listing.id).length}
               monthLabel={month.start.toLocaleString("en-GB", { month: "long", timeZone: "UTC" })}
+              canTakeBookings={canTakeBookings}
             />
           </li>
         ))}
@@ -99,6 +112,7 @@ function ListingCard({
   rating,
   reviewCount,
   monthLabel,
+  canTakeBookings,
 }: {
   listing: PortfolioListing;
   earnedCents: number;
@@ -106,14 +120,17 @@ function ListingCard({
   rating: number | null;
   reviewCount: number;
   monthLabel: string;
+  canTakeBookings: boolean;
 }) {
   const health = listingHealth(listing);
   const todo = health.items.filter((i) => !i.done);
   const status = listing.suspendedAt
     ? { label: "Paused by FYStay", tone: "danger" as const }
-    : listing.published
-      ? { label: "Live", tone: "success" as const }
-      : { label: "Hidden", tone: "neutral" as const };
+    : !listing.published
+      ? { label: "Hidden", tone: "neutral" as const }
+      : canTakeBookings
+        ? { label: "Live", tone: "success" as const }
+        : { label: "Not bookable yet", tone: "warning" as const };
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-[var(--shadow-card)]">

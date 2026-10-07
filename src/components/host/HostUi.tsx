@@ -197,5 +197,62 @@ export function GuestAvatar({ name, className }: { name: string; className?: str
 }
 
 export function hostPageClassName() {
-  return "mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8";
+  return "animate-host-page-in mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8";
+}
+
+/**
+ * The full-width "nothing here yet" card for a whole page (a new host's
+ * Bookings, Calendar, Earnings, Listings): says what will appear here, why
+ * it's empty, and the one thing to do next - never a blank page or a grid
+ * of zeros.
+ */
+export function HostPageEmpty({
+  icon: Icon,
+  title,
+  children,
+  action,
+  secondary,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: React.ReactNode;
+  action?: { href: string; label: string };
+  secondary?: { href: string; label: string };
+}) {
+  return (
+    <section className="mt-6 flex flex-col items-center rounded-2xl border border-border-subtle bg-surface px-6 py-12 text-center shadow-[var(--shadow-card)]">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+        <Icon className="h-6 w-6" aria-hidden />
+      </span>
+      <h2 className="mt-4 font-serif text-2xl text-foreground">{title}</h2>
+      <div className="mt-2 max-w-md text-sm leading-relaxed text-stone-600">{children}</div>
+      {(action || secondary) && (
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {action && (
+            <Link
+              href={action.href}
+              className="focus-ring inline-flex h-11 items-center rounded-xl bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              {action.label}
+            </Link>
+          )}
+          {secondary && (
+            <Link
+              href={secondary.href}
+              className="focus-ring inline-flex h-11 items-center rounded-xl px-4 text-sm font-medium text-stone-700 ring-1 ring-border-subtle hover:bg-surface-muted"
+            >
+              {secondary.label}
+            </Link>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** What a host with no listings, or no live ones, should do next - one step at a time. */
+export function nextHostStep(input: { listingCount: number; payoutsReady: boolean }) {
+  if (input.listingCount === 0) return { href: "/host/listings/new", label: "Create your first listing" };
+  if (!input.payoutsReady) return { href: "/host/payouts", label: "Set up payouts" };
+  return null;
 }

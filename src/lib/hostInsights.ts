@@ -377,6 +377,14 @@ export const MIN_GOOD_AMENITIES = 6;
 export function listingHealth(listing: HealthListing): { score: number; items: HealthItem[] } {
   const items: HealthItem[] = [
     {
+      // Credit for what every new listing already has, so a host who has
+      // just filled in the form doesn't see "0% complete".
+      key: "basics",
+      label: "Title, description, price and a photo",
+      done: listing.photos.length > 0 && listing.description.trim().length > 0,
+      hint: "The essentials guests need to find and book you.",
+    },
+    {
       key: "photos",
       label: `At least ${MIN_GOOD_PHOTOS} photos`,
       done: listing.photos.length >= MIN_GOOD_PHOTOS,

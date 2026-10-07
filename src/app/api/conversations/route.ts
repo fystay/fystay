@@ -64,7 +64,7 @@ async function postHandler(request: Request) {
 
   const listing = await prisma.listing.findUnique({
     where: { id: parsed.data.listingId },
-    select: { id: true, hostId: true },
+    select: { id: true, hostId: true, published: true, suspendedAt: true },
   });
   if (!listing) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
@@ -95,6 +95,17 @@ async function postHandler(request: Request) {
         { error: "You can't message yourself about your own listing." },
         { status: 400 },
       );
+    }
+    // A hidden or suspended listing only takes messages from guests who
+    // already booked it - nobody new can reach a host through it.
+    if (!listing.published || listing.suspendedAt) {
+      const hasBooked = await prisma.booking.findFirst({
+        where: { listingId: listing.id, guestId: session.user.id },
+        select: { id: true },
+      });
+      if (!hasBooked) {
+        return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+      }
     }
     guestId = session.user.id;
   }

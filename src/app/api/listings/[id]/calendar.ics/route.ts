@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateIcs, type IcsEvent } from "@/lib/ical";
@@ -37,7 +38,7 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
     },
   });
 
-  if (!listing || listing.icalExportToken !== token) {
+  if (!listing || !tokensMatch(listing.icalExportToken, token)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -70,3 +71,11 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export const GET = withApiErrorHandling(getHandler);
+
+/** Constant-time, so the feed token can't be guessed a character at a time from response timing. */
+function tokensMatch(expected: string, given: string | null): boolean {
+  if (!given) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(given);
+  return a.length === b.length && timingSafeEqual(a, b);
+}

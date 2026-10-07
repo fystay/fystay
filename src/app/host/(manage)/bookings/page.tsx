@@ -12,7 +12,16 @@ import { expireAbandonedCheckouts, expireStaleBookingRequests } from "@/lib/book
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { isOptimizableImage } from "@/lib/image";
-import { EmptyState, GuestAvatar, HostPageHeader, Pill, hostPageClassName } from "@/components/host/HostUi";
+import {
+  EmptyState,
+  GuestAvatar,
+  HostPageEmpty,
+  HostPageHeader,
+  Pill,
+  hostPageClassName,
+  nextHostStep,
+} from "@/components/host/HostUi";
+import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 
 export const metadata: Metadata = { title: "Bookings · Hosting", robots: { index: false } };
 
@@ -51,13 +60,38 @@ export default async function HostBookingsPage({
   const now = new Date();
   const today = ukToday(now);
 
-  const [{ listings, bookings }, pendingChanges] = await Promise.all([
+  const [{ listings, bookings }, pendingChanges, host] = await Promise.all([
     loadHostPortfolio(prisma, hostId),
     prisma.bookingChangeRequest.findMany({
       where: { status: "PENDING", booking: { listing: { hostId } } },
       select: { bookingId: true },
     }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: hostId },
+      select: { stripeConnectAccountId: true, stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true },
+    }),
   ]);
+
+  if (bookings.length === 0) {
+    const next = nextHostStep({ listingCount: listings.length, payoutsReady: hostAcceptsPaidBookings(host) });
+    return (
+      <div className={hostPageClassName()}>
+        <HostPageHeader title="Bookings" />
+        <HostPageEmpty
+          icon={CalendarSearch}
+          title="Your bookings will appear here"
+          action={next ?? undefined}
+          secondary={!next && listings[0] ? { href: `/listings/${listings[0].id}`, label: "See your listing as guests do" } : undefined}
+        >
+          {listings.length === 0
+            ? "Once your first place is listed and a guest books, you'll see who's coming, when, and what you'll earn - all in one place."
+            : next
+              ? "Guests can't book until your payouts are set up. It takes about five minutes with Stripe."
+              : "You're live. When a guest books or sends a request, it lands here and we'll email you straight away."}
+        </HostPageEmpty>
+      </div>
+    );
+  }
   const withChange = new Set(pendingChanges.map((c) => c.bookingId));
   const byId = new Map(listings.map((l) => [l.id, l]));
 

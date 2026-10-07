@@ -215,7 +215,9 @@ describe("listingHealth", () => {
       weeklyDiscountPercent: null,
       cleaningFeeCents: 0,
     };
-    expect(listingHealth(bare).score).toBe(0);
+    // The basics are done the moment a listing exists; everything else isn't.
+    expect(listingHealth(bare).score).toBe(13);
+    expect(listingHealth({ ...bare, photos: [] }).score).toBe(0);
     const full = {
       ...bare,
       description: "x".repeat(250),

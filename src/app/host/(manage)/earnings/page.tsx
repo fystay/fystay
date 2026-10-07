@@ -21,7 +21,16 @@ import { parseStayDate } from "@/lib/stayDates";
 import { formatPrice, formatStayDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { EarningsBars } from "@/components/host/EarningsBars";
-import { ChangeChip, EmptyState, HostPageHeader, Meter, Panel, hostPageClassName } from "@/components/host/HostUi";
+import {
+  ChangeChip,
+  EmptyState,
+  HostPageEmpty,
+  HostPageHeader,
+  Meter,
+  Panel,
+  hostPageClassName,
+  nextHostStep,
+} from "@/components/host/HostUi";
 import { buttonVariants } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Earnings · Hosting", robots: { index: false } };
@@ -80,6 +89,38 @@ export default async function HostEarningsPage({
   const upcomingAll = bookings
     .filter((b) => (b.status === "CONFIRMED" || b.status === "COMPLETED") && b.checkIn > today)
     .reduce((sum, b) => sum + hostRevenueCents(b), 0);
+
+  // Nothing earned or booked yet: explain how earning works rather than
+  // showing a page of £0s and an empty chart.
+  if (!bookings.some((b) => b.paymentStatus !== "UNPAID")) {
+    const next = nextHostStep({ listingCount: listings.length, payoutsReady: isConnectReady(host) });
+    return (
+      <div className={hostPageClassName()}>
+        <HostPageHeader title="Earnings" />
+        <HostPageEmpty
+          icon={CircleDollarSign}
+          title="Your earnings will show here"
+          action={next ?? undefined}
+          secondary={next ? undefined : { href: "/host/listings", label: "Check your listings" }}
+        >
+          <ul className="mt-1 flex flex-col gap-2 text-left">
+            <li>
+              <strong className="font-semibold text-foreground">You keep your full price.</strong> Your nightly rate and
+              cleaning fee are yours; FYStay&apos;s service fee is added on top for the guest.
+            </li>
+            <li>
+              <strong className="font-semibold text-foreground">No card fees for you.</strong> FYStay covers the payment
+              processing.
+            </li>
+            <li>
+              <strong className="font-semibold text-foreground">Paid automatically.</strong> Each booking goes to your
+              Stripe account when the guest pays, then on to your bank.
+            </li>
+          </ul>
+        </HostPageEmpty>
+      </div>
+    );
+  }
 
   const series = monthlyEarnings(bookings, today, 12);
   const perListing = listingPerformance(listings, bookings, period.start, period.end, today)
@@ -346,7 +387,7 @@ function Line({ label, value, note, strong }: { label: string; value: number; no
         {label}
         {note && <span className="ml-1 text-xs text-stone-400">({note})</span>}
       </dt>
-      <dd className="tabular-nums text-foreground">{value < 0 ? `−${formatPrice(-value)}` : formatPrice(value)}</dd>
+      <dd className="tabular-nums text-foreground">{value < 0 ? `−${formatPrice(-value)}` : formatPrice(Math.abs(value))}</dd>
     </div>
   );
 }

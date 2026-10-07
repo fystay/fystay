@@ -10,10 +10,12 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const listing = await prisma.listing.findUnique({
-    where: { id },
-    select: { title: true },
-  });
+  // Scoped to the signed-in host: the title is sent before the page's own
+  // ownership check runs, so an unscoped lookup would name anyone's listing.
+  const session = await auth();
+  const listing = session?.user
+    ? await prisma.listing.findFirst({ where: { id, hostId: session.user.id }, select: { title: true } })
+    : null;
   return {
     title: listing ? `Edit ${listing.title}` : "Edit listing",
     robots: { index: false },

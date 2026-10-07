@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Award, PlusCircle, Sparkles, Wallet } from "lucide-react";
+import { Award, Sparkles, Wallet } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { averageRating } from "@/lib/reviews";
@@ -38,6 +38,7 @@ import { EarningsBars } from "@/components/host/EarningsBars";
 import {
   ActionCentre,
   ComingUp,
+  FirstGuestChecklist,
   GlanceTile,
   GreatHostProgress,
   Highlights,
@@ -45,7 +46,6 @@ import {
   type StayCard,
 } from "@/components/host/TodayPanels";
 import { buttonVariants } from "@/components/ui/Button";
-import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = { title: "Today · Hosting", robots: { index: false } };
 
@@ -134,18 +134,39 @@ export default async function HostTodayPage() {
   if (listings.length === 0) {
     return (
       <div className={hostPageClassName()}>
-        <HostPageHeader title={title} subtitle={longDate.format(today)} />
-        <OnboardingChecklist steps={onboardingSteps} />
-        <Panel className="mt-6" bodyClassName="py-10 text-center">
-          <PlusCircle className="mx-auto h-8 w-8 text-brand-600" aria-hidden />
-          <h2 className="mt-3 font-serif text-2xl text-foreground">Let&apos;s get your first place listed</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-stone-600">
-            It takes about ten minutes. You choose your price and your rules, and you decide when it goes live.
-          </p>
-          <Link href="/host/listings/new" className={cn(buttonVariants({ size: "lg" }), "mt-5")}>
-            Create a listing
-          </Link>
-        </Panel>
+        <HostPageHeader title={title} subtitle="Welcome to FYStay hosting." />
+        <FirstGuestChecklist
+          className="mt-6"
+          title="Let's get your first place live"
+          intro="Three steps and you're taking bookings. You keep your full nightly price - FYStay's fee is added on top for the guest."
+          steps={[
+            {
+              key: "listing",
+              label: "Create your listing",
+              detail: "Photos, price and house rules - about ten minutes.",
+              done: false,
+              href: "/host/listings/new",
+              cta: "Start",
+            },
+            {
+              key: "payouts",
+              label: "Set up payouts",
+              detail: "Connect Stripe so each booking pays you automatically.",
+              done: payoutsReady,
+              href: "/host/payouts",
+              cta: "Set up",
+            },
+            {
+              key: "identity",
+              label: "Verify your identity",
+              detail: "Guests see an Identity verified badge on your listings.",
+              done: host.identityVerificationStatus === "VERIFIED",
+              href: "/account",
+              cta: "Verify",
+              optional: true,
+            },
+          ]}
+        />
       </div>
     );
   }
@@ -257,6 +278,67 @@ export default async function HostTodayPage() {
     .join(" · ");
 
   const bestGap = best && best.earnedCents > thisMonth.earnedCents ? best.earnedCents - thisMonth.earnedCents : null;
+
+  if (bookings.length === 0) {
+    const best = [...listings].sort((a, b) => (health.get(b.id)?.score ?? 0) - (health.get(a.id)?.score ?? 0))[0];
+    const bestScore = health.get(best.id)?.score ?? 0;
+    return (
+      <div className={hostPageClassName()}>
+        <HostPageHeader title={title} subtitle={longDate.format(today)} />
+        <div className="mt-6 grid items-start gap-4 lg:grid-cols-3">
+          <FirstGuestChecklist
+            className="lg:col-span-2"
+            title="Get ready for your first guest"
+            intro="When your first booking arrives, this page becomes your daily view: who's arriving, what you've earned and what needs you."
+            steps={[
+              {
+                key: "listing",
+                label: "Listing created",
+                detail: "",
+                done: true,
+                href: "/host/listings",
+                cta: "",
+              },
+              {
+                key: "payouts",
+                label: "Set up payouts",
+                detail: "Guests can't book until Stripe is connected - about five minutes.",
+                done: payoutsReady,
+                href: "/host/payouts",
+                cta: host.stripeConnectAccountId ? "Finish" : "Set up",
+              },
+              {
+                key: "live",
+                label: "Make it live",
+                detail: "Your listing is hidden. Switch it to Live when you're ready.",
+                done: listings.some((l) => l.published),
+                href: "/host/listings",
+                cta: "Publish",
+              },
+              {
+                key: "quality",
+                label: "Complete your listing",
+                detail: `${best.title} is ${bestScore}% complete. More photos and check-in details help it get booked first.`,
+                done: bestScore >= 80,
+                href: `/host/listings/${best.id}/edit`,
+                cta: "Improve",
+              },
+              {
+                key: "sync",
+                label: "Connect your other calendars",
+                detail: "Already on Airbnb or Booking.com? Add their calendar link so those dates are blocked here.",
+                done: listings.some((l) => l.icalImportUrl),
+                href: `/host/listings/${best.id}/calendar`,
+                cta: "Connect",
+                optional: true,
+              },
+            ]}
+          />
+          <ActionCentre items={actions} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={hostPageClassName()}>

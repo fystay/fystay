@@ -15,10 +15,15 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const conversation = await prisma.conversation.findUnique({
-    where: { id },
-    include: { guest: { select: { name: true } }, host: { select: { name: true } } },
-  });
+  // Only a participant's own conversation gets the names in its title: this
+  // runs before the page's participant check.
+  const session = await auth();
+  const conversation = session?.user
+    ? await prisma.conversation.findFirst({
+        where: { id, OR: [{ guestId: session.user.id }, { hostId: session.user.id }] },
+        include: { guest: { select: { name: true } }, host: { select: { name: true } } },
+      })
+    : null;
   return {
     title: conversation ? `${conversation.guest.name} & ${conversation.host.name}` : "Conversation",
     robots: { index: false },
