@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import {
   ABANDONED_CHECKOUT_MINUTES,
   expireAbandonedCheckouts,
+  expireStaleBookingRequests,
   isAbandonedReservation,
   releaseUnpaidBooking,
 } from "./bookingLifecycle";
@@ -57,6 +58,31 @@ describe("releaseUnpaidBooking", () => {
     const { prisma, booking } = fakePrisma();
     await releaseUnpaidBooking(prisma, unpaid, { stripeSessionId: "cs_1" });
     expect(booking.updateMany.mock.calls[0][0].where).toMatchObject({ id: "b1", stripeSessionId: "cs_1" });
+  });
+});
+
+describe("expireStaleBookingRequests", () => {
+  const now = new Date("2026-10-06T12:00:00Z");
+  const stale = { id: "b1", guestId: "g1", creditAppliedCents: 1500, promoCodeId: "promo1" };
+
+  it("expires a request only if it's still awaiting and past its deadline when the write lands", async () => {
+    const { prisma, booking, user, promoCode } = fakePrisma();
+    booking.findMany.mockResolvedValue([stale]);
+    expect(await expireStaleBookingRequests(prisma, {}, now)).toEqual([stale]);
+    expect(booking.updateMany.mock.calls[0][0]).toEqual({
+      where: { id: "b1", status: "PENDING", approvalStatus: "AWAITING", requestExpiresAt: { lte: now } },
+      data: { status: "CANCELLED", approvalStatus: "EXPIRED", hostRespondedAt: now },
+    });
+    expect(user.update).toHaveBeenCalledTimes(1);
+    expect(promoCode.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives nothing back, and reports nothing expired, when the host answered or another sweep got there first", async () => {
+    const { prisma, booking, user, promoCode } = fakePrisma(0);
+    booking.findMany.mockResolvedValue([stale]);
+    expect(await expireStaleBookingRequests(prisma, {}, now)).toEqual([]);
+    expect(user.update).not.toHaveBeenCalled();
+    expect(promoCode.update).not.toHaveBeenCalled();
   });
 });
 

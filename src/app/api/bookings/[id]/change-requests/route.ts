@@ -5,12 +5,13 @@ import { auth } from "@/auth";
 import {
   blockingBookingWhere,
   blockingRanges,
+  blocksForRoomType,
   isRangeAvailable,
   isRoomTypeRangeAvailable,
   nightsBetween,
   stayLengthError,
 } from "@/lib/availability";
-import { canRequestBookingChange, computePriceDeltaCents } from "@/lib/changeRequests";
+import { canRequestBookingChange, changePriceDeltaCents } from "@/lib/changeRequests";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { parseStayDate } from "@/lib/stayDates";
 
@@ -51,7 +52,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
             where: blockingBookingWhere(),
             select: { id: true, checkIn: true, checkOut: true },
           },
-          availabilityBlocks: { select: { startDate: true, endDate: true } },
+          availabilityBlocks: { select: { startDate: true, endDate: true, roomTypeId: true } },
         },
       },
       roomType: {
@@ -107,7 +108,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
         booking.roomsBooked,
         roomType.totalRooms,
         roomType.bookings.filter((b) => b.id !== booking.id),
-        roomType.availabilityBlocks,
+        blocksForRoomType(roomType.availabilityBlocks, booking.listing.availabilityBlocks),
       )
     : isRangeAvailable(
         checkIn,
@@ -120,17 +121,12 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   if (!isAvailable) {
     return NextResponse.json({ error: "Those dates are not available" }, { status: 409 });
   }
-  const priceDeltaCents = computePriceDeltaCents({
-    requestedNights: nights,
-    pricePerNightCents: roomType
-      ? roomType.pricePerNightCents * booking.roomsBooked
-      : booking.listing.pricePerNightCents,
-    cleaningFeeCents: booking.cleaningFeeCents,
-    weeklyDiscountPercent: booking.listing.weeklyDiscountPercent,
-    monthlyDiscountPercent: booking.listing.monthlyDiscountPercent,
-    lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent,
-    currentTotalPriceCents: booking.totalPriceCents,
-  });
+  // Priced at the booking's own snapshotted rate and compared with its total
+  // before credit/promo discounts - see changePriceDeltaCents. (This used to
+  // price the new stay at the listing's rate today against the discounted
+  // total, so a same-length change could charge the guest their discount
+  // again, or a host's later price rise.)
+  const priceDeltaCents = changePriceDeltaCents(booking, booking.listing, nights);
 
   const changeRequest = await prisma.bookingChangeRequest.create({
     data: {

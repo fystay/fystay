@@ -31,6 +31,74 @@ export function canRequestBookingChange(
   return booking.status === "CONFIRMED" && booking.checkIn > now && !hasPendingRequest;
 }
 
+export const BOOKING_NOT_CHANGEABLE_MESSAGE =
+  "This booking can no longer be changed - it has been cancelled or the stay has started.";
+
+/**
+ * Whether a change already asked for can still go ahead - approved, paid
+ * for, or applied: the booking must still be CONFIRMED and not yet begun,
+ * the same rule as asking for one (canRequestBookingChange). A booking
+ * cancelled after the guest asked must never have new dates applied to it or
+ * a difference refunded on top of its cancellation refund.
+ */
+export function isBookingStillChangeable(booking: ChangeableBooking, now: Date = new Date()): boolean {
+  return booking.status === "CONFIRMED" && booking.checkIn > now;
+}
+
+/**
+ * What a booking cost before referral credit and promo code discounts - the
+ * figure a change's new price is compared with. Those discounts were spent
+ * once, on the original booking, and stay with it: comparing a re-priced stay
+ * against the discounted total would charge them back as a "difference".
+ */
+export function bookingGrossTotalCents(booking: {
+  totalPriceCents: number;
+  creditAppliedCents: number;
+  promoDiscountCents: number;
+}): number {
+  return booking.totalPriceCents + booking.creditAppliedCents + booking.promoDiscountCents;
+}
+
+/**
+ * The price difference for changing a booking to `requestedNights`, priced
+ * like for like: the booking's own snapshotted nightly rate (the whole
+ * reservation's, rooms included), cleaning fee and last-minute deal - not
+ * the listing's rate today, which the host may have changed since - and
+ * compared with the booking's gross total. So a change of dates for the same
+ * number of nights costs nothing, whatever the listing charges now.
+ *
+ * Weekly/monthly percentages aren't snapshotted on a booking, so the
+ * listing's current ones decide whether a longer or shorter stay qualifies.
+ *
+ * The discounts stay fixed amounts off the new stay, so a refund can't be
+ * more than the guest actually paid: a shorter stay that now costs less
+ * than the credit and promo already applied refunds everything paid and
+ * no more.
+ */
+export function changePriceDeltaCents(
+  booking: {
+    nightlyPriceCents: number;
+    cleaningFeeCents: number;
+    lastMinuteDiscountPercent: number | null;
+    totalPriceCents: number;
+    creditAppliedCents: number;
+    promoDiscountCents: number;
+  },
+  listing: { weeklyDiscountPercent: number | null; monthlyDiscountPercent: number | null },
+  requestedNights: number,
+): number {
+  const grossDeltaCents = computePriceDeltaCents({
+    requestedNights,
+    pricePerNightCents: booking.nightlyPriceCents,
+    cleaningFeeCents: booking.cleaningFeeCents,
+    weeklyDiscountPercent: listing.weeklyDiscountPercent,
+    monthlyDiscountPercent: listing.monthlyDiscountPercent,
+    lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent,
+    currentTotalPriceCents: bookingGrossTotalCents(booking),
+  });
+  return Math.max(grossDeltaCents, -booking.totalPriceCents);
+}
+
 /** Positive: the guest owes more. Negative: the guest is due a refund. */
 export function computePriceDeltaCents(params: {
   requestedNights: number;

@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import {
   blockingBookingWhere,
   blockingRanges,
+  blocksForRoomType,
   isRangeAvailable,
   isRoomTypeRangeAvailable,
   nightsBetween,
@@ -27,6 +28,7 @@ import { HOST_NOT_PAYMENT_READY_MESSAGE, hostAcceptsPaidBookings } from "@/lib/s
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { parseStayDate, todayStayDate } from "@/lib/stayDates";
 import { BASE_URL } from "@/lib/baseUrl";
+import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 
 // Exactly one of listingId (every non-hotel booking, unchanged) or
 // roomTypeId (a HOTEL listing's room type, with roomsBooked defaulting to
@@ -137,32 +139,33 @@ async function postHandler(request: Request) {
     select: { name: true, email: true },
   });
 
-  // Wrapped in a SERIALIZABLE transaction: two guests hitting "Continue to
-  // checkout" for the same overlapping dates at the same instant must not
-  // both pass the availability check before either has committed a row.
-  // Postgres detects the conflict and aborts one side with a serialization
-  // failure, which is caught below and turned into a normal 409. The
-  // room-type branch extends the exact same guarantee to counted inventory -
-  // see isRoomTypeRangeAvailable's own comment and createRoomTypeBooking
-  // below for how.
+  // Every booking is created under its listing's availability lock (see
+  // availabilityLock.ts): two guests hitting "Continue to checkout" for the
+  // same overlapping dates at the same instant queue on that lock, and the
+  // second one's availability check - run after it holds the lock - sees
+  // the first one's booking and gets a normal 409. Every other writer that
+  // can take dates (payment confirmation, approving a request or a date
+  // change, host blocks) takes the same lock, so none of them can race a
+  // new booking either. A room type is locked by its listing, the same key
+  // a listing-wide block's writer uses.
+  //
+  // This used to rely on a SERIALIZABLE transaction alone, which only
+  // protected booking creation from other booking creations - see
+  // withListingAvailabilityLock for why the lock needs READ COMMITTED.
+  const lockListingId = roomTypeId
+    ? (await prisma.roomType.findUnique({ where: { id: roomTypeId }, select: { listingId: true } }))?.listingId
+    : listingId!;
+  if (!lockListingId) {
+    return NextResponse.json({ error: "Room type not found" }, { status: 404 });
+  }
+
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const result = await prisma.$transaction(
-        async (tx) => {
-          if (roomTypeId) {
-            return createRoomTypeBooking(tx, {
-              roomTypeId,
-              roomsBooked,
-              checkIn,
-              checkOut,
-              guests,
-              guestId: session.user.id,
-              guestAccount,
-              promoCode,
-            });
-          }
-          return createListingBooking(tx, {
-            listingId: listingId!,
+      const result = await withListingAvailabilityLock(prisma, lockListingId, async (tx) => {
+        if (roomTypeId) {
+          return createRoomTypeBooking(tx, {
+            roomTypeId,
+            roomsBooked,
             checkIn,
             checkOut,
             guests,
@@ -170,9 +173,17 @@ async function postHandler(request: Request) {
             guestAccount,
             promoCode,
           });
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
+        }
+        return createListingBooking(tx, {
+          listingId: listingId!,
+          checkIn,
+          checkOut,
+          guests,
+          guestId: session.user.id,
+          guestAccount,
+          promoCode,
+        });
+      });
 
       const { booking, listingTitle, city, host } = result;
 
@@ -204,14 +215,21 @@ async function postHandler(request: Request) {
         return NextResponse.json({ error: error.message }, { status: error.status });
       }
       // P2002: the near-impossible reference collision. Retry with a freshly
-      // generated one. P2034: a genuine serialization conflict with another
-      // concurrent booking attempt for the same listing; also worth one
-      // quiet retry, since the loser of the race may now see the dates as
-      // taken (correct) rather than needing the guest to resubmit by hand.
+      // generated one. P2034 (a write conflict) and DiscountRaceError (the
+      // guest's credit, or a capped promo code's last slot, was spent by
+      // another booking between our read and our write): also worth a quiet
+      // retry, which re-reads the current values.
       const isRetryable =
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        (error.code === "P2002" || error.code === "P2034");
+        error instanceof DiscountRaceError ||
+        (error instanceof Prisma.PrismaClientKnownRequestError &&
+          (error.code === "P2002" || error.code === "P2034"));
       if (!isRetryable || attempt === 2) {
+        if (error instanceof DiscountRaceError) {
+          return NextResponse.json(
+            { error: "Your credit balance or promo code changed while booking. Please try again." },
+            { status: 409 },
+          );
+        }
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
           return NextResponse.json(
             { error: "Those dates were just booked by someone else. Please try again." },
@@ -240,12 +258,13 @@ type NewBookingParams = {
  * that order, to a booking's pre-discount total - the two stack (a
  * confirmed product decision), so the credit is computed against what's
  * left after the promo discount rather than the full total, and the
- * combined discount can never exceed the total either way. Redemption is
- * incremented inside this same transaction: two guests racing for the last
- * redemption of a capped code can't both succeed, by the identical
- * SERIALIZABLE mechanism already relied on for room-type inventory (see
- * isRoomTypeRangeAvailable's own comment) - one loses to a P2034 and the
- * outer retry loop re-validates against the now-current redemptionCount.
+ * combined discount can never exceed the total either way. Both writes are
+ * conditional on what was just read still holding (a redemption slot still
+ * free, the balance still covering the credit), so two bookings racing for
+ * the last redemption of a capped code, or for the same guest's balance -
+ * possibly on different listings, so not serialized by the availability
+ * lock - can't both succeed: the loser throws DiscountRaceError and the
+ * outer retry loop re-reads the now-current values.
  */
 async function applyPromoAndCredit(
   tx: Prisma.TransactionClient,
@@ -275,26 +294,30 @@ async function applyPromoAndCredit(
     );
     promoCodeId = promoCode.id;
     remainingCents -= promoDiscountCents;
-    await tx.promoCode.update({
-      where: { id: promoCode.id },
+    const redeemed = await tx.promoCode.updateMany({
+      where: {
+        id: promoCode.id,
+        ...(promoCode.maxRedemptions !== null && { redemptionCount: { lt: promoCode.maxRedemptions } }),
+      },
       data: { redemptionCount: { increment: 1 } },
     });
+    if (redeemed.count === 0) throw new DiscountRaceError();
   }
 
   // Read-and-decrement inside this same transaction, not from a value read
   // earlier - two bookings by the same guest racing each other must not
-  // both spend the same balance (see the pre-existing comment this
-  // replaces, one call site down, for the same reasoning).
+  // both spend the same balance.
   const guestCredit = await tx.user.findUniqueOrThrow({
     where: { id: guestId },
     select: { creditBalanceCents: true },
   });
   const creditAppliedCents = computeCreditToApply(guestCredit.creditBalanceCents, remainingCents);
   if (creditAppliedCents > 0) {
-    await tx.user.update({
-      where: { id: guestId },
+    const spent = await tx.user.updateMany({
+      where: { id: guestId, creditBalanceCents: { gte: creditAppliedCents } },
       data: { creditBalanceCents: { decrement: creditAppliedCents } },
     });
+    if (spent.count === 0) throw new DiscountRaceError();
   }
 
   return { promoCodeId, promoDiscountCents, creditAppliedCents };
@@ -423,15 +446,12 @@ async function createListingBooking(
 }
 
 /**
- * The HOTEL room-type path. Extends the exact same SERIALIZABLE-transaction
- * guarantee to counted inventory: the `bookings` read below is scoped to
- * this roomTypeId *and* a date-overlap condition, so (with the schema's
- * @@index([roomTypeId, checkIn, checkOut])) Postgres's serializable
- * snapshot isolation predicate-locks exactly "bookings for this room type
- * that could overlap this stay" - any concurrent transaction that commits a
- * conflicting overlapping booking is guaranteed to be detected, even one
- * this read returned zero rows for. Only isRoomTypeRangeAvailable passing
- * on that scoped read allows the insert below to happen at all.
+ * The HOTEL room-type path. Runs under the same listing availability lock
+ * as the single-unit path (see postHandler), so the counted-inventory read
+ * below - this room type's overlapping bookings, its own blocks and the
+ * listing-wide ones - can't be overtaken by a concurrent writer before the
+ * insert. Only isRoomTypeRangeAvailable passing on that read allows the
+ * insert below to happen at all.
  */
 async function createRoomTypeBooking(
   tx: Prisma.TransactionClient,
@@ -443,7 +463,16 @@ async function createRoomTypeBooking(
   const roomType = await tx.roomType.findUnique({
     where: { id: roomTypeId },
     include: {
-      listing: { include: { host: { select: { name: true, email: true, stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true } } } },
+      listing: {
+        include: {
+          host: { select: { name: true, email: true, stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true } },
+          // A listing-wide block (an iCal import) closes every room type too.
+          availabilityBlocks: {
+            where: { roomTypeId: null },
+            select: { startDate: true, endDate: true, roomTypeId: true },
+          },
+        },
+      },
       bookings: {
         where: { ...blockingBookingWhere(), checkIn: { lt: checkOut }, checkOut: { gt: checkIn } },
         select: { checkIn: true, checkOut: true, roomsBooked: true },
@@ -485,7 +514,7 @@ async function createRoomTypeBooking(
       roomsBooked,
       roomType.totalRooms,
       roomType.bookings,
-      roomType.availabilityBlocks,
+      blocksForRoomType(roomType.availabilityBlocks, roomType.listing.availabilityBlocks),
     )
   ) {
     throw new BookingRequestError(409, "Those dates are not available for this room type");
@@ -553,6 +582,9 @@ async function createRoomTypeBooking(
     host: listing.host,
   };
 }
+
+/** A conditional credit/promo write lost a race with another booking; postHandler retries. */
+class DiscountRaceError extends Error {}
 
 class BookingRequestError extends Error {
   constructor(

@@ -13,10 +13,18 @@ const { mocks, state } = vi.hoisted(() => ({
     opsAlerts: vi.fn(),
     refundAcrossPayments: vi.fn(),
     refundsList: vi.fn(),
+    notifyTripExtraPaid: vi.fn(),
+    applyApprovedChange: vi.fn(),
+    giveBack: vi.fn(),
   },
   state: {
     booking: null as null | Record<string, unknown>,
+    extra: null as null | Record<string, unknown>,
     alerts: new Set<string>(),
+    available: true,
+    // What happened, in order: lets a test see the availability check ran
+    // inside the listing lock, not before or after it.
+    log: [] as string[],
   },
 }));
 
@@ -39,18 +47,54 @@ vi.mock("@/lib/connectRefunds", async (importOriginal) => ({
 }));
 vi.mock("@/lib/referral", () => ({ awardReferralBonusIfEligible: vi.fn() }));
 vi.mock("@/lib/pms/sync", () => ({ pushBookingReservation: vi.fn() }));
-vi.mock("@/lib/availability", () => ({ isRequestedRangeStillAvailable: async () => true }));
+vi.mock("@/lib/availability", () => ({
+  isRequestedRangeStillAvailable: async () => {
+    state.log.push("availability-check");
+    return state.available;
+  },
+}));
+vi.mock("@/lib/availabilityLock", () => ({
+  withListingAvailabilityLock: async (db: unknown, listingId: string, fn: (tx: unknown) => Promise<unknown>) => {
+    state.log.push(`lock:${listingId}`);
+    const result = await fn(db);
+    state.log.push(`unlock:${listingId}`);
+    return result;
+  },
+}));
 vi.mock("@/lib/stripeConnect", () => ({ refreshConnectAccountStatus: vi.fn() }));
 vi.mock("@/lib/listingPromotions", () => ({ activatePaidPromotion: vi.fn() }));
 vi.mock("@/lib/listingPromotionNotifications", () => ({ notifyListingPromotionActivated: vi.fn() }));
-vi.mock("@/lib/bookingLifecycle", () => ({ releaseUnpaidBooking: vi.fn() }));
-vi.mock("@/app/api/bookings/[id]/change-requests/[requestId]/pay/route", () => ({ applyApprovedChange: vi.fn() }));
-vi.mock("@/app/api/bookings/[id]/extras/route", () => ({ notifyTripExtraPaid: vi.fn() }));
+vi.mock("@/lib/bookingLifecycle", () => ({
+  releaseUnpaidBooking: vi.fn(),
+  giveBackReservedDiscounts: (...a: unknown[]) => mocks.giveBack(...a),
+}));
+vi.mock("@/app/api/bookings/[id]/change-requests/[requestId]/pay/route", () => ({
+  applyApprovedChange: (...a: unknown[]) => mocks.applyApprovedChange(...a),
+}));
+vi.mock("@/app/api/bookings/[id]/extras/route", () => ({
+  notifyTripExtraPaid: (...a: unknown[]) => mocks.notifyTripExtraPaid(...a),
+}));
 vi.mock("@/lib/prisma", async () => {
   const { Prisma } = await import("@prisma/client");
   const listing = { title: "Seaside flat", city: "Blackpool", host: { name: "Host", email: "host@example.com" } };
-  return {
-    prisma: {
+  const prisma: Record<string, unknown> = {
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+    bookingExtra: {
+      findUnique: async () => (state.extra ? { ...state.extra } : null),
+      updateMany: async ({ where, data }: { where: Record<string, unknown>; data: object }) => {
+        const extra = state.extra!;
+        const status = where.status as string | { in: string[] };
+        const statusOk = typeof status === "string" ? extra.status === status : status.in.includes(extra.status as string);
+        const bookingWhere = where.booking as { status: string } | undefined;
+        const bookingOk = !bookingWhere || state.booking!.status === bookingWhere.status;
+        const priceOk = where.priceCents === undefined || where.priceCents === extra.priceCents;
+        if (!statusOk || !bookingOk || !priceOk) return { count: 0 };
+        Object.assign(extra, data);
+        return { count: 1 };
+      },
+    },
+  };
+  Object.assign(prisma, {
       booking: {
         findUnique: async ({ select }: { select?: object }) =>
           state.booking ? (select ? { ...state.booking } : { ...state.booking, listing }) : null,
@@ -60,6 +104,7 @@ vi.mock("@/lib/prisma", async () => {
           const b = state.booking!;
           const ok = typeof where.status === "string" ? b.status === where.status : where.status.in.includes(b.status as string);
           if (!ok) return { count: 0 };
+          state.log.push(`booking-write:${(data as { status?: string }).status}`);
           Object.assign(b, data);
           return { count: 1 };
         },
@@ -77,8 +122,8 @@ vi.mock("@/lib/prisma", async () => {
           return data;
         },
       },
-    },
-  };
+  });
+  return { prisma };
 });
 
 import { POST } from "./route";
@@ -119,6 +164,9 @@ beforeEach(() => {
   vi.spyOn(console, "warn").mockImplementation(() => {});
   Object.values(mocks).forEach((m) => m.mockReset());
   state.alerts.clear();
+  state.available = true;
+  state.log = [];
+  state.extra = null;
   state.booking = {
     id: "bk_1",
     reference: "FY-ABC",
@@ -126,6 +174,7 @@ beforeEach(() => {
     paymentStatus: "UNPAID",
     totalPriceCents: 50_000,
     creditAppliedCents: 0,
+    promoCodeId: null,
     hostPaidViaConnect: true,
     stripePaymentIntentId: null,
     guestId: "guest_1",
@@ -181,6 +230,97 @@ describe("checkout.session.completed", () => {
   it("refunds instead of confirming when the currency is wrong", async () => {
     await POST(signedRequest(event("checkout.session.completed", paidSession({ currency: "usd" }))));
     expect(state.booking!.status).toBe("CANCELLED");
+  });
+
+  it("re-checks availability and confirms inside the listing's availability lock", async () => {
+    await POST(signedRequest(event("checkout.session.completed", paidSession())));
+    expect(state.log).toEqual(["lock:listing_1", "availability-check", "booking-write:CONFIRMED", "unlock:listing_1"]);
+  });
+
+  it("refunds, and gives back the credit and promo, when the dates were taken after the hold lapsed", async () => {
+    state.available = false;
+    Object.assign(state.booking!, { creditAppliedCents: 1_500, promoCodeId: "promo_1" });
+    await POST(signedRequest(event("checkout.session.completed", paidSession())));
+    expect(state.booking).toMatchObject({ status: "CANCELLED", paymentStatus: "REFUNDED" });
+    expect(state.log.indexOf("availability-check")).toBeLessThan(state.log.indexOf("unlock:listing_1"));
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledWith(
+      expect.anything(),
+      [{ paymentIntentId: "pi_1", viaConnect: true }],
+      50_000,
+      "unconfirmable-payment:bk_1",
+    );
+    expect(mocks.giveBack).toHaveBeenCalledTimes(1);
+    expect(mocks.giveBack.mock.calls[0][1]).toMatchObject({ creditAppliedCents: 1_500, promoCodeId: "promo_1" });
+    expect(mocks.unavailableEmails).toHaveBeenCalledTimes(1);
+    expect(mocks.confirmedEmails).not.toHaveBeenCalled();
+  });
+
+  it("refunds a payment that lands on a booking already cancelled, once", async () => {
+    state.booking!.status = "CANCELLED";
+    const delivered = event("checkout.session.completed", paidSession(), "evt_cancelled");
+    await POST(signedRequest(delivered));
+    await POST(signedRequest(delivered));
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledTimes(1);
+    expect(state.booking).toMatchObject({ status: "CANCELLED", paymentStatus: "REFUNDED" });
+    // Never PENDING when the payment landed, so nothing was reserved to give back.
+    expect(mocks.giveBack).not.toHaveBeenCalled();
+  });
+});
+
+describe("date-change payments", () => {
+  it("passes what Stripe actually took, so applyApprovedChange can refund a wrong amount", async () => {
+    await POST(
+      signedRequest(
+        event("checkout.session.completed", paidSession({ amount_total: 7_000, metadata: { changeRequestId: "cr_1" } })),
+      ),
+    );
+    expect(mocks.applyApprovedChange).toHaveBeenCalledWith("cr_1", "pi_1", { amountCents: 7_000, currency: "gbp" });
+  });
+});
+
+describe("trip extra payments", () => {
+  const extraSession = (overrides: object = {}) =>
+    paidSession({ amount_total: 4_000, metadata: { purpose: "trip_extra", bookingExtraId: "ex_1" }, ...overrides });
+
+  beforeEach(() => {
+    state.booking!.status = "CONFIRMED";
+    state.extra = { id: "ex_1", priceCents: 4_000, status: "PENDING_PAYMENT", stripePaymentIntentId: null };
+  });
+
+  it("records a correct payment on a confirmed stay as paid, once", async () => {
+    const delivered = event("checkout.session.completed", extraSession(), "evt_extra");
+    await POST(signedRequest(delivered));
+    await POST(signedRequest(delivered));
+    expect(state.extra).toMatchObject({ status: "PAID", stripePaymentIntentId: "pi_1" });
+    expect(mocks.notifyTripExtraPaid).toHaveBeenCalledTimes(1);
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+  });
+
+  it("refunds instead when the booking was cancelled while the payment page was open", async () => {
+    state.booking!.status = "CANCELLED";
+    await POST(signedRequest(event("checkout.session.completed", extraSession())));
+    expect(state.extra).toMatchObject({ status: "REFUNDED", stripePaymentIntentId: "pi_1" });
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledWith(
+      expect.anything(),
+      [{ paymentIntentId: "pi_1", viaConnect: false }],
+      4_000,
+      "trip-extra-refund:ex_1",
+    );
+    expect(mocks.notifyTripExtraPaid).not.toHaveBeenCalled();
+  });
+
+  it("refunds instead when Stripe took the wrong amount", async () => {
+    await POST(signedRequest(event("checkout.session.completed", extraSession({ amount_total: 400 }))));
+    expect(state.extra!.status).toBe("REFUNDED");
+    expect(mocks.refundAcrossPayments.mock.calls[0][2]).toBe(400);
+    expect(mocks.notifyTripExtraPaid).not.toHaveBeenCalled();
+  });
+
+  it("refunds a second payment for an extra that's already paid, without touching the paid record", async () => {
+    Object.assign(state.extra!, { status: "PAID", stripePaymentIntentId: "pi_first" });
+    await POST(signedRequest(event("checkout.session.completed", extraSession())));
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledTimes(1);
+    expect(state.extra).toMatchObject({ status: "PAID", stripePaymentIntentId: "pi_first" });
   });
 });
 

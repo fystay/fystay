@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { Prisma } from "@prisma/client";
 import {
   isBookingHoldActive,
   blockingBookingWhere,
   blockingRanges,
+  blocksForRoomType,
+  isRequestedRangeStillAvailable,
   isRangeAvailable,
   isRoomTypeRangeAvailable,
   nightsBetween,
@@ -248,5 +251,45 @@ describe("isBookingHoldActive", () => {
     expect(
       isBookingHoldActive({ status: "CANCELLED", approvalStatus: "NONE", createdAt: now, hostRespondedAt: null }, now),
     ).toBe(false);
+  });
+});
+
+describe("blocksForRoomType", () => {
+  const icalBlock = { startDate: d("2026-07-10"), endDate: d("2026-07-12"), roomTypeId: null };
+  const otherRoomBlock = { startDate: d("2026-07-20"), endDate: d("2026-07-22"), roomTypeId: "rt_other" };
+
+  it("closes a room type for a listing-wide block (an iCal import has no room type)", () => {
+    const noOwnBlocks: { startDate: Date; endDate: Date }[] = [];
+    const blocks = blocksForRoomType(noOwnBlocks, [icalBlock, otherRoomBlock]);
+    expect(blocks).toEqual([icalBlock]);
+    expect(isRoomTypeRangeAvailable(d("2026-07-11"), d("2026-07-13"), 1, 5, [], blocks)).toBe(false);
+  });
+
+  it("keeps the room type's own blocks and ignores other room types' blocks", () => {
+    const own = { startDate: d("2026-08-01"), endDate: d("2026-08-02") };
+    expect(blocksForRoomType([own], [otherRoomBlock])).toEqual([own]);
+  });
+});
+
+describe("isRequestedRangeStillAvailable", () => {
+  it("checks a hotel booking against listing-wide blocks as well as its room type's own", async () => {
+    const blockFindMany = vi.fn(async () => [{ startDate: d("2026-07-10"), endDate: d("2026-07-12") }]);
+    const db = {
+      booking: { findMany: async () => [] },
+      availabilityBlock: { findMany: blockFindMany },
+      roomType: { findUnique: async () => ({ totalRooms: 5 }) },
+    } as unknown as Prisma.TransactionClient;
+    const available = await isRequestedRangeStillAvailable(db, {
+      listingId: "l1",
+      roomTypeId: "rt1",
+      roomsBooked: 1,
+      excludeBookingId: "b1",
+      checkIn: d("2026-07-11"),
+      checkOut: d("2026-07-13"),
+    });
+    expect(available).toBe(false);
+    expect(blockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { OR: [{ roomTypeId: "rt1" }, { listingId: "l1", roomTypeId: null }] } }),
+    );
   });
 });

@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { bookableHostWhere } from "@/lib/stripeConnect";
-import { blockingBookingWhere, blockingRanges, isRangeAvailable, isRoomTypeRangeAvailable } from "@/lib/availability";
+import { blockingBookingWhere, blockingRanges, blocksForRoomType, isRangeAvailable, isRoomTypeRangeAvailable } from "@/lib/availability";
 import { activePriceDrop, hasLastMinuteDeal, possibleDealWhere } from "@/lib/deals";
 import { todayStayDate } from "@/lib/stayDates";
 import { LargeCardRail } from "@/components/LargeCardRail";
@@ -34,7 +34,7 @@ export async function LastMinuteDeals() {
         include: {
           reviews: { where: { status: "PUBLISHED" }, select: { rating: true } },
           bookings: { where: blockingBookingWhere(now), select: { checkIn: true, checkOut: true } },
-          availabilityBlocks: { select: { startDate: true, endDate: true } },
+          availabilityBlocks: { select: { startDate: true, endDate: true, roomTypeId: true } },
           roomTypes: {
             select: {
               totalRooms: true,
@@ -63,7 +63,7 @@ export async function LastMinuteDeals() {
             const nextDay = new Date(night.getTime() + DAY_MS);
             return listing.propertyType === "HOTEL"
               ? listing.roomTypes.some((roomType) =>
-                  isRoomTypeRangeAvailable(night, nextDay, 1, roomType.totalRooms, roomType.bookings, roomType.availabilityBlocks),
+                  isRoomTypeRangeAvailable(night, nextDay, 1, roomType.totalRooms, roomType.bookings, blocksForRoomType(roomType.availabilityBlocks, listing.availabilityBlocks)),
                 )
               : isRangeAvailable(night, nextDay, blockingRanges(listing.bookings, listing.availabilityBlocks));
           },

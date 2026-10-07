@@ -6,6 +6,7 @@ import { heldRepeatBookingWhere } from "@/lib/heldBooking";
 import {
   blockingBookingWhere,
   blockingRanges,
+  blocksForRoomType,
   isRangeAvailable,
   isRoomTypeRangeAvailable,
   nightsBetween,
@@ -122,6 +123,10 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
             monthlyDiscountPercent: true,
             lastMinuteDiscountPercent: true,
             lastMinuteWindowDays: true,
+            availabilityBlocks: {
+              where: { roomTypeId: null },
+              select: { startDate: true, endDate: true, roomTypeId: true },
+            },
           },
         },
         bookings: {
@@ -151,7 +156,7 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
         roomsBooked,
         roomType.totalRooms,
         roomType.bookings,
-        roomType.availabilityBlocks,
+        blocksForRoomType(roomType.availabilityBlocks, roomType.listing.availabilityBlocks),
       )
     ) {
       return NextResponse.json(

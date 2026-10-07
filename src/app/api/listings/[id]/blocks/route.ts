@@ -11,6 +11,7 @@ import {
 import { isValidBlockRange } from "@/lib/availabilityBlocks";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { parseStayDate } from "@/lib/stayDates";
+import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 
 const createBlockSchema = z.object({
   startDate: z.string().min(1),
@@ -75,63 +76,73 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     if (!roomType || roomType.listingId !== id) {
       return NextResponse.json({ error: "Room type not found" }, { status: 404 });
     }
+  }
+
+  // The overlap check and the insert run under the listing's availability
+  // lock (see availabilityLock.ts), so a booking or approval for these dates
+  // can't land between the check passing and the block being written.
+  const block = await withListingAvailabilityLock(prisma, id, async (tx) => {
+    if (roomTypeId) {
+      const [roomType, bookings, blocks] = await Promise.all([
+        tx.roomType.findUniqueOrThrow({ where: { id: roomTypeId }, select: { totalRooms: true } }),
+        tx.booking.findMany({
+          where: {
+            roomTypeId,
+            ...blockingBookingWhere(),
+            checkIn: { lt: endDate },
+            checkOut: { gt: startDate },
+          },
+          select: { checkIn: true, checkOut: true, roomsBooked: true },
+        }),
+        // Its own blocks and the listing-wide ones (see blocksForRoomType).
+        tx.availabilityBlock.findMany({
+          where: { OR: [{ roomTypeId }, { listingId: id, roomTypeId: null }] },
+          select: { startDate: true, endDate: true },
+        }),
+      ]);
+
+      // A block always closes the room type entirely for its range, so it's
+      // checked as "no capacity left at all" - i.e. a request for every
+      // remaining room, not just one.
+      if (
+        !isRoomTypeRangeAvailable(startDate, endDate, roomType.totalRooms, roomType.totalRooms, bookings, blocks)
+      ) {
+        return null;
+      }
+
+      return tx.availabilityBlock.create({
+        data: { listingId: id, roomTypeId, startDate, endDate, reason: parsed.data.reason },
+      });
+    }
 
     const [bookings, blocks] = await Promise.all([
-      prisma.booking.findMany({
-        where: {
-          roomTypeId,
-          ...blockingBookingWhere(),
-          checkIn: { lt: endDate },
-          checkOut: { gt: startDate },
-        },
-        select: { checkIn: true, checkOut: true, roomsBooked: true },
+      tx.booking.findMany({
+        where: { listingId: id, ...blockingBookingWhere() },
+        select: { checkIn: true, checkOut: true },
       }),
-      prisma.availabilityBlock.findMany({
-        where: { roomTypeId },
+      tx.availabilityBlock.findMany({
+        where: { listingId: id },
         select: { startDate: true, endDate: true },
       }),
     ]);
 
-    // A block always closes the room type entirely for its range, so it's
-    // checked as "no capacity left at all" - i.e. a request for every
-    // remaining room, not just one.
-    if (
-      !isRoomTypeRangeAvailable(startDate, endDate, roomType.totalRooms, roomType.totalRooms, bookings, blocks)
-    ) {
-      return NextResponse.json(
-        { error: "Those dates overlap an existing booking or block for this room type" },
-        { status: 409 },
-      );
-    }
+    if (!isRangeAvailable(startDate, endDate, blockingRanges(bookings, blocks))) return null;
 
-    const block = await prisma.availabilityBlock.create({
-      data: { listingId: id, roomTypeId, startDate, endDate, reason: parsed.data.reason },
+    return tx.availabilityBlock.create({
+      data: { listingId: id, startDate, endDate, reason: parsed.data.reason },
     });
+  });
 
-    return NextResponse.json({ block }, { status: 201 });
-  }
-
-  const [bookings, blocks] = await Promise.all([
-    prisma.booking.findMany({
-      where: { listingId: id, ...blockingBookingWhere() },
-      select: { checkIn: true, checkOut: true },
-    }),
-    prisma.availabilityBlock.findMany({
-      where: { listingId: id },
-      select: { startDate: true, endDate: true },
-    }),
-  ]);
-
-  if (!isRangeAvailable(startDate, endDate, blockingRanges(bookings, blocks))) {
+  if (!block) {
     return NextResponse.json(
-      { error: "Those dates overlap an existing booking or block" },
+      {
+        error: roomTypeId
+          ? "Those dates overlap an existing booking or block for this room type"
+          : "Those dates overlap an existing booking or block",
+      },
       { status: 409 },
     );
   }
-
-  const block = await prisma.availabilityBlock.create({
-    data: { listingId: id, startDate, endDate, reason: parsed.data.reason },
-  });
 
   return NextResponse.json({ block }, { status: 201 });
 }

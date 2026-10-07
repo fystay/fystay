@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
-import { bookingPayments, refundAcrossPayments, refundChangeDifference } from "./connectRefunds";
+import { bookingPayments, RefundIncompleteError, refundAcrossPayments, refundChangeDifference } from "./connectRefunds";
 
 function fakeStripe(charges: Record<string, { amount: number; amount_refunded?: number }>) {
   const calls = {
@@ -38,6 +38,23 @@ describe("refundChangeDifference", () => {
     expect(calls.refunds).toEqual([{ payment_intent: "pi_1", amount: 11000, metadata: { source: "fystay" } }]);
     expect(calls.reversals).toEqual([["tr_pi_1", { amount: 11000 }]]);
     expect(calls.feeRefunds).toEqual([["fee_pi_1", { amount: 1000 }]]);
+  });
+
+  it("keys each Stripe call when asked, so a retry after a failure part-way doesn't repeat what succeeded", async () => {
+    const { stripe } = fakeStripe({ pi_1: { amount: 33000 } });
+    await refundChangeDifference(
+      stripe,
+      { paymentIntentId: "pi_1", viaConnect: true },
+      { refundCents: 11000, platformShareCents: 1000 },
+      "change-refund:cr_1",
+    );
+    expect(stripe.refunds.create).toHaveBeenCalledWith(expect.anything(), { idempotencyKey: "change-refund:cr_1:refund" });
+    expect(stripe.transfers.createReversal).toHaveBeenCalledWith("tr_pi_1", { amount: 11000 }, {
+      idempotencyKey: "change-refund:cr_1:reversal",
+    });
+    expect(stripe.applicationFees.createRefund).toHaveBeenCalledWith("fee_pi_1", { amount: 1000 }, {
+      idempotencyKey: "change-refund:cr_1:fee-refund",
+    });
   });
 
   it("is a plain refund when the payment never went to the host", async () => {
@@ -85,6 +102,33 @@ describe("refundAcrossPayments", () => {
     expect(stripe.refunds.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 12000 }), {
       idempotencyKey: "booking-cancel:bk_1:pi_booking:12000",
     });
+  });
+
+  it("says how much went back when a later payment's refund fails after an earlier one succeeded", async () => {
+    const { stripe } = fakeStripe({ pi_booking: { amount: 33000 }, pi_change: { amount: 11000 } });
+    const declined = new Error("charge_disputed");
+    vi.mocked(stripe.refunds.create)
+      .mockResolvedValueOnce({} as Stripe.Response<Stripe.Refund>)
+      .mockRejectedValueOnce(declined);
+    const error = await refundAcrossPayments(
+      stripe,
+      [
+        { paymentIntentId: "pi_booking", viaConnect: true },
+        { paymentIntentId: "pi_change", viaConnect: true },
+      ],
+      40000,
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(RefundIncompleteError);
+    expect(error).toMatchObject({ refundedCents: 11000, requestedCents: 40000, cause: declined });
+  });
+
+  it("passes the original error through when nothing was refunded", async () => {
+    const { stripe } = fakeStripe({ pi_booking: { amount: 33000 } });
+    const declined = new Error("charge_disputed");
+    vi.mocked(stripe.refunds.create).mockRejectedValueOnce(declined);
+    await expect(
+      refundAcrossPayments(stripe, [{ paymentIntentId: "pi_booking", viaConnect: true }], 1000),
+    ).rejects.toBe(declined);
   });
 });
 

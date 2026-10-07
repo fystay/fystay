@@ -202,6 +202,12 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
       },
     ],
     metadata: { purpose: "trip_extra", bookingExtraId: claim.extraId },
+    // Just over Stripe's 30-minute minimum, like the booking's own checkout,
+    // instead of its 24-hour default: an old payment page can't be completed
+    // a day later, after the booking it's for was cancelled or changed. The
+    // webhook still refunds a payment that lands on a booking no longer
+    // CONFIRMED, as the last safeguard.
+    expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
     success_url: `${bookingUrl}?extra_success=1`,
     cancel_url: `${bookingUrl}?extra_cancelled=1`,
   });

@@ -37,17 +37,26 @@ async function latestCharge(stripe: Stripe, paymentIntentId: string): Promise<St
  * splitBookingChange: the guest gets refundCents back, the host gives up
  * hostShareCents and FYStay gives up platformShareCents (they sum to
  * refundCents). A payment that never went to the host is a plain refund.
+ *
+ * idempotencyKey names this refund for Stripe (each of the up to three calls
+ * gets its own suffix), so a retry after a failure part-way - or the same
+ * approval sent twice - repeats only the steps that didn't happen yet.
  */
 export async function refundChangeDifference(
   stripe: Stripe,
   payment: PaymentToRefund,
   split: { refundCents: number; platformShareCents: number },
+  idempotencyKey?: string,
 ): Promise<void> {
-  await stripe.refunds.create({
-    payment_intent: payment.paymentIntentId,
-    amount: split.refundCents,
-    metadata: FYSTAY_REFUND_METADATA,
-  });
+  const keyed = (step: string) => (idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${step}` } : undefined);
+  await stripe.refunds.create(
+    {
+      payment_intent: payment.paymentIntentId,
+      amount: split.refundCents,
+      metadata: FYSTAY_REFUND_METADATA,
+    },
+    keyed("refund"),
+  );
   if (!payment.viaConnect) return;
 
   const charge = await latestCharge(stripe, payment.paymentIntentId);
@@ -56,12 +65,31 @@ export async function refundChangeDifference(
     typeof charge?.application_fee === "string" ? charge.application_fee : charge?.application_fee?.id;
   if (transferId) {
     // The whole difference comes back from the host's account...
-    await stripe.transfers.createReversal(transferId, { amount: split.refundCents });
+    await stripe.transfers.createReversal(transferId, { amount: split.refundCents }, keyed("reversal"));
   }
   if (applicationFeeId && split.platformShareCents > 0) {
     // ...and FYStay returns its own share of it, leaving the host down
     // exactly their accommodation share.
-    await stripe.applicationFees.createRefund(applicationFeeId, { amount: split.platformShareCents });
+    await stripe.applicationFees.createRefund(
+      applicationFeeId,
+      { amount: split.platformShareCents },
+      keyed("fee-refund"),
+    );
+  }
+}
+
+/**
+ * refundAcrossPayments failed part-way: refundedCents of the requestedCents
+ * did go back to the guest before Stripe refused the rest (cause).
+ */
+export class RefundIncompleteError extends Error {
+  constructor(
+    public readonly refundedCents: number,
+    public readonly requestedCents: number,
+    cause: unknown,
+  ) {
+    super(`Refunded ${refundedCents} of ${requestedCents} before a refund failed`, { cause });
+    this.name = "RefundIncompleteError";
   }
 }
 
@@ -88,20 +116,29 @@ export async function refundAcrossPayments(
   let remaining = amountCents;
   for (const payment of [...payments].reverse()) {
     if (remaining <= 0) break;
-    const charge = await latestCharge(stripe, payment.paymentIntentId);
-    const refundable = charge ? charge.amount - charge.amount_refunded : 0;
-    const amount = Math.min(remaining, refundable);
-    if (amount <= 0) continue;
-    await stripe.refunds.create(
-      {
-        payment_intent: payment.paymentIntentId,
-        amount,
-        metadata: FYSTAY_REFUND_METADATA,
-        ...(payment.viaConnect && { reverse_transfer: true, refund_application_fee: true }),
-      },
-      idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${payment.paymentIntentId}:${amount}` } : undefined,
-    );
-    remaining -= amount;
+    try {
+      const charge = await latestCharge(stripe, payment.paymentIntentId);
+      const refundable = charge ? charge.amount - charge.amount_refunded : 0;
+      const amount = Math.min(remaining, refundable);
+      if (amount <= 0) continue;
+      await stripe.refunds.create(
+        {
+          payment_intent: payment.paymentIntentId,
+          amount,
+          metadata: FYSTAY_REFUND_METADATA,
+          ...(payment.viaConnect && { reverse_transfer: true, refund_application_fee: true }),
+        },
+        idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${payment.paymentIntentId}:${amount}` } : undefined,
+      );
+      remaining -= amount;
+    } catch (error) {
+      // Some money has already gone back: the caller must not act as though
+      // nothing happened (e.g. put a cancelled booking back), so it's told
+      // how much did.
+      const refundedCents = amountCents - remaining;
+      if (refundedCents > 0) throw new RefundIncompleteError(refundedCents, amountCents, error);
+      throw error;
+    }
   }
   if (remaining > 0) {
     console.error("Refund exceeded what the booking's payments can return", {

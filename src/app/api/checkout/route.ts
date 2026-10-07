@@ -13,6 +13,7 @@ import { isBookingHoldActive, isRequestedRangeStillAvailable } from "@/lib/avail
 import { BASE_URL } from "@/lib/baseUrl";
 import { releaseUnpaidBooking } from "@/lib/bookingLifecycle";
 import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
+import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 
 /**
  * Just over Stripe's 30-minute minimum Checkout Session lifetime - the
@@ -81,17 +82,22 @@ async function postHandler(request: Request) {
   // blockingBookingWhere). A guest returning after it lapsed may only pay if
   // nobody else has taken the dates since; otherwise the booking is released
   // so they can pick new dates instead of paying for a stay that's gone.
-  if (
-    !isBookingHoldActive(booking) &&
-    !(await isRequestedRangeStillAvailable(prisma, {
-      listingId: booking.listingId,
-      roomTypeId: booking.roomTypeId,
-      roomsBooked: booking.roomsBooked,
-      excludeBookingId: booking.id,
-      checkIn: booking.checkIn,
-      checkOut: booking.checkOut,
-    }))
-  ) {
+  // Checked under the listing's availability lock so it sees every writer
+  // that committed before it. It doesn't renew the hold, so the dates can
+  // still go between here and payment; the webhook's own locked re-check
+  // refunds rather than double-books in that case.
+  const lapsedHoldStillAvailable = (lapsed: NonNullable<typeof booking>) =>
+    withListingAvailabilityLock(prisma, lapsed.listingId, (tx) =>
+      isRequestedRangeStillAvailable(tx, {
+        listingId: lapsed.listingId,
+        roomTypeId: lapsed.roomTypeId,
+        roomsBooked: lapsed.roomsBooked,
+        excludeBookingId: lapsed.id,
+        checkIn: lapsed.checkIn,
+        checkOut: lapsed.checkOut,
+      }),
+    );
+  if (!isBookingHoldActive(booking) && !(await lapsedHoldStillAvailable(booking))) {
     await releaseUnpaidBooking(prisma, booking);
     return NextResponse.json(
       { error: "Sorry, these dates were booked by someone else while your hold expired. You haven't been charged - please choose new dates." },

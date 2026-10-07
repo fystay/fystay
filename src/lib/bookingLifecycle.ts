@@ -58,32 +58,52 @@ export async function expireStaleBookingRequests(
     include: { listing: { include: { host: true } } },
   });
 
+  const expired: ExpiredBookingRequest[] = [];
   for (const booking of stale) {
-    await prisma.$transaction([
-      prisma.booking.update({
-        where: { id: booking.id },
+    // Claimed with the same conditions it was found by: the host may accept
+    // or decline it, or another sweep (a guest page load and the cron at
+    // once) may expire it, between the read above and this write. Only the
+    // one request that actually flips it gives the credit and promo back,
+    // so they're never returned twice.
+    const claimed = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.booking.updateMany({
+        where: { id: booking.id, status: "PENDING", approvalStatus: "AWAITING", requestExpiresAt: { lte: now } },
         data: { status: "CANCELLED", approvalStatus: "EXPIRED", hostRespondedAt: now },
-      }),
-      ...(booking.creditAppliedCents > 0
-        ? [
-            prisma.user.update({
-              where: { id: booking.guestId },
-              data: { creditBalanceCents: { increment: booking.creditAppliedCents } },
-            }),
-          ]
-        : []),
-      ...(booking.promoCodeId
-        ? [
-            prisma.promoCode.update({
-              where: { id: booking.promoCodeId },
-              data: { redemptionCount: { decrement: 1 } },
-            }),
-          ]
-        : []),
-    ]);
+      });
+      if (count === 0) return false;
+      await giveBackReservedDiscounts(tx, booking);
+      return true;
+    });
+    if (claimed) expired.push(booking);
   }
 
-  return stale;
+  return expired;
+}
+
+/**
+ * Returns the referral credit and promo code redemption a booking reserved
+ * when it was created (see applyPromoAndCredit in api/bookings/route.ts) -
+ * for a booking that's ending without the guest ever paying for it. Callers
+ * run it in the same transaction as the conditional status update that
+ * claims the booking, and only when that update matched, so it happens at
+ * most once per booking however many requests race to end it.
+ */
+export async function giveBackReservedDiscounts(
+  tx: Prisma.TransactionClient,
+  booking: Pick<Booking, "guestId" | "creditAppliedCents" | "promoCodeId">,
+): Promise<void> {
+  if (booking.creditAppliedCents > 0) {
+    await tx.user.update({
+      where: { id: booking.guestId },
+      data: { creditBalanceCents: { increment: booking.creditAppliedCents } },
+    });
+  }
+  if (booking.promoCodeId) {
+    await tx.promoCode.update({
+      where: { id: booking.promoCodeId },
+      data: { redemptionCount: { decrement: 1 } },
+    });
+  }
 }
 
 /**
@@ -118,18 +138,7 @@ export async function releaseUnpaidBooking(
       data: { status: "CANCELLED" },
     });
     if (count === 0) return false;
-    if (booking.creditAppliedCents > 0) {
-      await tx.user.update({
-        where: { id: booking.guestId },
-        data: { creditBalanceCents: { increment: booking.creditAppliedCents } },
-      });
-    }
-    if (booking.promoCodeId) {
-      await tx.promoCode.update({
-        where: { id: booking.promoCodeId },
-        data: { redemptionCount: { decrement: 1 } },
-      });
-    }
+    await giveBackReservedDiscounts(tx, booking);
     return true;
   });
 }

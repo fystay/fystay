@@ -1,8 +1,10 @@
 import type { PrismaClient, Booking } from "@prisma/client";
 import { getStripeClient } from "@/lib/stripe";
-import { bookingPayments, refundAcrossPayments } from "@/lib/connectRefunds";
+import { bookingPayments, RefundIncompleteError, refundAcrossPayments } from "@/lib/connectRefunds";
 import { previewCancellation, type CancellationPreview } from "@/lib/cancellationPolicy";
-import { sendBookingCancelledEmails } from "@/lib/notificationEmails";
+import { sendBookingCancelledEmails, sendPaymentOpsAlertEmail } from "@/lib/notificationEmails";
+import { giveBackReservedDiscounts } from "@/lib/bookingLifecycle";
+import { formatPrice } from "@/lib/format";
 import { pushBookingCancellation } from "@/lib/pms/sync";
 import { BASE_URL } from "@/lib/baseUrl";
 import { DepositAlreadyResolvedError, releaseDeposit } from "@/lib/depositSettlement";
@@ -65,12 +67,23 @@ export async function cancelBookingAndRefund(
   // racing on one booking (a double tap, or the guest and support at the
   // same moment), only the one that flips the status gets to refund -
   // otherwise both would, and a 50% policy would pay out 100%.
-  const claimed = await prisma.booking.updateMany({
-    where: { id: booking.id, status: booking.status, paymentStatus: booking.paymentStatus },
-    data: { status: "CANCELLED" },
+  // A booking that was never paid for gives back the referral credit and
+  // promo redemption it reserved, in the same transaction as the claim -
+  // exactly what releaseUnpaidBooking does when the same unpaid booking
+  // expires instead of being cancelled, so whichever happens first the guest
+  // gets them back once.
+  const releasesDiscounts = booking.status === "PENDING" && booking.paymentStatus === "UNPAID";
+  const claimed = await prisma.$transaction(async (tx) => {
+    const result = await tx.booking.updateMany({
+      where: { id: booking.id, status: booking.status, paymentStatus: booking.paymentStatus },
+      data: { status: "CANCELLED" },
+    });
+    if (result.count > 0 && releasesDiscounts) await giveBackReservedDiscounts(tx, booking);
+    return result;
   });
   if (claimed.count === 0) throw new BookingAlreadyProcessedError();
 
+  let refundedCents = refund.refundCents;
   const stripe = getStripeClient();
   if (stripe && wasPaid && refund.refundCents > 0 && booking.stripePaymentIntentId) {
     try {
@@ -87,21 +100,46 @@ export async function cancelBookingAndRefund(
       const payments = await bookingPayments(stripe, { ...booking, changeRequests });
       await refundAcrossPayments(stripe, payments, refund.refundCents, `booking-cancel:${booking.id}`);
     } catch (error) {
-      // Stripe refused the refund: put the booking back as it was, so it's
-      // never left cancelled without the money the policy promised.
-      await prisma.booking.updateMany({
-        where: { id: booking.id, status: "CANCELLED" },
-        data: { status: booking.status },
-      });
-      throw error;
+      if (!(error instanceof RefundIncompleteError)) {
+        // Stripe refused the refund before any money moved: put the booking
+        // back as it was, so it's never left cancelled without the money the
+        // policy promised.
+        await prisma.booking.updateMany({
+          where: { id: booking.id, status: "CANCELLED" },
+          data: { status: booking.status },
+        });
+        throw error;
+      }
+      // Part of the refund already went back (one of several payments
+      // refunded, the next refused). Putting the booking back as CONFIRMED
+      // would be a lie - the guest has some of their money - so it stays
+      // cancelled, the booking records what was actually refunded, and a
+      // person is told to send the rest.
+      refundedCents = error.refundedCents;
+      console.error(`partial refund for cancelled booking ${booking.id}:`, error.cause);
+      try {
+        await sendPaymentOpsAlertEmail({
+          subject: "A cancellation refund only partly went through",
+          summary: `Booking cancelled. ${formatPrice(error.refundedCents)} of the ${formatPrice(error.requestedCents)} refund went back to the guest, then Stripe refused the rest.`,
+          amountCents: error.requestedCents - error.refundedCents,
+          bookingReference: booking.reference,
+          action:
+            "Refund the remaining amount to the guest from the booking's payments in the Stripe Dashboard (or another way if Stripe keeps refusing), then note it on the booking's support ticket.",
+          stripeUrl: `https://dashboard.stripe.com/payments/${booking.stripePaymentIntentId}`,
+        });
+      } catch (alertError) {
+        // The cancellation and what was refunded are already true; the
+        // error log above still names the booking for someone to follow up.
+        console.error(`couldn't send the partial-refund alert for booking ${booking.id}:`, alertError);
+      }
     }
   }
 
   const paymentStatus = !wasPaid
     ? booking.paymentStatus
-    : refund.refundCents === 0
+    : refundedCents === 0
       ? "PAID"
-      : refund.refundCents >= refund.amountPaidCents
+      : refundedCents >= refund.amountPaidCents
         ? "REFUNDED"
         : "PARTIALLY_REFUNDED";
 
@@ -110,8 +148,8 @@ export async function cancelBookingAndRefund(
     data: {
       status: "CANCELLED",
       paymentStatus,
-      ...(wasPaid ? { refundedAmountCents: refund.refundCents } : {}),
-      ...(wasPaid && refund.refundCents > 0 ? { refundedAt: now } : {}),
+      ...(wasPaid ? { refundedAmountCents: refundedCents } : {}),
+      ...(wasPaid && refundedCents > 0 ? { refundedAt: now } : {}),
     },
   });
 

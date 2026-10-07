@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import {
   blockingBookingWhere,
   blockingRanges,
+  blocksForRoomType,
   isRangeAvailable,
   isRoomTypeRangeAvailable,
 } from "@/lib/availability";
@@ -155,7 +156,7 @@ async function getHandler(request: Request) {
         select: { checkIn: true, checkOut: true },
       },
       availabilityBlocks: {
-        select: { startDate: true, endDate: true },
+        select: { startDate: true, endDate: true, roomTypeId: true },
       },
       // Only meaningful for a HOTEL listing (see `filtered` below) - empty
       // for every other property type.
@@ -201,7 +202,7 @@ async function getHandler(request: Request) {
                     1,
                     roomType.totalRooms,
                     roomType.bookings,
-                    roomType.availabilityBlocks,
+                    blocksForRoomType(roomType.availabilityBlocks, listing.availabilityBlocks),
                   ),
               )
             : isRangeAvailable(

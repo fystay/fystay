@@ -6,6 +6,7 @@ import { bookableHostWhere } from "@/lib/stripeConnect";
 import {
   blockingBookingWhere,
   blockingRanges,
+  blocksForRoomType,
   isRangeAvailable,
   isRoomTypeRangeAvailable,
   nightsBetween,
@@ -126,7 +127,7 @@ export async function ListingsGrid({
           select: { checkIn: true, checkOut: true },
         },
         availabilityBlocks: {
-          select: { startDate: true, endDate: true },
+          select: { startDate: true, endDate: true, roomTypeId: true },
         },
         reviews: { where: { status: "PUBLISHED" }, select: { rating: true } },
         // Only meaningful for a HOTEL listing (see the dateFiltered check
@@ -215,7 +216,7 @@ export async function ListingsGrid({
                     1,
                     roomType.totalRooms,
                     roomType.bookings,
-                    roomType.availabilityBlocks,
+                    blocksForRoomType(roomType.availabilityBlocks, listing.availabilityBlocks),
                   ),
               )
             : isRangeAvailable(

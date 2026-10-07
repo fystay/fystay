@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays } from "date-fns";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 export type BookedRange = { checkIn: Date; checkOut: Date };
 export type RoomTypeBookedRange = BookedRange & { roomsBooked: number };
@@ -190,6 +190,21 @@ export function blockingRanges(
 }
 
 /**
+ * The blocks that close one of a hotel's room types: its own, plus every
+ * listing-wide block (roomTypeId null). An iCal import or a PMS sync can't
+ * know about FYStay's room types, so the blocks it creates are listing-wide -
+ * and "the whole property is unavailable" has to close every room type, not
+ * none of them. Callers pass the listing's blocks with roomTypeId selected;
+ * other room types' own blocks are left out.
+ */
+export function blocksForRoomType<B extends { startDate: Date; endDate: Date }>(
+  roomTypeBlocks: B[],
+  listingBlocks: (B & { roomTypeId: string | null })[],
+): B[] {
+  return [...roomTypeBlocks, ...listingBlocks.filter((block) => block.roomTypeId === null)];
+}
+
+/**
  * Re-checks a specific booking's dates for availability at approval time
  * (a change-request or a request-to-book being approved), scoped correctly
  * for both booking shapes: a HOTEL booking (roomTypeId set) is checked
@@ -201,9 +216,14 @@ export function blockingRanges(
  * is the normal state of an operating hotel, not an edge case. A
  * non-hotel booking is checked exactly as before, via isRangeAvailable
  * against the whole listing.
+ *
+ * Takes a transaction client so a writer can run it inside
+ * withListingAvailabilityLock (see availabilityLock.ts) - the check is only
+ * a guarantee when it runs under that lock in the same transaction as the
+ * write it guards.
  */
 export async function isRequestedRangeStillAvailable(
-  prisma: PrismaClient,
+  prisma: Prisma.TransactionClient,
   params: {
     listingId: string;
     roomTypeId: string | null;
@@ -227,8 +247,10 @@ export async function isRequestedRangeStillAvailable(
         },
         select: { checkIn: true, checkOut: true, roomsBooked: true },
       }),
+      // The room type's own blocks and every listing-wide one - see
+      // blocksForRoomType.
       prisma.availabilityBlock.findMany({
-        where: { roomTypeId },
+        where: { OR: [{ roomTypeId }, { listingId, roomTypeId: null }] },
         select: { startDate: true, endDate: true },
       }),
       prisma.roomType.findUnique({ where: { id: roomTypeId }, select: { totalRooms: true } }),

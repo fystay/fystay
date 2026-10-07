@@ -16,7 +16,8 @@ import { evidenceDueByDate, mapStripeDisputeStatus } from "@/lib/paymentDisputes
 import type Stripe from "stripe";
 import { BASE_URL } from "@/lib/baseUrl";
 import { activatePaidPromotion } from "@/lib/listingPromotions";
-import { releaseUnpaidBooking } from "@/lib/bookingLifecycle";
+import { giveBackReservedDiscounts, releaseUnpaidBooking } from "@/lib/bookingLifecycle";
+import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 import { notifyListingPromotionActivated } from "@/lib/listingPromotionNotifications";
 import { Prisma } from "@prisma/client";
 
@@ -29,45 +30,42 @@ function isCheckoutSessionPaid(session: Stripe.Checkout.Session): boolean {
   return session.payment_status === "paid" || session.payment_status === "no_payment_required";
 }
 
+type UnconfirmableReason = "amount_mismatch" | "booking_cancelled" | "dates_taken";
+
 /**
  * Payments that must not confirm a booking are refunded in full instead:
  * - the booking was cancelled before the payment landed (the guest cancelled
  *   with a payment page still open), so there's no stay to pay for;
  * - the booking is still PENDING but someone else took its dates after its
  *   hold lapsed (a guest finishing an old payment page late) - the last line
- *   of defence against a double booking.
- * Returns true when the payment was handled this way (or already had been,
- * on a redelivered event), so the caller must not confirm the booking.
+ *   of defence against a double booking;
+ * - Stripe took a different amount from the booking's total.
+ * confirmPaidBooking decides which (under the listing's availability lock);
+ * this only carries it out.
  */
-async function refundIfNotConfirmable(
+async function refundUnconfirmablePayment(
   bookingId: string,
   checkoutSession: Stripe.Checkout.Session,
-  options: { amountMismatch?: boolean } = {},
-): Promise<boolean> {
+  reason: UnconfirmableReason,
+): Promise<void> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: { listing: { include: { host: true } } },
   });
-  if (!booking || booking.status === "CONFIRMED" || booking.status === "COMPLETED") return false;
+  if (!booking || booking.status === "CONFIRMED" || booking.status === "COMPLETED") return;
 
   const paymentIntentId =
     typeof checkoutSession.payment_intent === "string"
       ? checkoutSession.payment_intent
       : (checkoutSession.payment_intent?.id ?? null);
 
-  if (booking.status === "CANCELLED") {
-    // A redelivery of a payment this function already refunded.
-    if (booking.paymentStatus === "REFUNDED" && booking.stripePaymentIntentId === paymentIntentId) return true;
-  } else if (!options.amountMismatch) {
-    const stillAvailable = await isRequestedRangeStillAvailable(prisma, {
-      listingId: booking.listingId,
-      roomTypeId: booking.roomTypeId,
-      roomsBooked: booking.roomsBooked,
-      excludeBookingId: booking.id,
-      checkIn: booking.checkIn,
-      checkOut: booking.checkOut,
-    });
-    if (stillAvailable) return false;
+  // A redelivery of a payment this function already refunded.
+  if (
+    booking.status === "CANCELLED" &&
+    booking.paymentStatus === "REFUNDED" &&
+    booking.stripePaymentIntentId === paymentIntentId
+  ) {
+    return;
   }
   const paidCents = checkoutSession.amount_total ?? booking.totalPriceCents;
   const stripe = getStripeClient();
@@ -81,32 +79,34 @@ async function refundIfNotConfirmable(
     );
   }
 
-  const cancelled = await prisma.booking.updateMany({
-    where: { id: booking.id, status: { in: ["PENDING", "CANCELLED"] } },
-    data: {
-      status: "CANCELLED",
-      paymentStatus: "REFUNDED",
-      paidAt: new Date(),
-      refundedAt: new Date(),
-      refundedAmountCents: paidCents,
-      stripePaymentIntentId: paymentIntentId,
-    },
-  });
-  if (cancelled.count > 0 && booking.status === "PENDING" && booking.creditAppliedCents > 0) {
-    await prisma.user.update({
-      where: { id: booking.guestId },
-      data: { creditBalanceCents: { increment: booking.creditAppliedCents } },
+  // Ending a still-PENDING booking this way gives back the referral credit
+  // and promo redemption it reserved, the same as any other unpaid booking
+  // that never goes ahead (see giveBackReservedDiscounts) - only when this
+  // request is the one that moved it off PENDING.
+  const cancelled = await prisma.$transaction(async (tx) => {
+    const result = await tx.booking.updateMany({
+      where: { id: booking.id, status: { in: ["PENDING", "CANCELLED"] } },
+      data: {
+        status: "CANCELLED",
+        paymentStatus: "REFUNDED",
+        paidAt: new Date(),
+        refundedAt: new Date(),
+        refundedAmountCents: paidCents,
+        stripePaymentIntentId: paymentIntentId,
+      },
     });
-  }
+    if (result.count > 0 && booking.status === "PENDING") await giveBackReservedDiscounts(tx, booking);
+    return result;
+  });
   console.warn("Payment refunded instead of confirming the booking", {
     bookingId: booking.id,
     paymentIntentId,
-    reason: options.amountMismatch ? "amount_mismatch" : booking.status === "CANCELLED" ? "booking_cancelled" : "dates_taken",
+    reason,
   });
 
   // The "those dates were just taken" email; an amount mismatch is FYStay's
   // problem to investigate, not something to explain to the guest that way.
-  if (cancelled.count > 0 && booking.status === "PENDING" && !options.amountMismatch) {
+  if (cancelled.count > 0 && booking.status === "PENDING" && reason === "dates_taken") {
     const baseUrl = BASE_URL;
     await sendBookingUnavailableRefundedEmail(
       {
@@ -127,14 +127,8 @@ async function refundIfNotConfirmable(
       paidCents,
     );
   }
-  return true;
 }
 
-/**
- * Confirms a booking once its Checkout Session is paid - shared by
- * checkout.session.completed (card payments) and
- * checkout.session.async_payment_succeeded (delayed payment methods).
- */
 /**
  * Whether Stripe took exactly what FYStay's own server-side total says this
  * booking costs. Checkout Sessions are only ever built from that total, so
@@ -147,45 +141,83 @@ function paidAmountMatches(
   return session.amount_total === totalPriceCents && session.currency?.toLowerCase() === "gbp";
 }
 
+/**
+ * Confirms a booking once its Checkout Session is paid - shared by
+ * checkout.session.completed (card payments) and
+ * checkout.session.async_payment_succeeded (delayed payment methods).
+ */
 async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Checkout.Session): Promise<void> {
-  const expected = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    select: { status: true, totalPriceCents: true },
-  });
-  if (expected?.status === "PENDING" && !paidAmountMatches(checkoutSession, expected.totalPriceCents)) {
-    console.error("Checkout payment doesn't match the booking total - refunding instead of confirming", {
-      bookingId,
-      expectedCents: expected.totalPriceCents,
-      paidCents: checkoutSession.amount_total,
-      currency: checkoutSession.currency,
+  const located = await prisma.booking.findUnique({ where: { id: bookingId }, select: { listingId: true } });
+  if (!located) return;
+
+  // The availability re-check and the PENDING -> CONFIRMED write happen in
+  // one transaction under the listing's availability lock (see
+  // availabilityLock.ts), so no other booking, approval or block can take
+  // these dates between the check passing and the booking confirming.
+  const outcome = await withListingAvailabilityLock(prisma, located.listingId, async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        status: true,
+        totalPriceCents: true,
+        listingId: true,
+        roomTypeId: true,
+        roomsBooked: true,
+        checkIn: true,
+        checkOut: true,
+      },
     });
-    await refundIfNotConfirmable(bookingId, checkoutSession, { amountMismatch: true });
+    // Stripe's own docs are explicit that a webhook endpoint must tolerate
+    // the same event arriving more than once (a retry after a slow 200, or
+    // just an occasional genuine duplicate). An already-confirmed booking
+    // makes a redelivery a pure no-op instead of re-sending the guest and
+    // host their confirmation email a second (or third) time.
+    if (!booking || booking.status === "CONFIRMED" || booking.status === "COMPLETED") return { kind: "noop" as const };
+    // A CANCELLED booking is never brought back: its payment is refunded.
+    if (booking.status === "CANCELLED") return { kind: "refund" as const, reason: "booking_cancelled" as const };
+    if (!paidAmountMatches(checkoutSession, booking.totalPriceCents)) {
+      console.error("Checkout payment doesn't match the booking total - refunding instead of confirming", {
+        bookingId,
+        expectedCents: booking.totalPriceCents,
+        paidCents: checkoutSession.amount_total,
+        currency: checkoutSession.currency,
+      });
+      return { kind: "refund" as const, reason: "amount_mismatch" as const };
+    }
+    const stillAvailable = await isRequestedRangeStillAvailable(tx, {
+      listingId: booking.listingId,
+      roomTypeId: booking.roomTypeId,
+      roomsBooked: booking.roomsBooked,
+      excludeBookingId: booking.id,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+    });
+    if (!stillAvailable) return { kind: "refund" as const, reason: "dates_taken" as const };
+
+    const { count } = await tx.booking.updateMany({
+      where: { id: bookingId, status: "PENDING" },
+      data: {
+        status: "CONFIRMED",
+        paymentStatus: "PAID",
+        paidAt: new Date(),
+        stripePaymentIntentId:
+          typeof checkoutSession.payment_intent === "string"
+            ? checkoutSession.payment_intent
+            : undefined,
+      },
+    });
+    return count > 0 ? { kind: "confirmed" as const } : { kind: "noop" as const };
+  });
+
+  // The refund itself is a Stripe call, so it runs after the lock is
+  // released; nothing it does makes dates unavailable.
+  if (outcome.kind === "refund") {
+    await refundUnconfirmablePayment(bookingId, checkoutSession, outcome.reason);
     return;
   }
-  if (await refundIfNotConfirmable(bookingId, checkoutSession)) return;
 
-  // Stripe's own docs are explicit that a webhook endpoint must tolerate
-  // the same event arriving more than once (a retry after a slow 200, or
-  // just an occasional genuine duplicate). Scoping the update to bookings
-  // not already CONFIRMED makes a redelivery a pure no-op instead of
-  // re-sending the guest and host their confirmation email a second (or
-  // third) time for a booking that was already confirmed the first time.
-  // Only a PENDING booking is confirmed. A CANCELLED one is never brought
-  // back: refundIfNotConfirmable above has already refunded its payment.
-  const { count } = await prisma.booking.updateMany({
-    where: { id: bookingId, status: "PENDING" },
-    data: {
-      status: "CONFIRMED",
-      paymentStatus: "PAID",
-      paidAt: new Date(),
-      stripePaymentIntentId:
-        typeof checkoutSession.payment_intent === "string"
-          ? checkoutSession.payment_intent
-          : undefined,
-    },
-  });
-
-  if (count > 0) {
+  if (outcome.kind === "confirmed") {
     const booking = await prisma.booking.findUniqueOrThrow({
       where: { id: bookingId },
       include: { listing: { include: { host: true } } },
@@ -215,6 +247,90 @@ async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Che
     // "not_mapped" immediately.
     await pushBookingReservation(prisma, bookingId);
   }
+}
+
+/**
+ * A paid date change: applied by applyApprovedChange, which refunds the
+ * payment instead if Stripe took anything other than the change's price
+ * difference, the booking is no longer CONFIRMED, or the dates were taken.
+ */
+async function applyChangePayment(changeRequestId: string, checkoutSession: Stripe.Checkout.Session): Promise<void> {
+  await applyApprovedChange(changeRequestId, paymentIntentIdOf(checkoutSession.payment_intent), {
+    amountCents: checkoutSession.amount_total,
+    currency: checkoutSession.currency,
+  });
+}
+
+/**
+ * A Trip Extra's payment completing (see docs/trip-extras-roadmap.md). It's
+ * only recorded as PAID - and handed to the provider - when the extra is
+ * still awaiting payment, Stripe took exactly its price, and the stay it's
+ * for is still CONFIRMED, all checked by the write itself so a cancellation
+ * landing at the same moment can't slip in between. Any other payment (the
+ * booking was cancelled with the payment page open, the amount is wrong, or
+ * a second session for an extra that's already paid) is refunded in full.
+ * A redelivered event for a payment already recorded or refunded is a no-op.
+ */
+async function settlePaidTripExtra(
+  stripe: Stripe,
+  bookingExtraId: string,
+  checkoutSession: Stripe.Checkout.Session,
+): Promise<void> {
+  const paymentIntentId = paymentIntentIdOf(checkoutSession.payment_intent);
+  const extra = await prisma.bookingExtra.findUnique({
+    where: { id: bookingExtraId },
+    select: { priceCents: true },
+  });
+  if (!extra) return;
+
+  if (paidAmountMatches(checkoutSession, extra.priceCents)) {
+    const { count } = await prisma.bookingExtra.updateMany({
+      where: {
+        id: bookingExtraId,
+        status: "PENDING_PAYMENT",
+        priceCents: extra.priceCents,
+        booking: { status: "CONFIRMED" },
+      },
+      data: { status: "PAID", paidAt: new Date(), stripePaymentIntentId: paymentIntentId ?? undefined },
+    });
+    if (count > 0) {
+      await notifyTripExtraPaid(bookingExtraId);
+      return;
+    }
+  }
+
+  const current = await prisma.bookingExtra.findUnique({
+    where: { id: bookingExtraId },
+    select: { status: true, stripePaymentIntentId: true },
+  });
+  if (!current || !paymentIntentId) return;
+  if (
+    current.stripePaymentIntentId === paymentIntentId &&
+    (current.status === "PAID" || current.status === "REFUNDED")
+  ) {
+    return;
+  }
+
+  const paidCents = checkoutSession.amount_total ?? extra.priceCents;
+  // Trip Extras are plain charges to FYStay (no host transfer to reverse).
+  await refundAcrossPayments(
+    stripe,
+    [{ paymentIntentId, viaConnect: false }],
+    paidCents,
+    `trip-extra-refund:${bookingExtraId}`,
+  );
+  // An extra already PAID through a different payment keeps that record;
+  // this second payment was simply returned.
+  await prisma.bookingExtra.updateMany({
+    where: { id: bookingExtraId, status: { in: ["PENDING_PAYMENT", "CANCELLED"] } },
+    data: { status: "REFUNDED", stripePaymentIntentId: paymentIntentId },
+  });
+  console.warn("Trip extra payment refunded instead of recorded", {
+    bookingExtraId,
+    paymentIntentId,
+    paidCents,
+    expectedCents: extra.priceCents,
+  });
 }
 
 /**
@@ -437,20 +553,7 @@ async function postHandler(request: Request) {
       // provider/guest emails for an extra that's already been marked paid.
       const bookingExtraId = checkoutSession.metadata?.bookingExtraId;
       if (bookingExtraId && isCheckoutSessionPaid(checkoutSession)) {
-        const { count } = await prisma.bookingExtra.updateMany({
-          where: { id: bookingExtraId, status: "PENDING_PAYMENT" },
-          data: {
-            status: "PAID",
-            paidAt: new Date(),
-            stripePaymentIntentId:
-              typeof checkoutSession.payment_intent === "string"
-                ? checkoutSession.payment_intent
-                : undefined,
-          },
-        });
-        if (count > 0) {
-          await notifyTripExtraPaid(bookingExtraId);
-        }
+        await settlePaidTripExtra(stripe, bookingExtraId, checkoutSession);
       }
     } else if (checkoutSession.metadata?.purpose === "listing_promotion") {
       // A host's Spotlight purchase (see src/lib/listingPromotions.ts).
@@ -504,10 +607,7 @@ async function postHandler(request: Request) {
         await confirmPaidBooking(bookingId, checkoutSession);
       }
     } else if (changeRequestId && isCheckoutSessionPaid(checkoutSession)) {
-      await applyApprovedChange(
-        changeRequestId,
-        typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null,
-      );
+      await applyChangePayment(changeRequestId, checkoutSession);
     }
   } else if (event.type === "checkout.session.async_payment_succeeded") {
     // A delayed payment method (bank debit etc.) that left its session
@@ -523,10 +623,7 @@ async function postHandler(request: Request) {
     } else if (purpose === "listing_promotion" && isCheckoutSessionPaid(checkoutSession)) {
       await activateListingPromotion(checkoutSession);
     } else if (changeRequestId && isCheckoutSessionPaid(checkoutSession)) {
-      await applyApprovedChange(
-        changeRequestId,
-        typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null,
-      );
+      await applyChangePayment(changeRequestId, checkoutSession);
     }
   } else if (event.type === "checkout.session.async_payment_failed") {
     // The delayed payment never arrived. Nothing was confirmed on the
