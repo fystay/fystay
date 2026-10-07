@@ -206,7 +206,7 @@ export default async function HostBookingsPage({
               <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-500">{group.month}</h2>
               <ul className="mt-2 grid gap-2 md:grid-cols-2">
                 {group.items.map(({ booking: b, listing, state }) => (
-                  <li key={b.id}>
+                  <li key={b.id} className="min-w-0">
                     <Link
                       href={`/host/bookings/${b.id}`}
                       className="focus-ring group flex items-center gap-3 rounded-2xl border border-border-subtle bg-surface p-3 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"

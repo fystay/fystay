@@ -110,17 +110,20 @@ export function EarningsBars({
         ))}
       </div>
       <figcaption className="sr-only">{caption}</figcaption>
-      <table className="sr-only">
-        <caption>{caption}</caption>
-        <tbody>
-          {bars.map((bar) => (
-            <tr key={bar.label}>
-              <th scope="row">{bar.label}</th>
-              <td>{money(bar.cents)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* In a wrapper: a table ignores sr-only's 1px width and would widen the page on a phone. */}
+      <div className="sr-only">
+        <table>
+          <caption>{caption}</caption>
+          <tbody>
+            {bars.map((bar) => (
+              <tr key={bar.label}>
+                <th scope="row">{bar.label}</th>
+                <td>{money(bar.cents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }
