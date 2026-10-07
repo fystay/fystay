@@ -280,13 +280,14 @@ test.describe("booking modification and cancellation", () => {
       expect(cancelRes.ok()).toBe(true);
 
       await login(hostPage, "host@fystay.dev", "hostpass123");
-      await hostPage.goto("/host/dashboard");
-
-      const listingRow = hostPage.locator(".p-4", { hasText: listing.title });
-      await expect(listingRow.getByText("Cancelled", { exact: true })).toBeVisible();
-      await expect(listingRow.getByText("Fully refunded")).toBeVisible();
-      await expect(listingRow.getByText("£220 refunded to the guest")).toBeVisible();
-      await expect(listingRow.getByText("you keep £0")).toBeVisible();
+      // Listed under Cancelled, and its own page shows the refund.
+      await hostPage.goto("/host/bookings?tab=cancelled");
+      await expect(hostPage.getByRole("link", { name: new RegExp(listing.title) }).first()).toBeVisible();
+      await hostPage.goto(`/host/bookings/${cancelledBooking.id}`);
+      await expect(hostPage.getByText("Cancelled", { exact: true })).toBeVisible();
+      const earnings = hostPage.locator("section", { hasText: "Your earnings" });
+      await expect(earnings.getByText("£0", { exact: true }).first()).toBeVisible();
+      await expect(earnings.locator("div", { hasText: /^Refunded to guest£220$/ })).toBeVisible();
     } finally {
       // DB cleanup first and unguarded: it's what actually matters for
       // later tests/retries. hostContext.close() is best-effort after -

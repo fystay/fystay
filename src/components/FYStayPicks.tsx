@@ -57,7 +57,14 @@ export function FYStayPicks({
       </p>
 
       <div className="relative mt-5 h-[23rem] w-full">
-        <div className="absolute inset-0 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* Focusable and labelled: the cards hold no links, so without this a
+            keyboard user could never scroll the row to see past the first few. */}
+        <div
+          role="region"
+          aria-label="FYStay Picks"
+          tabIndex={0}
+          className="focus-ring absolute inset-0 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth rounded-2xl pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {sorted.map((rec) => (
             <article
               key={rec.id}

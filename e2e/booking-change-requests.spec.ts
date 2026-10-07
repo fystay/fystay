@@ -118,11 +118,15 @@ test("guest can request a date change, host approves, and guest pays the differe
 
     // Host reviews and approves the request.
     await login(hostPage, "host@fystay.dev", "hostpass123");
-    await hostPage.goto("/host/dashboard");
-    await expect(hostPage.getByText("Guest requested a change")).toBeVisible();
-    await expect(hostPage.getByText(/Guest will owe an extra/)).toBeVisible();
-    // The banner disappears optimistically as soon as you click, before the
-    // server confirms, so wait for the actual response too.
+    // It's waiting under Bookings → Needs action, on the booking's own page.
+    await hostPage.goto("/host/bookings?tab=action");
+    await hostPage
+      .getByRole("link", { name: /E2E fixture: booking change request listing/ })
+      .first()
+      .click();
+    await hostPage.waitForURL(/\/host\/bookings\/.+/);
+    await expect(hostPage.getByText("Date change requested")).toBeVisible();
+    await expect(hostPage.getByText(/The guest pays £\d+ more/)).toBeVisible();
     const [respondResponse] = await Promise.all([
       hostPage.waitForResponse(
         (r) => r.url().includes("/respond") && r.request().method() === "POST",
@@ -130,7 +134,7 @@ test("guest can request a date change, host approves, and guest pays the differe
       hostPage.getByRole("button", { name: "Approve" }).click(),
     ]);
     expect(respondResponse.status()).toBe(200);
-    await expect(hostPage.getByText("Guest requested a change")).toHaveCount(0);
+    await expect(hostPage.getByText("Date change requested")).toHaveCount(0);
 
     // Guest pays the difference (dev mode: no Stripe keys, so it confirms immediately).
     await page.reload();

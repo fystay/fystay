@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import type { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { computeBookingPricing } from "@/lib/pricing";
@@ -850,10 +851,25 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
     reviewsCreated++;
   }
 
+  // The demo host's year of guests books under its own account, so the demo
+  // guest's "My trips" (guest@fystay.dev, used to try the guest side) only
+  // shows that guest's own stays.
+  const demoTravellers = await prisma.user.upsert({
+    where: { email: "travellers@fystay.dev" },
+    update: {},
+    create: {
+      name: "Demo travellers",
+      email: "travellers@fystay.dev",
+      // Not a login: a random hash nobody knows the password for.
+      passwordHash: await bcrypt.hash(randomUUID(), 10),
+      role: "GUEST",
+      referralCode: generateReferralCode(),
+    },
+  });
   const demoBookingsCreated = await seedDemoHostActivity(prisma, {
     hostId: host.id,
-    guestId: guest.id,
-    guestEmail: guest.email,
+    guestId: demoTravellers.id,
+    guestEmail: demoTravellers.email,
     reservedTitles: new Set<string>([...REVIEW_SEEDS.map((r) => r.title), DEMO_HOTEL_LISTING.title]),
   });
 
