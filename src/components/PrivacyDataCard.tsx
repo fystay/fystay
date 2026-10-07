@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/Input";
 
 const BLOCK_MESSAGES: Record<string, string> = {
   upcoming_bookings_as_guest: "You have an upcoming or in-progress booking - cancel it first.",
-  listings_still_exist: "You still have listings - delete them first.",
+  listings_still_exist:
+    "You still have listings - delete them first. A listing that has had bookings can't be deleted; contact support to close a hosting account.",
   stripe_connect_active: "Your Stripe payouts account is still active - contact us to close it before deleting your account.",
 };
 

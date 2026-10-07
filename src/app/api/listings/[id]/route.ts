@@ -240,6 +240,29 @@ async function deleteHandler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Deleting a listing deletes its bookings with it (Booking.listing is
+  // onDelete: Cascade) - every stay's record, payment and review. So only a
+  // listing no guest has ever paid for, and with nothing in flight, can be
+  // deleted; anything else is unpublished instead, which hides it from
+  // guests and keeps the history. A booking that never got past an
+  // abandoned checkout or a declined request doesn't count.
+  const bookingsToKeep = await prisma.booking.count({
+    where: {
+      listingId: id,
+      OR: [{ paidAt: { not: null } }, { status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] } }],
+    },
+  });
+  if (bookingsToKeep > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "This listing has bookings, so it can't be deleted - their records have to be kept. Unpublish it instead to hide it from guests.",
+        code: "listing_has_bookings",
+      },
+      { status: 409 },
+    );
+  }
+
   await prisma.listing.delete({ where: { id } });
 
   return NextResponse.json({ ok: true });

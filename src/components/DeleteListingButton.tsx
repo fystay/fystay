@@ -35,7 +35,8 @@ export function DeleteListingButton({
       router.refresh();
     } else {
       onDeleteFailed?.();
-      toast.error("Could not delete listing.");
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(body?.error ?? "Could not delete listing.");
     }
   }
 
@@ -55,7 +56,7 @@ export function DeleteListingButton({
         onConfirm={handleDelete}
         danger
         title="Delete listing"
-        description={`Delete "${listingTitle}"? This cannot be undone, and any bookings tied to it will remain in your history.`}
+        description={`Delete "${listingTitle}"? This cannot be undone. Listings that have had bookings can't be deleted - unpublish them instead.`}
         confirmLabel="Delete"
       />
     </>
