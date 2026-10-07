@@ -45,7 +45,12 @@ export function ChangeRequestStatus({
 
     const res = await fetch(`/api/bookings/${bookingId}/change-requests/${requestId}`, {
       method: "DELETE",
-    });
+    }).catch(() => null);
+    if (!res) {
+      onWithdrawFailed?.();
+      toast.error("Couldn't reach FYStay - check your connection and try again.");
+      return;
+    }
     if (res.ok) {
       toast.success("Request withdrawn");
       router.refresh();
@@ -60,8 +65,13 @@ export function ChangeRequestStatus({
     setLoading(true);
     const res = await fetch(`/api/bookings/${bookingId}/change-requests/${requestId}/pay`, {
       method: "POST",
-    });
-    const data = await res.json();
+    }).catch(() => null);
+    if (!res) {
+      setLoading(false);
+      toast.error("Couldn't reach FYStay - check your connection and try again.");
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
     setLoading(false);
     if (!res.ok) {
       toast.error(data.error ?? "Could not start payment.");
@@ -114,9 +124,11 @@ export function ChangeRequestStatus({
     return (
       <div className="mt-3 flex flex-col gap-1.5 rounded-lg bg-surface-muted p-3 text-sm">
         <div className="flex items-center gap-2">
-          <Badge variant="neutral">Change declined</Badge>
+          <Badge variant="neutral">Change not made</Badge>
         </div>
-        <p className="text-stone-600">The host declined this change request.</p>
+        {/* Declined by the host, withdrawn by the guest, or closed because the
+            dates were taken - the outcome for the guest is the same. */}
+        <p className="text-stone-600">This change didn&apos;t go ahead - your booking keeps its original dates.</p>
       </div>
     );
   }
@@ -133,9 +145,19 @@ export function ChangeRequestStatus({
         <p className="text-stone-600">
           Pay {formatPrice(priceDeltaCents)} to confirm these new dates.
         </p>
-        <Button size="sm" onClick={pay} loading={loading} className="self-start">
-          Pay {formatPrice(priceDeltaCents)}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" onClick={pay} loading={loading}>
+            Pay {formatPrice(priceDeltaCents)}
+          </Button>
+          {/* Not paying is a choice too - and only one change can be open at a time. */}
+          <button
+            onClick={withdraw}
+            disabled={loading}
+            className="focus-ring rounded-lg text-sm font-medium text-stone-600 underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            Keep my original dates
+          </button>
+        </div>
       </div>
     );
   }
