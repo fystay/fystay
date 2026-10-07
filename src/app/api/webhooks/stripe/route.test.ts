@@ -265,6 +265,44 @@ describe("checkout.session.completed", () => {
     // Never PENDING when the payment landed, so nothing was reserved to give back.
     expect(mocks.giveBack).not.toHaveBeenCalled();
   });
+
+  it("ignores a redelivered payment for a booking that was paid, confirmed and later cancelled", async () => {
+    // Cancelled under a 50% policy: half was already refunded by the
+    // cancellation, and the redelivery must not refund the rest.
+    Object.assign(state.booking!, {
+      status: "CANCELLED",
+      paymentStatus: "PARTIALLY_REFUNDED",
+      paidAt: new Date("2026-10-01"),
+      stripePaymentIntentId: "pi_1",
+      refundedAmountCents: 25_000,
+    });
+    await POST(signedRequest(event("checkout.session.completed", paidSession())));
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+    expect(state.booking).toMatchObject({ paymentStatus: "PARTIALLY_REFUNDED", refundedAmountCents: 25_000 });
+
+    // ...and the same under a 0% policy, where nothing was refunded.
+    Object.assign(state.booking!, { paymentStatus: "PAID", refundedAmountCents: 0 });
+    await POST(signedRequest(event("checkout.session.completed", paidSession())));
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+    expect(state.booking!.paymentStatus).toBe("PAID");
+  });
+
+  it("refunds a different, second payment on a paid-then-cancelled booking without overwriting its record", async () => {
+    Object.assign(state.booking!, {
+      status: "CANCELLED",
+      paymentStatus: "PAID",
+      paidAt: new Date("2026-10-01"),
+      stripePaymentIntentId: "pi_first",
+    });
+    await POST(signedRequest(event("checkout.session.completed", paidSession({ payment_intent: "pi_2" }))));
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledWith(
+      expect.anything(),
+      [{ paymentIntentId: "pi_2", viaConnect: true }],
+      50_000,
+      "unconfirmable-payment:bk_1:pi_2",
+    );
+    expect(state.booking).toMatchObject({ paymentStatus: "PAID", stripePaymentIntentId: "pi_first" });
+  });
 });
 
 describe("date-change payments", () => {
@@ -274,7 +312,11 @@ describe("date-change payments", () => {
         event("checkout.session.completed", paidSession({ amount_total: 7_000, metadata: { changeRequestId: "cr_1" } })),
       ),
     );
-    expect(mocks.applyApprovedChange).toHaveBeenCalledWith("cr_1", "pi_1", { amountCents: 7_000, currency: "gbp" });
+    expect(mocks.applyApprovedChange).toHaveBeenCalledWith("cr_1", "pi_1", {
+      amountCents: 7_000,
+      currency: "gbp",
+      sessionId: "cs_1",
+    });
   });
 });
 

@@ -153,7 +153,8 @@ export async function cancelBookingAndRefund(
     },
   });
 
-  await settleDepositOnCancellation(prisma, booking);
+  await settleDepositOnCancellation(prisma, booking.id);
+  await settleTripExtrasOnCancellation(prisma, booking);
 
   // Only when the booking was already CONFIRMED - a still-PENDING one was
   // never paid for or announced to the host in the first place (no
@@ -198,9 +199,17 @@ export async function cancelBookingAndRefund(
  * Best-effort - the cancellation itself has already happened; a hold
  * Stripe won't release here still auto-releases at its claim deadline.
  */
-async function settleDepositOnCancellation(prisma: PrismaClient, booking: Booking) {
+async function settleDepositOnCancellation(prisma: PrismaClient, bookingId: string) {
   const stripe = getStripeClient();
   try {
+    // Read now, after the cancellation is recorded - not from the snapshot
+    // the caller loaded before it - so a hold the guest authorized in the
+    // meantime is the one released here rather than left on their card.
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, depositStatus: true, stripeDepositPaymentIntentId: true, stripeDepositSessionId: true },
+    });
+    if (!booking) return;
     if (booking.depositStatus === "AUTHORIZED" && booking.stripeDepositPaymentIntentId && stripe) {
       await releaseDeposit(stripe, prisma, booking.id, booking.stripeDepositPaymentIntentId);
     } else if (booking.depositStatus === "AWAITING_AUTHORIZATION") {
@@ -216,6 +225,120 @@ async function settleDepositOnCancellation(prisma: PrismaClient, booking: Bookin
     }
   } catch (error) {
     if (error instanceof DepositAlreadyResolvedError) return;
-    console.error(`couldn't settle the deposit for cancelled booking ${booking.id}:`, error);
+    console.error(`couldn't settle the deposit for cancelled booking ${bookingId}:`, error);
+  }
+}
+
+/**
+ * Trip Extras are separate payments to FYStay for a stay that's no longer
+ * happening, so the cancellation deals with each one:
+ * - awaiting payment: its payment page is closed and it's cancelled (a
+ *   payment that completes anyway is refunded by the webhook, which only
+ *   records extras on a CONFIRMED booking);
+ * - paid, but not yet with the provider: refunded in full and marked
+ *   REFUNDED. fulfillBookingExtra won't hand an extra over once the booking
+ *   is cancelled, so nothing can send it between this read and the refund;
+ * - paid and already with the provider (or mid-handoff): not refunded
+ *   automatically - the provider may already have committed a driver or
+ *   charged FYStay - so a person is asked to sort it out with them.
+ * Best-effort per extra, like the deposit above: the cancellation itself has
+ * already happened, and any extra that can't be settled here alerts ops.
+ */
+async function settleTripExtrasOnCancellation(prisma: PrismaClient, booking: Pick<Booking, "id" | "reference">) {
+  const extras = await prisma.bookingExtra.findMany({
+    where: { bookingId: booking.id, status: { in: ["PENDING_PAYMENT", "PAID"] } },
+    select: {
+      id: true,
+      status: true,
+      priceCents: true,
+      stripeSessionId: true,
+      stripePaymentIntentId: true,
+      fulfillmentStatus: true,
+      sentToProviderAt: true,
+    },
+  });
+  if (extras.length === 0) return;
+  const stripe = getStripeClient();
+
+  const alertOps = async (extra: (typeof extras)[number], summary: string, action: string) => {
+    try {
+      await sendPaymentOpsAlertEmail({
+        subject: "A cancelled booking's trip extra needs a refund decision",
+        summary,
+        amountCents: extra.priceCents,
+        bookingReference: booking.reference,
+        action,
+        stripeUrl: extra.stripePaymentIntentId
+          ? `https://dashboard.stripe.com/payments/${extra.stripePaymentIntentId}`
+          : "https://dashboard.stripe.com/payments",
+      });
+    } catch (alertError) {
+      console.error(`couldn't send the trip extra alert for cancelled booking ${booking.id}:`, alertError);
+    }
+  };
+
+  for (const extra of extras) {
+    try {
+      if (extra.status === "PENDING_PAYMENT") {
+        if (stripe && extra.stripeSessionId) {
+          await stripe.checkout.sessions.expire(extra.stripeSessionId).catch(() => {
+            // Already completed or expired - the webhook refunds a payment that completed.
+          });
+        }
+        await prisma.bookingExtra.updateMany({
+          where: { id: extra.id, status: "PENDING_PAYMENT" },
+          data: { status: "CANCELLED" },
+        });
+        continue;
+      }
+
+      const notYetWithProvider =
+        !extra.sentToProviderAt && (extra.fulfillmentStatus === "PENDING" || extra.fulfillmentStatus === "FAILED");
+      if (!notYetWithProvider) {
+        await alertOps(
+          extra,
+          `Booking cancelled, but one of its paid trip extras was already handed to the provider (${extra.fulfillmentStatus}), so it wasn't refunded automatically.`,
+          "Ask the provider to cancel the job, then refund the guest from the extra's payment in the Stripe Dashboard if they agree (or explain to the guest why not).",
+        );
+        continue;
+      }
+
+      if (!stripe && !extra.stripePaymentIntentId) {
+        // Paid through the dev-mode fallback: nothing was ever charged.
+        await prisma.bookingExtra.updateMany({
+          where: { id: extra.id, status: "PAID", fulfillmentStatus: { in: ["PENDING", "FAILED"] } },
+          data: { status: "CANCELLED" },
+        });
+        continue;
+      }
+      if (!stripe || !extra.stripePaymentIntentId) {
+        await alertOps(
+          extra,
+          "Booking cancelled, but one of its paid trip extras couldn't be refunded automatically (no payment on record to refund).",
+          "Find the extra's payment in the Stripe Dashboard and refund it to the guest.",
+        );
+        continue;
+      }
+
+      // Trip Extras are plain charges to FYStay (no host transfer to
+      // reverse). Keyed per extra, so a retried cancellation refunds once.
+      await refundAcrossPayments(
+        stripe,
+        [{ paymentIntentId: extra.stripePaymentIntentId, viaConnect: false }],
+        extra.priceCents,
+        `trip-extra-cancel:${extra.id}`,
+      );
+      await prisma.bookingExtra.updateMany({
+        where: { id: extra.id, status: "PAID", fulfillmentStatus: { in: ["PENDING", "FAILED"] } },
+        data: { status: "REFUNDED" },
+      });
+    } catch (error) {
+      console.error(`couldn't settle trip extra ${extra.id} for cancelled booking ${booking.id}:`, error);
+      await alertOps(
+        extra,
+        "Booking cancelled, but refunding one of its paid trip extras failed.",
+        "Refund the extra's payment to the guest from the Stripe Dashboard, then mark it refunded.",
+      );
+    }
   }
 }

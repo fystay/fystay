@@ -102,6 +102,31 @@ describe("summarizePeriod", () => {
     expect(s.guestPaidCents - s.fystayFeeCents - s.refundedCents).toBe(s.earnedCents);
   });
 
+  it("counts only cancellations of stays the host had, not payments refunded because they couldn't confirm", () => {
+    const paidAt = new Date("2026-09-01T10:00:00Z");
+    // The webhook refunded this payment on arrival (dates already taken):
+    // paidAt and refundedAt are written together.
+    const neverConfirmed = stay("2026-10-20", 3, {
+      status: "CANCELLED",
+      paymentStatus: "REFUNDED",
+      refundedAmountCents: 35_000,
+      paidAt,
+      refundedAt: new Date(paidAt.getTime() + 5),
+    });
+    // Confirmed, then cancelled a week later under a full-refund policy.
+    const cancelledLater = stay("2026-10-24", 3, {
+      status: "CANCELLED",
+      paymentStatus: "REFUNDED",
+      refundedAmountCents: 35_000,
+      paidAt,
+      refundedAt: new Date("2026-09-08T10:00:00Z"),
+    });
+    expect(summarizePeriod([stay("2026-10-02", 3), neverConfirmed], start, end, today).cancellationRate).toBe(0);
+    expect(
+      summarizePeriod([stay("2026-10-02", 3), neverConfirmed, cancelledLater], start, end, today).cancellationRate,
+    ).toBe(50);
+  });
+
   it("ignores unpaid reservations and other months", () => {
     const s = summarizePeriod(
       [stay("2026-10-05", 2, { paidAt: null, paymentStatus: "UNPAID", status: "PENDING" }), stay("2026-11-01", 2)],

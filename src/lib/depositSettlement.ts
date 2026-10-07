@@ -80,8 +80,9 @@ export async function captureDepositClaim(
  * damage money and absorbs Stripe's processing fee, as on bookings.
  *
  * Safe to call repeatedly (the cron retries any captured claim not yet
- * transferred): the Stripe idempotency key is fixed per booking, and
- * source_transaction ties the transfer to the guest's actual charge, so
+ * transferred): an existing deposit-claim transfer for the booking is
+ * found and recorded rather than repeated, the Stripe idempotency key is
+ * fixed per booking, and source_transaction ties the transfer to the guest's actual charge, so
  * the money moves once and only after the charge's funds exist.
  *
  * Returns true once the transfer is recorded. Never throws - a failure is
@@ -122,6 +123,24 @@ export async function transferDepositToHost(
     const chargeId =
       typeof paymentIntent.latest_charge === "string" ? paymentIntent.latest_charge : paymentIntent.latest_charge?.id;
     if (!chargeId) throw new Error("captured deposit has no charge");
+
+    // Stripe forgets an idempotency key after about 24 hours, and the cron
+    // retries daily - so a transfer that went through but whose id never
+    // got recorded here (a crash, a failed write) would be made a second
+    // time by the next run. Stripe's own record of the booking's transfers
+    // is checked first, and an existing deposit-claim transfer is recorded
+    // instead of making another.
+    const existing = await stripe.transfers.list({ transfer_group: `booking_${booking.id}`, limit: 100 });
+    const alreadyMade = existing.data.find(
+      (transfer) => transfer.metadata?.purpose === "deposit_claim" && transfer.metadata?.bookingId === booking.id,
+    );
+    if (alreadyMade) {
+      await db.booking.update({
+        where: { id: booking.id },
+        data: { depositTransferId: alreadyMade.id, depositTransferredAt: new Date(alreadyMade.created * 1000) },
+      });
+      return true;
+    }
 
     const transfer = await stripe.transfers.create(
       {

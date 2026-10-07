@@ -9,6 +9,7 @@ const { state, mocks } = vi.hoisted(() => ({
     // How many times the conditional credit write should lose a race.
     creditRacesToLose: 0,
     promoRacesToLose: 0,
+    listingOverrides: {} as Record<string, unknown>,
   },
   mocks: { bookingCreate: vi.fn() },
 }));
@@ -99,7 +100,14 @@ vi.mock("@/lib/prisma", () => {
       listing: {
         findUnique: async () => {
           state.log.push("availability-read");
-          return { ...listing(), bookings: state.listingBookings, availabilityBlocks: state.listingBlocks };
+          return {
+            ...listing(),
+            propertyType: "APARTMENT",
+            _count: { roomTypes: 0 },
+            bookings: state.listingBookings,
+            availabilityBlocks: state.listingBlocks,
+            ...state.listingOverrides,
+          };
         },
       },
       roomType: {
@@ -144,6 +152,7 @@ beforeEach(() => {
   state.creditBalanceCents = 0;
   state.creditRacesToLose = 0;
   state.promoRacesToLose = 0;
+  state.listingOverrides = {};
 });
 
 describe("creating a booking", () => {
@@ -160,6 +169,17 @@ describe("creating a booking", () => {
   it("refuses a room type for dates closed by a listing-wide (iCal) block", async () => {
     state.listingBlocks = [{ startDate: new Date("2027-03-02"), endDate: new Date("2027-03-04"), roomTypeId: null }];
     expect((await book({ roomTypeId: "rt_1" })).status).toBe(409);
+    expect(mocks.bookingCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to book a hotel, or any listing with room types, without choosing a room type", async () => {
+    state.listingOverrides = { propertyType: "HOTEL" };
+    const hotel = await book({ listingId: "listing_1" });
+    expect(hotel.status).toBe(400);
+    expect((await hotel.json()).error).toBe("Choose a room type");
+
+    state.listingOverrides = { _count: { roomTypes: 2 } };
+    expect((await book({ listingId: "listing_1" })).status).toBe(400);
     expect(mocks.bookingCreate).not.toHaveBeenCalled();
   });
 

@@ -1,4 +1,4 @@
-import type { ExtraCategory } from "@prisma/client";
+import type { BookingStatus, ExtraCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendTripExtraProviderEmail } from "@/lib/notificationEmails";
 import { BASE_URL } from "@/lib/baseUrl";
@@ -107,7 +107,9 @@ export function isFulfillmentStuck(
 
 export type FulfillOutcome =
   | { kind: "done"; status: "SENT" | "CONFIRMED" | "FAILED" }
-  | { kind: "skipped"; reason: "not_paid" | "not_claimable" };
+  | { kind: "skipped"; reason: "not_paid" | "not_claimable" | "booking_not_active" };
+
+const FULFILLABLE_BOOKING_STATUSES: BookingStatus[] = ["CONFIRMED", "COMPLETED"];
 
 /**
  * Hands one paid BookingExtra to its provider, at most once at a time.
@@ -133,11 +135,19 @@ export async function fulfillBookingExtra(
     },
   });
   if (extra.status !== "PAID") return { kind: "skipped", reason: "not_paid" };
+  // A cancelled stay's extras are refunded (or flagged to ops) by the
+  // cancellation - see settleTripExtrasOnCancellation - never handed to a
+  // provider for a trip that isn't happening. Re-checked in the claim
+  // itself, so a cancellation landing in between still stops it.
+  if (!FULFILLABLE_BOOKING_STATUSES.includes(extra.booking.status)) {
+    return { kind: "skipped", reason: "booking_not_active" };
+  }
 
   const claimed = await prisma.bookingExtra.updateMany({
     where: {
       id: bookingExtraId,
       status: "PAID",
+      booking: { status: { in: FULFILLABLE_BOOKING_STATUSES } },
       OR: retry
         ? [
             { fulfillmentStatus: { in: ["PENDING", "FAILED"] } },

@@ -84,8 +84,12 @@ import { applyApprovedChange, POST } from "./route";
 const pay = () =>
   POST(new Request("http://x", { method: "POST" }), { params: Promise.resolve({ id: "bk_1", requestId: "cr_1" }) });
 
+const stayCheckIn = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+const stayCheckOut = new Date(stayCheckIn.getTime() + 3 * 24 * 60 * 60 * 1000);
+
 beforeEach(() => {
   Object.values(mocks).forEach((m) => m.mockReset());
+  mocks.sessionsExpire.mockResolvedValue({});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   state.available = true;
   state.log = [];
@@ -96,7 +100,8 @@ beforeEach(() => {
     roomTypeId: null,
     roomsBooked: 1,
     status: "CONFIRMED",
-    checkIn: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    checkIn: stayCheckIn,
+    checkOut: stayCheckOut,
     nights: 3,
     totalPriceCents: 33_000,
     serviceFeeCents: 3_000,
@@ -117,6 +122,9 @@ beforeEach(() => {
     requestedGuests: 2,
     stripeSessionId: null,
     hostPaidViaConnect: true,
+    originalCheckIn: stayCheckIn,
+    originalCheckOut: stayCheckOut,
+    originalTotalPriceCents: 33_000,
   };
 });
 
@@ -135,6 +143,27 @@ describe("paying for a date change", () => {
     mocks.sessionsCreate.mockResolvedValue({ id: "cs_new", url: "https://pay/cs_new" });
     expect(await (await pay()).json()).toEqual({ url: "https://pay/cs_new" });
     expect(state.request.stripeSessionId).toBe("cs_new");
+  });
+
+  it("closes the open payment page and declines when the new dates were taken", async () => {
+    state.available = false;
+    state.request.stripeSessionId = "cs_open";
+    expect((await pay()).status).toBe(409);
+    expect(mocks.sessionsExpire).toHaveBeenCalledWith("cs_open");
+    expect(state.request.status).toBe("DECLINED");
+    expect(mocks.sessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("doesn't decline a change whose payment landed while the dates were re-checked", async () => {
+    state.available = false;
+    state.request.stripeSessionId = "cs_paid";
+    // The webhook applied the payment just before the decline is written.
+    mocks.sessionsExpire.mockImplementation(async () => {
+      state.request.paidAt = new Date();
+      throw new Error("session already complete");
+    });
+    expect((await pay()).status).toBe(409);
+    expect(state.request.status).toBe("APPROVED");
   });
 
   it("refuses once the booking has been cancelled", async () => {
@@ -177,6 +206,41 @@ describe("applyApprovedChange", () => {
     await applyApprovedChange("cr_1", "pi_change", { amountCents: 11_000, currency: "gbp" });
     expect(mocks.refundAcrossPayments.mock.calls[0][3]).toBe("change-payment-refund:cr_1");
     expect(state.request.status).toBe("DECLINED");
+  });
+
+  it("refunds instead of stacking a second change on a booking another change already moved", async () => {
+    // Approved against a 3-night £330 stay; another change has since made it 4 nights.
+    Object.assign(state.booking, { checkOut: new Date(stayCheckOut.getTime() + 86_400_000), totalPriceCents: 44_000 });
+    await applyApprovedChange("cr_1", "pi_change", { amountCents: 11_000, currency: "gbp", sessionId: "cs_1" });
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledTimes(1);
+    expect(state.request).toMatchObject({ status: "DECLINED", paidAt: null });
+    expect(state.booking.totalPriceCents).toBe(44_000);
+    expect(state.log).not.toContain("booking-update");
+  });
+
+  it("refunds a payment that lands after the request was declined", async () => {
+    Object.assign(state.request, { status: "DECLINED", stripeSessionId: "cs_1" });
+    await applyApprovedChange("cr_1", "pi_change", { amountCents: 11_000, currency: "gbp", sessionId: "cs_1" });
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledWith(
+      expect.anything(),
+      [{ paymentIntentId: "pi_change", viaConnect: true }],
+      11_000,
+      "change-payment-refund:cr_1",
+    );
+    expect(state.request.status).toBe("DECLINED");
+    expect(state.booking.totalPriceCents).toBe(33_000);
+  });
+
+  it("ignores a redelivery of the payment that applied the change, but refunds a second one", async () => {
+    Object.assign(state.request, { paidAt: new Date(), stripeSessionId: "cs_1" });
+    await applyApprovedChange("cr_1", "pi_change", { amountCents: 11_000, currency: "gbp", sessionId: "cs_1" });
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+
+    await applyApprovedChange("cr_1", "pi_other", { amountCents: 11_000, currency: "gbp", sessionId: "cs_other" });
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledTimes(1);
+    expect(mocks.refundAcrossPayments.mock.calls[0][1]).toEqual([{ paymentIntentId: "pi_other", viaConnect: true }]);
+    expect(state.request.status).toBe("APPROVED");
+    expect(state.log).not.toContain("booking-update");
   });
 
   it("leaves the request approved for Stripe's retry if the refund fails", async () => {

@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { computeBookingPricing, splitBookingChange } from "@/lib/pricing";
 import { nightsBetween } from "@/lib/availability";
 
@@ -151,4 +152,36 @@ export function bookingFieldsAfterChange(
     totalPriceCents: booking.totalPriceCents + change.priceDeltaCents,
     serviceFeeCents: booking.serviceFeeCents + platformShareCents,
   };
+}
+
+/**
+ * A change request still in flight: awaiting the host, or approved with a
+ * difference the guest hasn't paid yet. A booking has at most one of these
+ * at a time - each request's price difference is worked out against the
+ * booking as it stood when the guest asked, so a second one approved or
+ * paid alongside it would stack its difference on top of a stay the first
+ * had already changed.
+ */
+export const OUTSTANDING_CHANGE_REQUEST_WHERE = {
+  OR: [{ status: "PENDING" }, { status: "APPROVED", paidAt: null, priceDeltaCents: { gt: 0 } }],
+} satisfies Prisma.BookingChangeRequestWhereInput;
+
+export const CHANGE_REQUEST_IN_PROGRESS_MESSAGE =
+  "This booking already has a date change in progress - withdraw it or finish paying for it first.";
+
+/**
+ * Whether the booking is still exactly the stay a change request was priced
+ * against (its original* snapshot). Once any other change has moved its
+ * dates or total, this request's difference no longer describes the move
+ * from here to its requested dates, so it must not be applied.
+ */
+export function bookingMatchesChangeSnapshot(
+  booking: { checkIn: Date; checkOut: Date; totalPriceCents: number },
+  change: { originalCheckIn: Date; originalCheckOut: Date; originalTotalPriceCents: number },
+): boolean {
+  return (
+    booking.checkIn.getTime() === change.originalCheckIn.getTime() &&
+    booking.checkOut.getTime() === change.originalCheckOut.getTime() &&
+    booking.totalPriceCents === change.originalTotalPriceCents
+  );
 }

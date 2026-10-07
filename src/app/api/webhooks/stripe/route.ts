@@ -59,14 +59,25 @@ async function refundUnconfirmablePayment(
       ? checkoutSession.payment_intent
       : (checkoutSession.payment_intent?.id ?? null);
 
-  // A redelivery of a payment this function already refunded.
+  // A cancelled booking that already recorded this very payment has been
+  // dealt with: either this function refunded it (a redelivery), or the
+  // booking was paid, confirmed and later cancelled - in which case the
+  // cancellation policy already decided how much of it goes back, and
+  // refunding the whole payment here on a redelivered event would override
+  // a 0%/50% policy. Only a payment the booking never recorded is refunded.
+  const alreadyRecordedPayment =
+    booking.status === "CANCELLED" && (booking.paymentStatus !== "UNPAID" || Boolean(booking.paidAt));
   if (
-    booking.status === "CANCELLED" &&
-    booking.paymentStatus === "REFUNDED" &&
-    booking.stripePaymentIntentId === paymentIntentId
+    alreadyRecordedPayment &&
+    (booking.stripePaymentIntentId === paymentIntentId || !paymentIntentId)
   ) {
     return;
   }
+  // A second, different payment for a booking that already has one on
+  // record (two payment pages open at once, the other one paid first) is
+  // returned without overwriting the booking's own payment record - the
+  // cancellation that ended it accounted for that one.
+  const keepsEarlierPayment = alreadyRecordedPayment && booking.stripePaymentIntentId !== null;
   const paidCents = checkoutSession.amount_total ?? booking.totalPriceCents;
   const stripe = getStripeClient();
   if (stripe && paymentIntentId) {
@@ -75,8 +86,18 @@ async function refundUnconfirmablePayment(
       [{ paymentIntentId, viaConnect: booking.hostPaidViaConnect }],
       paidCents,
       // The same delivery arriving twice at once must not refund twice.
-      `unconfirmable-payment:${booking.id}`,
+      keepsEarlierPayment
+        ? `unconfirmable-payment:${booking.id}:${paymentIntentId}`
+        : `unconfirmable-payment:${booking.id}`,
     );
+  }
+  if (keepsEarlierPayment) {
+    console.warn("Second payment for an already-paid cancelled booking refunded", {
+      bookingId: booking.id,
+      paymentIntentId,
+      reason,
+    });
+    return;
   }
 
   // Ending a still-PENDING booking this way gives back the referral credit
@@ -258,6 +279,7 @@ async function applyChangePayment(changeRequestId: string, checkoutSession: Stri
   await applyApprovedChange(changeRequestId, paymentIntentIdOf(checkoutSession.payment_intent), {
     amountCents: checkoutSession.amount_total,
     currency: checkoutSession.currency,
+    sessionId: checkoutSession.id,
   });
 }
 

@@ -4,7 +4,7 @@ const { refundAcrossPayments, releaseDeposit, opsAlert, stripe } = vi.hoisted(()
   refundAcrossPayments: vi.fn(),
   releaseDeposit: vi.fn(),
   opsAlert: vi.fn(),
-  stripe: { marker: "stripe" },
+  stripe: { marker: "stripe", checkout: { sessions: { expire: vi.fn() } } },
 }));
 
 vi.mock("@/lib/stripe", () => ({ getStripeClient: () => stripe }));
@@ -56,6 +56,10 @@ const booking = {
 } as unknown as CancellableBooking;
 
 let state: { status: string };
+// The booking's deposit fields as the database has them after the
+// cancellation is recorded (which may differ from the caller's snapshot).
+let depositRow: Record<string, unknown>;
+let extras: Record<string, unknown>[];
 const updateMany = vi.fn();
 const update = vi.fn();
 const userUpdate = vi.fn();
@@ -72,6 +76,16 @@ const db = {
       update(args);
       return { ...booking, ...args.data };
     },
+    findUnique: async () => ({ id: "bk_1", ...depositRow }),
+  },
+  bookingExtra: {
+    findMany: async () => extras.map((extra) => ({ ...extra })),
+    updateMany: async ({ where, data }: { where: { id: string; status: string }; data: Record<string, unknown> }) => {
+      const extra = extras.find((e) => e.id === where.id);
+      if (!extra || extra.status !== where.status) return { count: 0 };
+      Object.assign(extra, data);
+      return { count: 1 };
+    },
   },
   user: { update: userUpdate },
   promoCode: { update: promoUpdate },
@@ -84,6 +98,9 @@ const prisma = {
 
 beforeEach(() => {
   state = { status: "CONFIRMED" };
+  depositRow = { depositStatus: "NOT_REQUIRED", stripeDepositPaymentIntentId: null, stripeDepositSessionId: null };
+  extras = [];
+  stripe.checkout.sessions.expire.mockReset().mockResolvedValue({});
   refundAcrossPayments.mockReset();
   releaseDeposit.mockReset();
   opsAlert.mockReset();
@@ -166,7 +183,70 @@ describe("cancelBookingAndRefund", () => {
 
   it("releases a live deposit hold on the guest's card", async () => {
     const withHold = { ...booking, depositStatus: "AUTHORIZED", stripeDepositPaymentIntentId: "pi_hold" } as CancellableBooking;
+    depositRow = { depositStatus: "AUTHORIZED", stripeDepositPaymentIntentId: "pi_hold", stripeDepositSessionId: null };
     await cancelBookingAndRefund(prisma, withHold, { now });
     expect(releaseDeposit).toHaveBeenCalledWith(stripe, prisma, "bk_1", "pi_hold");
+  });
+
+  it("releases a hold the guest authorized after the booking was loaded for cancelling", async () => {
+    // The caller's snapshot still says the hold was only awaited...
+    const snapshot = { ...booking, depositStatus: "AWAITING_AUTHORIZATION", stripeDepositSessionId: "cs_dep" } as CancellableBooking;
+    // ...but the guest completed it in between.
+    depositRow = { depositStatus: "AUTHORIZED", stripeDepositPaymentIntentId: "pi_hold", stripeDepositSessionId: "cs_dep" };
+    await cancelBookingAndRefund(prisma, snapshot, { now });
+    expect(releaseDeposit).toHaveBeenCalledWith(stripe, prisma, "bk_1", "pi_hold");
+  });
+});
+
+describe("trip extras on cancellation", () => {
+  const extra = (overrides: Record<string, unknown>) => ({
+    id: "ex_1",
+    status: "PAID",
+    priceCents: 4_000,
+    stripeSessionId: "cs_extra",
+    stripePaymentIntentId: "pi_extra",
+    fulfillmentStatus: "PENDING",
+    sentToProviderAt: null,
+    ...overrides,
+  });
+
+  it("refunds a paid extra the provider doesn't have yet, keyed per extra, and marks it refunded", async () => {
+    extras = [extra({})];
+    await cancelBookingAndRefund(prisma, booking, { now });
+    expect(refundAcrossPayments).toHaveBeenCalledWith(
+      stripe,
+      [{ paymentIntentId: "pi_extra", viaConnect: false }],
+      4_000,
+      "trip-extra-cancel:ex_1",
+    );
+    expect(extras[0].status).toBe("REFUNDED");
+    expect(opsAlert).not.toHaveBeenCalled();
+  });
+
+  it("alerts ops instead of refunding an extra already sent to the provider", async () => {
+    extras = [extra({ fulfillmentStatus: "SENT", sentToProviderAt: new Date() })];
+    await cancelBookingAndRefund(prisma, booking, { now });
+    expect(refundAcrossPayments).not.toHaveBeenCalledWith(stripe, expect.anything(), 4_000, expect.anything());
+    expect(extras[0].status).toBe("PAID");
+    expect(opsAlert).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 4_000, bookingReference: "FY-TEST" }));
+  });
+
+  it("closes an unpaid extra's payment page and cancels it", async () => {
+    extras = [extra({ status: "PENDING_PAYMENT", stripePaymentIntentId: null })];
+    await cancelBookingAndRefund(prisma, booking, { now });
+    expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith("cs_extra");
+    expect(extras[0].status).toBe("CANCELLED");
+  });
+
+  it("keeps the extra paid and alerts ops when its refund fails, without failing the cancellation", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    extras = [extra({})];
+    refundAcrossPayments.mockImplementation(async (_s: unknown, _p: unknown, _a: unknown, key: string) => {
+      if (key.startsWith("trip-extra-cancel")) throw new Error("stripe down");
+    });
+    const { updated } = await cancelBookingAndRefund(prisma, booking, { now });
+    expect(updated.status).toBe("CANCELLED");
+    expect(extras[0].status).toBe("PAID");
+    expect(opsAlert).toHaveBeenCalledTimes(1);
   });
 });

@@ -31,7 +31,13 @@ const stripe = {
     capture: vi.fn(),
     retrieve: vi.fn(async () => ({ latest_charge: "ch_deposit" })),
   },
-  transfers: { create: vi.fn(async () => ({ id: "tr_1" })) },
+  transfers: {
+    create: vi.fn(async () => ({ id: "tr_1" })),
+    // What Stripe already has in the booking's transfer group.
+    list: vi.fn(async (): Promise<{ data: { id: string; created: number; metadata: Record<string, string> }[] }> => ({
+      data: [],
+    })),
+  },
 };
 const s = stripe as unknown as Stripe;
 
@@ -106,6 +112,21 @@ describe("transferDepositToHost", () => {
     ).toBe(false);
     expect(stripe.transfers.create).not.toHaveBeenCalled();
     expect(opsAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("records a transfer Stripe already made instead of paying the host twice once the idempotency key has expired", async () => {
+    // A run days ago made the transfer but crashed before recording it.
+    stripe.transfers.list.mockResolvedValueOnce({
+      data: [
+        { id: "tr_other", created: 1_790_000_000, metadata: { bookingId: "bk_1", purpose: "something_else" } },
+        { id: "tr_earlier", created: 1_790_000_000, metadata: { bookingId: "bk_1", purpose: "deposit_claim" } },
+      ],
+    });
+    row = { depositStatus: "CAPTURED" };
+    expect(await transferDepositToHost(s, db, { ...booking, depositCapturedCents: 5_000 })).toBe(true);
+    expect(stripe.transfers.list).toHaveBeenCalledWith({ transfer_group: "booking_bk_1", limit: 100 });
+    expect(stripe.transfers.create).not.toHaveBeenCalled();
+    expect(row).toMatchObject({ depositTransferId: "tr_earlier", depositTransferredAt: new Date(1_790_000_000 * 1000) });
   });
 });
 

@@ -24,6 +24,8 @@ export type InsightBooking = RevenueBooking & {
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "REFUNDED";
   approvalStatus: "NONE" | "AWAITING" | "APPROVED" | "DECLINED" | "EXPIRED";
   paidAt: Date | null;
+  /** When money last went back to the guest; tells a refunded cancellation from a payment refunded on arrival. */
+  refundedAt?: Date | null;
   checkIn: Date;
   checkOut: Date;
   nights: number;
@@ -136,12 +138,34 @@ export type PeriodSummary = {
   refundedCents: number;
 };
 
+/**
+ * A stay the host had and then lost to a cancellation - what the
+ * cancellation rate counts. Not every CANCELLED booking with a payment is
+ * one: a payment that could never confirm its booking (the dates were taken
+ * by the time it landed, the amount was wrong, the booking had already
+ * lapsed) is refunded in full by the Stripe webhook in the same write that
+ * records it, so the host never had that stay. Told apart by:
+ * - PAID / PARTIALLY_REFUNDED: the guest kept some money in, which only a
+ *   cancellation of a confirmed stay under its policy does;
+ * - REFUNDED: a cancellation refunds some time after the stay was paid and
+ *   confirmed, whereas the webhook's paidAt and refundedAt are written
+ *   together - so a refund more than a minute after payment counts.
+ */
+const REFUNDED_ON_ARRIVAL_MS = 60 * 1000;
+
+function wasCancelledAfterConfirming(b: InsightBooking): boolean {
+  if (b.status !== "CANCELLED") return false;
+  if (b.paymentStatus === "PAID" || b.paymentStatus === "PARTIALLY_REFUNDED") return true;
+  if (b.paymentStatus !== "REFUNDED" || !b.paidAt || !b.refundedAt) return false;
+  return b.refundedAt.getTime() - b.paidAt.getTime() > REFUNDED_ON_ARRIVAL_MS;
+}
+
 export function summarizePeriod(bookings: InsightBooking[], start: Date, end: Date, today: Date): PeriodSummary {
   const inPeriod = bookings.filter(
     (b) => b.checkIn >= start && b.checkIn < end && (b.paidAt !== null || b.paymentStatus !== "UNPAID" || isLiveStay(b)),
   );
   const live = inPeriod.filter(isLiveStay);
-  const cancelled = inPeriod.filter((b) => b.status === "CANCELLED");
+  const cancelled = inPeriod.filter(wasCancelledAfterConfirming);
 
   let earnedCents = 0;
   let hostedCents = 0;

@@ -5,7 +5,12 @@ import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE
 import { formatPrice } from "@/lib/format";
 import { splitBookingChange } from "@/lib/pricing";
 import type { Prisma } from "@prisma/client";
-import { BOOKING_NOT_CHANGEABLE_MESSAGE, bookingFieldsAfterChange, isBookingStillChangeable } from "@/lib/changeRequests";
+import {
+  BOOKING_NOT_CHANGEABLE_MESSAGE,
+  bookingFieldsAfterChange,
+  bookingMatchesChangeSnapshot,
+  isBookingStillChangeable,
+} from "@/lib/changeRequests";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
@@ -55,10 +60,25 @@ async function postHandler(
   // Approval doesn't hold the new dates, so someone else may have booked
   // them while this guest was deciding to pay. Re-check before taking money.
   if (!(await changedDatesStillAvailable(prisma, changeRequest))) {
-    await prisma.bookingChangeRequest.update({
-      where: { id: requestId },
+    // A payment page opened earlier may still be live: it's closed first, so
+    // it can't be paid for a change that's no longer going ahead. If it was
+    // completed just before (or completes anyway), applyApprovedChange
+    // refunds that payment, since the request is no longer awaiting one.
+    // Declined only while still approved and unpaid - a payment that landed
+    // and applied the change in the meantime must not be overwritten.
+    const stripe = getStripeClient();
+    if (stripe && changeRequest.stripeSessionId) {
+      await stripe.checkout.sessions.expire(changeRequest.stripeSessionId).catch(() => {
+        // Already completed or expired.
+      });
+    }
+    const declined = await prisma.bookingChangeRequest.updateMany({
+      where: { id: requestId, status: "APPROVED", paidAt: null },
       data: { status: "DECLINED" },
     });
+    if (declined.count === 0) {
+      return NextResponse.json({ error: "This change has already been paid for" }, { status: 409 });
+    }
     return NextResponse.json(
       { error: "Sorry, those dates have just been booked by someone else, so this change can't go ahead." },
       { status: 409 },
@@ -186,16 +206,22 @@ async function changedDatesStillAvailable(
  * is the change payment's own and paid is what Stripe actually took (both
  * absent on the dev-mode path, where nothing was charged). The change is
  * applied only if, under the listing's availability lock, the request is
- * still approved and unpaid, the booking is still CONFIRMED, the new dates
- * are still free, and the amount paid is exactly the request's difference.
- * Otherwise the payment is refunded in full and the change declined, rather
- * than applied on top of someone else's booking, to a cancelled stay, or
- * for the wrong money.
+ * still approved and unpaid, the booking is still CONFIRMED and still the
+ * stay the request was priced against, the new dates are still free, and
+ * the amount paid is exactly the request's difference. Otherwise the payment
+ * is refunded in full and the change declined, rather than applied on top
+ * of someone else's booking, to a cancelled stay, on top of another change,
+ * or for the wrong money.
+ *
+ * A payment for a request that isn't waiting to be paid (declined because
+ * its dates were taken or the guest withdrew it, or already paid through a
+ * different session) is refunded too - only a redelivery of the payment
+ * already recorded against it is ignored.
  */
 export async function applyApprovedChange(
   requestId: string,
   paymentIntentId?: string | null,
-  paid?: { amountCents: number | null; currency: string | null },
+  paid?: { amountCents: number | null; currency: string | null; sessionId?: string },
 ) {
   const located = await prisma.bookingChangeRequest.findUnique({
     where: { id: requestId },
@@ -208,10 +234,17 @@ export async function applyApprovedChange(
       where: { id: requestId },
       include: { booking: true },
     });
-    if (!changeRequest || changeRequest.paidAt || changeRequest.status !== "APPROVED") {
-      return { kind: "noop" as const };
-    }
+    if (!changeRequest) return { kind: "noop" as const };
     const refund = (reason: string) => ({ kind: "refund" as const, reason, changeRequest });
+    if (changeRequest.paidAt || changeRequest.status !== "APPROVED") {
+      // Nothing was charged (the dev-mode path), or this is Stripe
+      // redelivering the very payment that applied the change.
+      if (!paymentIntentId) return { kind: "noop" as const };
+      if (changeRequest.paidAt && (!paid?.sessionId || paid.sessionId === changeRequest.stripeSessionId)) {
+        return { kind: "noop" as const };
+      }
+      return refund("not_awaiting_payment");
+    }
     if (
       paid &&
       (paid.amountCents !== changeRequest.priceDeltaCents || paid.currency?.toLowerCase() !== "gbp")
@@ -219,6 +252,7 @@ export async function applyApprovedChange(
       return refund("amount_mismatch");
     }
     if (changeRequest.booking.status !== "CONFIRMED") return refund("booking_not_confirmed");
+    if (!bookingMatchesChangeSnapshot(changeRequest.booking, changeRequest)) return refund("booking_changed");
     if (!(await changedDatesStillAvailable(tx, changeRequest))) return refund("dates_taken");
 
     // Claimed by the write itself, so a duplicate delivery applies it once.

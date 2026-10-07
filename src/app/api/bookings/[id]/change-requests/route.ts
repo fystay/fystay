@@ -11,7 +11,13 @@ import {
   nightsBetween,
   stayLengthError,
 } from "@/lib/availability";
-import { canRequestBookingChange, changePriceDeltaCents } from "@/lib/changeRequests";
+import {
+  canRequestBookingChange,
+  CHANGE_REQUEST_IN_PROGRESS_MESSAGE,
+  changePriceDeltaCents,
+  OUTSTANDING_CHANGE_REQUEST_WHERE,
+} from "@/lib/changeRequests";
+import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { parseStayDate } from "@/lib/stayDates";
 
@@ -64,7 +70,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
           availabilityBlocks: { select: { startDate: true, endDate: true } },
         },
       },
-      changeRequests: { where: { status: "PENDING" } },
+      changeRequests: { where: OUTSTANDING_CHANGE_REQUEST_WHERE, select: { id: true } },
     },
   });
 
@@ -74,7 +80,10 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   if (booking.guestId !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (!canRequestBookingChange(booking, booking.changeRequests.length > 0)) {
+  if (booking.changeRequests.length > 0) {
+    return NextResponse.json({ error: CHANGE_REQUEST_IN_PROGRESS_MESSAGE }, { status: 409 });
+  }
+  if (!canRequestBookingChange(booking, false)) {
     return NextResponse.json(
       { error: "This booking isn't eligible for a change request right now" },
       { status: 409 },
@@ -128,22 +137,33 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   // again, or a host's later price rise.)
   const priceDeltaCents = changePriceDeltaCents(booking, booking.listing, nights);
 
-  const changeRequest = await prisma.bookingChangeRequest.create({
-    data: {
-      bookingId: booking.id,
-      requestedCheckIn: checkIn,
-      requestedCheckOut: checkOut,
-      requestedGuests: parsed.data.guests,
-      priceDeltaCents,
-      // Snapshotted now, since the booking itself gets overwritten once this
-      // request is approved and applied - without this, "original vs new"
-      // couldn't be shown accurately after the fact.
-      originalCheckIn: booking.checkIn,
-      originalCheckOut: booking.checkOut,
-      originalGuests: booking.guests,
-      originalTotalPriceCents: booking.totalPriceCents,
-    },
+  // The in-progress check above is repeated under the listing's lock, so two
+  // requests sent at once (a double submit, two tabs) can't both be created.
+  const changeRequest = await withListingAvailabilityLock(prisma, booking.listingId, async (tx) => {
+    const outstanding = await tx.bookingChangeRequest.count({
+      where: { bookingId: booking.id, ...OUTSTANDING_CHANGE_REQUEST_WHERE },
+    });
+    if (outstanding > 0) return null;
+    return tx.bookingChangeRequest.create({
+      data: {
+        bookingId: booking.id,
+        requestedCheckIn: checkIn,
+        requestedCheckOut: checkOut,
+        requestedGuests: parsed.data.guests,
+        priceDeltaCents,
+        // Snapshotted now, since the booking itself gets overwritten once this
+        // request is approved and applied - without this, "original vs new"
+        // couldn't be shown accurately after the fact.
+        originalCheckIn: booking.checkIn,
+        originalCheckOut: booking.checkOut,
+        originalGuests: booking.guests,
+        originalTotalPriceCents: booking.totalPriceCents,
+      },
+    });
   });
+  if (!changeRequest) {
+    return NextResponse.json({ error: CHANGE_REQUEST_IN_PROGRESS_MESSAGE }, { status: 409 });
+  }
 
   return NextResponse.json({ changeRequest }, { status: 201 });
 }

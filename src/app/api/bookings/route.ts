@@ -341,11 +341,18 @@ async function createListingBooking(
       availabilityBlocks: {
         select: { startDate: true, endDate: true },
       },
+      _count: { select: { roomTypes: true } },
     },
   });
 
   if (!listing || !listing.published) {
     throw new BookingRequestError(404, "Listing not found");
+  }
+  // A hotel is sold by room type: its own price and counted inventory live
+  // on each RoomType, so booking the listing as a single unit would take the
+  // listing's headline rate and ignore how many rooms are actually left.
+  if (listing.propertyType === "HOTEL" || listing._count.roomTypes > 0) {
+    throw new BookingRequestError(400, "Choose a room type");
   }
   if (isSuspended(listing)) {
     throw new BookingRequestError(403, "This listing is currently unavailable.");

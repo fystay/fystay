@@ -80,6 +80,7 @@ export async function loadHostPortfolio(prisma: PrismaClient, hostId: string) {
         creditAppliedCents: true,
         promoDiscountCents: true,
         refundedAmountCents: true,
+        refundedAt: true,
         requestExpiresAt: true,
         depositStatus: true,
         depositClaimDeadline: true,

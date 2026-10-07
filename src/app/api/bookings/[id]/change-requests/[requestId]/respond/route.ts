@@ -3,9 +3,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
-import { splitBookingChange } from "@/lib/pricing";
-import { BOOKING_NOT_CHANGEABLE_MESSAGE, bookingFieldsAfterChange, isBookingStillChangeable } from "@/lib/changeRequests";
-import { refundChangeDifference } from "@/lib/connectRefunds";
+import {
+  BOOKING_NOT_CHANGEABLE_MESSAGE,
+  bookingFieldsAfterChange,
+  bookingMatchesChangeSnapshot,
+  CHANGE_REQUEST_IN_PROGRESS_MESSAGE,
+  isBookingStillChangeable,
+  OUTSTANDING_CHANGE_REQUEST_WHERE,
+} from "@/lib/changeRequests";
+import { bookingPayments, RefundIncompleteError, refundAcrossPayments } from "@/lib/connectRefunds";
+import { sendPaymentOpsAlertEmail } from "@/lib/notificationEmails";
+import { formatPrice } from "@/lib/format";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 import { withApiErrorHandling } from "@/lib/apiError";
@@ -75,6 +83,16 @@ async function postHandler(
   const outcome = await withListingAvailabilityLock(prisma, changeRequest.booking.listingId, async (tx) => {
     const booking = await tx.booking.findUnique({ where: { id: changeRequest.bookingId } });
     if (!booking || !isBookingStillChangeable(booking)) return { kind: "not_changeable" as const };
+    // One change at a time: another request still awaiting the host or the
+    // guest's payment would apply its difference on top of this one's. And
+    // this request's difference was priced against the booking as it stood
+    // when the guest asked - if anything has changed it since, approving it
+    // would charge or refund the wrong amount.
+    const otherInProgress = await tx.bookingChangeRequest.count({
+      where: { bookingId: booking.id, id: { not: requestId }, ...OUTSTANDING_CHANGE_REQUEST_WHERE },
+    });
+    if (otherInProgress > 0) return { kind: "other_in_progress" as const };
+    if (!bookingMatchesChangeSnapshot(booking, changeRequest)) return { kind: "booking_changed" as const };
     const isAvailable = await isRequestedRangeStillAvailable(tx, {
       listingId: booking.listingId,
       roomTypeId: booking.roomTypeId,
@@ -106,24 +124,53 @@ async function postHandler(
     );
   }
   if (outcome.kind === "already_responded") return alreadyResponded;
+  if (outcome.kind === "other_in_progress") {
+    return NextResponse.json({ error: CHANGE_REQUEST_IN_PROGRESS_MESSAGE }, { status: 409 });
+  }
+  if (outcome.kind === "booking_changed") {
+    return NextResponse.json(
+      { error: "This booking has changed since the guest asked - decline this request so they can ask again." },
+      { status: 409 },
+    );
+  }
 
   const { booking, after } = outcome;
   const stripe = getStripeClient();
   if (changeRequest.priceDeltaCents < 0 && stripe && booking.stripePaymentIntentId) {
-    // A shorter stay: the guest gets the difference back, and the host's
-    // accommodation share and FYStay's fee share of it come back out of
-    // each side exactly (not out of FYStay's balance alone). Only after the
+    // A shorter stay: the guest gets the difference back. After an earlier
+    // paid change the booking's total spans several payments, and the
+    // original one alone may not have enough left to refund - so, like a
+    // cancellation, the refund is spread across all of them, each reversing
+    // its share of the host's transfer and FYStay's fee. Only after the
     // claim above, so two approvals can't both refund; keyed by request, so
     // a retry after a failure part-way doesn't refund twice either.
-    const { platformShareCents } = splitBookingChange(changeRequest.priceDeltaCents, booking);
     try {
-      await refundChangeDifference(
-        stripe,
-        { paymentIntentId: booking.stripePaymentIntentId, viaConnect: booking.hostPaidViaConnect },
-        { refundCents: Math.abs(changeRequest.priceDeltaCents), platformShareCents: Math.abs(platformShareCents) },
-        `change-refund:${requestId}`,
-      );
+      const paidChanges = await prisma.bookingChangeRequest.findMany({
+        where: { bookingId: booking.id, paidAt: { not: null } },
+        select: { stripeSessionId: true, paidAt: true, hostPaidViaConnect: true },
+      });
+      const payments = await bookingPayments(stripe, { ...booking, changeRequests: paidChanges });
+      await refundAcrossPayments(stripe, payments, Math.abs(changeRequest.priceDeltaCents), `change-refund:${requestId}`);
     } catch (error) {
+      if (error instanceof RefundIncompleteError) {
+        // Part of the difference already went back to the guest, so putting
+        // the old dates back would leave them refunded for a change that
+        // never happened. The change stands and a person sends the rest.
+        console.error(`partial refund for change request ${requestId}:`, error.cause);
+        await sendPaymentOpsAlertEmail({
+          subject: "A date-change refund only partly went through",
+          summary: `Shorter stay approved. ${formatPrice(error.refundedCents)} of the ${formatPrice(error.requestedCents)} difference went back to the guest, then Stripe refused the rest.`,
+          amountCents: error.requestedCents - error.refundedCents,
+          bookingReference: booking.reference,
+          action:
+            "Refund the remaining amount to the guest from the booking's payments in the Stripe Dashboard, then note it on the booking's support ticket.",
+          stripeUrl: `https://dashboard.stripe.com/payments/${booking.stripePaymentIntentId}`,
+        }).catch((alertError) => {
+          console.error(`couldn't send the partial-refund alert for change request ${requestId}:`, alertError);
+        });
+        const updatedRequest = await prisma.bookingChangeRequest.findUniqueOrThrow({ where: { id: requestId } });
+        return NextResponse.json({ changeRequest: updatedRequest });
+      }
       // Stripe refused: undo the approval and the new dates, so the host can
       // try again (the idempotency key makes that pick up where this left
       // off) rather than the booking showing a change nobody was refunded for.
