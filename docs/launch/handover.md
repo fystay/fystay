@@ -81,7 +81,10 @@ remaining item.
 - Preview has Stripe test variables and two sandbox webhook endpoints
   (`we_1UNihT…`, `we_1UNihU…`) but **no database variables**, and the
   endpoint URLs still lack the `x-vercel-protection-bypass` parameter.
-- Still to do: first admin, Preview database variables, then the Stripe test
+- First admin: `fystay1@gmail.com` (Google sign-in), granted 7 Oct on the
+  owner's choice. Google-only accounts can't use FYStay's 2FA, so its
+  protection is the Google account's own 2-Step Verification.
+- Still to do: Preview database variables, then the Stripe test
   hand test; Resend email; company details; domain; Stripe live.
 
 ## Live site down after the Vercel move (diagnosed 6 Oct, 23:25 UTC; fixed 7 Oct)
