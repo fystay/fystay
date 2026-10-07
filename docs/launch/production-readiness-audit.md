@@ -17,7 +17,6 @@ This follows [pre-production-audit.md](pre-production-audit.md), which covers th
 
 - Stripe live
 - email on your own domain
-- a scheduled-jobs secret
 - company details on the site
 - one real-money test
 
@@ -27,7 +26,7 @@ Passing tests do not make it production ready on their own. What would actually 
 
 | Area | Score | Why not higher |
 |---|---|---|
-| Backend reliability | 84 | Solid locking, idempotency and claim-first patterns throughout. Daily jobs depend on a secret not yet set in Production. |
+| Backend reliability | 85 | Solid locking, idempotency and claim-first patterns throughout. |
 | Payment reliability | 78 | Every flow is built and tested in Stripe test mode, but **none has run with real money yet**. Dispute clawback and Dashboard-refund reconciliation are policy decisions still open. |
 | Security | 79 | No critical holes. Password sign-ups don't verify the email address, which enables referral-credit farming and "squatting" on someone's address. 2FA isn't asked for on Google/Apple sign-in. |
 | Host experience | 80 | Dashboard, earnings, calendar and deposits are strong. Missing: host self-cancellation, per-date pricing, automated guest messages. |
@@ -390,13 +389,12 @@ Only real problems were fixed: the promo line, deposit disclosure, checkout agre
    - enable Connect live
    - add the 4 live keys in Vercel Production
    - add the two live webhook endpoints (§2)
-3. **Email:**
-   - `RESEND_API_KEY`
+3. **Email:** `RESEND_API_KEY` is already set in Production. Still needed:
    - a verified sending domain in Resend
    - `EMAIL_FROM` on that domain
 
-   Without these, **no guest or host email is delivered at all.**
-4. **`CRON_SECRET`** in Vercel Production. Without it, deposit holds, releases, request expiry and reminders never run.
+   Without these, **no guest or host email is delivered at all** (Resend's test sender only reaches your own inbox).
+4. ~~`CRON_SECRET`~~: checked on 7 Oct, already set in Production, so the daily jobs will run.
 5. **Company details:** legal name, company number, registered address (three `NEXT_PUBLIC_COMPANY_*` variables).
 6. **Pricing display decision** (UK DMCC Act). Should the 10% service fee be included in the headline price on cards and listing pages? Recommended: yes, show "£X per night incl. fees" and the full total once dates are picked. It's a few hours' work once you say so.
 7. **The real-money test run** (§2), then check `/api/health` shows `"config":"ok"`.
