@@ -38,6 +38,35 @@ remaining item.
   homepage shows no stays (Spotlight, Last Minute Deals and Explore are empty).
   Applied on 6 Oct by run #17 (see the connection audit below).
 
+## Status 7 Oct, afternoon: host platform upgrade (not live yet)
+
+Full write-up: [host-platform-audit.md](host-platform-audit.md).
+
+- **Branch `claude/host-platform-upgrade`** (not the live branch): new host
+  area (Today, Bookings + booking page, Calendar for all listings, Earnings,
+  Listings with completeness and Live/Hidden), deposit claims now paid to the
+  host, double-booking lock on every availability writer, and fixes for
+  double refunds/charges in date changes, requests, extras and deposits.
+  Logo tagline is now "Apartments · B&Bs · Lodges". 1,301 unit and 115
+  end-to-end tests pass on a production build.
+- **One new migration** `20261007090000_add_deposit_transfer` (two nullable
+  `Booking` columns + unique index). **Applied to Preview** by hand (with its
+  Prisma checksum, as before). **Not yet on Production.**
+- **Release order:** run "Production database migration" from branch
+  `claude/host-platform-upgrade` with that branch's full commit SHA; approve;
+  only then merge the branch into `claude/airbnb-competitor-1fjjpk` (which
+  deploys). If GitHub says the branch can't deploy to the `production`
+  environment, add it under Settings → Environments → production →
+  Deployment branches for this one run, or ask Claude for another safe order.
+- **Preview demo data:** the demo seed now gives the demo host a year of
+  bookings (under `travellers@fystay.dev`, made-up names). On Preview it
+  appears after the next demo seed (`/api/admin/seed-demo-data`), once
+  Preview has its database settings.
+- **Owner checks:** Stripe live account not activated yet (charges and
+  payouts off, activation form not submitted); Preview still needs
+  `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_SERVICE_ROLE_KEY` and the Vercel
+  protection-bypass secret for Stripe test webhooks.
+
 ## Connection audit after the move (6 Oct evening)
 
 - **Code:** all checks green on `239ec44` (lint, typecheck, 1,102 unit,
