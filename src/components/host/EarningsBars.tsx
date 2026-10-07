@@ -41,7 +41,7 @@ export function EarningsBars({
   const focused = active !== null ? bars[active] : null;
 
   return (
-    <figure className="w-full">
+    <figure className={cn("w-full", !compact && "pt-3")}>
       <div className="relative" style={{ height }}>
         {!compact && (
           <div aria-hidden className="pointer-events-none absolute inset-0">

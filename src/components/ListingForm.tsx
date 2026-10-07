@@ -318,7 +318,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
     }
 
     toast.success(listingId ? "Listing updated" : "Listing created");
-    router.push("/host/dashboard");
+    router.push("/host/listings");
     router.refresh();
   }
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   bestPastMonth,
+  earningsPeriod,
+  findCalendarConflicts,
   highlights,
   listingHealth,
   monthlyEarnings,
@@ -9,6 +11,7 @@ import {
   summarizePeriod,
   todayView,
   ukToday,
+  type CalendarBlock,
   type InsightBooking,
   type InsightListing,
 } from "./hostInsights";
@@ -225,5 +228,52 @@ describe("listingHealth", () => {
       weeklyDiscountPercent: 10,
     };
     expect(listingHealth(full).score).toBe(100);
+  });
+});
+
+describe("earningsPeriod", () => {
+  it("covers today, Monday-start weeks, months and years", () => {
+    // 15 Oct 2026 is a Thursday.
+    expect(earningsPeriod("today", today)).toMatchObject({ start: d("2026-10-15"), end: d("2026-10-16") });
+    expect(earningsPeriod("week", today)).toMatchObject({ start: d("2026-10-12"), end: d("2026-10-19") });
+    expect(earningsPeriod("month", today)).toMatchObject({ label: "October", start: d("2026-10-01"), end: d("2026-11-01") });
+    expect(earningsPeriod("last-month", today)).toMatchObject({ label: "September", start: d("2026-09-01") });
+    expect(earningsPeriod("year", today).previous).toMatchObject({ start: d("2025-01-01"), end: d("2026-01-01") });
+  });
+
+  it("takes a custom range inclusive of both dates, and rejects nonsense", () => {
+    expect(earningsPeriod("custom", today, d("2026-07-01"), d("2026-07-31"))).toMatchObject({
+      start: d("2026-07-01"),
+      end: d("2026-08-01"),
+      previous: null,
+    });
+    expect(earningsPeriod("custom", today, d("2026-07-31"), d("2026-07-01")).key).toBe("month");
+    expect(earningsPeriod("custom", today, d("2010-01-01"), d("2026-07-01")).key).toBe("month");
+    expect(earningsPeriod("whatever", today).key).toBe("month");
+  });
+});
+
+describe("findCalendarConflicts", () => {
+  const block = (over: Partial<CalendarBlock>): CalendarBlock => ({
+    id: "blk",
+    listingId: "l1",
+    roomTypeId: null,
+    startDate: d("2026-10-20"),
+    endDate: d("2026-10-22"),
+    source: "ICAL_IMPORT",
+    ...over,
+  });
+
+  it("flags a stay overlapping dates imported from another site", () => {
+    const c = findCalendarConflicts([home], [stay("2026-10-21", 3)], [block({})]);
+    expect(c).toHaveLength(1);
+    expect(c[0]).toMatchObject({ from: d("2026-10-21"), to: d("2026-10-22") });
+  });
+
+  it("ignores back-to-back dates, the host's own blocks, cancelled stays and hotels", () => {
+    expect(findCalendarConflicts([home], [stay("2026-10-22", 2)], [block({})])).toEqual([]);
+    expect(findCalendarConflicts([home], [stay("2026-10-21", 2)], [block({ source: "HOST" })])).toEqual([]);
+    expect(findCalendarConflicts([home], [stay("2026-10-21", 2, { status: "CANCELLED" })], [block({})])).toEqual([]);
+    expect(findCalendarConflicts([{ ...home, units: 8 }], [stay("2026-10-21", 2)], [block({})])).toEqual([]);
   });
 });

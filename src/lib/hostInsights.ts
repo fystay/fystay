@@ -423,3 +423,134 @@ export function listingHealth(listing: HealthListing): { score: number; items: H
 
 /** Host's share before refunds - re-exported so pages don't reach into hostStats for it. */
 export { hostPayoutCents, hostRevenueCents };
+
+// --- Earnings periods -------------------------------------------------------
+
+export type PeriodKey = "today" | "week" | "month" | "last-month" | "year" | "custom";
+
+export type Period = {
+  key: PeriodKey;
+  label: string;
+  start: Date;
+  end: Date;
+  /** The same length of time immediately before, for "vs" comparisons. Null for custom ranges. */
+  previous: { start: Date; end: Date; label: string } | null;
+};
+
+const MAX_CUSTOM_DAYS = 3 * 366;
+
+/**
+ * [start, end) for each earnings period, in UK calendar dates. Weeks start
+ * on Monday. A custom range is inclusive of both picked dates, capped at
+ * three years, and falls back to this month if it's missing or backwards.
+ */
+export function earningsPeriod(key: string | undefined, today: Date, from?: Date | null, to?: Date | null): Period {
+  const month = monthRange(today);
+  const monthLabel = (d: Date) => d.toLocaleString("en-GB", { month: "long", timeZone: "UTC" });
+  switch (key) {
+    case "today":
+      return {
+        key: "today",
+        label: "Today",
+        start: today,
+        end: addDays(today, 1),
+        previous: { start: addDays(today, -7), end: addDays(today, -6), label: "the same day last week" },
+      };
+    case "week": {
+      const start = addDays(today, -((today.getUTCDay() + 6) % 7));
+      return {
+        key: "week",
+        label: "This week",
+        start,
+        end: addDays(start, 7),
+        previous: { start: addDays(start, -7), end: start, label: "last week" },
+      };
+    }
+    case "last-month": {
+      const last = monthRange(today, -1);
+      const before = monthRange(today, -2);
+      return {
+        key: "last-month",
+        label: monthLabel(last.start),
+        start: last.start,
+        end: last.end,
+        previous: { ...before, label: monthLabel(before.start) },
+      };
+    }
+    case "year": {
+      const start = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+      const end = new Date(Date.UTC(today.getUTCFullYear() + 1, 0, 1));
+      return {
+        key: "year",
+        label: String(today.getUTCFullYear()),
+        start,
+        end,
+        previous: {
+          start: new Date(Date.UTC(today.getUTCFullYear() - 1, 0, 1)),
+          end: start,
+          label: String(today.getUTCFullYear() - 1),
+        },
+      };
+    }
+    case "custom":
+      if (from && to && to >= from && to.getTime() - from.getTime() <= MAX_CUSTOM_DAYS * DAY_MS) {
+        return { key: "custom", label: "Custom range", start: from, end: addDays(to, 1), previous: null };
+      }
+    // falls through to this month
+    default: {
+      const last = monthRange(today, -1);
+      return {
+        key: "month",
+        label: monthLabel(month.start),
+        start: month.start,
+        end: month.end,
+        previous: { ...last, label: monthLabel(last.start) },
+      };
+    }
+  }
+}
+
+// --- Calendar conflicts -----------------------------------------------------
+
+export type CalendarBlock = {
+  id: string;
+  listingId: string;
+  roomTypeId: string | null;
+  startDate: Date;
+  endDate: Date;
+  source: "HOST" | "ICAL_IMPORT" | "PMS_IMPORT";
+};
+
+export type CalendarConflict = { listingId: string; bookingId: string; blockId: string; from: Date; to: Date };
+
+/**
+ * A FYStay stay overlapping dates another channel says are taken (an
+ * imported iCal or PMS block) - most likely a double booking, because the
+ * other site's calendar reached FYStay after the guest booked here. A
+ * host's own block over a stay isn't a conflict: they can see both.
+ * Single-unit listings only; a hotel's rooms legitimately overlap.
+ */
+export function findCalendarConflicts(
+  listings: Pick<InsightListing, "id" | "units">[],
+  bookings: Pick<InsightBooking, "id" | "listingId" | "status" | "checkIn" | "checkOut">[],
+  blocks: CalendarBlock[],
+): CalendarConflict[] {
+  const singleUnit = new Set(listings.filter((l) => l.units <= 1).map((l) => l.id));
+  const conflicts: CalendarConflict[] = [];
+  for (const block of blocks) {
+    if (block.source === "HOST" || !singleUnit.has(block.listingId)) continue;
+    for (const b of bookings) {
+      if (b.listingId !== block.listingId || !isLiveStay(b)) continue;
+      if (b.checkIn < block.endDate && block.startDate < b.checkOut) {
+        conflicts.push({
+          listingId: b.listingId,
+          bookingId: b.id,
+          blockId: block.id,
+          from: new Date(Math.max(b.checkIn.getTime(), block.startDate.getTime())),
+          to: new Date(Math.min(b.checkOut.getTime(), block.endDate.getTime())),
+        });
+      }
+    }
+  }
+  return conflicts;
+}
