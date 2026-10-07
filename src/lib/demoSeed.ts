@@ -1069,6 +1069,7 @@ async function seedDemoHostActivity(
       cleaningFeeCents: listing.cleaningFeeCents,
     });
     const paid = state !== "REQUEST";
+    const paidAt = paid ? new Date(Math.min(checkIn.getTime() - 14 * DAY_MS, Date.now() - DAY_MS)) : null;
     n += 1;
     await prisma.booking.create({
       data: {
@@ -1086,7 +1087,8 @@ async function seedDemoHostActivity(
         totalPriceCents: pricing.totalPriceCents,
         status: state === "REQUEST" ? "PENDING" : state,
         paymentStatus: state === "CANCELLED" ? "PARTIALLY_REFUNDED" : paid ? "PAID" : "UNPAID",
-        paidAt: paid ? new Date(Math.min(checkIn.getTime() - 14 * DAY_MS, Date.now())) : null,
+        paidAt,
+        createdAt: paidAt ? new Date(paidAt.getTime() - 10 * 60 * 1000) : new Date(Date.now() - 2 * 60 * 60 * 1000),
         ...(state === "REQUEST" && {
           approvalStatus: "AWAITING" as const,
           requestExpiresAt: new Date(Date.now() + 20 * 60 * 60 * 1000),
