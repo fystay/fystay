@@ -653,6 +653,7 @@ export type SeedDemoDataSummary = {
   listingsSkippedExisting: number;
   listingPhotosRefreshed: number;
   reviewsCreated: number;
+  demoBookingsCreated: number;
   extrasProvidersUpserted: number;
 };
 
@@ -851,6 +852,13 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
     reviewsCreated++;
   }
 
+  const demoBookingsCreated = await seedDemoHostActivity(prisma, {
+    hostId: host.id,
+    guestId: guest.id,
+    guestEmail: guest.email,
+    reservedTitles: new Set<string>([...REVIEW_SEEDS.map((r) => r.title), DEMO_HOTEL_LISTING.title]),
+  });
+
   // Trip extras (see docs/trip-extras-roadmap.md): EV Exec is FYStay's own
   // transfer business and the first extras provider. The notification
   // email is read from an env var (with a placeholder fallback) rather
@@ -982,6 +990,145 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
     listingsSkippedExisting,
     listingPhotosRefreshed,
     reviewsCreated,
+    demoBookingsCreated,
     extrasProvidersUpserted: 3,
   };
+}
+
+// Made-up names for the demo host's guests - ordinary combinations, not
+// anyone in particular.
+const DEMO_GUEST_NAMES = [
+  "Priya Shah",
+  "Tom Walsh",
+  "Megan Doyle",
+  "Callum Price",
+  "Aisha Rahman",
+  "Ellie Fielding",
+  "Daniel Okafor",
+  "Hannah Brooks",
+  "Owen Pritchard",
+  "Grace Lindley",
+  "Marcus Bell",
+  "Zoe Hartley",
+];
+
+const DEMO_REFERENCE_PREFIX = "DEMO-";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * A believable year of hosting for the demo host, so the hosting pages
+ * (Today, Bookings, Calendar, Earnings) show what they're for: past stays
+ * across the last eleven months (busier in summer), guests in residence
+ * today, an arrival and a departure today, the next few weeks booked, one
+ * request awaiting a reply and one part-refunded cancellation. Half the
+ * listings also get their check-in details and house rules, so the
+ * listing-quality checklist shows a realistic mix.
+ *
+ * Runs once: skipped when any DEMO- booking already exists. Leaves out the
+ * listings with seeded reviews (their stays are already placed) and the
+ * hotel (room-type bookings), so no two stays here overlap.
+ */
+async function seedDemoHostActivity(
+  prisma: PrismaClient,
+  ctx: { hostId: string; guestId: string; guestEmail: string; reservedTitles: Set<string> },
+): Promise<number> {
+  if ((await prisma.booking.count({ where: { reference: { startsWith: DEMO_REFERENCE_PREFIX } } })) > 0) return 0;
+
+  const listings = (
+    await prisma.listing.findMany({ where: { hostId: ctx.hostId }, orderBy: { title: "asc" } })
+  ).filter((l) => !ctx.reservedTitles.has(l.title));
+  if (listings.length < 12) return 0;
+
+  for (const [i, listing] of listings.entries()) {
+    if (i % 2 === 1) continue;
+    await prisma.listing.update({
+      where: { id: listing.id },
+      data: {
+        checkInTime: listing.checkInTime ?? "From 3pm",
+        checkOutTime: listing.checkOutTime ?? "By 10am",
+        checkInInstructions:
+          listing.checkInInstructions ?? "Self check-in with a key safe by the front door - the code is sent the day before.",
+        additionalRules: listing.additionalRules ?? "No smoking indoors. Please keep noise down after 10pm.",
+      },
+    });
+  }
+
+  const today = todayStayDate();
+  let created = 0;
+  let n = 0;
+  const book = async (
+    listing: (typeof listings)[number],
+    checkIn: Date,
+    nights: number,
+    guests: number,
+    state: "COMPLETED" | "CONFIRMED" | "REQUEST" | "CANCELLED",
+  ) => {
+    const pricing = computeBookingPricing({
+      nights,
+      pricePerNightCents: listing.pricePerNightCents,
+      cleaningFeeCents: listing.cleaningFeeCents,
+    });
+    const paid = state !== "REQUEST";
+    n += 1;
+    await prisma.booking.create({
+      data: {
+        reference: `${DEMO_REFERENCE_PREFIX}${String(n).padStart(3, "0")}`,
+        listingId: listing.id,
+        guestId: ctx.guestId,
+        checkIn,
+        checkOut: new Date(checkIn.getTime() + nights * DAY_MS),
+        guests: Math.min(guests, listing.maxGuests),
+        nights,
+        nightlyPriceCents: listing.pricePerNightCents,
+        cleaningFeeCents: pricing.cleaningFeeCents,
+        serviceFeeCents: pricing.serviceFeeCents,
+        taxCents: pricing.taxCents,
+        totalPriceCents: pricing.totalPriceCents,
+        status: state === "REQUEST" ? "PENDING" : state,
+        paymentStatus: state === "CANCELLED" ? "PARTIALLY_REFUNDED" : paid ? "PAID" : "UNPAID",
+        paidAt: paid ? new Date(Math.min(checkIn.getTime() - 14 * DAY_MS, Date.now())) : null,
+        ...(state === "REQUEST" && {
+          approvalStatus: "AWAITING" as const,
+          requestExpiresAt: new Date(Date.now() + 20 * 60 * 60 * 1000),
+        }),
+        ...(state === "CANCELLED" && {
+          refundedAmountCents: Math.round(pricing.totalPriceCents / 2),
+          refundedAt: new Date(),
+        }),
+        guestName: DEMO_GUEST_NAMES[n % DEMO_GUEST_NAMES.length],
+        guestEmail: ctx.guestEmail,
+      },
+    });
+    created += 1;
+  };
+
+  // Past months: each month's stays on different listings, so none overlap.
+  // Busiest in summer, like the real Fylde Coast (index = calendar month).
+  const perCalendarMonth = [2, 2, 3, 4, 5, 7, 9, 9, 6, 4, 3, 3];
+  for (let monthsAgo = 11; monthsAgo >= 1; monthsAgo--) {
+    const count = perCalendarMonth[(today.getUTCMonth() - monthsAgo + 12) % 12];
+    for (let k = 0; k < count; k++) {
+      const listing = listings[(k * 5 + monthsAgo) % listings.length];
+      const checkIn = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - monthsAgo, 2 + ((k * 4) % 20)));
+      await book(listing, checkIn, 2 + ((k + monthsAgo) % 4), 2 + (k % 3), "COMPLETED");
+    }
+  }
+
+  // Around today, one listing each.
+  const at = (days: number) => new Date(today.getTime() + days * DAY_MS);
+  await book(listings[0], at(-2), 4, 2, "CONFIRMED"); // staying
+  await book(listings[1], at(-1), 3, 3, "CONFIRMED"); // staying
+  await book(listings[2], at(0), 3, 2, "CONFIRMED"); // arriving today
+  await book(listings[3], at(-3), 3, 2, "CONFIRMED"); // leaving today
+  await book(listings[4], at(2), 2, 2, "CONFIRMED");
+  await book(listings[5], at(4), 5, 4, "CONFIRMED");
+  await book(listings[6], at(6), 3, 2, "CONFIRMED");
+  await book(listings[7], at(9), 2, 2, "CONFIRMED");
+  await book(listings[8], at(12), 7, 3, "CONFIRMED");
+  await book(listings[9], at(20), 3, 2, "CONFIRMED");
+  await book(listings[0], at(35), 4, 2, "CONFIRMED");
+  await book(listings[10], at(15), 3, 2, "REQUEST");
+  await book(listings[11], at(25), 3, 2, "CANCELLED");
+
+  return created;
 }

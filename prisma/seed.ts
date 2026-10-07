@@ -22,6 +22,7 @@ async function main() {
   console.log(`  guest -> ${summary.guestEmail} / guestpass123`);
   console.log(`  ${summary.listingsCreated} listings created, ${summary.listingsSkippedExisting} already existed (${summary.listingPhotosRefreshed} cover photos updated)`);
   console.log(`  ${summary.reviewsCreated} completed stay(s) + review(s) created`);
+  console.log(`  ${summary.demoBookingsCreated} demo bookings for the host (past, current and upcoming)`);
   console.log(`  ${summary.extrasProvidersUpserted} trip-extras providers (EV Exec + 2 placeholders) + offerings upserted`);
 }
 

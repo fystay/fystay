@@ -172,8 +172,10 @@ export function summarizePeriod(bookings: InsightBooking[], start: Date, end: Da
     upcomingCents: earnedCents - hostedCents,
     bookings: live.length,
     nights,
-    averageNightlyCents: liveNights > 0 ? Math.round(roomRevenue / liveNights) : null,
-    averageBookingCents: live.length > 0 ? Math.round(live.reduce((s, b) => s + hostRevenueCents(b), 0) / live.length) : null,
+    // Averages in whole pounds: "£74.86 a night" is false precision.
+    averageNightlyCents: liveNights > 0 ? Math.round(roomRevenue / liveNights / 100) * 100 : null,
+    averageBookingCents:
+      live.length > 0 ? Math.round(live.reduce((s, b) => s + hostRevenueCents(b), 0) / live.length / 100) * 100 : null,
     averageStayNights: live.length > 0 ? Math.round((liveNights / live.length) * 10) / 10 : null,
     cancellationRate:
       live.length + cancelled.length > 0
