@@ -260,22 +260,21 @@ body {
   animation: reveal-in 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Hosting pages: content settles in over 220ms when a page arrives, so
-   moving between Today, Bookings and Earnings reads as one app rather
-   than a hard cut. Never delays anything (the page is already rendered),
-   and off entirely under reduced motion. */
+/* Hosting pages: content settles 4px into place when a page arrives, so
+   moving between Today, Bookings and Earnings reads as one app rather than
+   a hard cut. Movement only - no fade: content that starts transparent
+   counts as not yet painted, which measured ~500ms later "largest
+   contentful paint" for no gain. Off entirely under reduced motion. */
 @keyframes host-page-in {
   from {
-    opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
 .animate-host-page-in {
-  animation: host-page-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: host-page-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-host-page-in {

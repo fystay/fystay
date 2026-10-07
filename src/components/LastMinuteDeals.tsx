@@ -105,7 +105,7 @@ export async function LastMinuteDeals() {
 
   return (
     <LastMinuteDealsSection>
-      <LargeCardRail label="Last Minute Deals">
+      <LargeCardRail label="Last Minute Deals stays">
         {deals.map(({ card }) => (
           <ListingCard
             key={card.id}
