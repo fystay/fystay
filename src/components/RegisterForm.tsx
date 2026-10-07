@@ -72,11 +72,18 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
 
     setLoading(true);
 
-    const res = await fetch("/api/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, role, referralCode, termsAccepted }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role, referralCode, termsAccepted }),
+      });
+    } catch {
+      setError("Couldn't reach FYStay - check your connection and try again.");
+      setLoading(false);
+      return;
+    }
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -91,12 +98,13 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
       redirect: false,
     });
 
-    setLoading(false);
-
     if (result?.error) {
+      setLoading(false);
       router.push(callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login");
       return;
     }
+
+    // Stays busy until the next page is on screen (see LoginForm).
 
     router.push(callbackUrl ?? (role === "HOST" ? "/host/dashboard" : "/"));
     router.refresh();

@@ -19,11 +19,19 @@ export function PublishToggle({ listingId, published, title }: { listingId: stri
     const next = !on;
     setOn(next);
     setBusy(true);
-    const res = await fetch(`/api/listings/${listingId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ published: next }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`/api/listings/${listingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: next }),
+      });
+    } catch {
+      setBusy(false);
+      setOn(!next);
+      toast.error("Couldn't reach FYStay - check your connection and try again.");
+      return;
+    }
     setBusy(false);
     if (!res.ok) {
       setOn(!next);

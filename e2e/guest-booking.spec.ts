@@ -58,7 +58,8 @@ test("guest can log in, book a listing, and see it in their trips", async ({ pag
   await page.fill("#email", "guest@fystay.dev");
   await page.fill("#password", "guestpass123");
   await page.click("button[type=submit]");
-  await page.waitForURL("/");
+  // Wherever login lands (a host goes to their dashboard, a guest home).
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
   await page.goto(`/listings/${listing.id}`);
   const listingTitle = (await page.locator("h1").first().textContent())!.trim();

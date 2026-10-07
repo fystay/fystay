@@ -166,7 +166,7 @@ export default async function HostCalendarPage({ searchParams }: { searchParams:
                     <div
                       key={d.toISOString()}
                       className={cn(
-                        "flex min-h-12 items-end justify-center pb-1 text-[10px] text-stone-400",
+                        "flex min-h-12 items-end justify-center pb-1 text-[10px] text-stone-500",
                         weekend && "bg-surface-muted/40",
                         isToday && "bg-brand-50/70",
                       )}

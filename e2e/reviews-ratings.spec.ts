@@ -17,7 +17,8 @@ async function login(page: Page, email: string, password: string) {
   await page.fill("#email", email);
   await page.fill("#password", password);
   await page.click("button[type=submit]");
-  await page.waitForURL("/");
+  // Wherever login lands (a host goes to their dashboard, a guest home).
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }
 
 async function createSecondGuest() {

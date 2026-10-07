@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
@@ -16,15 +17,28 @@ export function BookingRequestActions({
   onError?: () => void;
 }) {
   const router = useRouter();
+  // Which button is working, so it shows a spinner and neither can be
+  // pressed twice while the answer is on its way.
+  const [pending, setPending] = useState<"approve" | "decline" | null>(null);
 
   async function respond(action: "approve" | "decline") {
     onOptimisticStart?.();
 
-    const res = await fetch(`/api/bookings/${bookingId}/respond`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
+    setPending(action);
+    let res: Response;
+    try {
+      res = await fetch(`/api/bookings/${bookingId}/respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+    } catch {
+      setPending(null);
+      onError?.();
+      toast.error("Couldn't reach FYStay - check your connection and try again.");
+      return;
+    }
+    setPending(null);
 
     if (res.ok) {
       toast.success(action === "approve" ? "Request approved" : "Request declined");
@@ -38,10 +52,16 @@ export function BookingRequestActions({
 
   return (
     <div className="flex items-center gap-2">
-      <Button size="sm" variant="outline" onClick={() => respond("decline")}>
+      <Button
+        size="sm"
+        variant="outline"
+        loading={pending === "decline"}
+        disabled={pending !== null}
+        onClick={() => respond("decline")}
+      >
         Decline
       </Button>
-      <Button size="sm" onClick={() => respond("approve")}>
+      <Button size="sm" loading={pending === "approve"} disabled={pending !== null} onClick={() => respond("approve")}>
         Approve
       </Button>
     </div>

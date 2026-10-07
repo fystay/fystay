@@ -246,9 +246,7 @@ export default async function HostEarningsPage({
             <Line label="FYStay service fee" value={-summary.fystayFeeCents} note="charged to guests" />
             <Line label="Card processing" value={0} note="FYStay covers it" />
             {summary.refundedCents > 0 && <Line label="Refunded to guests" value={-summary.refundedCents} />}
-            <div className="mt-1 border-t border-border-subtle pt-2">
-              <Line label="Your earnings" value={summary.earnedCents} strong />
-            </div>
+            <Line label="Your earnings" value={summary.earnedCents} strong className="mt-1 border-t border-border-subtle pt-2" />
           </dl>
           <p className="mt-3 text-xs text-stone-500">
             You keep your full nightly rate and cleaning fee. FYStay&apos;s fee is added on top for the guest.
@@ -380,12 +378,30 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Line({ label, value, note, strong }: { label: string; value: number; note?: string; strong?: boolean }) {
+function Line({
+  label,
+  value,
+  note,
+  strong,
+  className,
+}: {
+  label: string;
+  value: number;
+  note?: string;
+  strong?: boolean;
+  className?: string;
+}) {
   return (
-    <div className={cn("flex items-baseline justify-between gap-3", strong ? "font-semibold text-foreground" : "text-stone-600")}>
+    <div
+      className={cn(
+        "flex items-baseline justify-between gap-3",
+        strong ? "font-semibold text-foreground" : "text-stone-600",
+        className,
+      )}
+    >
       <dt>
         {label}
-        {note && <span className="ml-1 text-xs text-stone-400">({note})</span>}
+        {note && <span className="ml-1 text-xs text-stone-500">({note})</span>}
       </dt>
       <dd className="tabular-nums text-foreground">{value < 0 ? `−${formatPrice(-value)}` : formatPrice(Math.abs(value))}</dd>
     </div>

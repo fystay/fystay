@@ -70,7 +70,7 @@ export function IntegrationCard({ summary }: { summary: IntegrationSummary }) {
     <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-base font-semibold text-foreground">{summary.label}</h3>
+          <h2 className="text-base font-semibold text-foreground">{summary.label}</h2>
           <StatusBadge summary={summary} />
         </div>
         <div className="mt-1.5 flex flex-col gap-0.5 text-sm text-stone-500">

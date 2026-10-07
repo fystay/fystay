@@ -30,7 +30,8 @@ test("guest can save a listing and unsave it from the wishlist page", async ({ p
     await page.fill("#email", "guest@fystay.dev");
     await page.fill("#password", "guestpass123");
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    // Wherever login lands (a host goes to their dashboard, a guest home).
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
     await page.goto(`/listings/${listing.id}`);
     // The heart flips straight away; wait for the save itself before leaving the page.

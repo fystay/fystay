@@ -56,7 +56,8 @@ test("guest can reset a forgotten password and log in with the new one", async (
     await page.fill("#email", email);
     await page.fill("#password", "brandnewpass456");
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    // Wherever login lands (a host goes to their dashboard, a guest home).
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
     // The same reset link can't be reused.
     await page.goto(resetUrl!);

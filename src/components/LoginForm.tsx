@@ -29,18 +29,29 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const [needsCode, setNeedsCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Set once the password (and code) are accepted: the button stays busy and
+  // says where it's going until the next page is on screen, rather than
+  // flicking back to "Log in" for the moment before the page changes.
+  const [signedInTo, setSignedInTo] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      ...(needsCode ? { code } : {}),
-      redirect: false,
-    });
+    let result: Awaited<ReturnType<typeof signIn>>;
+    try {
+      result = await signIn("credentials", {
+        email,
+        password,
+        ...(needsCode ? { code } : {}),
+        redirect: false,
+      });
+    } catch {
+      setLoading(false);
+      setError("Couldn't reach FYStay - check your connection and try again.");
+      return;
+    }
 
     setLoading(false);
 
@@ -65,7 +76,18 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
       return;
     }
 
-    router.push(callbackUrl);
+    // A host with nowhere particular to go lands on their hosting dashboard,
+    // not the guest homepage.
+    let destination = callbackUrl;
+    if (callbackUrl === "/") {
+      const session = (await fetch("/api/auth/session").then((r) => r.json()).catch(() => null)) as {
+        user?: { role?: string; name?: string | null };
+      } | null;
+      if (session?.user?.role === "HOST") destination = "/host/dashboard";
+    }
+    setSignedInTo(destination.startsWith("/host") ? "your dashboard" : destination.startsWith("/listings/") ? "your stay" : "FYStay");
+    setLoading(true);
+    router.push(destination);
     router.refresh();
   }
 
@@ -144,7 +166,7 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
             )}
 
             <Button type="submit" loading={loading} className="w-full">
-              {needsCode ? "Verify" : "Log in"}
+              {signedInTo ? `Signed in - opening ${signedInTo}…` : needsCode ? "Verify" : "Log in"}
             </Button>
             {needsCode && (
               <button

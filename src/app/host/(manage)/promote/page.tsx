@@ -252,7 +252,12 @@ export default async function HostPromotePage({
       {promotions.length > 0 && (
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-foreground">Your placements</h2>
-          <div className="mt-3 overflow-x-auto rounded-xl border border-border-subtle bg-surface">
+          <div
+            role="region"
+            aria-label="Your placements"
+            tabIndex={0}
+            className="focus-ring mt-3 overflow-x-auto rounded-xl border border-border-subtle bg-surface"
+          >
             <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="border-b border-border-subtle text-xs uppercase tracking-wide text-stone-500">
                 <tr>

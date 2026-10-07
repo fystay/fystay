@@ -103,7 +103,7 @@ export function PhotoUploader({
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
           className={cn(
-            "focus-ring flex aspect-square flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-border-subtle text-stone-400 transition-colors hover:border-stone-300 hover:text-stone-500",
+            "focus-ring flex aspect-square flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-border-subtle text-stone-500 transition-colors hover:border-stone-300 hover:text-stone-600",
             uploading && "pointer-events-none opacity-60",
           )}
         >

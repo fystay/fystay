@@ -42,12 +42,17 @@ export function CookieConsentBanner() {
   if (!visible) return null;
 
   return (
+    // A floating card over the page, not a bar above it: the notice can only
+    // be shown once the browser has checked whether it was dismissed, and a
+    // bar inserted at that point pushed every page down (on phones by
+    // ~130px) just after it appeared. Sits above any fixed bottom bar.
     <div
       role="region"
       aria-label="Cookie notice"
-      className="border-b border-border-subtle bg-surface-muted px-6 py-3"
+      className="animate-host-page-in fixed inset-x-3 z-50 rounded-2xl border border-border-subtle bg-surface px-4 py-3 shadow-[var(--shadow-popover)] sm:inset-x-auto sm:left-4 sm:max-w-md"
+      style={{ bottom: "calc(var(--fixed-bottom-bar-height, 0px) + 0.75rem)" }}
     >
-      <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-stone-600">
           We only use strictly necessary cookies to keep you signed in and run the site - no
           tracking or advertising cookies. See our{" "}

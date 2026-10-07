@@ -18,7 +18,7 @@ export function DesktopNavLinks() {
   const isHero = useNavTone() === "hero";
 
   return (
-    <nav className="relative z-10 hidden items-center gap-6 text-sm font-medium lg:flex">
+    <nav aria-label="Site" className="relative z-10 hidden items-center gap-6 text-sm font-medium lg:flex">
       {HEADER_NAV_LINKS.map((link) => (
         <Link
           key={link.href}

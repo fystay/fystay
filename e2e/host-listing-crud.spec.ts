@@ -8,7 +8,8 @@ test("host can create, edit, and delete a listing", async ({ page }) => {
   await page.fill("#email", "host@fystay.dev");
   await page.fill("#password", "hostpass123");
   await page.click("button[type=submit]");
-  await page.waitForURL("/");
+  // Wherever login lands (a host goes to their dashboard, a guest home).
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
   // --- Create ---
   await page.goto("/host/listings/new");

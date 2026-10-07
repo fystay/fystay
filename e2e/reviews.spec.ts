@@ -51,7 +51,8 @@ test("guest can leave a review for a completed stay", async ({ page }) => {
     await page.fill("#email", "guest@fystay.dev");
     await page.fill("#password", "guestpass123");
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    // Wherever login lands (a host goes to their dashboard, a guest home).
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
     await page.goto("/bookings");
     // A stay that already checked out lives under the "Past trips" tab, not

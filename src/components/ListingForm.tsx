@@ -303,12 +303,24 @@ export function ListingForm({ listingId, initialValues }: Props) {
       additionalRules: values.additionalRules.trim() || null,
     };
 
-    const res = await fetch(listingId ? `/api/listings/${listingId}` : "/api/listings", {
-      method: listingId ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
+    let res: Response;
+    let data: { error?: string };
+    try {
+      res = await fetch(listingId ? `/api/listings/${listingId}` : "/api/listings", {
+        method: listingId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      data = await res.json().catch(() => ({}));
+    } catch {
+      // Offline or the connection dropped: nothing was saved, and everything
+      // typed is still in the form.
+      const message = "Couldn't reach FYStay - check your connection and press save again. Nothing you've entered is lost.";
+      setError(message);
+      setLoading(false);
+      toast.error(message);
+      return;
+    }
 
     if (!res.ok) {
       setError(data.error ?? "Something went wrong.");

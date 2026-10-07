@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { Gift, Heart, Home, LayoutDashboard, LogOut, Luggage, MessageCircle, UserCircle } from "lucide-react";
+import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, MessageCircle, UserCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
@@ -160,15 +161,25 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
 
         <div className="border-t border-border-subtle pt-1">
           <form action={signOutAction}>
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-stone-700 hover:bg-surface-muted"
-            >
-              <LogOut className="h-4 w-4" /> Log out
-            </button>
+            <LogOutButton />
           </form>
         </div>
       </div>
     </div>
+  );
+}
+
+/** Says it's working the moment it's pressed - signing out is a round trip to the server. */
+function LogOutButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-stone-700 hover:bg-surface-muted disabled:opacity-70"
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <LogOut className="h-4 w-4" />}
+      {pending ? "Logging out…" : "Log out"}
+    </button>
   );
 }

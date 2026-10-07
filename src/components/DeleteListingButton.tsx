@@ -28,7 +28,12 @@ export function DeleteListingButton({
     setOpen(false);
     onDeleted?.();
 
-    const res = await fetch(`/api/listings/${listingId}`, { method: "DELETE" });
+    const res = await fetch(`/api/listings/${listingId}`, { method: "DELETE" }).catch(() => null);
+    if (!res) {
+      onDeleteFailed?.();
+      toast.error("Couldn't reach FYStay - check your connection and try again.");
+      return;
+    }
 
     if (res.ok) {
       toast.success("Listing deleted");

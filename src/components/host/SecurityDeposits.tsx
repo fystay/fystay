@@ -66,12 +66,20 @@ function DepositRow({ deposit, onResolved }: { deposit: AuthorizedDeposit; onRes
 
   async function respond(body: { action: "release" } | { action: "capture"; amountCents: number; reason: string }) {
     setSubmitting(true);
-    const res = await fetch(`/api/bookings/${deposit.bookingId}/deposit/resolve`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
+    let res: Response;
+    let data: { error?: string };
+    try {
+      res = await fetch(`/api/bookings/${deposit.bookingId}/deposit/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      data = await res.json().catch(() => ({}));
+    } catch {
+      setSubmitting(false);
+      toast.error("Couldn't reach FYStay - check your connection and try again. Nothing has been charged.");
+      return;
+    }
     setSubmitting(false);
     if (!res.ok) {
       toast.error(data.error ?? "Could not resolve this deposit.");

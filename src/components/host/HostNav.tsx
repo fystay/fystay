@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
@@ -111,6 +111,7 @@ export function HostNav({ actionCount, unreadMessages }: { actionCount: number; 
                     {badge > 0 && <Badge count={badge} className="-right-2.5 -top-1.5" />}
                   </span>
                   {item.label}
+                  <PendingBar />
                 </Link>
               </li>
             );
@@ -150,6 +151,7 @@ function NavTab({
       <Icon className="h-4 w-4" />
       {item.label}
       {badge > 0 && <Badge count={badge} className="static ml-0.5" />}
+      <PendingBar />
     </Link>
   );
 }
@@ -165,5 +167,24 @@ function Badge({ count, className }: { count: number; className?: string }) {
       {count > 9 ? "9+" : count}
       <span className="sr-only"> waiting</span>
     </span>
+  );
+}
+
+/**
+ * A thin bar under a tapped menu item while its page is on the way - only
+ * ever visible on a slow connection, since each hosting page has a
+ * loading.tsx and is prefetched. Always rendered (opacity only), so it
+ * never shifts the layout.
+ */
+function PendingBar() {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-brand-400 transition-opacity duration-150",
+        pending ? "animate-pulse opacity-100" : "opacity-0",
+      )}
+    />
   );
 }

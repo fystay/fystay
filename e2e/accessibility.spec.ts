@@ -108,7 +108,8 @@ test.describe("accessibility", () => {
     await page.fill("#email", "guest@fystay.dev");
     await page.fill("#password", "guestpass123");
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    // Wherever login lands (a host goes to their dashboard, a guest home).
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
     await page.goto("/account");
     await expectNoSeriousViolations(page, "Account page");
@@ -125,7 +126,8 @@ test.describe("accessibility", () => {
     await page.fill("#email", "host@fystay.dev");
     await page.fill("#password", "hostpass123");
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    // Wherever login lands (a host goes to their dashboard, a guest home).
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
     await page.goto("/host/dashboard");
     await expectNoSeriousViolations(page, "Host dashboard");
