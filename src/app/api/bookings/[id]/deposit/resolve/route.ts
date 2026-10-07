@@ -6,6 +6,7 @@ import { getStripeClient } from "@/lib/stripe";
 import { sendDepositResolvedEmail } from "@/lib/notificationEmails";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { BASE_URL } from "@/lib/baseUrl";
+import { captureDepositClaim, DepositAlreadyResolvedError, releaseDeposit } from "@/lib/depositSettlement";
 
 const resolveSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("release") }),
@@ -22,7 +23,8 @@ const resolveSchema = z.discriminatedUnion("action", [
  * capturing requires a reason, since - unlike everything else this app
  * charges - this is money taken because the host says something went
  * wrong, not because of an agreed price, so the guest is owed an
- * explanation for what they'll see on their card statement.
+ * explanation for what they'll see on their card statement. A claim is
+ * paid on to the host in full (src/lib/depositSettlement.ts).
  */
 async function postHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,6 +57,18 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   if (booking.depositStatus !== "AUTHORIZED" || !booking.stripeDepositPaymentIntentId) {
     return NextResponse.json({ error: "There's no active deposit hold on this booking" }, { status: 409 });
   }
+  // A claim is for damage during the stay: never before check-in, and never
+  // on a stay that was cancelled (cancelling releases the hold, but this
+  // also covers the moments in between).
+  if (
+    parsed.data.action === "capture" &&
+    (!["CONFIRMED", "COMPLETED"].includes(booking.status) || new Date() < booking.checkIn)
+  ) {
+    return NextResponse.json(
+      { error: "A deposit claim can only be made once the guest's stay has started" },
+      { status: 409 },
+    );
+  }
   if (parsed.data.action === "capture" && parsed.data.amountCents > booking.securityDepositCents) {
     return NextResponse.json(
       { error: "You can't claim more than the authorized deposit amount" },
@@ -78,27 +92,34 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     bookingUrl: `${BASE_URL}/bookings/${booking.id}`,
   };
 
+  try {
+    if (parsed.data.action === "release") {
+      await releaseDeposit(stripe, prisma, booking.id, booking.stripeDepositPaymentIntentId);
+    } else {
+      await captureDepositClaim(
+        stripe,
+        prisma,
+        {
+          id: booking.id,
+          reference: booking.reference,
+          stripeDepositPaymentIntentId: booking.stripeDepositPaymentIntentId,
+          hostConnectAccountId: booking.listing.host.stripeConnectAccountId,
+        },
+        parsed.data.amountCents,
+      );
+    }
+  } catch (error) {
+    if (error instanceof DepositAlreadyResolvedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
+
   if (parsed.data.action === "release") {
-    await stripe.paymentIntents.cancel(booking.stripeDepositPaymentIntentId);
-    await prisma.booking.update({
-      where: { id },
-      data: { depositStatus: "RELEASED", depositReleasedAt: new Date() },
-    });
     await sendDepositResolvedEmail(emailCtx, { outcome: "released", depositCents: booking.securityDepositCents });
     return NextResponse.json({ status: "released" });
   }
 
-  await stripe.paymentIntents.capture(booking.stripeDepositPaymentIntentId, {
-    amount_to_capture: parsed.data.amountCents,
-  });
-  await prisma.booking.update({
-    where: { id },
-    data: {
-      depositStatus: "CAPTURED",
-      depositCapturedCents: parsed.data.amountCents,
-      depositCapturedAt: new Date(),
-    },
-  });
   await sendDepositResolvedEmail(emailCtx, {
     outcome: "captured",
     depositCents: booking.securityDepositCents,

@@ -5,6 +5,7 @@ import { previewCancellation, type CancellationPreview } from "@/lib/cancellatio
 import { sendBookingCancelledEmails } from "@/lib/notificationEmails";
 import { pushBookingCancellation } from "@/lib/pms/sync";
 import { BASE_URL } from "@/lib/baseUrl";
+import { DepositAlreadyResolvedError, releaseDeposit } from "@/lib/depositSettlement";
 
 export type CancellableBooking = Booking & {
   listing: {
@@ -114,6 +115,8 @@ export async function cancelBookingAndRefund(
     },
   });
 
+  await settleDepositOnCancellation(prisma, booking);
+
   // Only when the booking was already CONFIRMED - a still-PENDING one was
   // never paid for or announced to the host in the first place (no
   // confirmation email ever went out for it), so a cancellation notice
@@ -148,4 +151,33 @@ export async function cancelBookingAndRefund(
   }
 
   return { updated, refund, wasPaid };
+}
+
+/**
+ * A cancelled stay has nothing for a deposit to cover: an active hold is
+ * released from the guest's card, and one not yet placed is called off
+ * (its open authorization link expired, so it can't be completed later).
+ * Best-effort - the cancellation itself has already happened; a hold
+ * Stripe won't release here still auto-releases at its claim deadline.
+ */
+async function settleDepositOnCancellation(prisma: PrismaClient, booking: Booking) {
+  const stripe = getStripeClient();
+  try {
+    if (booking.depositStatus === "AUTHORIZED" && booking.stripeDepositPaymentIntentId && stripe) {
+      await releaseDeposit(stripe, prisma, booking.id, booking.stripeDepositPaymentIntentId);
+    } else if (booking.depositStatus === "AWAITING_AUTHORIZATION") {
+      await prisma.booking.updateMany({
+        where: { id: booking.id, depositStatus: "AWAITING_AUTHORIZATION" },
+        data: { depositStatus: "NOT_REQUIRED" },
+      });
+      if (booking.stripeDepositSessionId && stripe) {
+        await stripe.checkout.sessions.expire(booking.stripeDepositSessionId).catch(() => {
+          // Already completed or expired - the webhook cancels any hold it produced.
+        });
+      }
+    }
+  } catch (error) {
+    if (error instanceof DepositAlreadyResolvedError) return;
+    console.error(`couldn't settle the deposit for cancelled booking ${booking.id}:`, error);
+  }
 }

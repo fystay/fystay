@@ -463,23 +463,37 @@ async function postHandler(request: Request) {
       // authorization hold placed on it. Scoped to AWAITING_AUTHORIZATION
       // so a redelivered event is a no-op rather than re-deriving a new
       // claim deadline from "now" a second time.
+      const holdPaymentIntentId =
+        typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null;
       const depositBooking = await prisma.booking.findFirst({
-        where: { id: bookingId, depositStatus: "AWAITING_AUTHORIZATION" },
+        where: { id: bookingId, status: "CONFIRMED", depositStatus: "AWAITING_AUTHORIZATION" },
         select: { checkOut: true },
       });
-      if (depositBooking) {
-        await prisma.booking.updateMany({
-          where: { id: bookingId, depositStatus: "AWAITING_AUTHORIZATION" },
-          data: {
-            depositStatus: "AUTHORIZED",
-            depositAuthorizedAt: new Date(),
-            depositClaimDeadline: depositClaimDeadline(depositBooking.checkOut),
-            stripeDepositPaymentIntentId:
-              typeof checkoutSession.payment_intent === "string"
-                ? checkoutSession.payment_intent
-                : undefined,
-          },
+      const placed = depositBooking
+        ? await prisma.booking.updateMany({
+            where: { id: bookingId, status: "CONFIRMED", depositStatus: "AWAITING_AUTHORIZATION" },
+            data: {
+              depositStatus: "AUTHORIZED",
+              depositAuthorizedAt: new Date(),
+              depositClaimDeadline: depositClaimDeadline(depositBooking.checkOut),
+              stripeDepositPaymentIntentId: holdPaymentIntentId ?? undefined,
+            },
+          })
+        : { count: 0 };
+      if (placed.count === 0 && holdPaymentIntentId) {
+        // A hold nobody will ever claim or release: the booking was
+        // cancelled first, or the guest completed a second, older deposit
+        // link after the first. Cancel it now rather than leave money held
+        // on the guest's card for a week.
+        const current = await prisma.booking.findUnique({
+          where: { id: bookingId },
+          select: { stripeDepositPaymentIntentId: true },
         });
+        if (current?.stripeDepositPaymentIntentId !== holdPaymentIntentId) {
+          await stripe.paymentIntents.cancel(holdPaymentIntentId).catch((error: unknown) => {
+            if ((error as { code?: string }).code !== "payment_intent_unexpected_state") throw error;
+          });
+        }
       }
     } else if (bookingId) {
       // Only a paid session confirms a booking. Card payments are paid by

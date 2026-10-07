@@ -1,0 +1,118 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type Stripe from "stripe";
+
+const { opsAlert } = vi.hoisted(() => ({ opsAlert: vi.fn() }));
+vi.mock("@/lib/notificationEmails", () => ({ sendPaymentOpsAlertEmail: (...a: unknown[]) => opsAlert(...a) }));
+
+import {
+  captureDepositClaim,
+  DepositAlreadyResolvedError,
+  releaseDeposit,
+  transferDepositToHost,
+} from "./depositSettlement";
+
+type Row = Record<string, unknown> & { depositStatus: string };
+let row: Row;
+
+const db = {
+  booking: {
+    updateMany: async ({ where, data }: { where: { depositStatus: string }; data: object }) => {
+      if (row.depositStatus !== where.depositStatus) return { count: 0 };
+      Object.assign(row, data);
+      return { count: 1 };
+    },
+    update: async ({ data }: { data: object }) => Object.assign(row, data),
+  },
+} as unknown as Parameters<typeof releaseDeposit>[1];
+
+const stripe = {
+  paymentIntents: {
+    cancel: vi.fn(),
+    capture: vi.fn(),
+    retrieve: vi.fn(async () => ({ latest_charge: "ch_deposit" })),
+  },
+  transfers: { create: vi.fn(async () => ({ id: "tr_1" })) },
+};
+const s = stripe as unknown as Stripe;
+
+const booking = {
+  id: "bk_1",
+  reference: "FY-DEP",
+  stripeDepositPaymentIntentId: "pi_dep",
+  hostConnectAccountId: "acct_host",
+};
+
+beforeEach(() => {
+  row = { depositStatus: "AUTHORIZED" };
+  vi.clearAllMocks();
+  opsAlert.mockResolvedValue(undefined);
+  vi.spyOn(console, "error").mockImplementation(() => {});
+});
+
+describe("captureDepositClaim", () => {
+  it("captures the claim and pays all of it to the host, once", async () => {
+    await captureDepositClaim(s, db, booking, 12_000);
+
+    expect(stripe.paymentIntents.capture).toHaveBeenCalledWith("pi_dep", { amount_to_capture: 12_000 });
+    expect(stripe.transfers.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 12_000,
+        currency: "gbp",
+        destination: "acct_host",
+        source_transaction: "ch_deposit",
+      }),
+      { idempotencyKey: "deposit-transfer:bk_1" },
+    );
+    expect(row).toMatchObject({ depositStatus: "CAPTURED", depositCapturedCents: 12_000, depositTransferId: "tr_1" });
+  });
+
+  it("lets only one of a claim and the cron's auto-release act on the hold", async () => {
+    const results = await Promise.allSettled([
+      captureDepositClaim(s, db, booking, 5_000),
+      releaseDeposit(s, db, "bk_1", "pi_dep"),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect((results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason).toBeInstanceOf(
+      DepositAlreadyResolvedError,
+    );
+    expect(stripe.paymentIntents.capture.mock.calls.length + stripe.paymentIntents.cancel.mock.calls.length).toBe(1);
+  });
+
+  it("puts the hold back if Stripe refuses the capture", async () => {
+    stripe.paymentIntents.capture.mockRejectedValueOnce(new Error("authorization expired"));
+    await expect(captureDepositClaim(s, db, booking, 5_000)).rejects.toThrow("authorization expired");
+    expect(row).toMatchObject({ depositStatus: "AUTHORIZED", depositCapturedCents: null });
+    expect(stripe.transfers.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps the capture and alerts when the transfer fails, for the cron to retry", async () => {
+    stripe.transfers.create.mockRejectedValueOnce(new Error("account restricted"));
+    await captureDepositClaim(s, db, booking, 5_000);
+    expect(row).toMatchObject({ depositStatus: "CAPTURED" });
+    expect(row.depositTransferId).toBeUndefined();
+    expect(opsAlert).toHaveBeenCalledTimes(1);
+
+    expect(
+      await transferDepositToHost(s, db, { ...booking, depositCapturedCents: 5_000 }),
+    ).toBe(true);
+    expect(row.depositTransferId).toBe("tr_1");
+  });
+});
+
+describe("transferDepositToHost", () => {
+  it("doesn't move money for a host with no Stripe account, and alerts", async () => {
+    expect(
+      await transferDepositToHost(s, db, { ...booking, hostConnectAccountId: null, depositCapturedCents: 1_000 }),
+    ).toBe(false);
+    expect(stripe.transfers.create).not.toHaveBeenCalled();
+    expect(opsAlert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("releaseDeposit", () => {
+  it("puts the hold back if Stripe refuses the release", async () => {
+    stripe.paymentIntents.cancel.mockRejectedValueOnce(new Error("stripe down"));
+    await expect(releaseDeposit(s, db, "bk_1", "pi_dep")).rejects.toThrow("stripe down");
+    expect(row.depositStatus).toBe("AUTHORIZED");
+  });
+});

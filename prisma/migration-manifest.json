@@ -302,6 +302,12 @@
       "files": {
         "migration.sql": "4c12a99da9deab93ed590e1e71cd572c4d5913059da1d44ed76dfebf384dc32c"
       }
+    },
+    {
+      "name": "20261007090000_add_deposit_transfer",
+      "files": {
+        "migration.sql": "5fae26042188bcf48aa3fcd2b35e6f44b4949a126f42bb53133ee1a7fcc3fa02"
+      }
     }
   ],
   "retired": [

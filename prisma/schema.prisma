@@ -694,6 +694,12 @@ model Booking {
   depositCapturedAt            DateTime?
   depositReleasedAt            DateTime?
   depositClaimDeadline         DateTime?
+  // A captured claim is charged to FYStay's own Stripe balance (the hold
+  // has no transfer_data), so the money is passed on to the host with a
+  // separate Stripe transfer - see src/lib/depositSettlement.ts. Null
+  // while not yet sent; the security-deposits cron retries until it is.
+  depositTransferId            String?       @unique
+  depositTransferredAt         DateTime?
 
   // Contact details for this specific stay, captured at checkout. Kept on
   // the booking (rather than read live off the account) so the record

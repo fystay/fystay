@@ -11,6 +11,7 @@ import {
 import { sendDepositAuthorizationRequestEmail, sendDepositResolvedEmail } from "@/lib/notificationEmails";
 import { BASE_URL } from "@/lib/baseUrl";
 import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
+import { DepositAlreadyResolvedError, releaseDeposit, transferDepositToHost } from "@/lib/depositSettlement";
 
 /**
  * Daily housekeeping for security deposits (see src/lib/securityDeposit.ts
@@ -24,6 +25,8 @@ import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
  *    no claim filed - protects the guest from a card hold a host simply
  *    never acts on, and protects against Stripe's own authorization
  *    naturally lapsing uncancelled.
+ *
+ * 3. Retry any captured claim whose transfer to the host failed.
  *
  * One combined route rather than two, since both are cheap daily sweeps
  * over the same small set of bookings.
@@ -49,6 +52,12 @@ async function getHandler(request: Request) {
   for (const booking of awaitingAuthorization) {
     if (!needsDepositAuthorization(booking)) continue;
     try {
+      // Already asked and the link is still open: don't send another one
+      // each day (an older link would stay payable alongside the new one).
+      if (booking.stripeDepositSessionId) {
+        const existing = await stripe.checkout.sessions.retrieve(booking.stripeDepositSessionId);
+        if (existing.status === "open") continue;
+      }
       const checkoutSession = await createDepositCheckoutSession(stripe, {
         bookingId: booking.id,
         depositCents: booking.securityDepositCents,
@@ -95,11 +104,13 @@ async function getHandler(request: Request) {
   for (const booking of authorized) {
     if (!isDepositClaimExpired(booking) || !booking.stripeDepositPaymentIntentId) continue;
     try {
-      await stripe.paymentIntents.cancel(booking.stripeDepositPaymentIntentId);
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { depositStatus: "RELEASED", depositReleasedAt: new Date() },
-      });
+      try {
+        await releaseDeposit(stripe, prisma, booking.id, booking.stripeDepositPaymentIntentId);
+      } catch (error) {
+        // The host claimed or released it themselves in the meantime.
+        if (error instanceof DepositAlreadyResolvedError) continue;
+        throw error;
+      }
       await sendDepositResolvedEmail(
         {
           reference: booking.reference,
@@ -124,7 +135,32 @@ async function getHandler(request: Request) {
     }
   }
 
-  return NextResponse.json({ ranAt: new Date().toISOString(), authorizationsStarted, released });
+  // Claims whose transfer to the host failed at the time (see
+  // transferDepositToHost) - retried until they go through.
+  const untransferred = await prisma.booking.findMany({
+    where: { depositStatus: "CAPTURED", depositTransferId: null, depositCapturedCents: { gt: 0 } },
+    select: {
+      id: true,
+      reference: true,
+      stripeDepositPaymentIntentId: true,
+      depositCapturedCents: true,
+      listing: { select: { host: { select: { stripeConnectAccountId: true } } } },
+    },
+  });
+  let transfersRetried = 0;
+  for (const booking of untransferred) {
+    if (!booking.stripeDepositPaymentIntentId || !booking.depositCapturedCents) continue;
+    const sent = await transferDepositToHost(stripe, prisma, {
+      id: booking.id,
+      reference: booking.reference,
+      stripeDepositPaymentIntentId: booking.stripeDepositPaymentIntentId,
+      hostConnectAccountId: booking.listing.host.stripeConnectAccountId,
+      depositCapturedCents: booking.depositCapturedCents,
+    });
+    if (sent) transfersRetried += 1;
+  }
+
+  return NextResponse.json({ ranAt: new Date().toISOString(), authorizationsStarted, released, transfersRetried });
 }
 
 export const GET = withApiErrorHandling(getHandler);

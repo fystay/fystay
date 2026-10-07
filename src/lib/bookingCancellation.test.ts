@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { refundAcrossPayments, stripe } = vi.hoisted(() => ({
+const { refundAcrossPayments, releaseDeposit, stripe } = vi.hoisted(() => ({
   refundAcrossPayments: vi.fn(),
+  releaseDeposit: vi.fn(),
   stripe: { marker: "stripe" },
 }));
 
@@ -14,6 +15,10 @@ vi.mock("@/lib/connectRefunds", () => ({
 }));
 vi.mock("@/lib/notificationEmails", () => ({ sendBookingCancelledEmails: vi.fn() }));
 vi.mock("@/lib/pms/sync", () => ({ pushBookingCancellation: vi.fn() }));
+vi.mock("@/lib/depositSettlement", () => ({
+  DepositAlreadyResolvedError: class extends Error {},
+  releaseDeposit: (...a: unknown[]) => releaseDeposit(...a),
+}));
 
 import { BookingAlreadyProcessedError, cancelBookingAndRefund, type CancellableBooking } from "./bookingCancellation";
 
@@ -62,6 +67,7 @@ const prisma = {
 beforeEach(() => {
   state = { status: "CONFIRMED" };
   refundAcrossPayments.mockReset();
+  releaseDeposit.mockReset();
   updateMany.mockReset();
 });
 
@@ -93,5 +99,11 @@ describe("cancelBookingAndRefund", () => {
     refundAcrossPayments.mockRejectedValueOnce(new Error("card_declined"));
     await expect(cancelBookingAndRefund(prisma, booking, { now })).rejects.toThrow("card_declined");
     expect(state.status).toBe("CONFIRMED");
+  });
+
+  it("releases a live deposit hold on the guest's card", async () => {
+    const withHold = { ...booking, depositStatus: "AUTHORIZED", stripeDepositPaymentIntentId: "pi_hold" } as CancellableBooking;
+    await cancelBookingAndRefund(prisma, withHold, { now });
+    expect(releaseDeposit).toHaveBeenCalledWith(stripe, prisma, "bk_1", "pi_hold");
   });
 });
