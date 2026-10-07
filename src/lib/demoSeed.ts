@@ -605,9 +605,7 @@ export const DEMO_LISTINGS = [
 // alongside it, not just a flat Listing insert. Without at least one seeded
 // hotel, the entire multi-room-type feature (search, booking, change
 // requests - see isRoomTypeRangeAvailable and its callers) is never
-// actually exercised by anyone browsing the seeded catalogue, which is
-// also literally the first word of the site's own "Hotels · B&Bs ·
-// Apartments" tagline.
+// actually exercised by anyone browsing the seeded catalogue.
 export const DEMO_HOTEL_LISTING = {
   title: "The Promenade Hotel, Blackpool",
   description:

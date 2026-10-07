@@ -41,7 +41,7 @@ test("on desktop the sections sit in the header, each offered once", async ({ pa
     await page.goto(path);
     const header = page.locator("header");
     await expect(header.getByRole("navigation", { name: "Sections" })).toBeVisible();
-    // exact: the logo link's name includes its "Hotels · B&Bs · Apartments" tagline.
+    // exact: the logo link's name includes its "Apartments · B&Bs · Lodges" tagline.
     await expect(header.getByRole("link", { name: "About", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Stays", exact: true })).toHaveCount(1);
     // One set of names: no competing "Hotels" or "Destinations" link.
