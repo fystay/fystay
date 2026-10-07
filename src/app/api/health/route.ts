@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { configReadiness, readinessSummary } from "@/lib/configReadiness";
 
 /**
  * Public, unauthenticated liveness/readiness check for uptime monitors and
@@ -9,6 +10,8 @@ import { prisma } from "@/lib/prisma";
  * not an unexpected bug to report to Sentry. Says nothing about *why* the
  * database is unreachable (no error message/stack) - just up or down -
  * since this endpoint is public and shouldn't leak infrastructure detail.
+ * `config` is just "ok" or "incomplete" for the same reason; which settings
+ * are missing is behind /api/health/config.
  */
 export async function GET() {
   const startedAt = Date.now();
@@ -17,6 +20,7 @@ export async function GET() {
     return NextResponse.json({
       status: "ok",
       database: "ok",
+      config: readinessSummary(configReadiness()).ready ? "ok" : "incomplete",
       latencyMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
     });

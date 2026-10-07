@@ -191,6 +191,17 @@ describe("creating a booking", () => {
     expect(mocks.bookingCreate.mock.calls[0][0].data.creditAppliedCents).toBe(0);
   });
 
+  it("never discounts more than FYStay's own fee, so the host is paid their full price", async () => {
+    // 2 nights at £100: FYStay's fee is £20. A £10 code plus £50 of credit
+    // can only take £20 off; the rest of the credit stays for next time.
+    state.creditBalanceCents = 5_000;
+    expect((await book({ listingId: "listing_1", promoCode: "SAVE10" })).status).toBe(201);
+    const data = mocks.bookingCreate.mock.calls[0][0].data;
+    expect(data.promoDiscountCents).toBe(1_000);
+    expect(data.creditAppliedCents).toBe(1_000);
+    expect(state.creditBalanceCents).toBe(4_000);
+  });
+
   it("doesn't oversell a capped promo code's last redemption", async () => {
     state.promoRacesToLose = 3;
     expect((await book({ listingId: "listing_1", promoCode: "LAST1" })).status).toBe(409);

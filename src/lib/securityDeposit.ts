@@ -1,26 +1,25 @@
 import type Stripe from "stripe";
 
 // A card authorization hold (Stripe PaymentIntent with capture_method:
-// "manual") only stays valid for about a week before most card networks
-// release it automatically, regardless of what FYStay's own records say.
-// That's the constraint everything below is built around:
+// "manual") stays valid for 7 days on most cards (Stripe's documented
+// window for customer-initiated online payments), after which the card
+// network releases it and the PaymentIntent becomes "canceled" -
+// regardless of what FYStay's own records say. Lodging businesses on
+// eligible Stripe pricing can get up to 30 days, which is requested where
+// available. Everything below is built around that:
 //
-// - The hold is placed shortly BEFORE check-in, not at the time of the
-//   original booking payment. A stay booked months in advance would
-//   otherwise have its hold silently expire long before the guest ever
-//   arrives.
-// - The claim window after checkout is kept short enough that
-//   authorization + stay + claim window comfortably fits inside that
-//   same real-world hold lifetime for a short stay.
+// - The hold is placed the day before check-in, not at the time of the
+//   original booking payment, so as much of its life as possible falls
+//   after the stay.
+// - The claim deadline is the earlier of DEPOSIT_CLAIM_WINDOW_DAYS after
+//   checkout and shortly before the hold itself expires (Stripe's own
+//   capture_before for the payment, when known). A host is never shown a
+//   claim window the card hold can't honour.
 //
-// This means a security deposit is only reliably enforceable for stays up
-// to roughly DEPOSIT_AUTHORIZATION_WINDOW_DAYS + DEPOSIT_CLAIM_WINDOW_DAYS
-// nights - for a much longer stay, the hold can expire before the claim
-// window even opens. That's a real limitation of card authorization holds
-// themselves, not something this app papers over: it's surfaced to hosts
-// on the listing form rather than silently promising a guarantee it can't
-// keep for long stays.
-export const DEPOSIT_AUTHORIZATION_WINDOW_DAYS = 3;
+// For a stay longer than about 5 nights on a standard 7-day hold, that
+// leaves little or no time after checkout: a real limitation of card
+// holds, surfaced to hosts on the listing form rather than papered over.
+export const DEPOSIT_AUTHORIZATION_WINDOW_DAYS = 1;
 export const DEPOSIT_CLAIM_WINDOW_DAYS = 3;
 
 export type DepositBooking = {
@@ -46,8 +45,29 @@ export function needsDepositAuthorization(booking: DepositBooking, now: Date = n
   return now >= windowStart && now < booking.checkOut;
 }
 
-export function depositClaimDeadline(checkOut: Date): Date {
-  return new Date(checkOut.getTime() + DEPOSIT_CLAIM_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** A standard online card hold's life, less a margin for the capture itself. */
+const STANDARD_HOLD_MS = 7 * DAY_MS - 12 * 60 * 60 * 1000;
+
+/**
+ * The last moment a host can claim: DEPOSIT_CLAIM_WINDOW_DAYS after
+ * checkout, but never past the hold's own expiry - Stripe's capture_before
+ * for the authorization when known (it reflects any extended hold),
+ * otherwise a standard 7-day hold from when it was placed. Both less a
+ * 12-hour margin so a claim made at the deadline still captures.
+ */
+export function depositClaimDeadline(checkOut: Date, authorizedAt: Date = new Date(), captureBefore?: Date | null): Date {
+  const claimWindowEnd = checkOut.getTime() + DEPOSIT_CLAIM_WINDOW_DAYS * DAY_MS;
+  const holdEnd = captureBefore ? captureBefore.getTime() - 12 * 60 * 60 * 1000 : authorizedAt.getTime() + STANDARD_HOLD_MS;
+  return new Date(Math.min(claimWindowEnd, holdEnd));
+}
+
+/** When Stripe says an authorized deposit must be captured by, if it says. */
+export async function depositCaptureBefore(stripe: Stripe, paymentIntentId: string): Promise<Date | null> {
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge"] });
+  const charge = paymentIntent.latest_charge;
+  const captureBefore = charge && typeof charge !== "string" ? charge.payment_method_details?.card?.capture_before : null;
+  return captureBefore ? new Date(captureBefore * 1000) : null;
 }
 
 /** True once an AUTHORIZED hold's claim window has closed with no claim filed. */
@@ -104,6 +124,10 @@ export async function createDepositCheckoutSession(
     payment_intent_data: {
       capture_method: "manual",
     },
+    // Up to 30 days for lodging where the account's Stripe pricing allows
+    // it; otherwise the standard 7 days. depositClaimDeadline uses
+    // whichever the card actually got.
+    payment_method_options: { card: { request_extended_authorization: "if_available" } },
     metadata: { bookingId: params.bookingId, purpose: "deposit" },
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,

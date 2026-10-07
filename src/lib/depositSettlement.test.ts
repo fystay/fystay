@@ -7,6 +7,7 @@ vi.mock("@/lib/notificationEmails", () => ({ sendPaymentOpsAlertEmail: (...a: un
 import {
   captureDepositClaim,
   DepositAlreadyResolvedError,
+  DepositHoldExpiredError,
   releaseDeposit,
   transferDepositToHost,
 } from "./depositSettlement";
@@ -29,7 +30,7 @@ const stripe = {
   paymentIntents: {
     cancel: vi.fn(),
     capture: vi.fn(),
-    retrieve: vi.fn(async () => ({ latest_charge: "ch_deposit" })),
+    retrieve: vi.fn(async (): Promise<{ latest_charge?: string; status?: string }> => ({ latest_charge: "ch_deposit" })),
   },
   transfers: {
     create: vi.fn(async () => ({ id: "tr_1" })),
@@ -135,5 +136,22 @@ describe("releaseDeposit", () => {
     stripe.paymentIntents.cancel.mockRejectedValueOnce(new Error("stripe down"));
     await expect(releaseDeposit(s, db, "bk_1", "pi_dep")).rejects.toThrow("stripe down");
     expect(row.depositStatus).toBe("AUTHORIZED");
+  });
+
+  it("records a hold the card network already released as released, so the cron stops retrying", async () => {
+    stripe.paymentIntents.cancel.mockRejectedValueOnce(new Error("unexpected state"));
+    stripe.paymentIntents.retrieve.mockResolvedValueOnce({ status: "canceled" });
+    await releaseDeposit(s, db, "bk_1", "pi_dep");
+    expect(row.depositStatus).toBe("RELEASED");
+  });
+});
+
+describe("captureDepositClaim on a lapsed hold", () => {
+  it("tells the host the hold expired and records it as released", async () => {
+    stripe.paymentIntents.capture.mockRejectedValueOnce(new Error("unexpected state"));
+    stripe.paymentIntents.retrieve.mockResolvedValueOnce({ status: "canceled" });
+    await expect(captureDepositClaim(s, db, booking, 5_000)).rejects.toBeInstanceOf(DepositHoldExpiredError);
+    expect(row.depositStatus).toBe("RELEASED");
+    expect(stripe.transfers.create).not.toHaveBeenCalled();
   });
 });

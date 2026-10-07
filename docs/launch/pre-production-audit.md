@@ -198,6 +198,10 @@ CREATE UNIQUE INDEX "Booking_depositTransferId_key" ON "Booking"("depositTransfe
 
 ## Releasing
 
+Superseded by the release steps in
+[production-readiness-audit.md](production-readiness-audit.md) (two migrations now).
+
+
 1. GitHub → Actions → **Production database migration** → Run workflow:
    branch `claude/host-platform-upgrade`, `sha` = that branch's latest full
    commit SHA, drift check `report`. Approve it.

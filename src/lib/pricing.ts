@@ -117,12 +117,23 @@ export function computeBookingPricing(params: {
 }
 
 /**
+ * The most referral credit and promo discount one booking can take
+ * together: FYStay's own fee on it. Both are FYStay's marketing cost, paid
+ * out of that fee (applyDiscountsToApplicationFee) - a larger discount
+ * would come out of the host's payout instead, breaking the promise that
+ * the host earns exactly their price. Unused credit stays on the guest's
+ * account for their next stay.
+ */
+export function maxFyStayDiscountCents(pricing: { serviceFeeCents: number; taxCents: number }): number {
+  return Math.max(0, pricing.serviceFeeCents + pricing.taxCents);
+}
+
+/**
  * Referral credit and a promo code's discount (see referral.ts and
  * promoCode.ts) are both FYStay's own marketing cost, not the host's to
  * bear - so together they come out of the platform's own
- * applicationFeeCents first, and only reduce the host's share if their sum
- * is somehow larger than the entire platform fee (never negative either
- * way; Math.max(0, ...) is the floor, not a rounding nicety).
+ * applicationFeeCents. maxFyStayDiscountCents keeps new bookings within
+ * it; the floor here only matters for bookings made before that cap.
  */
 export function applyDiscountsToApplicationFee(
   grossApplicationFeeCents: number,

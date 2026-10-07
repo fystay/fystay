@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
+import { reportError, withCronMonitor } from "@/lib/observability";
 import { prisma } from "@/lib/prisma";
 import { expireAbandonedCheckouts, expireStaleBookingRequests } from "@/lib/bookingLifecycle";
 import { sendBookingRequestRespondedEmail } from "@/lib/notificationEmails";
@@ -48,11 +49,11 @@ async function getHandler(request: Request) {
         "expired",
       );
     } catch (error) {
-      console.error(`expiry email failed for booking ${booking.id}:`, error);
+      reportError(error, { area: "cron", message: "request expiry email not sent", bookingId: booking.id });
     }
   }
 
   return NextResponse.json({ expiredAt: new Date().toISOString(), count: expired.length, abandonedCheckouts });
 }
 
-export const GET = withApiErrorHandling(getHandler);
+export const GET = withCronMonitor("expire-booking-requests", "0 7 * * *", "BOOKING_REQUEST_CRON_SECRET", withApiErrorHandling(getHandler));

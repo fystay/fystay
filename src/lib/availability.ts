@@ -231,9 +231,19 @@ export async function isRequestedRangeStillAvailable(
     excludeBookingId: string;
     checkIn: Date;
     checkOut: Date;
+    /**
+     * Only paid (confirmed) stays count - for confirming a payment that has
+     * already arrived. An unpaid hold mustn't beat money in hand: a guest
+     * who opened Stripe near the end of their hold can pay after someone
+     * else reserved the same dates, and refunding the payer in favour of a
+     * reservation that may never be paid loses the booking. The unpaid one
+     * finds the dates taken when it tries to pay.
+     */
+    paidOnly?: boolean;
   },
 ): Promise<boolean> {
-  const { listingId, roomTypeId, roomsBooked, excludeBookingId, checkIn, checkOut } = params;
+  const { listingId, roomTypeId, roomsBooked, excludeBookingId, checkIn, checkOut, paidOnly = false } = params;
+  const blocking = paidOnly ? { status: "CONFIRMED" as const } : blockingBookingWhere();
 
   if (roomTypeId) {
     const [roomTypeBookings, roomTypeBlocks, roomType] = await Promise.all([
@@ -243,7 +253,7 @@ export async function isRequestedRangeStillAvailable(
           id: { not: excludeBookingId },
           checkIn: { lt: checkOut },
           checkOut: { gt: checkIn },
-          ...blockingBookingWhere(),
+          ...blocking,
         },
         select: { checkIn: true, checkOut: true, roomsBooked: true },
       }),
@@ -267,7 +277,7 @@ export async function isRequestedRangeStillAvailable(
 
   const [otherBookings, blocks] = await Promise.all([
     prisma.booking.findMany({
-      where: { listingId, id: { not: excludeBookingId }, ...blockingBookingWhere() },
+      where: { listingId, id: { not: excludeBookingId }, ...blocking },
       select: { checkIn: true, checkOut: true },
     }),
     prisma.availabilityBlock.findMany({

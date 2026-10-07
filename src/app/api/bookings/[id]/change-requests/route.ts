@@ -19,7 +19,7 @@ import {
 } from "@/lib/changeRequests";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 import { withApiErrorHandling } from "@/lib/apiError";
-import { parseStayDate } from "@/lib/stayDates";
+import { parseStayDate, todayStayDate } from "@/lib/stayDates";
 
 const createChangeRequestSchema = z.object({
   checkIn: z.string().min(1),
@@ -47,6 +47,10 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   const checkOut = parseStayDate(parsed.data.checkOut);
   if (!checkIn || !checkOut) {
     return NextResponse.json({ error: "Invalid dates" }, { status: 400 });
+  }
+  // Same rule as a new booking: a stay can't be moved into the past.
+  if (checkIn < todayStayDate()) {
+    return NextResponse.json({ error: "Check-in date must be in the future" }, { status: 400 });
   }
 
   const booking = await prisma.booking.findUnique({

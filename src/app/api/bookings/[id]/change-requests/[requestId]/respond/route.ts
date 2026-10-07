@@ -17,6 +17,7 @@ import { formatPrice } from "@/lib/format";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { reportError } from "@/lib/observability";
 
 const respondSchema = z.object({ action: z.enum(["approve", "decline"]) });
 
@@ -156,7 +157,7 @@ async function postHandler(
         // Part of the difference already went back to the guest, so putting
         // the old dates back would leave them refunded for a change that
         // never happened. The change stands and a person sends the rest.
-        console.error(`partial refund for change request ${requestId}:`, error.cause);
+        reportError(error.cause, { area: "payments", message: `date-change refund only partly went through (request ${requestId})` });
         await sendPaymentOpsAlertEmail({
           subject: "A date-change refund only partly went through",
           summary: `Shorter stay approved. ${formatPrice(error.refundedCents)} of the ${formatPrice(error.requestedCents)} difference went back to the guest, then Stripe refused the rest.`,
@@ -191,7 +192,7 @@ async function postHandler(
           },
         }),
       ]);
-      console.error("Change refund failed - approval undone", { changeRequestId: requestId, error });
+      reportError(error, { area: "payments", message: `date-change refund failed, approval undone (request ${requestId})` });
       throw error;
     }
     await prisma.bookingChangeRequest.update({ where: { id: requestId }, data: { refundedAt: new Date() } });

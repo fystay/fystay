@@ -53,6 +53,8 @@ type Props = {
   initialSelection?: StaySelection;
   /** false when the host can't take a paid booking yet (Stripe payouts not set up) - see hostAcceptsPaidBookings. */
   acceptsPaidBookings?: boolean;
+  /** A refundable card hold placed before check-in (securityDeposit.ts) - told up front so it isn't a surprise at checkout. */
+  securityDepositCents?: number;
 };
 
 /** Guest counts from a search, trimmed to what this listing can actually host. */
@@ -87,6 +89,7 @@ export function BookingWidget({
   instantBook,
   initialSelection,
   acceptsPaidBookings = true,
+  securityDepositCents = 0,
 }: Props) {
   const router = useRouter();
   const [range, setRange] = useState<DateRange | undefined>(() =>
@@ -394,7 +397,11 @@ export function BookingWidget({
                 <span>Total</span>
                 <span>{formatPrice(pricing.totalPriceCents - promoDiscountCents)}</span>
               </div>
-              <p className="text-xs text-stone-500">Taxes aren&apos;t charged today - the total above is everything you pay.</p>
+              <p className="text-xs text-stone-500">
+                Taxes aren&apos;t charged today - the total above is everything you pay.
+                {securityDepositCents > 0 &&
+                  ` The host also asks for a refundable ${formatPrice(securityDepositCents)} security deposit: a hold on your card the day before check-in, released after your stay unless there's damage.`}
+              </p>
 
               {isLoggedIn &&
                 (promoActive ? (

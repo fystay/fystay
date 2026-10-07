@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarCheck2, CreditCard, History, Ticket, AlertTriangle } from "lucide-react";
 import { auth } from "@/auth";
 import { getBookingDetailForAdmin } from "@/lib/adminBookingLookup";
-import { previewCancellation } from "@/lib/cancellationPolicy";
+import { bookingCancellationTerms, previewCancellation } from "@/lib/cancellationPolicy";
 import { formatPrice } from "@/lib/format";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -45,7 +45,7 @@ export default async function AdminBookingDetailPage({
   const canCancel = booking.status === "PENDING" || booking.status === "CONFIRMED";
   const wasPaid = booking.paymentStatus === "PAID";
   const refundPreview = previewCancellation({
-    listing: booking.listing,
+    listing: bookingCancellationTerms(booking),
     wasPaid,
     totalPriceCents: booking.totalPriceCents,
     checkIn: booking.checkIn,

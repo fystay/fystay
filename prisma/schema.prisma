@@ -685,21 +685,28 @@ model Booking {
   // less than securityDepositCents (a partial claim). depositClaimDeadline
   // is when an AUTHORIZED hold auto-releases if the host files no claim -
   // set once, at authorization time, to checkOut + DEPOSIT_CLAIM_WINDOW_DAYS.
-  securityDepositCents         Int           @default(0)
-  depositStatus                DepositStatus @default(NOT_REQUIRED)
-  stripeDepositSessionId       String?       @unique
-  stripeDepositPaymentIntentId String?
-  depositAuthorizedAt          DateTime?
-  depositCapturedCents         Int?
-  depositCapturedAt            DateTime?
-  depositReleasedAt            DateTime?
-  depositClaimDeadline         DateTime?
+  securityDepositCents            Int                     @default(0)
+  depositStatus                   DepositStatus           @default(NOT_REQUIRED)
+  stripeDepositSessionId          String?                 @unique
+  stripeDepositPaymentIntentId    String?
+  depositAuthorizedAt             DateTime?
+  depositCapturedCents            Int?
+  depositCapturedAt               DateTime?
+  depositReleasedAt               DateTime?
+  depositClaimDeadline            DateTime?
   // A captured claim is charged to FYStay's own Stripe balance (the hold
   // has no transfer_data), so the money is passed on to the host with a
   // separate Stripe transfer - see src/lib/depositSettlement.ts. Null
   // while not yet sent; the security-deposits cron retries until it is.
-  depositTransferId            String?       @unique
-  depositTransferredAt         DateTime?
+  depositTransferId               String?                 @unique
+  depositTransferredAt            DateTime?
+  // The cancellation terms the guest agreed to when booking, copied from
+  // the listing then - a host changing their policy later only affects new
+  // bookings. Null on bookings made before this was recorded, which fall
+  // back to the listing's current policy (bookingCancellationTerms).
+  cancellationPolicy              CancellationPolicyKind?
+  customCancellationCutoffDays    Int?
+  customCancellationRefundPercent Int?
 
   // Contact details for this specific stay, captured at checkout. Kept on
   // the booking (rather than read live off the account) so the record

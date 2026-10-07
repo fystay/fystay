@@ -133,35 +133,37 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
       <Card>
         <CardContent className="pt-5">
           <AuthErrorBanner message={oauthError} />
+          {/* Asked first, so it applies to Google/Apple sign-up too: a new
+              host's choice is carried through the provider and picked up on
+              /after-sign-in, instead of quietly becoming a guest account. */}
+          <fieldset className="mb-4">
+            <legend className="mb-1.5 text-sm font-medium text-stone-800">I want to</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {roleOptions.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setRole(value)}
+                  aria-pressed={role === value}
+                  className={cn(
+                    "focus-ring flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-sm font-medium transition-colors",
+                    role === value
+                      ? "border-brand-600 bg-brand-50 text-brand-800"
+                      : "border-border-subtle text-stone-600 hover:bg-surface-muted",
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
           <SocialSignInButtons
             providers={providers}
-            callbackUrl={callbackUrl ?? "/after-sign-in"}
+            callbackUrl={callbackUrl ?? (role === "HOST" ? "/after-sign-in?as=host" : "/after-sign-in")}
             onError={showHandOffError}
           />
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-            <fieldset>
-              <legend className="mb-1.5 text-sm font-medium text-stone-800">I want to</legend>
-              <div className="grid grid-cols-2 gap-2">
-                {roleOptions.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRole(value)}
-                    aria-pressed={role === value}
-                    className={cn(
-                      "focus-ring flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-sm font-medium transition-colors",
-                      role === value
-                        ? "border-brand-600 bg-brand-50 text-brand-800"
-                        : "border-border-subtle text-stone-600 hover:bg-surface-muted",
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
             <Field>
               <Label htmlFor="name">Name</Label>
               <Input

@@ -6,7 +6,7 @@ import { BookingConfirmation } from "@/components/BookingConfirmation";
 import { getActiveOfferingByCategory } from "@/lib/travelAddons";
 import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
 import { isAbandonedReservation } from "@/lib/bookingLifecycle";
-import { cancellationStanding, resolveCancellationPolicy } from "@/lib/cancellationPolicy";
+import { bookingCancellationTerms, cancellationStanding, resolveCancellationPolicy } from "@/lib/cancellationPolicy";
 import { formatStayDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Booking confirmed", robots: { index: false } };
@@ -45,7 +45,7 @@ export default async function BookingConfirmationPage({
     redirect(`/checkout/${booking.id}`);
   }
 
-  const policy = resolveCancellationPolicy(booking.listing);
+  const policy = resolveCancellationPolicy(bookingCancellationTerms(booking));
   const standing = cancellationStanding(policy, booking.checkIn);
   const cancellationLine = standing.until
     ? standing.refundPercent === 100
@@ -103,6 +103,7 @@ export default async function BookingConfirmationPage({
         serviceFeeCents={booking.serviceFeeCents}
         taxCents={booking.taxCents}
         creditAppliedCents={booking.creditAppliedCents}
+        promoDiscountCents={booking.promoDiscountCents}
         securityDepositCents={booking.securityDepositCents}
         totalPriceCents={booking.totalPriceCents}
         guestName={booking.guestName}

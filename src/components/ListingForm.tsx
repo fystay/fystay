@@ -811,10 +811,10 @@ export function ListingForm({ listingId, initialValues }: Props) {
               placeholder="0"
             />
             <FieldHint>
-              A refundable hold on the guest&apos;s card, placed a few days before check-in - never
-              charged unless you file a damage claim afterwards. Best suited to shorter stays: card
-              authorization holds only last about a week, so a very long stay may see the hold
-              expire before the claim window closes.
+              A refundable hold on the guest&apos;s card, placed the day before check-in - never
+              charged unless you claim within 3 days of checkout. Card holds usually last a week, so
+              for stays longer than about 5 nights the time to claim can be shorter or gone: the
+              booking shows your exact claim deadline.
             </FieldHint>
           </Field>
         </CardContent>

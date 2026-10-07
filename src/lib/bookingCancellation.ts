@@ -1,13 +1,14 @@
 import type { PrismaClient, Booking } from "@prisma/client";
 import { getStripeClient } from "@/lib/stripe";
 import { bookingPayments, RefundIncompleteError, refundAcrossPayments } from "@/lib/connectRefunds";
-import { previewCancellation, type CancellationPreview } from "@/lib/cancellationPolicy";
+import { bookingCancellationTerms, previewCancellation, type CancellationPreview } from "@/lib/cancellationPolicy";
 import { sendBookingCancelledEmails, sendPaymentOpsAlertEmail } from "@/lib/notificationEmails";
 import { giveBackReservedDiscounts } from "@/lib/bookingLifecycle";
 import { formatPrice } from "@/lib/format";
 import { pushBookingCancellation } from "@/lib/pms/sync";
 import { BASE_URL } from "@/lib/baseUrl";
 import { DepositAlreadyResolvedError, releaseDeposit } from "@/lib/depositSettlement";
+import { reportError } from "@/lib/observability";
 
 export type CancellableBooking = Booking & {
   listing: {
@@ -55,7 +56,7 @@ export async function cancelBookingAndRefund(
   const wasPaid = booking.paymentStatus === "PAID";
 
   const refund = previewCancellation({
-    listing: booking.listing,
+    listing: bookingCancellationTerms(booking),
     wasPaid,
     totalPriceCents: booking.totalPriceCents,
     checkIn: booking.checkIn,
@@ -75,7 +76,14 @@ export async function cancelBookingAndRefund(
   const releasesDiscounts = booking.status === "PENDING" && booking.paymentStatus === "UNPAID";
   const claimed = await prisma.$transaction(async (tx) => {
     const result = await tx.booking.updateMany({
-      where: { id: booking.id, status: booking.status, paymentStatus: booking.paymentStatus },
+      // totalPriceCents too: a date-change payment landing after this
+      // booking was read would otherwise be refunded from the old total.
+      where: {
+        id: booking.id,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        totalPriceCents: booking.totalPriceCents,
+      },
       data: { status: "CANCELLED" },
     });
     if (result.count > 0 && releasesDiscounts) await giveBackReservedDiscounts(tx, booking);
@@ -85,6 +93,12 @@ export async function cancelBookingAndRefund(
 
   let refundedCents = refund.refundCents;
   const stripe = getStripeClient();
+  // An unpaid booking's payment page could otherwise still be paid after
+  // cancelling (the payment would be refunded, but FYStay keeps Stripe's
+  // fee on it). Best-effort: a page that already closed is fine.
+  if (stripe && releasesDiscounts && booking.stripeSessionId) {
+    await stripe.checkout.sessions.expire(booking.stripeSessionId).catch(() => {});
+  }
   if (stripe && wasPaid && refund.refundCents > 0 && booking.stripePaymentIntentId) {
     try {
       // totalPriceCents includes any paid date changes, which were separate
@@ -116,7 +130,7 @@ export async function cancelBookingAndRefund(
       // cancelled, the booking records what was actually refunded, and a
       // person is told to send the rest.
       refundedCents = error.refundedCents;
-      console.error(`partial refund for cancelled booking ${booking.id}:`, error.cause);
+      reportError(error.cause, { area: "payments", message: "cancellation refund only partly went through", bookingId: booking.id });
       try {
         await sendPaymentOpsAlertEmail({
           subject: "A cancellation refund only partly went through",
@@ -130,7 +144,7 @@ export async function cancelBookingAndRefund(
       } catch (alertError) {
         // The cancellation and what was refunded are already true; the
         // error log above still names the booking for someone to follow up.
-        console.error(`couldn't send the partial-refund alert for booking ${booking.id}:`, alertError);
+        reportError(alertError, { area: "email", message: "partial-refund alert not sent", bookingId: booking.id });
       }
     }
   }
@@ -181,7 +195,9 @@ export async function cancelBookingAndRefund(
         hostEmail: booking.listing.host.email,
         bookingUrl: `${baseUrl}/bookings/${booking.id}`,
       },
-      wasPaid ? refund.refundCents : 0,
+      // What actually went back - less than the policy amount if Stripe
+      // refused part of it (the rest is with support, per the alert above).
+      wasPaid ? refundedCents : 0,
     );
     // Best-effort, same reasoning as pushBookingReservation in the Stripe
     // webhook - never throws, resolves to "not_mapped" for a booking whose
@@ -225,7 +241,7 @@ async function settleDepositOnCancellation(prisma: PrismaClient, bookingId: stri
     }
   } catch (error) {
     if (error instanceof DepositAlreadyResolvedError) return;
-    console.error(`couldn't settle the deposit for cancelled booking ${bookingId}:`, error);
+    reportError(error, { area: "deposits", message: "deposit not settled after cancellation", bookingId });
   }
 }
 
@@ -273,7 +289,7 @@ async function settleTripExtrasOnCancellation(prisma: PrismaClient, booking: Pic
           : "https://dashboard.stripe.com/payments",
       });
     } catch (alertError) {
-      console.error(`couldn't send the trip extra alert for cancelled booking ${booking.id}:`, alertError);
+      reportError(alertError, { area: "email", message: "trip extra alert not sent", bookingId: booking.id });
     }
   };
 
@@ -333,7 +349,7 @@ async function settleTripExtrasOnCancellation(prisma: PrismaClient, booking: Pic
         data: { status: "REFUNDED" },
       });
     } catch (error) {
-      console.error(`couldn't settle trip extra ${extra.id} for cancelled booking ${booking.id}:`, error);
+      reportError(error, { area: "payments", message: `trip extra ${extra.id} not refunded after cancellation`, bookingId: booking.id });
       await alertOps(
         extra,
         "Booking cancelled, but refunding one of its paid trip extras failed.",

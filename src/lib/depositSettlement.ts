@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import type { PrismaClient } from "@prisma/client";
 import { stripeDashboardPaymentUrl } from "@/lib/stripe";
 import { sendPaymentOpsAlertEmail } from "@/lib/notificationEmails";
+import { reportError } from "@/lib/observability";
 
 type Db = Pick<PrismaClient, "booking">;
 
@@ -9,6 +10,29 @@ export class DepositAlreadyResolvedError extends Error {
   constructor() {
     super("This deposit has already been released or claimed");
     this.name = "DepositAlreadyResolvedError";
+  }
+}
+
+/** The card hold lapsed (the card network released it) before the host claimed. */
+export class DepositHoldExpiredError extends Error {
+  constructor() {
+    super("The card hold for this deposit has expired, so it can no longer be claimed");
+    this.name = "DepositHoldExpiredError";
+  }
+}
+
+/**
+ * Whether Stripe has already cancelled this hold - it does so on its own
+ * when the authorization's validity window runs out. Only asked after
+ * Stripe refused a capture or release, so an ordinary failure isn't
+ * mistaken for an expired hold.
+ */
+async function holdHasLapsed(stripe: Stripe, paymentIntentId: string): Promise<boolean> {
+  try {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    return paymentIntent.status === "canceled";
+  } catch {
+    return false;
   }
 }
 
@@ -27,6 +51,10 @@ export async function releaseDeposit(stripe: Stripe, db: Db, bookingId: string, 
   try {
     await stripe.paymentIntents.cancel(paymentIntentId);
   } catch (error) {
+    // Already released by the card network: nothing is held any more, so
+    // RELEASED is simply true. (Without this the daily cron would retry a
+    // cancel Stripe can never accept, every day, for ever.)
+    if (await holdHasLapsed(stripe, paymentIntentId)) return;
     await db.booking.update({
       where: { id: bookingId },
       data: { depositStatus: "AUTHORIZED", depositReleasedAt: null },
@@ -56,6 +84,13 @@ export async function captureDepositClaim(
   try {
     await stripe.paymentIntents.capture(booking.stripeDepositPaymentIntentId, { amount_to_capture: amountCents });
   } catch (error) {
+    if (await holdHasLapsed(stripe, booking.stripeDepositPaymentIntentId)) {
+      await db.booking.update({
+        where: { id: booking.id },
+        data: { depositStatus: "RELEASED", depositReleasedAt: new Date(), depositCapturedCents: null, depositCapturedAt: null },
+      });
+      throw new DepositHoldExpiredError();
+    }
     await db.booking.update({
       where: { id: booking.id },
       data: { depositStatus: "AUTHORIZED", depositCapturedCents: null, depositCapturedAt: null },
@@ -110,7 +145,7 @@ export async function transferDepositToHost(
       action:
         "Check the host's Stripe account. FYStay retries every day; if it keeps failing, pay the host this amount from the Stripe Dashboard.",
       stripeUrl: stripeDashboardPaymentUrl(booking.stripeDepositPaymentIntentId),
-    }).catch((error) => console.error("deposit transfer alert failed", error));
+    }).catch((error) => reportError(error, { area: "email", message: "deposit transfer alert not sent", bookingId: booking.id }));
 
   if (!booking.hostConnectAccountId) {
     console.error(`deposit transfer skipped for booking ${booking.id}: host has no Stripe account`);
@@ -161,7 +196,7 @@ export async function transferDepositToHost(
     });
     return true;
   } catch (error) {
-    console.error(`deposit transfer failed for booking ${booking.id}:`, error);
+    reportError(error, { area: "deposits", message: "deposit claim not transferred to host", bookingId: booking.id });
     await alert("Stripe refused the transfer of a deposit claim to the host.");
     return false;
   }

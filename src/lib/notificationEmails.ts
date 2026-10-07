@@ -1,4 +1,4 @@
-import { getResendClient, EMAIL_FROM } from "@/lib/email";
+import { getResendClient, EMAIL_FROM, reportUnsentOpsAlert } from "@/lib/email";
 import { formatPrice } from "@/lib/format";
 import { SUPPORT_EMAIL } from "@/lib/seo";
 import { BASE_URL } from "@/lib/baseUrl";
@@ -353,7 +353,7 @@ export async function sendArrivalReminderEmail(
       : []),
   ];
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: `Your stay at ${ctx.listingTitle} is coming up`,
@@ -371,6 +371,8 @@ export async function sendArrivalReminderEmail(
       cta: { label: "View your booking", url: ctx.bookingUrl },
     }),
   });
+  // Thrown so the daily job doesn't mark it sent and tries again tomorrow.
+  if (error) throw new Error(`arrival reminder not sent: ${error.message}`);
 }
 
 /**
@@ -385,7 +387,7 @@ export async function sendReviewRequestEmail(ctx: BookingEmailContext, reviewUrl
   const resend = getResendClient();
   if (!resend || !ctx.guestEmail) return;
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: `How was your stay at ${ctx.listingTitle}?`,
@@ -397,6 +399,8 @@ export async function sendReviewRequestEmail(ctx: BookingEmailContext, reviewUrl
       cta: { label: "Leave a review", url: reviewUrl },
     }),
   });
+  // Thrown so the daily job doesn't mark it sent and tries again tomorrow.
+  if (error) throw new Error(`review request not sent: ${error.message}`);
 }
 
 /**
@@ -415,7 +419,7 @@ export async function sendTransferUpsellEmail(
   const resend = getResendClient();
   if (!resend || !ctx.guestEmail) return;
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: ctx.guestEmail,
     subject: "One less thing to arrange",
@@ -430,6 +434,8 @@ export async function sendTransferUpsellEmail(
       cta: { label: "Add a transfer", url: transfer.transferUrl },
     }),
   });
+  // Thrown so the daily job doesn't mark it sent and tries again tomorrow.
+  if (error) throw new Error(`transfer offer email not sent: ${error.message}`);
 }
 
 /**
@@ -583,14 +589,14 @@ export async function sendDisputeAlertEmail(details: {
   disputeUrl: string;
 }): Promise<void> {
   const resend = getResendClient();
-  if (!resend) return;
+  if (!resend) return reportUnsentOpsAlert("New chargeback");
 
   const alertEmail = process.env.DISPUTE_ALERT_EMAIL || SUPPORT_EMAIL;
   const deadlineLine = details.evidenceDueBy
     ? `Evidence is due by <strong>${details.evidenceDueBy.toUTCString()}</strong> - after that, this dispute is an automatic loss.`
     : "Stripe has not given a response window for this dispute.";
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: alertEmail,
     subject: `New chargeback: ${formatPrice(details.amountCents)}${details.bookingReference ? ` (booking ${details.bookingReference})` : ""}`,
@@ -605,6 +611,9 @@ export async function sendDisputeAlertEmail(details: {
       <a href="${details.disputeUrl}">${details.disputeUrl}</a></p>
     `,
   });
+  // Thrown, unlike guest emails: the webhook releases its "alert sent"
+  // record and Stripe's retry sends it again.
+  if (error) throw new Error(`chargeback alert not sent: ${error.message}`);
 }
 
 /**
@@ -622,9 +631,9 @@ export async function sendPaymentOpsAlertEmail(details: {
   stripeUrl: string;
 }): Promise<void> {
   const resend = getResendClient();
-  if (!resend) return;
+  if (!resend) return reportUnsentOpsAlert(details.subject);
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: process.env.DISPUTE_ALERT_EMAIL || SUPPORT_EMAIL,
     subject: `${details.subject}: ${formatPrice(details.amountCents)}${details.bookingReference ? ` (booking ${details.bookingReference})` : ""}`,
@@ -636,6 +645,9 @@ export async function sendPaymentOpsAlertEmail(details: {
       <p><a href="${details.stripeUrl}">Open it in Stripe</a></p>
     `,
   });
+  // Thrown, unlike guest emails: every caller catches it, and the webhook
+  // releases its "alert sent" record so Stripe's retry sends it again.
+  if (error) throw new Error(`payment alert not sent: ${error.message}`);
 }
 
 /**

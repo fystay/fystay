@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 import { applyApprovedChange } from "@/app/api/bookings/[id]/change-requests/[requestId]/pay/route";
 import { refreshConnectAccountStatus } from "@/lib/stripeConnect";
+import { reportError } from "@/lib/observability";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
-import { depositClaimDeadline } from "@/lib/securityDeposit";
+import { depositCaptureBefore, depositClaimDeadline } from "@/lib/securityDeposit";
 import { pushBookingReservation } from "@/lib/pms/sync";
 import { notifyTripExtraPaid } from "@/app/api/bookings/[id]/extras/route";
 import { sendBookingUnavailableRefundedEmail, sendDisputeAlertEmail, sendPaymentOpsAlertEmail } from "@/lib/notificationEmails";
@@ -213,6 +214,7 @@ async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Che
       excludeBookingId: booking.id,
       checkIn: booking.checkIn,
       checkOut: booking.checkOut,
+      paidOnly: true,
     });
     if (!stillAvailable) return { kind: "refund" as const, reason: "dates_taken" as const };
 
@@ -360,9 +362,8 @@ async function settlePaidTripExtra(
  * alerts an admin the first time this dispute is ever seen. Shared by all
  * three dispute event types below since they all carry the full current
  * Dispute object and should all leave the stored row in sync with it -
- * only whether this is the very first time this stripeDisputeId has been
- * seen (not which event type fired) decides whether the alert email sends,
- * so a redelivered charge.dispute.created can never double-alert.
+ * the alert email is claimed once per stripeDisputeId (not per event
+ * type), so a redelivered charge.dispute.created can never double-alert.
  */
 async function upsertPaymentDispute(dispute: Stripe.Dispute): Promise<void> {
   const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id;
@@ -370,10 +371,6 @@ async function upsertPaymentDispute(dispute: Stripe.Dispute): Promise<void> {
     typeof dispute.payment_intent === "string"
       ? dispute.payment_intent
       : (dispute.payment_intent?.id ?? null);
-
-  const existing = await prisma.paymentDispute.findUnique({
-    where: { stripeDisputeId: dispute.id },
-  });
 
   // Best-effort resolution back to the actual purchase this charge paid
   // for - the dispute payload itself never carries FYStay's own booking
@@ -405,16 +402,17 @@ async function upsertPaymentDispute(dispute: Stripe.Dispute): Promise<void> {
     },
   });
 
-  if (!existing) {
-    const baseUrl = BASE_URL;
-    await sendDisputeAlertEmail({
+  // The row above is already written, so if the email fails, Stripe's retry still needs a
+  // way to send it.
+  await sendPaymentAlertOnce(`dispute:${dispute.id}`, () =>
+    sendDisputeAlertEmail({
       amountCents: dispute.amount,
       reason: dispute.reason,
       evidenceDueBy,
       bookingReference: booking?.reference ?? null,
-      disputeUrl: `${baseUrl}/admin/disputes`,
-    });
-  }
+      disputeUrl: `${BASE_URL}/admin/disputes`,
+    }),
+  );
 }
 
 /**
@@ -564,6 +562,14 @@ async function postHandler(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // From a host's connected account, only account.updated means anything
+  // here. Anything else (a charge or refund inside the host's own Stripe
+  // account) isn't FYStay's payment - looking it up as one would fail and
+  // have Stripe retry it for days.
+  if (event.account && event.type !== "account.updated") {
+    return NextResponse.json({ received: true });
+  }
+
   if (event.type === "checkout.session.completed") {
     const checkoutSession = event.data.object;
     const bookingId = checkoutSession.metadata?.bookingId;
@@ -594,13 +600,20 @@ async function postHandler(request: Request) {
         where: { id: bookingId, status: "CONFIRMED", depositStatus: "AWAITING_AUTHORIZATION" },
         select: { checkOut: true },
       });
+      // The claim deadline mustn't outlive the card hold; Stripe says when
+      // this one expires (a missing answer falls back to a 7-day hold).
+      const captureBefore =
+        depositBooking && holdPaymentIntentId
+          ? await depositCaptureBefore(stripe, holdPaymentIntentId).catch(() => null)
+          : null;
+      const authorizedAt = new Date();
       const placed = depositBooking
         ? await prisma.booking.updateMany({
             where: { id: bookingId, status: "CONFIRMED", depositStatus: "AWAITING_AUTHORIZATION" },
             data: {
               depositStatus: "AUTHORIZED",
-              depositAuthorizedAt: new Date(),
-              depositClaimDeadline: depositClaimDeadline(depositBooking.checkOut),
+              depositAuthorizedAt: authorizedAt,
+              depositClaimDeadline: depositClaimDeadline(depositBooking.checkOut, authorizedAt, captureBefore),
               stripeDepositPaymentIntentId: holdPaymentIntentId ?? undefined,
             },
           })
@@ -669,9 +682,12 @@ async function postHandler(request: Request) {
     // v2 recipient account, so this re-reads the account through Accounts
     // v2 and persists its stripe_transfers capability instead.
     const account = event.data.object;
-    await refreshConnectAccountStatus(account.id).catch(() => {
+    await refreshConnectAccountStatus(account.id).catch((error: unknown) => {
       // No user has this account id yet (e.g. a stale/test event) -
-      // nothing to update, and not worth failing the webhook over.
+      // nothing to update, and not worth failing the webhook over. Any
+      // other failure leaves a host's payout status stale, so it's reported.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return;
+      reportError(error, { area: "payments", message: `host payout status not refreshed (${account.id})` });
     });
   } else if (event.type === "checkout.session.expired") {
     // The guest never completed payment and Stripe's own session TTL ran

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
+import { reportError, withCronMonitor } from "@/lib/observability";
 import { prisma } from "@/lib/prisma";
 import { syncListingIcalImport } from "@/lib/icalSync";
 
@@ -41,7 +42,7 @@ async function getHandler(request: Request) {
       const result = await syncListingIcalImport(prisma, listing.id);
       results.push({ listingId: listing.id, status: "synced", synced: result?.synced, removed: result?.removed });
     } catch (error) {
-      console.error(`ical sync failed for listing ${listing.id}:`, error);
+      reportError(error, { area: "sync", message: `iCal import failed for listing ${listing.id}` });
       results.push({ listingId: listing.id, status: "failed" });
     }
   }
@@ -49,4 +50,4 @@ async function getHandler(request: Request) {
   return NextResponse.json({ syncedAt: new Date().toISOString(), listings: results });
 }
 
-export const GET = withApiErrorHandling(getHandler);
+export const GET = withCronMonitor("sync-ical-imports", "0 6 * * *", "ICAL_SYNC_CRON_SECRET", withApiErrorHandling(getHandler));

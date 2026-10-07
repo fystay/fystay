@@ -51,11 +51,28 @@ describe("needsDepositAuthorization", () => {
 });
 
 describe("depositClaimDeadline", () => {
-  it("is exactly DEPOSIT_CLAIM_WINDOW_DAYS after checkout", () => {
+  it("is DEPOSIT_CLAIM_WINDOW_DAYS after checkout when the hold lasts that long", () => {
     const checkOut = d("2026-06-12T00:00:00Z");
-    expect(depositClaimDeadline(checkOut).toISOString()).toBe(
+    expect(depositClaimDeadline(checkOut, d("2026-06-10T08:00:00Z")).toISOString()).toBe(
       new Date(checkOut.getTime() + DEPOSIT_CLAIM_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString(),
     );
+  });
+
+  it("never outlives a standard 7-day hold (less a 12-hour margin)", () => {
+    // Hold placed the day before a 5-night stay: it lapses before checkout + 3 days.
+    expect(depositClaimDeadline(d("2026-06-15T00:00:00Z"), d("2026-06-09T08:00:00Z")).toISOString()).toBe(
+      "2026-06-15T20:00:00.000Z",
+    );
+  });
+
+  it("follows Stripe's capture_before when it's known, including an extended hold", () => {
+    const checkOut = d("2026-06-20T00:00:00Z");
+    expect(
+      depositClaimDeadline(checkOut, d("2026-06-09T08:00:00Z"), d("2026-07-09T08:00:00Z")).toISOString(),
+    ).toBe("2026-06-23T00:00:00.000Z");
+    expect(
+      depositClaimDeadline(checkOut, d("2026-06-09T08:00:00Z"), d("2026-06-16T08:00:00Z")).toISOString(),
+    ).toBe("2026-06-15T20:00:00.000Z");
   });
 });
 

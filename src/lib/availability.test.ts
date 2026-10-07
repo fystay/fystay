@@ -292,4 +292,20 @@ describe("isRequestedRangeStillAvailable", () => {
       expect.objectContaining({ where: { OR: [{ roomTypeId: "rt1" }, { listingId: "l1", roomTypeId: null }] } }),
     );
   });
+
+  it("counts only paid stays when confirming a payment, so an unpaid hold can't beat it", async () => {
+    const bookingFindMany = vi.fn(async (_args: { where: Record<string, unknown> }) => []);
+    const db = {
+      booking: { findMany: bookingFindMany },
+      availabilityBlock: { findMany: async () => [] },
+    } as unknown as Prisma.TransactionClient;
+    const range = { listingId: "l1", roomTypeId: null, roomsBooked: 1, excludeBookingId: "b1", checkIn: d("2026-07-11"), checkOut: d("2026-07-13") };
+
+    await isRequestedRangeStillAvailable(db, { ...range, paidOnly: true });
+    expect(bookingFindMany.mock.calls[0][0].where).toMatchObject({ status: "CONFIRMED" });
+    expect(bookingFindMany.mock.calls[0][0].where).not.toHaveProperty("OR");
+
+    await isRequestedRangeStillAvailable(db, range);
+    expect(bookingFindMany.mock.calls[1][0].where).toHaveProperty("OR");
+  });
 });

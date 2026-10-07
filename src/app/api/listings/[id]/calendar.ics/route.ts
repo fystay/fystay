@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { blockingBookingWhere } from "@/lib/availability";
 import { generateIcs, type IcsEvent } from "@/lib/ical";
 import { withApiErrorHandling } from "@/lib/apiError";
 
@@ -9,10 +10,12 @@ import { withApiErrorHandling } from "@/lib/apiError";
  * from Airbnb/Vrbo/Google Calendar - the same direction as icalImportUrl,
  * but outbound. Authorized by icalExportToken in the query string rather
  * than a session, since calendar apps fetch feeds unauthenticated and
- * can't send a login cookie. Only CONFIRMED bookings and HOST-set blocks
- * are exported - never PENDING bookings (might still fall through before
- * payment) or ICAL_IMPORT blocks (re-exporting an imported event back out
- * would loop between two synced calendars).
+ * can't send a login cookie. Exports every booking that holds its dates on
+ * FYStay right now (see blockingBookingWhere) - confirmed stays, and
+ * requests and checkouts still in progress, so a request awaiting the host
+ * for up to 24 hours can't be sold again on Airbnb meanwhile - plus
+ * HOST-set blocks. Never ICAL_IMPORT blocks (re-exporting an imported event
+ * back out would loop between two synced calendars).
  */
 async function getHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,8 +31,8 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
       title: true,
       icalExportToken: true,
       bookings: {
-        where: { status: "CONFIRMED" },
-        select: { id: true, checkIn: true, checkOut: true },
+        where: blockingBookingWhere(),
+        select: { id: true, checkIn: true, checkOut: true, status: true },
       },
       availabilityBlocks: {
         where: { source: "HOST" },
@@ -47,7 +50,7 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
       uid: `fystay-booking-${b.id}@fystay.dev`,
       start: b.checkIn,
       end: b.checkOut,
-      summary: "Booked (FYStay)",
+      summary: b.status === "CONFIRMED" ? "Booked (FYStay)" : "Held (FYStay)",
     })),
     ...listing.availabilityBlocks.map((b) => ({
       uid: `fystay-block-${b.id}@fystay.dev`,
@@ -65,7 +68,8 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
       "Content-Disposition": "inline; filename=\"calendar.ics\"",
       // A hint for calendar apps that poll rather than push - not
       // authoritative, but costs nothing to include.
-      "Cache-Control": "public, max-age=3600",
+      // Short, so a new booking reaches the other calendar's next poll.
+      "Cache-Control": "public, max-age=900",
     },
   });
 }

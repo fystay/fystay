@@ -5,7 +5,7 @@ import { ChevronLeft, Hourglass, Info } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { PENDING_BOOKING_HOLD_MINUTES } from "@/lib/availability";
-import { resolveCancellationPolicy } from "@/lib/cancellationPolicy";
+import { bookingCancellationTerms, resolveCancellationPolicy } from "@/lib/cancellationPolicy";
 import { BookingSummaryCard } from "@/components/BookingSummaryCard";
 import { CheckoutForm } from "@/components/CheckoutForm";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -68,7 +68,7 @@ export default async function CheckoutPage({
     booking.approvalStatus === "APPROVED" && booking.hostRespondedAt ? booking.hostRespondedAt : booking.createdAt;
   const holdExpiresAt = new Date(holdStartedAt.getTime() + PENDING_BOOKING_HOLD_MINUTES * 60 * 1000);
   const expired = holdExpiresAt <= new Date();
-  const cancellationPolicy = resolveCancellationPolicy(booking.listing);
+  const cancellationPolicy = resolveCancellationPolicy(bookingCancellationTerms(booking));
   // A returning guest isn't asked for the same phone number every time: the
   // one on their last booking (or their verified account number) is filled in.
   const knownPhone =
@@ -151,6 +151,7 @@ export default async function CheckoutPage({
               serviceFeeCents={booking.serviceFeeCents}
               taxCents={booking.taxCents}
               creditAppliedCents={booking.creditAppliedCents}
+              promoDiscountCents={booking.promoDiscountCents}
               securityDepositCents={booking.securityDepositCents}
               totalPriceCents={booking.totalPriceCents}
               cancellationPolicyLabel={cancellationPolicy.label}

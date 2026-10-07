@@ -4,6 +4,8 @@ import {
   computeCancellationRefund,
   daysBeforeCheckIn,
   resolveCancellationPolicy,
+  bookingCancellationTerms,
+  cancellationTermsSnapshot,
 } from "./cancellationPolicy";
 
 function daysFromNow(days: number): Date {
@@ -151,5 +153,28 @@ describe("cancellationStanding", () => {
       const refund = computeCancellationRefund({ policy: moderate, amountPaidCents: 10000, checkIn, now: at(now) });
       expect(refund.refundPercent).toBe(standing.refundPercent);
     }
+  });
+});
+
+describe("bookingCancellationTerms", () => {
+  const strictNow = { cancellationPolicy: "CUSTOM" as const, customCancellationCutoffDays: 90, customCancellationRefundPercent: 0 };
+
+  it("keeps the terms the guest booked under when the host changes their policy later", () => {
+    const booked = cancellationTermsSnapshot({ cancellationPolicy: "FLEXIBLE", customCancellationCutoffDays: 14, customCancellationRefundPercent: 80 });
+    expect(booked).toEqual({ cancellationPolicy: "FLEXIBLE", customCancellationCutoffDays: null, customCancellationRefundPercent: null });
+    expect(bookingCancellationTerms({ ...booked, listing: strictNow }).cancellationPolicy).toBe("FLEXIBLE");
+  });
+
+  it("keeps a custom policy's own numbers", () => {
+    const booked = cancellationTermsSnapshot({ cancellationPolicy: "CUSTOM", customCancellationCutoffDays: 5, customCancellationRefundPercent: 75 });
+    expect(bookingCancellationTerms({ ...booked, listing: strictNow })).toEqual({
+      cancellationPolicy: "CUSTOM",
+      customCancellationCutoffDays: 5,
+      customCancellationRefundPercent: 75,
+    });
+  });
+
+  it("falls back to the listing for bookings made before terms were recorded", () => {
+    expect(bookingCancellationTerms({ cancellationPolicy: null, listing: strictNow })).toBe(strictNow);
   });
 });

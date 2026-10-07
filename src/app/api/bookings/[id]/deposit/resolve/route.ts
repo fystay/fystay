@@ -6,7 +6,12 @@ import { getStripeClient } from "@/lib/stripe";
 import { sendDepositResolvedEmail } from "@/lib/notificationEmails";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { BASE_URL } from "@/lib/baseUrl";
-import { captureDepositClaim, DepositAlreadyResolvedError, releaseDeposit } from "@/lib/depositSettlement";
+import {
+  captureDepositClaim,
+  DepositAlreadyResolvedError,
+  DepositHoldExpiredError,
+  releaseDeposit,
+} from "@/lib/depositSettlement";
 
 const resolveSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("release") }),
@@ -69,6 +74,13 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
       { status: 409 },
     );
   }
+  if (
+    parsed.data.action === "capture" &&
+    booking.depositClaimDeadline &&
+    new Date() >= booking.depositClaimDeadline
+  ) {
+    return NextResponse.json({ error: "The time to claim this deposit has passed" }, { status: 409 });
+  }
   if (parsed.data.action === "capture" && parsed.data.amountCents > booking.securityDepositCents) {
     return NextResponse.json(
       { error: "You can't claim more than the authorized deposit amount" },
@@ -109,7 +121,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
       );
     }
   } catch (error) {
-    if (error instanceof DepositAlreadyResolvedError) {
+    if (error instanceof DepositAlreadyResolvedError || error instanceof DepositHoldExpiredError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     throw error;

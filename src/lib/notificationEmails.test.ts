@@ -29,7 +29,10 @@ const ctx = {
   bookingUrl: "https://fystay.test/bookings/1",
 };
 
-beforeEach(() => send.mockReset());
+beforeEach(() => {
+  send.mockReset();
+  send.mockResolvedValue({ data: { id: "email_1" }, error: null });
+});
 
 describe("notification emails", () => {
   it("escapes host-entered arrival details in the HTML body", async () => {
@@ -88,5 +91,11 @@ describe("notification emails", () => {
     expect(none.html).toContain("no refund applies");
     expect(none.html).not.toContain("working days");
   });
-});
 
+  it("throws when Resend refuses a reminder, so the daily job doesn't mark it sent", async () => {
+    send.mockResolvedValueOnce({ data: null, error: { name: "validation_error", message: "domain not verified" } });
+    await expect(
+      sendArrivalReminderEmail(ctx, { address: null, checkInTime: null, checkInInstructions: null, wifiNetwork: null, wifiPassword: null }),
+    ).rejects.toThrow("domain not verified");
+  });
+});

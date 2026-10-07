@@ -60,6 +60,42 @@ const STRICT: CancellationPolicy = {
 const DEFAULT_CUSTOM_CUTOFF_DAYS = 7;
 const DEFAULT_CUSTOM_REFUND_PERCENT = 50;
 
+type CancellationTerms = {
+  cancellationPolicy: CancellationPolicyKind;
+  customCancellationCutoffDays?: number | null;
+  customCancellationRefundPercent?: number | null;
+};
+
+/**
+ * The terms a booking is cancelled under: the ones copied onto it when the
+ * guest booked, so a host changing their policy afterwards can't change
+ * what an existing guest gets back. Bookings from before the copy was kept
+ * fall back to the listing's current policy.
+ */
+export function bookingCancellationTerms(booking: {
+  cancellationPolicy?: CancellationPolicyKind | null;
+  customCancellationCutoffDays?: number | null;
+  customCancellationRefundPercent?: number | null;
+  listing: CancellationTerms;
+}): CancellationTerms {
+  if (!booking.cancellationPolicy) return booking.listing;
+  return {
+    cancellationPolicy: booking.cancellationPolicy,
+    customCancellationCutoffDays: booking.customCancellationCutoffDays ?? null,
+    customCancellationRefundPercent: booking.customCancellationRefundPercent ?? null,
+  };
+}
+
+/** The terms to copy onto a new booking (see bookingCancellationTerms). */
+export function cancellationTermsSnapshot(listing: CancellationTerms) {
+  return {
+    cancellationPolicy: listing.cancellationPolicy,
+    customCancellationCutoffDays: listing.cancellationPolicy === "CUSTOM" ? (listing.customCancellationCutoffDays ?? null) : null,
+    customCancellationRefundPercent:
+      listing.cancellationPolicy === "CUSTOM" ? (listing.customCancellationRefundPercent ?? null) : null,
+  };
+}
+
 /** Turns a listing's stored policy choice into the concrete rules to apply. */
 export function resolveCancellationPolicy(listing: {
   cancellationPolicy: CancellationPolicyKind;

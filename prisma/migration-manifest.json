@@ -308,6 +308,12 @@
       "files": {
         "migration.sql": "5fae26042188bcf48aa3fcd2b35e6f44b4949a126f42bb53133ee1a7fcc3fa02"
       }
+    },
+    {
+      "name": "20261007200000_snapshot_booking_cancellation_terms",
+      "files": {
+        "migration.sql": "4a19b8908a52e404e7f16eb6543827caa81115db41f88568fab62dfa8b2a94f1"
+      }
     }
   ],
   "retired": [

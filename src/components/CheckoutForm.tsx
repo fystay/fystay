@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { SUPPORT_EMAIL } from "@/lib/seo";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, ShieldCheck } from "lucide-react";
@@ -146,6 +148,16 @@ export function CheckoutForm({
       <div className="mt-4 flex justify-center">
         <StripeBadge />
       </div>
+      <p className="mt-4 text-center text-xs text-stone-500">
+        By paying, you agree to FYStay&apos;s{" "}
+        <Link href="/legal/terms" className="underline hover:text-stone-700">
+          Terms
+        </Link>{" "}
+        and this stay&apos;s cancellation policy shown here. Questions before you book?{" "}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="underline hover:text-stone-700">
+          {SUPPORT_EMAIL}
+        </a>
+      </p>
 
       <div
         ref={mobileBarRef}

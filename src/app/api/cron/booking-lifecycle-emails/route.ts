@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
+import { reportError, withCronMonitor } from "@/lib/observability";
 import { prisma } from "@/lib/prisma";
 import {
   ARRIVAL_REMINDER_WINDOW_DAYS,
@@ -87,7 +88,7 @@ async function getHandler(request: Request) {
       });
       arrivalRemindersSent += 1;
     } catch (error) {
-      console.error(`arrival reminder failed for booking ${booking.id}:`, error);
+      reportError(error, { area: "cron", message: "arrival reminder not sent", bookingId: booking.id });
     }
   }
 
@@ -133,7 +134,7 @@ async function getHandler(request: Request) {
       });
       reviewRequestsSent += 1;
     } catch (error) {
-      console.error(`review request failed for booking ${booking.id}:`, error);
+      reportError(error, { area: "cron", message: "review request not sent", bookingId: booking.id });
     }
   }
 
@@ -190,7 +191,7 @@ async function getHandler(request: Request) {
         });
         transferUpsellEmailsSent += 1;
       } catch (error) {
-        console.error(`transfer upsell email failed for booking ${booking.id}:`, error);
+        reportError(error, { area: "cron", message: "transfer offer email not sent", bookingId: booking.id });
       }
     }
   }
@@ -203,4 +204,4 @@ async function getHandler(request: Request) {
   });
 }
 
-export const GET = withApiErrorHandling(getHandler);
+export const GET = withCronMonitor("booking-lifecycle-emails", "0 10 * * *", "BOOKING_LIFECYCLE_CRON_SECRET", withApiErrorHandling(getHandler));

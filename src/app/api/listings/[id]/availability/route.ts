@@ -11,7 +11,7 @@ import {
   isRoomTypeRangeAvailable,
   nightsBetween,
 } from "@/lib/availability";
-import { computeBookingPricing } from "@/lib/pricing";
+import { computeBookingPricing, maxFyStayDiscountCents } from "@/lib/pricing";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { computePromoDiscount, normalizePromoCode, validatePromoCode } from "@/lib/promoCode";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
@@ -35,7 +35,7 @@ const querySchema = z.object({
  */
 async function previewPromoDiscount(
   promoCodeInput: string,
-  totalBeforeDiscountCents: number,
+  pricing: { totalPriceCents: number; serviceFeeCents: number; taxCents: number },
 ): Promise<{ valid: true; discountCents: number } | { valid: false; error: string }> {
   const promoCode = await prisma.promoCode.findUnique({
     where: { code: normalizePromoCode(promoCodeInput) },
@@ -45,10 +45,10 @@ async function previewPromoDiscount(
   if (!validation.valid) return { valid: false, error: validation.error };
   return {
     valid: true,
-    discountCents: computePromoDiscount(
-      promoCode.discountType,
-      promoCode.discountValue,
-      totalBeforeDiscountCents,
+    // Capped the same way as the real booking (see maxFyStayDiscountCents).
+    discountCents: Math.min(
+      computePromoDiscount(promoCode.discountType, promoCode.discountValue, pricing.totalPriceCents),
+      maxFyStayDiscountCents(pricing),
     ),
   };
 }
@@ -175,7 +175,7 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
       lastMinuteDiscountPercent: lastMinuteDiscountFor(roomType.listing, checkIn),
     });
     const promo = parsed.data.promoCode
-      ? await previewPromoDiscount(parsed.data.promoCode, pricing.totalPriceCents)
+      ? await previewPromoDiscount(parsed.data.promoCode, pricing)
       : undefined;
 
     return NextResponse.json({ available: true, nights, pricing, promo });
@@ -236,7 +236,7 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
     lastMinuteDiscountPercent: lastMinuteDiscountFor(listing, checkIn),
   });
   const promo = parsed.data.promoCode
-    ? await previewPromoDiscount(parsed.data.promoCode, pricing.totalPriceCents)
+    ? await previewPromoDiscount(parsed.data.promoCode, pricing)
     : undefined;
 
   return NextResponse.json({ available: true, nights, pricing, promo });

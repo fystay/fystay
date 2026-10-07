@@ -10,7 +10,7 @@ import { travelAddonHref } from "@/lib/travelAddons";
 import { formatPrice, formatStayDate } from "@/lib/format";
 import { canReviewBooking } from "@/lib/reviews";
 import { canCancelBooking, canRequestBookingChange } from "@/lib/changeRequests";
-import { previewCancellation, type CancellationPolicyKind } from "@/lib/cancellationPolicy";
+import { bookingCancellationTerms, previewCancellation, type CancellationPolicyKind } from "@/lib/cancellationPolicy";
 import { Card } from "@/components/ui/Card";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
 import { buttonVariants } from "@/components/ui/Button";
@@ -63,6 +63,10 @@ export type BookingCardBooking = {
   /** What was actually refunded on a cancelled, paid booking (may be part or none). */
   refundedAmountCents?: number | null;
   review: { rating: number } | null;
+  /** The terms agreed at booking (see bookingCancellationTerms). */
+  cancellationPolicy?: CancellationPolicyKind | null;
+  customCancellationCutoffDays?: number | null;
+  customCancellationRefundPercent?: number | null;
   listing: {
     title: string;
     city: string;
@@ -304,7 +308,7 @@ export function BookingCard({
                 bookingId={booking.id}
                 listingTitle={booking.listing.title}
                 {...previewCancellation({
-                  listing: booking.listing,
+                  listing: bookingCancellationTerms(booking),
                   wasPaid: booking.paymentStatus === "PAID",
                   totalPriceCents: booking.totalPriceCents,
                   checkIn: booking.checkIn,

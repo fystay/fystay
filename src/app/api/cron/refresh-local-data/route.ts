@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
+import { withCronMonitor } from "@/lib/observability";
 import { prisma } from "@/lib/prisma";
 import { ensureTownsSeeded } from "@/lib/localData/seedTowns";
 import { getTownWeather } from "@/lib/localData/weather";
@@ -63,4 +64,4 @@ async function getHandler(request: Request) {
   return NextResponse.json({ refreshedAt: new Date().toISOString(), towns: results });
 }
 
-export const GET = withApiErrorHandling(getHandler);
+export const GET = withCronMonitor("refresh-local-data", "0 5 * * *", "LOCAL_DATA_CRON_SECRET", withApiErrorHandling(getHandler));

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
+import { reportError, withCronMonitor } from "@/lib/observability";
 import { prisma } from "@/lib/prisma";
 import { runConnectionSync } from "@/lib/pms/sync";
 
@@ -52,7 +53,7 @@ async function getHandler(request: Request) {
         errors: summary.errors,
       });
     } catch (error) {
-      console.error(`PMS reconcile failed for connection ${connection.id}:`, error);
+      reportError(error, { area: "sync", message: `PMS reconcile failed for connection ${connection.id}` });
       results.push({ connectionId: connection.id, provider: connection.provider, status: "failed" });
     }
   }
@@ -60,4 +61,4 @@ async function getHandler(request: Request) {
   return NextResponse.json({ syncedAt: new Date().toISOString(), connections: results });
 }
 
-export const GET = withApiErrorHandling(getHandler);
+export const GET = withCronMonitor("pms-reconcile", "0 9 * * *", "PMS_RECONCILE_CRON_SECRET", withApiErrorHandling(getHandler));

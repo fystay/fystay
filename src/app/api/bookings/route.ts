@@ -14,7 +14,8 @@ import {
   REQUEST_HOLD_HOURS,
   stayLengthError,
 } from "@/lib/availability";
-import { computeBookingPricing } from "@/lib/pricing";
+import { computeBookingPricing, maxFyStayDiscountCents } from "@/lib/pricing";
+import { cancellationTermsSnapshot } from "@/lib/cancellationPolicy";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { generateBookingReference } from "@/lib/bookingReference";
 import { completePastBookings, expireAbandonedCheckouts, expireStaleBookingRequests } from "@/lib/bookingLifecycle";
@@ -268,13 +269,19 @@ type NewBookingParams = {
  */
 async function applyPromoAndCredit(
   tx: Prisma.TransactionClient,
-  params: { promoCodeInput: string | undefined; guestId: string; totalBeforeDiscountsCents: number },
+  params: {
+    promoCodeInput: string | undefined;
+    guestId: string;
+    totalBeforeDiscountsCents: number;
+    /** maxFyStayDiscountCents: discounts never cut into the host's payout. */
+    discountCapCents: number;
+  },
 ): Promise<{ promoCodeId: string | null; promoDiscountCents: number; creditAppliedCents: number }> {
-  const { promoCodeInput, guestId, totalBeforeDiscountsCents } = params;
+  const { promoCodeInput, guestId, totalBeforeDiscountsCents, discountCapCents } = params;
 
   let promoCodeId: string | null = null;
   let promoDiscountCents = 0;
-  let remainingCents = totalBeforeDiscountsCents;
+  let remainingCents = Math.min(totalBeforeDiscountsCents, discountCapCents);
 
   if (promoCodeInput) {
     const promoCode = await tx.promoCode.findUnique({
@@ -287,9 +294,8 @@ async function applyPromoAndCredit(
     if (!validation.valid) {
       throw new BookingRequestError(400, validation.error);
     }
-    promoDiscountCents = computePromoDiscount(
-      promoCode.discountType,
-      promoCode.discountValue,
+    promoDiscountCents = Math.min(
+      computePromoDiscount(promoCode.discountType, promoCode.discountValue, totalBeforeDiscountsCents),
       remainingCents,
     );
     promoCodeId = promoCode.id;
@@ -401,6 +407,7 @@ async function createListingBooking(
     promoCodeInput: promoCode,
     guestId,
     totalBeforeDiscountsCents: pricing.totalPriceCents,
+    discountCapCents: maxFyStayDiscountCents(pricing),
   });
 
   // instantBook is read at the moment of booking, not re-checked later - a
@@ -411,6 +418,8 @@ async function createListingBooking(
   const createdBooking = await tx.booking.create({
     data: {
       reference: generateBookingReference(),
+      // The policy the guest is shown now is the one they get if they cancel.
+      ...cancellationTermsSnapshot(listing),
       listingId,
       guestId,
       checkIn,
@@ -545,6 +554,7 @@ async function createRoomTypeBooking(
     promoCodeInput: promoCode,
     guestId,
     totalBeforeDiscountsCents: pricing.totalPriceCents,
+    discountCapCents: maxFyStayDiscountCents(pricing),
   });
 
   const requiresApproval = !listing.instantBook;
@@ -552,6 +562,8 @@ async function createRoomTypeBooking(
   const createdBooking = await tx.booking.create({
     data: {
       reference: generateBookingReference(),
+      // The policy the guest is shown now is the one they get if they cancel.
+      ...cancellationTermsSnapshot(listing),
       listingId: listing.id,
       roomTypeId: roomType.id,
       roomsBooked,

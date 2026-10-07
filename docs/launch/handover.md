@@ -38,6 +38,18 @@ remaining item.
   homepage shows no stays (Spotlight, Last Minute Deals and Explore are empty).
   Applied on 6 Oct by run #17 (see the connection audit below).
 
+## Status 7 Oct, evening: production-readiness audit (not live yet)
+
+Full write-up, scorecard and owner actions:
+[production-readiness-audit.md](production-readiness-audit.md). Same branch
+(`claude/host-platform-upgrade`), now with **two** pending Production
+migrations: `20261007090000_add_deposit_transfer` and
+`20261007200000_snapshot_booking_cancellation_terms` (both applied to
+Preview). Live branch untouched. New: `/api/health/config` (CRON_SECRET
+bearer) lists missing production settings; Sentry Crons on all daily jobs;
+refused emails reported; cancellation terms saved per booking; discounts
+capped at FYStay's fee; deposit hold placed the day before check-in.
+
 ## Status 7 Oct, afternoon: host platform upgrade (not live yet)
 
 Full write-up: [host-platform-audit.md](host-platform-audit.md).

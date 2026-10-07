@@ -22,7 +22,7 @@ import { BookingSummaryCard } from "@/components/BookingSummaryCard";
 import { RequestChangeDialog } from "@/components/RequestChangeDialog";
 import { CancelBookingButton } from "@/components/CancelBookingButton";
 import { ChangeRequestStatus } from "@/components/ChangeRequestStatus";
-import { cancellationStanding, previewCancellation, resolveCancellationPolicy } from "@/lib/cancellationPolicy";
+import { bookingCancellationTerms, cancellationStanding, previewCancellation, resolveCancellationPolicy } from "@/lib/cancellationPolicy";
 import { ContactHostButton } from "@/components/ContactHostButton";
 import { needsDepositAuthorization } from "@/lib/securityDeposit";
 import { DepositStatusCard } from "@/components/DepositStatusCard";
@@ -146,7 +146,7 @@ export default async function BookingDetailPage({
     checkOut: booking.checkOut.toISOString().slice(0, 10),
     adults: String(booking.guests),
   })}`;
-  const policy = resolveCancellationPolicy(booking.listing);
+  const policy = resolveCancellationPolicy(bookingCancellationTerms(booking));
   // Where a paid, upcoming stay stands under its policy today - the same
   // rule the Cancel button refunds by (see cancellationStanding).
   const standing =
@@ -484,7 +484,7 @@ export default async function BookingDetailPage({
                     bookingId={booking.id}
                     listingTitle={booking.listing.title}
                     {...previewCancellation({
-                      listing: booking.listing,
+                      listing: bookingCancellationTerms(booking),
                       wasPaid: booking.paymentStatus === "PAID",
                       totalPriceCents: booking.totalPriceCents,
                       checkIn: booking.checkIn,

@@ -1,3 +1,4 @@
+import { addDays } from "date-fns";
 import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -188,12 +189,16 @@ export default async function ListingDetailPage({
     }),
     // Same "every listing, not just this one" reasoning as hostReviewStats
     // above - response rate/time is a fact about the host, not this listing.
+    // Bounded the same way as the host's own dashboard (the last year, the
+    // opening exchange of each conversation), so the two show the same
+    // figure and a busy host's listing page doesn't read every message
+    // they've ever sent.
     prisma.conversation.findMany({
-      where: { hostId: listing.hostId },
+      where: { hostId: listing.hostId, updatedAt: { gte: addDays(new Date(), -365) } },
       select: {
         hostId: true,
         guestId: true,
-        messages: { select: { senderId: true, createdAt: true } },
+        messages: { select: { senderId: true, createdAt: true }, take: 20, orderBy: { createdAt: "asc" } },
       },
     }),
     // Also host-wide - see isGreatHost in hostStats.ts for why this, the
@@ -531,6 +536,7 @@ export default async function ListingDetailPage({
               rating={rating}
               reviewCount={reviewCount}
               cancellationPolicy={cancellationPolicy}
+              securityDepositCents={listing.securityDepositCents}
               instantBook={listing.instantBook}
               initialSelection={staySelection}
               acceptsPaidBookings={hostAcceptsPaidBookings(listing.host)}

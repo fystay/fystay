@@ -40,6 +40,7 @@ export function BookingSummaryCard({
   serviceFeeCents,
   taxCents,
   creditAppliedCents = 0,
+  promoDiscountCents = 0,
   totalPriceCents,
   securityDepositCents = 0,
   reference,
@@ -63,6 +64,8 @@ export function BookingSummaryCard({
   taxCents: number;
   /** Referral credit (see referral.ts) already subtracted into totalPriceCents - shown as its own line so the guest can see where it went, not folded silently into the total. */
   creditAppliedCents?: number;
+  /** A promo code's discount, also already subtracted into totalPriceCents. */
+  promoDiscountCents?: number;
   totalPriceCents: number;
   /** A refundable card hold, never part of totalPriceCents - authorized separately closer to check-in (see securityDeposit.ts) and never charged unless the host later files a damage claim. */
   securityDepositCents?: number;
@@ -203,6 +206,12 @@ export function BookingSummaryCard({
               <span>{formatPrice(taxCents)}</span>
             </div>
           )}
+          {promoDiscountCents > 0 && (
+            <div className="flex justify-between text-brand-700">
+              <span>Promo code</span>
+              <span>&minus;{formatPrice(promoDiscountCents)}</span>
+            </div>
+          )}
           {creditAppliedCents > 0 && (
             <div className="flex justify-between text-brand-700">
               <span>Referral credit</span>
@@ -216,8 +225,8 @@ export function BookingSummaryCard({
           {securityDepositCents > 0 && (
             <p className="text-xs text-stone-500">
               Plus a refundable {formatPrice(securityDepositCents)} security deposit hold,
-              authorized separately on your card a few days before check-in - not charged now, and
-              not included in the total above.
+              placed on your card the day before check-in - not charged now, not included in the
+              total above, and released after your stay unless the host reports damage.
             </p>
           )}
         </div>

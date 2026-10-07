@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
+import { reportError, withCronMonitor } from "@/lib/observability";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 import {
@@ -91,7 +92,7 @@ async function getHandler(request: Request) {
       );
       authorizationsStarted += 1;
     } catch (error) {
-      console.error(`deposit authorization failed for booking ${booking.id}:`, error);
+      reportError(error, { area: "deposits", message: "deposit authorization request failed", bookingId: booking.id });
     }
   }
 
@@ -131,7 +132,7 @@ async function getHandler(request: Request) {
       );
       released += 1;
     } catch (error) {
-      console.error(`deposit auto-release failed for booking ${booking.id}:`, error);
+      reportError(error, { area: "deposits", message: "deposit auto-release failed", bookingId: booking.id });
     }
   }
 
@@ -163,4 +164,4 @@ async function getHandler(request: Request) {
   return NextResponse.json({ ranAt: new Date().toISOString(), authorizationsStarted, released, transfersRetried });
 }
 
-export const GET = withApiErrorHandling(getHandler);
+export const GET = withCronMonitor("security-deposits", "0 8 * * *", "SECURITY_DEPOSIT_CRON_SECRET", withApiErrorHandling(getHandler));
