@@ -265,9 +265,11 @@ export default async function Home() {
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-[88px] [text-shadow:0_1px_18px_rgba(46,24,14,0.5)] sm:pb-[156px] lg:pb-[196px]">
           {/* "on the Fylde Coast" never splits, so the place reads as one
-              phrase on its own line rather than "...stay on / the Fylde Coast". */}
+              phrase on its own line rather than "...stay on / the Fylde Coast".
+              The place name takes a light tone of the brand terracotta: the
+              logo's own shade is too dark to read on the hero's shading. */}
           <h1 className="max-w-3xl text-[2rem] leading-[1.06] tracking-[-0.01em] text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[4rem]">
-            Find your stay <span className="whitespace-nowrap">on the Fylde Coast</span>
+            Find your stay <span className="whitespace-nowrap">on the <span className="text-brand-400">Fylde Coast</span></span>
           </h1>
           {/* One supporting line - the headline already says where. Full
               white and medium weight: it sits over bright sand. */}
