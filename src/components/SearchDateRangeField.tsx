@@ -26,9 +26,10 @@ export function SearchDateRangeField({
 }) {
   const [open, setOpen] = useState(false);
   // Picking dates only updates this local draft; the parent (and, on the
-  // search results page, the live-filtered results) only sees the change
-  // once Done is pressed. Closing any other way - clicking outside,
-  // Escape - discards the draft instead of confirming it.
+  // search results page, the live-filtered results) sees it when Done is
+  // pressed - or when the guest clicks away (straight to Search, say) after
+  // picking both dates, which is how most people use a date picker. Escape,
+  // or clicking away with only one date picked, discards the draft.
   const [draftRange, setDraftRange] = useState(range);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -45,6 +46,7 @@ export function SearchDateRangeField({
         !containerRef.current.contains(target) &&
         !panelRef.current?.contains(target)
       ) {
+        if (open && draftRange?.from && draftRange?.to) onChange(draftRange);
         setOpen(false);
       }
     }
@@ -60,7 +62,7 @@ export function SearchDateRangeField({
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [open, draftRange, onChange]);
 
   function toggleOpen() {
     setOpen((v) => {

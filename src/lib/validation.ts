@@ -37,3 +37,16 @@ export const listingFieldSchemas = {
     .min(0, "Security deposit can't be negative")
     .max(500_000, "Security deposit can't be more than £5,000"),
 };
+
+/**
+ * A phone number a host could actually ring: digits with the usual
+ * spaces, dashes, brackets and a leading +, 7 to 15 digits in all (the
+ * international maximum). Deliberately not stricter - guests come from
+ * anywhere and write numbers many ways.
+ */
+export function isPlausiblePhone(value: string): boolean {
+  const trimmed = value.trim();
+  if (!/^\+?[\d\s\-().]+$/.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, "").length;
+  return digits >= 7 && digits <= 15;
+}

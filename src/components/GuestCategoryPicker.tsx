@@ -17,7 +17,7 @@ const ROWS: {
   { key: "adults", label: "Adults", hint: "Ages 13 or above", min: 1, max: 16 },
   { key: "children", label: "Children", hint: "Ages 2 – 12", min: 0, max: 16 },
   { key: "infants", label: "Infants", hint: "Under 2", min: 0, max: 5 },
-  { key: "pets", label: "Pets", hint: "Bringing a service animal?", min: 0, max: 5 },
+  { key: "pets", label: "Pets", hint: "Not every stay allows pets", min: 0, max: 5 },
 ];
 
 export function GuestCategoryPicker({

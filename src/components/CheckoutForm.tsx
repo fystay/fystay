@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SUPPORT_EMAIL } from "@/lib/seo";
+import { isPlausiblePhone } from "@/lib/validation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, ShieldCheck } from "lucide-react";
@@ -43,6 +44,10 @@ export function CheckoutForm({
 
     if (!name.trim() || !email.trim() || !phone.trim()) {
       setError("Please fill in your name, email, and phone number.");
+      return;
+    }
+    if (!isPlausiblePhone(phone)) {
+      setError("Please enter a valid phone number, e.g. 07700 900123.");
       return;
     }
 

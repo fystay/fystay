@@ -45,7 +45,7 @@ const PRIMARY: NavItem[] = [
 const SECONDARY: NavItem[] = [
   { href: "/inbox", label: "Messages", icon: MessageCircle },
   { href: "/host/payouts", label: "Payouts", icon: CreditCard },
-  { href: "/host/integrations", label: "Integrations", icon: Plug },
+  { href: "/host/integrations", label: "Channels", icon: Plug },
   { href: "/host/promote", label: "Spotlight", icon: Sparkles },
 ];
 

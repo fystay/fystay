@@ -87,15 +87,17 @@ export function BookingSummaryCard({
   return (
     <Card className="p-5">
       <CardContent className="flex flex-col gap-4 p-0">
-        <div className="flex gap-4">
-          <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-xl bg-surface-muted">
+        {/* Photo above the text, full width: the card often sits in a narrow
+            sidebar, where a photo alongside squeezed the title and town. */}
+        <div className="flex flex-col gap-3">
+          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-surface-muted">
             {listing.photos[0] ? (
               <Image
                 src={listing.photos[0]}
                 alt={listing.title}
                 fill
                 className="object-cover"
-                sizes="112px"
+                sizes="(min-width: 1024px) 400px, 100vw"
                 unoptimized={!isOptimizableImage(listing.photos[0])}
               />
             ) : (
@@ -104,15 +106,13 @@ export function BookingSummaryCard({
               </div>
             )}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <p className="line-clamp-2 min-w-0 flex-1 font-semibold text-foreground">{listing.title}</p>
-              {paymentStatus && (
-                <Badge variant={paymentStatusVariant[paymentStatus]} className="shrink-0">
-                  {paymentStatusLabel[paymentStatus]}
-                </Badge>
-              )}
-            </div>
+          <div className="min-w-0">
+            <p className="line-clamp-2 font-semibold text-foreground">{listing.title}</p>
+            {paymentStatus && (
+              <Badge variant={paymentStatusVariant[paymentStatus]} className="mt-1">
+                {paymentStatusLabel[paymentStatus]}
+              </Badge>
+            )}
             <p className="text-sm text-stone-500">
               {listing.city}, {listing.country}
             </p>

@@ -11,7 +11,7 @@ import { WishlistItem } from "@/components/WishlistItem";
 import { PROPERTY_TYPE_LABEL } from "@/lib/propertyType";
 import { cn } from "@/lib/cn";
 
-export const metadata: Metadata = { title: "My Favourites", robots: { index: false } };
+export const metadata: Metadata = { title: "Wishlist", robots: { index: false } };
 
 export default async function WishlistPage() {
   const session = await auth();
@@ -39,7 +39,7 @@ export default async function WishlistPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
-      <h1 className="text-2xl font-bold">My Favourites</h1>
+      <h1 className="text-2xl font-bold">Wishlist</h1>
 
       {listings.length === 0 ? (
         <Card className="mt-8 flex flex-col items-center gap-3 p-12 text-center">

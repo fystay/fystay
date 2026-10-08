@@ -90,7 +90,10 @@ export default async function BookingReceiptPage({
               </p>
               <p className="mt-1 font-medium text-foreground">{booking.listing.title}</p>
               <p className="text-sm text-stone-500">
-                {booking.listing.address ? `${booking.listing.address}, ` : ""}
+                {/* The street address only for a stay that's going ahead, as on the booking page. */}
+                {booking.listing.address && (booking.status === "CONFIRMED" || booking.status === "COMPLETED")
+                  ? `${booking.listing.address}, `
+                  : ""}
                 {booking.listing.city}, {booking.listing.country}
               </p>
             </div>

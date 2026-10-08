@@ -9,6 +9,15 @@ import { MessageComposer } from "@/components/MessageComposer";
 import { RefreshOnMount } from "@/components/RefreshOnMount";
 import { cn } from "@/lib/cn";
 
+// When each message was sent, in UK time (where every stay and host is).
+const messageTime = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 export async function generateMetadata({
   params,
 }: {
@@ -88,7 +97,7 @@ export default async function ConversationPage({
         {conversation.messages.map((message) => {
           const fromMe = message.senderId === session.user.id;
           return (
-            <li key={message.id} className={cn("flex", fromMe ? "justify-end" : "justify-start")}>
+            <li key={message.id} className={cn("flex flex-col", fromMe ? "items-end" : "items-start")}>
               <div
                 className={cn(
                   "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-line",
@@ -99,6 +108,9 @@ export default async function ConversationPage({
               >
                 {message.body}
               </div>
+              <time dateTime={message.createdAt.toISOString()} className="mt-1 px-1 text-xs text-stone-500">
+                {messageTime.format(message.createdAt)}
+              </time>
             </li>
           );
         })}

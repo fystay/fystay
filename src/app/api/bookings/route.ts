@@ -126,10 +126,22 @@ async function postHandler(request: Request) {
       where: heldRepeatBookingWhere(
         roomTypeId
           ? { guestId: session.user.id, roomTypeId, roomsBooked, checkIn, checkOut, guests }
-          : { guestId: session.user.id, listingId: listingId!, checkIn, checkOut, guests },
+          : // Any guest count: going Back and changing it (or the count
+            // resetting) shouldn't leave the guest blocked by their own hold.
+            { guestId: session.user.id, listingId: listingId!, checkIn, checkOut },
       ),
       orderBy: { createdAt: "desc" },
     });
+    if (heldBooking && heldBooking.guests !== guests) {
+      // The price doesn't depend on the guest count, so the hold is updated
+      // in place - within the listing's capacity, as a new booking would be.
+      const listing = await prisma.listing.findUnique({ where: { id: heldBooking.listingId }, select: { maxGuests: true } });
+      if (!listing || guests > listing.maxGuests) {
+        return NextResponse.json({ error: `This listing sleeps up to ${listing?.maxGuests ?? 0} guests` }, { status: 400 });
+      }
+      const updated = await prisma.booking.update({ where: { id: heldBooking.id }, data: { guests } });
+      return NextResponse.json({ booking: updated, reused: true }, { status: 200 });
+    }
     if (heldBooking) {
       return NextResponse.json({ booking: heldBooking, reused: true }, { status: 200 });
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { isPlausiblePhone } from "@/lib/validation";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -36,6 +37,7 @@ const checkoutSchema = z.object({
     .trim()
     .min(1, "Please enter a phone number.")
     .max(50, "Phone number is too long.")
+    .refine(isPlausiblePhone, "Please enter a valid phone number, e.g. 07700 900123.")
     .optional(),
 });
 

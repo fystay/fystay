@@ -8,7 +8,7 @@ import { isPmsProviderConnectable, PMS_PROVIDER_LABEL } from "@/lib/pms/registry
 import { IntegrationCard, type IntegrationSummary } from "@/components/host/pms/IntegrationCard";
 import { IntegrationBanner } from "@/components/host/pms/IntegrationBanner";
 
-export const metadata: Metadata = { title: "Integrations", robots: { index: false } };
+export const metadata: Metadata = { title: "Channels", robots: { index: false } };
 
 export default async function HostIntegrationsPage({
   searchParams,
@@ -55,7 +55,7 @@ export default async function HostIntegrationsPage({
         <ChevronLeft className="h-4 w-4" />
         Back to dashboard
       </Link>
-      <h1 className="mt-3 text-2xl font-bold text-foreground">Integrations</h1>
+      <h1 className="mt-3 text-2xl font-bold text-foreground">Channels</h1>
       <p className="mt-1 text-sm text-stone-500">
         Connect a property management or channel manager system so your rooms, rates and
         bookings stay in sync automatically.

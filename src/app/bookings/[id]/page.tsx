@@ -98,13 +98,15 @@ export default async function BookingDetailPage({
         latestChangeRequest.priceDeltaCents > 0 &&
         !latestChangeRequest.paidAt));
 
-  // A paid (or since-refunded) booking is a real, confirmed reservation, so
-  // it's the right moment to reveal the exact address and a direct way to
-  // reach the host — neither of which the public listing page shows.
+  // A paid, confirmed (or completed) stay is the right moment to reveal the
+  // exact address, check-in details and a direct way to reach the host -
+  // none of which the public listing page shows. A cancelled booking hides
+  // them again: the guest isn't coming, so they no longer need the key-safe
+  // code or the host's email. (Partly refunded still counts: a shorter date
+  // change refunds part of a stay that's still happening.)
   const canSeeStayDetails =
-    booking.paymentStatus === "PAID" ||
-    booking.paymentStatus === "PARTIALLY_REFUNDED" ||
-    booking.paymentStatus === "REFUNDED";
+    (booking.status === "CONFIRMED" || booking.status === "COMPLETED") &&
+    (booking.paymentStatus === "PAID" || booking.paymentStatus === "PARTIALLY_REFUNDED");
 
   // Trip extras (see docs/trip-extras-roadmap.md) - only worth querying at
   // all once this is a real, paid stay (same gate as canSeeStayDetails), so

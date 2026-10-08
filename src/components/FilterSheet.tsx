@@ -123,10 +123,15 @@ export function FilterSheet({
     if (amenities.length > 0) params.set("amenities", amenities.join(","));
     else params.delete("amenities");
 
-    if (minPrice) params.set("minPrice", minPrice);
+    // A minimum above the maximum is almost always the two typed the wrong
+    // way round - treat it that way rather than showing no stays at all.
+    const [lowPrice, highPrice] =
+      minPrice && maxPrice && Number(minPrice) > Number(maxPrice) ? [maxPrice, minPrice] : [minPrice, maxPrice];
+
+    if (lowPrice) params.set("minPrice", lowPrice);
     else params.delete("minPrice");
 
-    if (maxPrice) params.set("maxPrice", maxPrice);
+    if (highPrice) params.set("maxPrice", highPrice);
     else params.delete("maxPrice");
 
     if (minBedrooms > 0) params.set("minBedrooms", String(minBedrooms));

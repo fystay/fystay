@@ -71,7 +71,8 @@ test("guest can message a host from the listing page, and the host can reply", a
     await expect(hostPage.locator("header button span.bg-red-500")).toBeVisible();
 
     await hostPage.goto("/inbox");
-    await expect(hostPage.getByText("1 new")).toBeVisible();
+    // On the conversation itself (the hosting menu shows its own unread count too).
+    await expect(hostPage.getByRole("link", { name: /Jamie Guest/ }).getByText("1 new")).toBeVisible();
     await hostPage.getByText("Jamie Guest").click();
     await hostPage.waitForURL(/\/inbox\//);
     await expect(hostPage.getByText("Hi! Is early check-in possible on a Friday?")).toBeVisible();

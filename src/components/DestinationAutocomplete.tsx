@@ -428,7 +428,7 @@ export function DestinationAutocomplete({
                   <FirstOfGroup
                     key={`hotel-${item.suggestion.id}`}
                     show={index === destinations.length + landmarks.length}
-                    label="Hotels"
+                    label="Stays"
                   >
                     <SuggestionRow
                       id={`${id}-option-${index}`}

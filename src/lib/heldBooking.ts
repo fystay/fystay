@@ -13,7 +13,8 @@ export function heldRepeatBookingWhere(
     guestId: string;
     checkIn: Date;
     checkOut: Date;
-    guests: number;
+    /** Omitted to match the hold whatever its guest count (the caller updates it). */
+    guests?: number;
   } & ({ listingId: string; roomTypeId?: undefined } | { roomTypeId: string; roomsBooked: number; listingId?: undefined }),
   now: Date = new Date(),
 ): Prisma.BookingWhereInput {
@@ -24,7 +25,7 @@ export function heldRepeatBookingWhere(
       : { listingId: params.listingId, roomTypeId: null }),
     checkIn: params.checkIn,
     checkOut: params.checkOut,
-    guests: params.guests,
+    ...(params.guests !== undefined && { guests: params.guests }),
     status: "PENDING",
     paymentStatus: "UNPAID",
     approvalStatus: "NONE",

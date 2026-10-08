@@ -125,7 +125,7 @@ test.describe("favourites / wishlist", () => {
     }
   });
 
-  test("a logged-in guest can save from the property page and see it on My Favourites with its type, then remove it", async ({
+  test("a logged-in guest can save from the property page and see it on the Wishlist with its type, then remove it", async ({
     page,
   }) => {
     const listing = await createListing();
@@ -148,7 +148,7 @@ test.describe("favourites / wishlist", () => {
       expect((await saved).ok()).toBe(true);
 
       await page.goto("/wishlist");
-      await expect(page.getByRole("heading", { name: "My Favourites" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Wishlist" })).toBeVisible();
       await expect(page.getByText(listing.title)).toBeVisible();
       await expect(page.getByText("FavouritesTestCity, England")).toBeVisible();
       await expect(page.getByText("Villa", { exact: true })).toBeVisible();
