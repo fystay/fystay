@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, MessageCircle, UserCircle } from "lucide-react";
+import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, UserCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
@@ -56,14 +56,23 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="user-menu-panel"
+        aria-label={`Account menu for ${name}`}
+        // Same terracotta pill as the signed-out account button (GuestMenu),
+        // with the person's initials in a white disc in the logo's serif
+        // where the generic person icon would be.
         className={cn(
-          "focus-ring flex items-center gap-2 rounded-xl border border-border-subtle py-1.5 pl-3 pr-1 hover:shadow-[var(--shadow-card)] active:bg-surface-muted",
-          isHero && "border-white/40 text-white hover:bg-white/10 hover:shadow-none active:bg-white/15",
+          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-1.5 pl-3 pr-1.5 text-white hover:bg-brand-700 active:bg-brand-800",
+          isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
         )}
       >
-        <span className="hidden text-sm font-medium sm:inline">{name.split(" ")[0]}</span>
+        <Menu className="h-4 w-4" aria-hidden />
+        <span className="hidden max-w-[8rem] truncate text-sm font-medium sm:inline">{name.split(" ")[0]}</span>
         <span className="relative">
-          <Avatar name={name} size={32} />
+          <Avatar
+            name={name}
+            size={32}
+            className="bg-white font-serif font-bold tracking-wide text-brand-700 shadow-sm ring-2 ring-white/40"
+          />
           {unreadMessageCount > 0 && (
             <span
               aria-hidden
