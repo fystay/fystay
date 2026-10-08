@@ -55,9 +55,29 @@ async function postHandler(request: Request) {
     // that was established under it (see src/lib/sessionRevocation.ts),
     // including on a device the real owner no longer has, not just this
     // one's browser.
+    // The reset link went to the inbox, so the address is now proven. If it
+    // wasn't before, whoever set the account up never proved it either:
+    // anything they attached to it - a connected Google/Apple account, a
+    // two-factor code - goes, so the inbox's owner gets a clean account.
+    const before = await tx.user.findUniqueOrThrow({
+      where: { id: record.userId },
+      select: { emailVerifiedAt: true },
+    });
+    if (!before.emailVerifiedAt) {
+      await tx.authIdentity.deleteMany({ where: { userId: record.userId } });
+    }
     await tx.user.update({
       where: { id: record.userId },
-      data: { passwordHash, sessionVersion: { increment: 1 } },
+      data: {
+        passwordHash,
+        sessionVersion: { increment: 1 },
+        ...(!before.emailVerifiedAt && {
+          emailVerifiedAt: new Date(),
+          twoFactorEnabledAt: null,
+          twoFactorSecretCiphertext: null,
+          twoFactorBackupCodeHashes: [],
+        }),
+      },
     });
     return true;
   });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { VERIFY_EMAIL_MESSAGE } from "@/lib/emailVerification";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -23,7 +24,7 @@ const schema = z.object({
 
 type Checked =
   | { ok: false; response: NextResponse }
-  | { ok: true; userId: string; provider: (typeof OAUTH_PROVIDERS)[number]; hasPassword: boolean; identities: { provider: string }[] };
+  | { ok: true; userId: string; provider: (typeof OAUTH_PROVIDERS)[number]; hasPassword: boolean; emailVerified: boolean; identities: { provider: string }[] };
 
 /**
  * Shared by connect and disconnect: signed in, rate-limited, and - for an
@@ -51,7 +52,7 @@ async function check(request: Request): Promise<Checked> {
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
-    select: { passwordHash: true, authIdentities: { select: { provider: true } } },
+    select: { passwordHash: true, emailVerifiedAt: true, authIdentities: { select: { provider: true } } },
   });
   if (user.passwordHash) {
     const password = parsed.data.currentPassword ?? "";
@@ -71,6 +72,7 @@ async function check(request: Request): Promise<Checked> {
     userId: session.user.id,
     provider: parsed.data.provider,
     hasPassword: Boolean(user.passwordHash),
+    emailVerified: Boolean(user.emailVerifiedAt),
     identities: user.authIdentities,
   };
 }
@@ -83,8 +85,14 @@ async function check(request: Request): Promise<Checked> {
 async function postHandler(request: Request) {
   const checked = await check(request);
   if (!checked.ok) return checked.response;
-  const { userId, provider, identities } = checked;
+  const { userId, provider, identities, emailVerified } = checked;
 
+  // Someone who signed up with an address they don't own could otherwise
+  // attach their own Google account to it, and keep it after the real
+  // owner takes the account back with a password reset.
+  if (!emailVerified) {
+    return NextResponse.json({ error: VERIFY_EMAIL_MESSAGE }, { status: 403 });
+  }
   if (!enabledSocialProviders()[provider]) {
     return NextResponse.json({ error: `${OAUTH_PROVIDER_NAMES[provider]} sign-in isn't available yet.` }, { status: 400 });
   }

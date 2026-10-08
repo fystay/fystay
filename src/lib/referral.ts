@@ -46,9 +46,12 @@ export function computeCreditToApply(creditBalanceCents: number, totalBeforeCred
 export async function awardReferralBonusIfEligible(prisma: PrismaClient, guestId: string): Promise<void> {
   const guest = await prisma.user.findUnique({
     where: { id: guestId },
-    select: { referredByUserId: true, referralBonusAwarded: true },
+    select: { referredByUserId: true, referralBonusAwarded: true, emailVerifiedAt: true },
   });
-  if (!guest?.referredByUserId || guest.referralBonusAwarded) return;
+  // A referral only counts from a proven email address: otherwise one
+  // person could refer themselves from made-up addresses. Checked again
+  // after each later booking, so verifying later still earns it.
+  if (!guest?.referredByUserId || guest.referralBonusAwarded || !guest.emailVerifiedAt) return;
 
   // Guarded by the WHERE clause, not a separate read-then-write: two
   // confirmations racing for the same guest (webhook + dev-mode, or a

@@ -126,9 +126,9 @@ enum IdentityVerificationStatus {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  name         String
-  email        String    @unique
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
   // Set once by self-service account deletion (POST /api/account, see
   // src/lib/accountDeletion.ts) - anonymize-in-place, not a real row
   // delete, since a real DELETE would cascade through every Booking,
@@ -138,16 +138,22 @@ model User {
   // name/email/phone/image have been scrubbed and passwordHash cleared
   // (blocking login); every other row this account created stays exactly
   // as it was.
-  deletedAt    DateTime?
+  deletedAt       DateTime?
   // Null for an account created via an OAuth provider (e.g. Google) that
   // has never also set a password - there's nothing to compare against on
   // a Credentials login, so authorize() must treat null as "deny" rather
   // than passing it to bcrypt.
-  passwordHash String?
-  role         Role      @default(GUEST)
-  image        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  passwordHash    String?
+  // When the person proved they control `email` - set by the link in the
+  // sign-up email, a password reset or an email change, and at creation for
+  // Google/Apple accounts (the provider vouched for it). Null means
+  // unverified: no welcome credit, promo codes, two-factor set-up or
+  // connected sign-in providers until it's set.
+  emailVerifiedAt DateTime?
+  role            Role      @default(GUEST)
+  image           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // When this account's owner actually agreed to the Terms and Privacy
   // Policy - set once, at account creation, never updated on a later
@@ -296,6 +302,8 @@ model User {
 
   // Spotlight placements this host has bought (see ListingPromotion).
   listingPromotions ListingPromotion[]
+
+  emailVerificationTokens EmailVerificationToken[]
 }
 
 // A single-use, time-limited token for the "forgot password" flow. Only a
@@ -344,6 +352,21 @@ model PasswordResetToken {
 // actual newEmail the token was issued for, since - unlike a password
 // reset - there's no separate field on User to stage a "pending" email
 // into; the token row itself is that staging area until it's confirmed.
+/// A one-time link proving an account's email address (see
+/// src/lib/emailVerification.ts). Only the SHA-256 of the token is stored.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model EmailChangeToken {
   id        String    @id @default(cuid())
   tokenHash String    @unique

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { configReadiness, readinessSummary } from "@/lib/configReadiness";
+import { productionReadiness } from "@/lib/configReadiness";
+import { demoAccountWhere } from "@/lib/demoContent";
 
 /**
  * Public, unauthenticated liveness/readiness check for uptime monitors and
@@ -20,7 +21,7 @@ export async function GET() {
     return NextResponse.json({
       status: "ok",
       database: "ok",
-      config: readinessSummary(configReadiness()).ready ? "ok" : "incomplete",
+      config: (await productionReadiness(() => prisma.user.count({ where: demoAccountWhere }))).ready ? "ok" : "incomplete",
       latencyMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
     });

@@ -11,6 +11,7 @@ import { PhoneVerificationCard } from "@/components/PhoneVerificationCard";
 import { PrivacyDataCard } from "@/components/PrivacyDataCard";
 import { ProfileCard } from "@/components/ProfileCard";
 import { EmailChangeCard } from "@/components/EmailChangeCard";
+import { EmailVerificationNotice } from "@/components/EmailVerificationNotice";
 import { SecuritySessionsCard } from "@/components/SecuritySessionsCard";
 import { TwoFactorCard } from "@/components/TwoFactorCard";
 import { SignInMethodsCard, type ConnectedIdentity } from "@/components/SignInMethodsCard";
@@ -20,7 +21,7 @@ import { isTwoFactorConfigured } from "@/lib/twoFactorCrypto";
 
 export const metadata: Metadata = { title: "Account", robots: { index: false } };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: PageProps<"/account">) {
   const session = await auth();
   if (!session?.user) {
     redirect("/login?callbackUrl=/account");
@@ -37,6 +38,7 @@ export default async function AccountPage() {
       identityVerificationStatus: true,
       passwordHash: true,
       twoFactorEnabledAt: true,
+      emailVerifiedAt: true,
       authIdentities: { select: { provider: true, email: true }, orderBy: { createdAt: "asc" } },
     },
   });
@@ -51,6 +53,7 @@ export default async function AccountPage() {
   // Google accounts - a separate, real gap, not silently worked around
   // here).
   const hasPassword = Boolean(user.passwordHash);
+  const { emailVerified } = await searchParams;
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
@@ -62,6 +65,14 @@ export default async function AccountPage() {
           <h1 className="text-2xl font-bold text-foreground">Account</h1>
           <p className="text-sm text-stone-500">Manage your trust and safety details.</p>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <EmailVerificationNotice
+          verified={Boolean(user.emailVerifiedAt)}
+          outcome={typeof emailVerified === "string" ? emailVerified : null}
+          email={user.email}
+        />
       </div>
 
       <div className="mt-6">

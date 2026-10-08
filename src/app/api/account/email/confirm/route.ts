@@ -80,7 +80,7 @@ async function postHandler(request: Request) {
     // nothing keeps using the old identity after this point.
     await prisma.user.update({
       where: { id: record.userId },
-      data: { email: record.newEmail, sessionVersion: { increment: 1 } },
+      data: { email: record.newEmail, emailVerifiedAt: new Date(), sessionVersion: { increment: 1 } },
     });
   } catch (err) {
     // Re-checked here, not just at request time: another account could

@@ -9,7 +9,13 @@ import { prisma } from "@/lib/prisma";
 import { appleSignInEnabled, googleSignInEnabled } from "@/lib/authProviders";
 import { createAppleClientSecret } from "@/lib/appleClientSecret";
 import { claimIsTrue, isOAuthProvider, resolveOAuthSignIn } from "@/lib/oauthAccounts";
-import { deployedOverHttps, LINK_INTENT_COOKIE, linkIntentSecret, verifyLinkIntent } from "@/lib/oauthLinkIntent";
+import { deployedOverHttps, LINK_INTENT_COOKIE, linkIntentCookieOptions, linkIntentSecret, verifyLinkIntent } from "@/lib/oauthLinkIntent";
+import {
+  createOAuthTwoFactorToken,
+  OAUTH_TWO_FACTOR_COOKIE,
+  OAUTH_TWO_FACTOR_TTL_SECONDS,
+  verifyOAuthTwoFactorToken,
+} from "@/lib/oauthTwoFactor";
 import { peekRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rateLimit";
 import { decryptTwoFactorSecret } from "@/lib/twoFactorCrypto";
 import { verifyAndConsumeBackupCode, verifyTotpCode } from "@/lib/twoFactor";
@@ -49,6 +55,24 @@ class AccountSuspendedError extends CredentialsSignin {
     super();
     this.code = "AccountSuspended";
   }
+}
+
+/**
+ * A TOTP code, or else one of the account's backup codes (used up once
+ * accepted). Shared by password sign-in and the Google/Apple code step.
+ */
+async function checkTwoFactorCode(
+  user: { id: string; twoFactorSecretCiphertext: string | null; twoFactorBackupCodeHashes: string[] },
+  code: string,
+): Promise<boolean> {
+  if (!user.twoFactorSecretCiphertext) return false;
+  const secret = decryptTwoFactorSecret(user.twoFactorSecretCiphertext);
+  if (verifyTotpCode(secret, code)) return true;
+  const { valid, remainingHashes } = await verifyAndConsumeBackupCode(user.twoFactorBackupCodeHashes, code);
+  if (valid) {
+    await prisma.user.update({ where: { id: user.id }, data: { twoFactorBackupCodeHashes: remainingHashes } });
+  }
+  return valid;
 }
 
 // Keyed by the attempted email, not the caller's IP - authorize() here has
@@ -185,23 +209,7 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
           // limit isn't reset either (a real login hasn't succeeded yet).
           if (!code) throw new TwoFactorRequiredError();
 
-          const secret = decryptTwoFactorSecret(user.twoFactorSecretCiphertext);
-          let codeValid = verifyTotpCode(secret, code);
-          if (!codeValid) {
-            const { valid, remainingHashes } = await verifyAndConsumeBackupCode(
-              user.twoFactorBackupCodeHashes,
-              code,
-            );
-            codeValid = valid;
-            if (valid) {
-              await prisma.user.update({
-                where: { id: user.id },
-                data: { twoFactorBackupCodeHashes: remainingHashes },
-              });
-            }
-          }
-
-          if (!codeValid) {
+          if (!(await checkTwoFactorCode(user, code))) {
             await recordFailedAttempt({ key: rateLimitKey, windowMs: LOGIN_RATE_LIMIT.windowMs });
             return null;
           }
@@ -216,6 +224,35 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
           role: user.role,
           sessionVersion: user.sessionVersion,
         };
+      },
+    }),
+    // The code step after Google/Apple for an account with two-factor on
+    // (see src/lib/oauthTwoFactor.ts): the signed cookie says which
+    // account the provider vouched for, the code proves the second factor.
+    Credentials({
+      id: "oauth-two-factor",
+      credentials: { code: { label: "Two-factor code", type: "text" } },
+      authorize: async (credentials) => {
+        const code = typeof credentials?.code === "string" ? credentials.code.trim() : "";
+        const secret = linkIntentSecret();
+        const cookieStore = await cookies();
+        const userId = secret ? verifyOAuthTwoFactorToken(cookieStore.get(OAUTH_TWO_FACTOR_COOKIE)?.value, secret) : null;
+        if (!userId || !code) return null;
+
+        const rateLimitKey = `login-oauth-2fa:${userId}`;
+        const { allowed } = await peekRateLimit({ key: rateLimitKey, ...LOGIN_RATE_LIMIT });
+        if (!allowed) return null;
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || user.deletedAt || isSuspended(user) || !user.twoFactorEnabledAt) return null;
+        if (!(await checkTwoFactorCode(user, code))) {
+          await recordFailedAttempt({ key: rateLimitKey, windowMs: LOGIN_RATE_LIMIT.windowMs });
+          return null;
+        }
+
+        await resetRateLimit(rateLimitKey);
+        cookieStore.delete(OAUTH_TWO_FACTOR_COOKIE);
+        return { id: user.id, name: user.name, email: user.email, role: user.role, sessionVersion: user.sessionVersion };
       },
     }),
     ...(googleSignInEnabled
@@ -302,6 +339,21 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
       });
       if (!result.ok) return oauthRefusalRedirect(result.reason, provider, Boolean(linkToUserId));
       if (linkToUserId) return `/account?connected=${provider}`;
+
+      // Two-factor applies however someone signs in: an account with it on
+      // gets no session from Google/Apple alone - it's sent to the code step.
+      const account2fa = await prisma.user.findUnique({
+        where: { id: result.userId },
+        select: { twoFactorEnabledAt: true },
+      });
+      if (account2fa?.twoFactorEnabledAt) {
+        if (!secret) return "/login?error=Configuration";
+        cookieStore.set(OAUTH_TWO_FACTOR_COOKIE, createOAuthTwoFactorToken(result.userId, secret), {
+          ...linkIntentCookieOptions(deployedOverHttps()),
+          maxAge: OAUTH_TWO_FACTOR_TTL_SECONDS,
+        });
+        return `/login?twoFactor=${provider}`;
+      }
       return true;
     },
     async jwt({ token, user, account }) {

@@ -4,7 +4,9 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
-import { generateReferralCode, REFERRAL_CREDIT_CENTS } from "@/lib/referral";
+import { generateReferralCode } from "@/lib/referral";
+import { sendVerificationEmail } from "@/lib/emailVerification";
+import { isLocalEnvironment } from "@/lib/deploymentEnvironment";
 import { withApiErrorHandling } from "@/lib/apiError";
 
 const signupSchema = z.object({
@@ -81,12 +83,25 @@ async function postHandler(request: Request) {
           role,
           referralCode: generateReferralCode(),
           referredByUserId: referrer?.id,
-          creditBalanceCents: referrer ? REFERRAL_CREDIT_CENTS : 0,
+          // The welcome credit is added when the email address is
+          // confirmed (see verifyEmailToken), so a made-up address can't
+          // collect it.
           termsAcceptedAt: new Date(),
         },
         select: { id: true, name: true, email: true, role: true },
       });
-      return NextResponse.json({ user }, { status: 201 });
+      // Never blocks sign-up: the account works straight away, and the
+      // account page offers to send the link again.
+      const verification = await sendVerificationEmail(prisma, user, { local: isLocalEnvironment() }).catch(
+        (error: unknown) => {
+          console.error("couldn't send the verification email at sign-up", error);
+          return { sent: false, devUrl: undefined };
+        },
+      );
+      return NextResponse.json(
+        { user, ...(verification.devUrl && { devVerifyUrl: verification.devUrl }) },
+        { status: 201 },
+      );
     } catch (error) {
       const isCodeCollision =
         error instanceof Prisma.PrismaClientKnownRequestError &&

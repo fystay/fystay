@@ -306,6 +306,27 @@ async function applyPromoAndCredit(
     if (!validation.valid) {
       throw new BookingRequestError(400, validation.error);
     }
+
+    // One use per person, and only from a proven email address - otherwise
+    // a "first booking" code works on every booking, and on every made-up
+    // account. The lock makes two bookings by the same guest with the same
+    // code queue, so the second sees the first.
+    const guest = await tx.user.findUniqueOrThrow({ where: { id: guestId }, select: { emailVerifiedAt: true } });
+    if (!guest.emailVerifiedAt) {
+      throw new BookingRequestError(403, "Please verify your email address to use a promo code - we've sent you a link.");
+    }
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`promo:${promoCode.id}:${guestId}`}::text, 0))`;
+    const alreadyUsed = await tx.booking.count({
+      where: {
+        guestId,
+        promoCodeId: promoCode.id,
+        // A reservation that was never paid gave its redemption back.
+        NOT: { status: "CANCELLED", paymentStatus: "UNPAID" },
+      },
+    });
+    if (alreadyUsed > 0) {
+      throw new BookingRequestError(409, "You've already used this promo code.");
+    }
     promoDiscountCents = Math.min(
       computePromoDiscount(promoCode.discountType, promoCode.discountValue, totalBeforeDiscountsCents),
       remainingCents,

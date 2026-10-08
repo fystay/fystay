@@ -9,6 +9,9 @@ const { state, mocks } = vi.hoisted(() => ({
     // How many times the conditional credit write should lose a race.
     creditRacesToLose: 0,
     promoRacesToLose: 0,
+    emailVerified: true,
+    // Bookings this guest already made with the promo code.
+    promoUses: 0,
     listingOverrides: {} as Record<string, unknown>,
   },
   mocks: { bookingCreate: vi.fn() },
@@ -57,8 +60,10 @@ vi.mock("@/lib/prisma", () => {
   });
   return {
     prisma: {
+      $executeRaw: async () => 0,
       booking: {
         findFirst: async () => null,
+        count: async () => state.promoUses,
         create: async (args: { data: Record<string, unknown> }) => {
           state.log.push("booking-create");
           mocks.bookingCreate(args);
@@ -67,7 +72,10 @@ vi.mock("@/lib/prisma", () => {
       },
       user: {
         findUnique: async () => ({ name: "Guest", email: "g@x" }),
-        findUniqueOrThrow: async () => ({ creditBalanceCents: state.creditBalanceCents }),
+        findUniqueOrThrow: async () => ({
+          creditBalanceCents: state.creditBalanceCents,
+          emailVerifiedAt: state.emailVerified ? new Date("2026-01-01") : null,
+        }),
         updateMany: async ({ data }: { data: { creditBalanceCents: { decrement: number } } }) => {
           if (state.creditRacesToLose > 0) {
             // Another booking spent the balance between our read and write.
@@ -152,6 +160,8 @@ beforeEach(() => {
   state.creditBalanceCents = 0;
   state.creditRacesToLose = 0;
   state.promoRacesToLose = 0;
+  state.emailVerified = true;
+  state.promoUses = 0;
   state.listingOverrides = {};
 });
 
@@ -200,6 +210,21 @@ describe("creating a booking", () => {
     expect(data.promoDiscountCents).toBe(1_000);
     expect(data.creditAppliedCents).toBe(1_000);
     expect(state.creditBalanceCents).toBe(4_000);
+  });
+
+  it("lets each person use a promo code once", async () => {
+    state.promoUses = 1;
+    const res = await book({ listingId: "listing_1", promoCode: "SAVE10" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("You've already used this promo code.");
+    expect(mocks.bookingCreate).not.toHaveBeenCalled();
+  });
+
+  it("only takes promo codes from a verified email address", async () => {
+    state.emailVerified = false;
+    const res = await book({ listingId: "listing_1", promoCode: "SAVE10" });
+    expect(res.status).toBe(403);
+    expect(mocks.bookingCreate).not.toHaveBeenCalled();
   });
 
   it("doesn't oversell a capped promo code's last redemption", async () => {

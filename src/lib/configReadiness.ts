@@ -58,3 +58,25 @@ export function readinessSummary(checks: ConfigCheck[]) {
     warnings: missing.filter((c) => c.severity === "warning").map(({ key, why }) => ({ key, why })),
   };
 }
+
+/**
+ * readinessSummary plus the one check that needs the database: example
+ * accounts (src/lib/demoContent.ts) must never be on the live site.
+ */
+export async function productionReadiness(
+  countDemoAccounts: () => Promise<number>,
+  env: Record<string, string | undefined> = process.env,
+) {
+  const summary = readinessSummary(configReadiness(env));
+  if (env.VERCEL_ENV === "production") {
+    const demoAccounts = await countDemoAccounts();
+    if (demoAccounts > 0) {
+      summary.ready = false;
+      summary.blockers.push({
+        key: "Demo content in production",
+        why: `${demoAccounts} example account(s) found on the live site - remove them so example stays and reviews aren't shown as real.`,
+      });
+    }
+  }
+  return summary;
+}

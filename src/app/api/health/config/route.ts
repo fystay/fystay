@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
-import { configReadiness, readinessSummary } from "@/lib/configReadiness";
+import { productionReadiness } from "@/lib/configReadiness";
+import { prisma } from "@/lib/prisma";
+import { demoAccountWhere } from "@/lib/demoContent";
 
 /**
  * Which production settings are missing - names and consequences only,
@@ -13,6 +15,6 @@ export async function GET(request: Request) {
   if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const summary = readinessSummary(configReadiness());
+  const summary = await productionReadiness(() => prisma.user.count({ where: demoAccountWhere }));
   return NextResponse.json(summary, { status: summary.ready ? 200 : 503 });
 }

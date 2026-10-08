@@ -26,7 +26,10 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
-  const [needsCode, setNeedsCode] = useState(false);
+  // Set when Google/Apple vouched for an account that has two-factor on
+  // (see src/lib/oauthTwoFactor.ts): only the code is still needed.
+  const oauthTwoFactor = searchParams.get("twoFactor");
+  const [needsCode, setNeedsCode] = useState(Boolean(oauthTwoFactor));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // Set once the password (and code) are accepted: the button stays busy and
@@ -41,12 +44,14 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
 
     let result: Awaited<ReturnType<typeof signIn>>;
     try {
-      result = await signIn("credentials", {
-        email,
-        password,
-        ...(needsCode ? { code } : {}),
-        redirect: false,
-      });
+      result = oauthTwoFactor
+        ? await signIn("oauth-two-factor", { code, redirect: false })
+        : await signIn("credentials", {
+            email,
+            password,
+            ...(needsCode ? { code } : {}),
+            redirect: false,
+          });
     } catch {
       setLoading(false);
       setError("Couldn't reach FYStay - check your connection and try again.");
@@ -72,7 +77,13 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
     }
 
     if (result?.error) {
-      setError(needsCode ? "That code doesn't match." : "That email and password don't match an account.");
+      setError(
+        oauthTwoFactor
+          ? "That code doesn't match, or the sign-in took too long. Check the code, or start again with the button below."
+          : needsCode
+            ? "That code doesn't match."
+            : "That email and password don't match an account.",
+      );
       return;
     }
 
@@ -107,11 +118,17 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
       <Card>
         <CardContent className="pt-5">
           <AuthErrorBanner message={oauthError} />
-          <SocialSignInButtons
-            providers={providers}
-            callbackUrl={callbackUrl === "/" ? "/after-sign-in" : callbackUrl}
-            onError={showHandOffError}
-          />
+          {oauthTwoFactor ? (
+            <p className="mb-4 text-sm text-stone-600">
+              Your account uses two-step verification. Enter the code from your authenticator app to finish signing in.
+            </p>
+          ) : (
+            <SocialSignInButtons
+              providers={providers}
+              callbackUrl={callbackUrl === "/" ? "/after-sign-in" : callbackUrl}
+              onError={showHandOffError}
+            />
+          )}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
             {needsCode ? (
               <Field>
@@ -176,6 +193,10 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
               <button
                 type="button"
                 onClick={() => {
+                  if (oauthTwoFactor) {
+                    // Start over: the half-finished Google/Apple sign-in expires on its own.
+                    router.replace("/login");
+                  }
                   setNeedsCode(false);
                   setCode("");
                   setError(null);

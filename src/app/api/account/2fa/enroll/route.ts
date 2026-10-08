@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { VERIFY_EMAIL_MESSAGE } from "@/lib/emailVerification";
 import QRCode from "qrcode";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -27,8 +28,14 @@ async function postHandler() {
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
-    select: { email: true, twoFactorEnabledAt: true },
+    select: { email: true, twoFactorEnabledAt: true, emailVerifiedAt: true },
   });
+  // The same reasoning as connecting Google: a code set up on an address
+  // nobody has proven would lock the real owner out after they reset the
+  // password.
+  if (!user.emailVerifiedAt) {
+    return NextResponse.json({ error: VERIFY_EMAIL_MESSAGE }, { status: 403 });
+  }
   if (user.twoFactorEnabledAt) {
     return NextResponse.json({ error: "Two-factor authentication is already enabled" }, { status: 409 });
   }

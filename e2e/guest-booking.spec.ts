@@ -38,7 +38,18 @@ async function selectDay(page: Page, target: Date, monthsAlreadyAdvanced: number
   return monthsAlreadyAdvanced + stepsToTake;
 }
 
+// The booking this spec makes is cleaned up afterwards: left behind, one
+// accumulated per run on the shared demo guest and eventually pushed other
+// specs' bookings off the first page of My trips.
+let bookedListingId: string | null = null;
+const startedAt = new Date();
+
 test.afterAll(async () => {
+  if (bookedListingId) {
+    await prisma.booking.deleteMany({
+      where: { listingId: bookedListingId, guest: { email: "guest@fystay.dev" }, createdAt: { gte: startedAt } },
+    });
+  }
   await prisma.$disconnect();
 });
 
@@ -53,6 +64,7 @@ test("guest can log in, book a listing, and see it in their trips", async ({ pag
     where: { published: true },
     orderBy: { createdAt: "asc" },
   });
+  bookedListingId = listing.id;
 
   await page.goto("/login");
   await page.fill("#email", "guest@fystay.dev");

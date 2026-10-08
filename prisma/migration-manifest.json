@@ -314,6 +314,12 @@
       "files": {
         "migration.sql": "4a19b8908a52e404e7f16eb6543827caa81115db41f88568fab62dfa8b2a94f1"
       }
+    },
+    {
+      "name": "20261008100000_email_verification",
+      "files": {
+        "migration.sql": "cced89253072295d37b2e0d4a07456f8e73f4e80255d394510c8d3e3c463a342"
+      }
     }
   ],
   "retired": [

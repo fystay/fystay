@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { configReadiness, readinessSummary } from "@/lib/configReadiness";
+import { describe, expect, it, vi } from "vitest";
+import { configReadiness, productionReadiness, readinessSummary } from "@/lib/configReadiness";
 
 const complete = {
   VERCEL_ENV: "production",
@@ -42,5 +42,18 @@ describe("configReadiness", () => {
     const summary = readinessSummary(configReadiness({ ...complete, SENTRY_DSN: " ", DISPUTE_ALERT_EMAIL: undefined }));
     expect(summary.ready).toBe(true);
     expect(summary.warnings.map((w) => w.key)).toEqual(["SENTRY_DSN", "DISPUTE_ALERT_EMAIL"]);
+  });
+});
+
+describe("productionReadiness", () => {
+  it("blocks the live site while example accounts are in its database", async () => {
+    const summary = await productionReadiness(async () => 2, complete);
+    expect(summary.ready).toBe(false);
+    expect(summary.blockers.map((b) => b.key)).toEqual(["Demo content in production"]);
+  });
+  it("doesn't count example accounts on Preview, where they belong", async () => {
+    const count = vi.fn(async () => 61);
+    expect((await productionReadiness(count, { ...complete, VERCEL_ENV: "preview" })).ready).toBe(true);
+    expect(count).not.toHaveBeenCalled();
   });
 });

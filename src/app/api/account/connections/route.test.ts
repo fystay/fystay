@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { state, cookieSet, deleteMany } = vi.hoisted(() => ({
   state: {
     passwordHash: null as string | null,
+    emailVerified: true,
     identities: [] as { provider: string }[],
     providers: { google: true, apple: true },
   },
@@ -16,7 +17,11 @@ vi.mock("next/headers", () => ({ cookies: async () => ({ set: cookieSet }) }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
-      findUniqueOrThrow: async () => ({ passwordHash: state.passwordHash, authIdentities: state.identities }),
+      findUniqueOrThrow: async () => ({
+        passwordHash: state.passwordHash,
+        emailVerifiedAt: state.emailVerified ? new Date("2026-01-01") : null,
+        authIdentities: state.identities,
+      }),
     },
     authIdentity: { deleteMany: (...a: unknown[]) => deleteMany(...a) },
   },
@@ -37,6 +42,7 @@ beforeEach(() => {
   cookieSet.mockReset();
   deleteMany.mockReset();
   state.passwordHash = bcrypt.hashSync("right-password", 4);
+  state.emailVerified = true;
   state.identities = [];
   state.providers = { google: true, apple: true };
   vi.stubEnv("AUTH_SECRET", "test-secret");
@@ -50,6 +56,12 @@ describe("POST /api/account/connections (connect)", () => {
     expect(name).toBe(LINK_INTENT_COOKIE);
     expect(verifyLinkIntent(value, "google", "test-secret")).toBe("user_1");
     expect(options).toMatchObject({ httpOnly: true, path: "/" });
+  });
+
+  it("refuses to connect Google/Apple until the email address is verified", async () => {
+    state.emailVerified = false;
+    const res = await POST(req("POST", { provider: "google", currentPassword: "right-password" }));
+    expect(res.status).toBe(403);
   });
 
   it("refuses a wrong or missing password", async () => {

@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { toast } from "sonner";
 import { Gift, Home, Luggage } from "lucide-react";
 import { REFERRAL_CREDIT_CENTS } from "@/lib/referral";
 import { formatPrice } from "@/lib/format";
@@ -105,6 +106,7 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
     }
 
     // Stays busy until the next page is on screen (see LoginForm).
+    toast.success(`Welcome to ${SITE_NAME}! We've sent a link to ${email} - tap it to confirm your email.`);
 
     router.push(callbackUrl ?? (role === "HOST" ? "/host/dashboard" : "/"));
     router.refresh();

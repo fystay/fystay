@@ -160,6 +160,8 @@ async function resolve(db: Db, input: OAuthSignInInput): Promise<OAuthSignInResu
       // this flow starts (see SocialSignInButtons), and this is the moment
       // the account comes into being.
       termsAcceptedAt: new Date(),
+      // Only reached with a provider-verified email (checked above).
+      emailVerifiedAt: new Date(),
       authIdentities: { create: { provider, providerAccountId, email } },
     },
     select: { id: true },
