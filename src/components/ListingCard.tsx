@@ -5,7 +5,7 @@ import type { TouchEvent } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
 import { useFormattedPrice } from "@/components/CurrencyProvider";
-import { computeBookingPricing } from "@/lib/pricing";
+import { computeBookingPricing, guestNightlyPriceCents } from "@/lib/pricing";
 import { SaveButton } from "@/components/SaveButton";
 import { averageRating as computeAverageRating } from "@/lib/reviews";
 import { AMENITY_CATEGORIES } from "@/lib/amenityCategories";
@@ -207,8 +207,9 @@ export function ListingCard({
   // totalPriceCents may be null - formattedTotal is simply unused in that
   // case, exactly like the totalPriceCents !== null check below already
   // gates whether it renders.
-  const formattedNightlyPrice = useFormattedPrice(shownNightlyCents);
-  const formattedWasPrice = useFormattedPrice(struckNightlyCents ?? 0);
+  // Headline prices include FYStay's service fee (guestNightlyPriceCents).
+  const formattedNightlyPrice = useFormattedPrice(guestNightlyPriceCents(shownNightlyCents));
+  const formattedWasPrice = useFormattedPrice(guestNightlyPriceCents(struckNightlyCents ?? 0));
   const formattedTotal = useFormattedPrice(totalPriceCents ?? 0);
 
   return (
@@ -405,8 +406,10 @@ export function ListingCard({
               </span>
               <span className="text-xs text-stone-500">/ night</span>
             </p>
-            {totalPriceCents !== null && (
-              <span className="text-xs text-stone-500">{formattedTotal} total</span>
+            {totalPriceCents !== null ? (
+              <span className="text-xs text-stone-500">{formattedTotal} total, all fees included</span>
+            ) : (
+              <span className="text-xs text-stone-500">incl. service fee</span>
             )}
           </div>
           {rating !== null ? (

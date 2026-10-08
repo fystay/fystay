@@ -21,6 +21,7 @@ import {
   MONTHLY_DISCOUNT_MIN_NIGHTS,
   stayDiscountName,
   WEEKLY_DISCOUNT_MIN_NIGHTS,
+  guestNightlyPriceCents,
 } from "@/lib/pricing";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { isPetFriendly, totalOccupants, type GuestCounts } from "@/lib/search";
@@ -305,10 +306,10 @@ export function BookingWidget({
               {priceDropFromCents && (
                 <s className="mr-1.5 text-base font-medium text-stone-600">
                   <span className="sr-only">Was </span>
-                  {formatPrice(priceDropFromCents)}
+                  {formatPrice(guestNightlyPriceCents(priceDropFromCents))}
                 </s>
               )}
-              {formatPrice(pricePerNightCents)}
+              {formatPrice(guestNightlyPriceCents(pricePerNightCents))}
               <span className="ml-1 text-sm font-normal text-stone-500">/ night</span>
             </p>
             {rating !== null && (
@@ -319,6 +320,12 @@ export function BookingWidget({
               </span>
             )}
           </div>
+          {/* The headline already includes FYStay's service fee; say so, and
+              name the one per-stay charge it can't include per night. */}
+          <p className="mt-0.5 text-xs text-stone-500">
+            Includes FYStay&apos;s service fee
+            {cleaningFeeCents > 0 && ` · plus ${formatPrice(cleaningFeeCents)} cleaning per stay`}
+          </p>
 
           {lastMinuteDiscountPercent && lastMinuteWindowDays && (
             <p className="mt-1 text-xs font-semibold text-brand-700">
@@ -539,8 +546,8 @@ export function BookingWidget({
             </>
           ) : (
             <>
-              <span className="font-bold text-brand-800">{formatPrice(pricePerNightCents)}</span>{" "}
-              <span className="text-sm text-stone-500">/ night</span>
+              <span className="font-bold text-brand-800">{formatPrice(guestNightlyPriceCents(pricePerNightCents))}</span>{" "}
+              <span className="text-sm text-stone-500">/ night incl. service fee</span>
             </>
           )
         }

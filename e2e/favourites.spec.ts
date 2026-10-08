@@ -152,7 +152,8 @@ test.describe("favourites / wishlist", () => {
       await expect(page.getByText(listing.title)).toBeVisible();
       await expect(page.getByText("FavouritesTestCity, England")).toBeVisible();
       await expect(page.getByText("Villa", { exact: true })).toBeVisible();
-      await expect(page.getByText("£120")).toBeVisible();
+      // £120 a night, shown with the 10% service fee included.
+      await expect(page.getByText("£132")).toBeVisible();
 
       // Clicking through the card returns to the property page.
       await page.getByText(listing.title).click();

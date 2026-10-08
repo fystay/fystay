@@ -3,6 +3,19 @@
 // constant so the rate lives in one place if it's ever revisited.
 export const GUEST_SERVICE_FEE_RATE = 0.1;
 
+/**
+ * A nightly rate as guests see it in headlines - on cards, the map, the
+ * listing page and search filters: the host's rate plus FYStay's service
+ * fee, so the compulsory fee is in the price a guest compares rather than
+ * first appearing at checkout (UK DMCC Act). Per-stay charges (cleaning)
+ * are shown beside it, and the full breakdown - host rate, service fee,
+ * cleaning - stays itemised wherever a total is worked out. The same
+ * rounding as the fee on a booking (computeBookingPricing), per night.
+ */
+export function guestNightlyPriceCents(hostNightlyCents: number): number {
+  return hostNightlyCents + Math.round(hostNightlyCents * GUEST_SERVICE_FEE_RATE);
+}
+
 // Airbnb-style length-of-stay discount thresholds. A stay only qualifies
 // once it meets or exceeds the relevant minimum - a 6-night stay never
 // gets the weekly rate, a 27-night stay never gets the monthly one.

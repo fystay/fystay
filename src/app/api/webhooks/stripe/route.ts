@@ -5,6 +5,7 @@ import { getStripeClient } from "@/lib/stripe";
 import { applyApprovedChange } from "@/app/api/bookings/[id]/change-requests/[requestId]/pay/route";
 import { refreshConnectAccountStatus } from "@/lib/stripeConnect";
 import { reportError } from "@/lib/observability";
+import { hostPayoutCents } from "@/lib/hostStats";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
 import { depositCaptureBefore, depositClaimDeadline } from "@/lib/securityDeposit";
@@ -261,7 +262,7 @@ async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Che
       hostName: booking.listing.host.name,
       hostEmail: booking.listing.host.email,
       bookingUrl: `${baseUrl}/bookings/${booking.id}`,
-    });
+    }, { earningsCents: hostPayoutCents(booking) });
     await awardReferralBonusIfEligible(prisma, booking.guestId);
     // Best-effort: pushBookingReservation never throws (it catches and
     // records every failure on the PmsReservationLink row itself), so

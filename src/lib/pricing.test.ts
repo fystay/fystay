@@ -5,6 +5,7 @@ import {
   computeBookingPricing,
   stayDiscountName,
   GUEST_SERVICE_FEE_RATE,
+  guestNightlyPriceCents,
   resolveLengthOfStayDiscount,
   splitBookingChange,
 } from "./pricing";
@@ -241,5 +242,15 @@ describe("computeBookingPricing with a last-minute deal", () => {
     expect(stayDiscountName("last_minute")).toBe("Last-minute deal");
     expect(stayDiscountName("monthly")).toBe("Monthly discount");
     expect(stayDiscountName("weekly")).toBe("Weekly discount");
+  });
+});
+
+describe("guestNightlyPriceCents", () => {
+  it("is the host's nightly rate plus FYStay's service fee, rounded like a booking's fee", () => {
+    expect(guestNightlyPriceCents(8000)).toBe(8800);
+    expect(guestNightlyPriceCents(4999)).toBe(4999 + Math.round(4999 * GUEST_SERVICE_FEE_RATE));
+    // Matches a one-night booking's accommodation + service fee exactly.
+    const oneNight = computeBookingPricing({ nights: 1, pricePerNightCents: 12345 });
+    expect(guestNightlyPriceCents(12345)).toBe(oneNight.nightlySubtotalCents + oneNight.serviceFeeCents);
   });
 });

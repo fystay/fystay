@@ -8,6 +8,7 @@ import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
 import { applyDiscountsToApplicationFee, discountedAccommodationCents } from "@/lib/pricing";
+import { hostPayoutCents } from "@/lib/hostStats";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
 import { isBookingHoldActive, isRequestedRangeStillAvailable } from "@/lib/availability";
@@ -150,7 +151,7 @@ async function postHandler(request: Request) {
       hostName: booking.listing.host.name,
       hostEmail: booking.listing.host.email,
       bookingUrl: `${baseUrl}/bookings/${booking.id}`,
-    });
+    }, { earningsCents: hostPayoutCents(booking) });
     await awardReferralBonusIfEligible(prisma, booking.guestId);
     return NextResponse.json({
       url: `${confirmationUrl}?dev_confirmed=1`,

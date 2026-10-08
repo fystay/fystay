@@ -74,7 +74,11 @@ const greeting = (name: string | null) => `Hi ${escapeHtml(name ?? "there")},`;
  * confirmed must never fail (or get rolled back) just because a
  * notification email didn't send.
  */
-export async function sendBookingConfirmedEmails(ctx: BookingEmailContext): Promise<void> {
+export async function sendBookingConfirmedEmails(
+  ctx: BookingEmailContext,
+  /** What the host is paid for this stay (hostPayoutCents) - told in their email. */
+  host: { earningsCents?: number } = {},
+): Promise<void> {
   const resend = getResendClient();
   if (!resend) return;
 
@@ -110,8 +114,18 @@ export async function sendBookingConfirmedEmails(ctx: BookingEmailContext): Prom
         preheader: `${ctx.guestName ?? "A guest"} · ${dateRange(ctx.checkIn, ctx.checkOut)}`,
         heading: "You have a new booking",
         intro: `${greeting(ctx.hostName)} ${escapeHtml(ctx.guestName ?? "A guest")} has booked <strong>${escapeHtml(ctx.listingTitle)}</strong> and paid in full.`,
-        details: stayDetails(ctx),
-        paragraphs: ["Their contact details are on your dashboard, and they can message you through FYStay."],
+        details: stayDetails(
+          ctx,
+          host.earningsCents !== undefined ? [{ label: "You'll earn", value: formatPrice(host.earningsCents) }] : [],
+        ),
+        paragraphs: [
+          ...(host.earningsCents !== undefined
+            ? [
+                "Your earnings (your nightly rate and cleaning fee - FYStay's service fee is paid by the guest on top) go straight to your Stripe account, and Stripe pays them into your bank on your payout schedule.",
+              ]
+            : []),
+          "Their contact details are on your dashboard, and they can message you through FYStay.",
+        ],
         cta: { label: "Open your dashboard", url: HOST_DASHBOARD_URL },
       }),
     }),

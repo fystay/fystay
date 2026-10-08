@@ -66,6 +66,15 @@ describe("notification emails", () => {
     }
   });
 
+  it("tells the host what they'll earn, and never tells the guest", async () => {
+    await sendBookingConfirmedEmails(ctx, { earningsCents: 45000 });
+    const guest = send.mock.calls.find(([msg]) => msg.to === ctx.guestEmail)![0];
+    const host = send.mock.calls.find(([msg]) => msg.to === ctx.hostEmail)![0];
+    expect(host.html).toMatch(/You(&#39;|&#x27;|')ll earn/);
+    expect(host.html).toContain("£450");
+    expect(guest.html).not.toMatch(/ll earn/);
+  });
+
   it("links the guest to their booking and the host to their dashboard, never the guest's page", async () => {
     await sendBookingConfirmedEmails(ctx);
     const guest = send.mock.calls.find(([msg]) => msg.to === ctx.guestEmail)![0];

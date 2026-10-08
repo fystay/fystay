@@ -15,7 +15,7 @@ import { usePromoCode } from "@/hooks/usePromoCode";
 import { formatPrice } from "@/lib/format";
 import { nightsBetween, stayLengthError } from "@/lib/availability";
 import type { CancellationPolicy } from "@/lib/cancellationPolicy";
-import { computeBookingPricing, stayDiscountName } from "@/lib/pricing";
+import { computeBookingPricing, stayDiscountName, guestNightlyPriceCents } from "@/lib/pricing";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
@@ -400,8 +400,8 @@ function RoomTypeBookingCard({
             </span>
           </p>
           <p className="mt-1 text-sm font-semibold text-brand-800">
-            {formatPrice(roomType.pricePerNightCents)}
-            <span className="font-normal text-stone-500"> / night</span>
+            {formatPrice(guestNightlyPriceCents(roomType.pricePerNightCents))}
+            <span className="font-normal text-stone-500"> / night incl. service fee</span>
           </p>
         </div>
       </div>

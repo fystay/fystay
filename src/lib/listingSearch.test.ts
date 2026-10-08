@@ -53,6 +53,13 @@ describe("applyListingFilters", () => {
     ]);
   });
 
+  it("filters on the price guests see, service fee included", () => {
+    // £140 a night is £154 to the guest: outside "up to £150", inside "from £150".
+    const listings = [listing({ id: "edge", pricePerNightCents: 14000 })];
+    expect(applyListingFilters(listings, { maxPriceCents: 15000 })).toEqual([]);
+    expect(applyListingFilters(listings, { minPriceCents: 15000 }).map((l) => l.id)).toEqual(["edge"]);
+  });
+
   it("filters by minimum bedrooms and bathrooms", () => {
     const listings = [
       listing({ id: "small", bedrooms: 1, bathrooms: 1 }),

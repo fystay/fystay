@@ -8,6 +8,7 @@ import { useFormattedPrice } from "@/components/CurrencyProvider";
 import { SaveButton } from "@/components/SaveButton";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
+import { guestNightlyPriceCents } from "@/lib/pricing";
 
 /** How long each stay is showcased before moving on. */
 export const SPOTLIGHT_SLIDE_MS = 6000;
@@ -47,8 +48,9 @@ function subscribeVisibility(onChange: () => void) {
   return () => document.removeEventListener("visibilitychange", onChange);
 }
 
+/** A nightly rate as guests see it: including FYStay's service fee. */
 function Price({ cents, className }: { cents: number; className?: string }) {
-  return <span className={className}>{useFormattedPrice(cents)}</span>;
+  return <span className={className}>{useFormattedPrice(guestNightlyPriceCents(cents))}</span>;
 }
 
 /**

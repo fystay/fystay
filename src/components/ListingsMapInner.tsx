@@ -9,6 +9,7 @@ import "leaflet/dist/leaflet.css";
 import { useFormattedPrice } from "@/components/CurrencyProvider";
 import { isOptimizableImage } from "@/lib/image";
 import { fyldeCoastCenter } from "@/lib/geocoding";
+import { guestNightlyPriceCents } from "@/lib/pricing";
 
 export type MapListing = {
   id: string;
@@ -55,7 +56,7 @@ function priceIcon(label: string) {
  * the moment the listings count ever changed between renders.
  */
 function ListingMarker({ listing }: { listing: MapListing }) {
-  const formattedPrice = useFormattedPrice(listing.pricePerNightCents);
+  const formattedPrice = useFormattedPrice(guestNightlyPriceCents(listing.pricePerNightCents));
 
   return (
     <Marker position={[listing.latitude, listing.longitude]} icon={priceIcon(formattedPrice)}>
@@ -122,7 +123,7 @@ export function groupListings(
 
 function GroupMarker({ group }: { group: Group }) {
   const map = useMap();
-  const fromPrice = useFormattedPrice(Math.min(...group.listings.map((l) => l.pricePerNightCents)));
+  const fromPrice = useFormattedPrice(guestNightlyPriceCents(Math.min(...group.listings.map((l) => l.pricePerNightCents))));
   return (
     <Marker
       position={[group.latitude, group.longitude]}
