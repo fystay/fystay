@@ -25,6 +25,18 @@ export function PhotoUploader({
   function addPastedUrl() {
     const url = pastedUrl.trim();
     if (!url) return;
+    // Only a real web address can be a photo; anything else would become a
+    // broken cover image and only fail later, on save.
+    let isWebAddress = false;
+    try {
+      isWebAddress = ["http:", "https:"].includes(new URL(url).protocol);
+    } catch {
+      // not a URL at all
+    }
+    if (!isWebAddress) {
+      toast.error("Paste the photo's full web address, starting with https://");
+      return;
+    }
     if (!photos.includes(url)) onChange([...photos, url]);
     setPastedUrl("");
   }

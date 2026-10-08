@@ -138,7 +138,7 @@ export default async function HostTodayPage() {
         <FirstGuestChecklist
           className="mt-6"
           title="Let's get your first place live"
-          intro="Three steps and you're taking bookings. You keep your full nightly price - FYStay's fee is added on top for the guest."
+          intro="Two steps and you're taking bookings. You keep your full nightly price - FYStay's fee is added on top for the guest."
           steps={[
             {
               key: "listing",

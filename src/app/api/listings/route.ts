@@ -10,7 +10,7 @@ import {
   isRangeAvailable,
   isRoomTypeRangeAvailable,
 } from "@/lib/availability";
-import { httpUrlSchema } from "@/lib/validation";
+import { httpUrlSchema, listingFieldSchemas } from "@/lib/validation";
 import { geocodeListing } from "@/lib/geocoding";
 import { paginateListings, parsePageParam } from "@/lib/listingSearch";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
@@ -26,7 +26,7 @@ const LISTINGS_API_PAGE_SIZE = 24;
 const roomTypeInputSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(2000).nullable().optional(),
-  pricePerNightCents: z.number().int().positive(),
+  pricePerNightCents: listingFieldSchemas.pricePerNightCents,
   maxGuests: z.number().int().min(1).max(50),
   bedrooms: z.number().int().min(0).max(50),
   beds: z.number().int().min(1).max(50),
@@ -37,8 +37,8 @@ const roomTypeInputSchema = z.object({
 
 const createListingSchema = z
   .object({
-    title: z.string().min(3).max(120),
-    description: z.string().min(10).max(5000),
+    title: listingFieldSchemas.title,
+    description: listingFieldSchemas.description,
     propertyType: z
       .enum(["APARTMENT", "HOUSE", "HOTEL", "COTTAGE", "VILLA", "STUDIO", "OTHER"])
       .optional(),
@@ -48,8 +48,8 @@ const createListingSchema = z
     // Required for every non-HOTEL property type (enforced below, since a
     // HOTEL listing instead takes its price/capacity from roomTypes and
     // these are simply ignored if a client somehow still sends them).
-    pricePerNightCents: z.number().int().positive().optional(),
-    cleaningFeeCents: z.number().int().min(0).default(0),
+    pricePerNightCents: listingFieldSchemas.pricePerNightCents.optional(),
+    cleaningFeeCents: listingFieldSchemas.cleaningFeeCents.default(0),
     weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     ...lastMinuteDealInput,
@@ -68,7 +68,7 @@ const createListingSchema = z
     checkOutTime: z.string().max(50).nullable().optional(),
     selfCheckIn: z.boolean().optional(),
     instantBook: z.boolean().optional(),
-    securityDepositCents: z.number().int().min(0).optional(),
+    securityDepositCents: listingFieldSchemas.securityDepositCents.optional(),
     checkInInstructions: z.string().max(2000).nullable().optional(),
     wifiNetwork: z.string().max(100).nullable().optional(),
     wifiPassword: z.string().max(100).nullable().optional(),

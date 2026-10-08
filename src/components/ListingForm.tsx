@@ -346,6 +346,8 @@ export function ListingForm({ listingId, initialValues }: Props) {
             <Input
               id="title"
               required
+              minLength={3}
+              maxLength={120}
               value={values.title}
               onChange={(e) => update("title", e.target.value)}
               placeholder="Sunlit loft in the heart of the city"
@@ -356,6 +358,8 @@ export function ListingForm({ listingId, initialValues }: Props) {
             <Textarea
               id="description"
               required
+              minLength={10}
+              maxLength={5000}
               rows={5}
               value={values.description}
               onChange={(e) => update("description", e.target.value)}
@@ -433,7 +437,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
           </SectionHeading>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {values.propertyType !== "HOTEL" && (
               <Field>
                 <Label htmlFor="price">Price / night (£)</Label>
@@ -442,6 +446,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
                   required
                   type="number"
                   min={1}
+                  max={10000}
                   step="0.01"
                   value={values.pricePerNight}
                   onChange={(e) => update("pricePerNight", e.target.value)}
@@ -454,6 +459,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
                 id="cleaningFee"
                 type="number"
                 min={0}
+                max={1000}
                 step="0.01"
                 value={values.cleaningFee}
                 onChange={(e) => update("cleaningFee", e.target.value)}
@@ -805,6 +811,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
               id="securityDeposit"
               type="number"
               min="0"
+              max="5000"
               step="1"
               value={values.securityDeposit}
               onChange={(e) => update("securityDeposit", e.target.value)}

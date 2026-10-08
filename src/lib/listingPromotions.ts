@@ -156,6 +156,12 @@ export async function activatePaidPromotion(
     const promotion = await tx.listingPromotion.findUnique({ where: { id: promotionId } });
     if (!promotion || promotion.status !== "PENDING_PAYMENT") return null;
 
+    // Two payments for one listing landing together (a double tap, or two
+    // webhooks a moment apart) would otherwise each read the same paid
+    // placements and both take the same days. One at a time per listing:
+    // the second waits, then sees the first and starts where it ends.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`promotion:${promotion.listingId}`}::text, 0))`;
+
     const existing = await tx.listingPromotion.findMany({
       where: { listingId: promotion.listingId, status: "PAID" },
       select: { endsAt: true },

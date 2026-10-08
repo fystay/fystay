@@ -62,7 +62,7 @@ export function BookingRequestActions({
         Decline
       </Button>
       <Button size="sm" loading={pending === "approve"} disabled={pending !== null} onClick={() => respond("approve")}>
-        Approve
+        Accept
       </Button>
     </div>
   );

@@ -97,7 +97,10 @@ export function IntegrationCard({ summary }: { summary: IntegrationSummary }) {
           ) : summary.live ? (
             <span>Not connected</span>
           ) : (
-            <span>Coming soon.</span>
+            <span>
+              Automatic two-way sync with {summary.label} is on the way. Until then, keep calendars in step with
+              the Calendar sync link on each listing&apos;s calendar page.
+            </span>
           )}
         </div>
       </div>
@@ -118,9 +121,11 @@ export function IntegrationCard({ summary }: { summary: IntegrationSummary }) {
             </Link>
           </>
         ) : (
-          <Button size="sm" onClick={handleConnect} loading={connecting} disabled={!summary.live}>
-            Connect
-          </Button>
+          summary.live && (
+            <Button size="sm" onClick={handleConnect} loading={connecting}>
+              Connect
+            </Button>
+          )
         )}
       </div>
     </Card>

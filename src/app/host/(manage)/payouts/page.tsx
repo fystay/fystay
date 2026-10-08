@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { StripeBadge } from "@/components/StripeBadge";
+import { getStripeClient } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Payouts", robots: { index: false } };
 
@@ -20,6 +21,8 @@ export default async function HostPayoutsPage({
 }) {
   const { onboarding, error } = await searchParams;
   const session = await auth();
+  // Without Stripe (local development) listings aren't held back, so don't say they are.
+  const stripeConfigured = Boolean(getStripeClient());
   if (!session?.user) redirect("/login?callbackUrl=/host/payouts");
   if (session.user.role !== "HOST") redirect("/host");
 
@@ -94,9 +97,13 @@ export default async function HostPayoutsPage({
           ) : (
             <>
               <p className="text-sm text-stone-600">
-                <strong className="font-semibold text-foreground">
-                  Your listings stay hidden from guests until this is complete.
-                </strong>{" "}
+                {stripeConfigured && (
+                  <>
+                    <strong className="font-semibold text-foreground">
+                      Your listings stay hidden from guests until this is complete.
+                    </strong>{" "}
+                  </>
+                )}
                 {started
                   ? "Stripe still needs a few more details before you can be paid."
                   : "FYStay uses Stripe to pay hosts directly and securely - we never see or store your bank details."}

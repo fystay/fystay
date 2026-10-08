@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { httpUrlSchema } from "@/lib/validation";
+import { httpUrlSchema, listingFieldSchemas } from "@/lib/validation";
 import { recomputeListingAggregatesFromRoomTypes } from "@/lib/roomTypeAggregates";
 import { withApiErrorHandling } from "@/lib/apiError";
 
 const createRoomTypeSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(2000).nullable().optional(),
-  pricePerNightCents: z.number().int().positive(),
+  pricePerNightCents: listingFieldSchemas.pricePerNightCents,
   maxGuests: z.number().int().min(1).max(50),
   bedrooms: z.number().int().min(0).max(50),
   beds: z.number().int().min(1).max(50),

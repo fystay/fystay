@@ -94,7 +94,9 @@ describe("spotlightAvailability", () => {
 describe("activatePaidPromotion", () => {
   function fakeDb(promotion: { status: string } | null, existingEnds: (Date | null)[], updated = 1) {
     const updateMany = vi.fn(async () => ({ count: updated }));
+    const executeRaw = vi.fn(async () => 0);
     const tx = {
+      $executeRaw: executeRaw,
       listingPromotion: {
         findUnique: async () => (promotion ? { id: "p1", listingId: "l1", hostId: "h1", days: 7, ...promotion } : null),
         findMany: async () => existingEnds.map((endsAt) => ({ endsAt })),
@@ -102,7 +104,7 @@ describe("activatePaidPromotion", () => {
       },
     };
     const db = { $transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) } as never;
-    return { db, updateMany };
+    return { db, updateMany, executeRaw };
   }
 
   it("marks an unpaid placement paid with dates that follow the listing's current placement", async () => {
@@ -113,6 +115,13 @@ describe("activatePaidPromotion", () => {
       where: { id: "p1", status: "PENDING_PAYMENT" },
       data: { status: "PAID", paidAt: now, startsAt: days(3), endsAt: days(10), stripePaymentIntentId: "pi_1" },
     });
+  });
+
+  it("works out the dates under a per-listing lock, so two payments landing together can't take the same days", async () => {
+    const { db, executeRaw } = fakeDb({ status: "PENDING_PAYMENT" }, []);
+    await activatePaidPromotion(db, "p1", null, now);
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(executeRaw.mock.calls[0].slice(1)).toEqual(["promotion:l1"]);
   });
 
   it("does nothing for a placement that's already paid (a redelivered webhook)", async () => {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { httpUrlSchema } from "@/lib/validation";
+import { httpUrlSchema, listingFieldSchemas } from "@/lib/validation";
 import { isFetchableUrl } from "@/lib/safeFetch";
 import { geocodeListing } from "@/lib/geocoding";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
@@ -12,16 +12,16 @@ import { lastMinuteDealInput, resolveLastMinuteDeal } from "@/lib/dealValidation
 
 const updateListingSchema = z
   .object({
-    title: z.string().min(3).max(120).optional(),
-    description: z.string().min(10).max(5000).optional(),
+    title: listingFieldSchemas.title.optional(),
+    description: listingFieldSchemas.description.optional(),
     propertyType: z
       .enum(["APARTMENT", "HOUSE", "HOTEL", "COTTAGE", "VILLA", "STUDIO", "OTHER"])
       .optional(),
     city: z.string().min(1).max(100).optional(),
     country: z.string().min(1).max(100).optional(),
     address: z.string().max(200).optional(),
-    pricePerNightCents: z.number().int().positive().optional(),
-    cleaningFeeCents: z.number().int().min(0).optional(),
+    pricePerNightCents: listingFieldSchemas.pricePerNightCents.optional(),
+    cleaningFeeCents: listingFieldSchemas.cleaningFeeCents.optional(),
     weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     ...lastMinuteDealInput,
@@ -41,7 +41,7 @@ const updateListingSchema = z
     checkOutTime: z.string().max(50).nullable().optional(),
     selfCheckIn: z.boolean().optional(),
     instantBook: z.boolean().optional(),
-    securityDepositCents: z.number().int().min(0).optional(),
+    securityDepositCents: listingFieldSchemas.securityDepositCents.optional(),
     checkInInstructions: z.string().max(2000).nullable().optional(),
     wifiNetwork: z.string().max(100).nullable().optional(),
     wifiPassword: z.string().max(100).nullable().optional(),
