@@ -30,7 +30,6 @@ export function configReadiness(env: Env = process.env): ConfigCheck[] {
       severity: "blocker",
       why: "Production is using a Stripe test key: no real money would move.",
     },
-    { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", ok: set(env, "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"), severity: "blocker", why: "Card forms can't load." },
     { key: "STRIPE_WEBHOOK_SECRET", ok: set(env, "STRIPE_WEBHOOK_SECRET"), severity: "blocker", why: "Paid bookings never confirm: Stripe's payment notices are refused." },
     { key: "STRIPE_CONNECT_WEBHOOK_SECRET", ok: set(env, "STRIPE_CONNECT_WEBHOOK_SECRET"), severity: "blocker", why: "Hosts' payout set-up never shows as finished, so their listings can't take bookings." },
     { key: "RESEND_API_KEY", ok: set(env, "RESEND_API_KEY"), severity: "blocker", why: "No email is sent at all: confirmations, password resets, alerts." },

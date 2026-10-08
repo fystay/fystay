@@ -6,7 +6,6 @@ const complete = {
   DATABASE_URL: "postgres://x",
   AUTH_SECRET: "x",
   STRIPE_SECRET_KEY: "sk_live_x",
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_x",
   STRIPE_WEBHOOK_SECRET: "whsec_x",
   STRIPE_CONNECT_WEBHOOK_SECRET: "whsec_y",
   RESEND_API_KEY: "re_x",

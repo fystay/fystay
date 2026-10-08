@@ -1,0 +1,23 @@
+import { chromium } from "@playwright/test";
+const S="/tmp/claude-0/-home-user/a208fa37-a229-56c5-bc92-2b089058f6f1/scratchpad/guest-audit/shots/";
+const B="http://localhost:3000";
+const browser=await chromium.launch({executablePath:"/opt/pw-browsers/chromium"});
+const log=[];
+const c=await browser.newContext({viewport:{width:1280,height:900}});
+await c.addCookies([{name:"cookie_consent",value:"1",url:B}]);
+const p=await c.newPage();
+p.on("console",m=>{if(m.type()==="error"||m.type()==="warning")log.push(`console.${m.type()} @${p.url()}: ${m.text().slice(0,300)}`)});
+p.on("pageerror",e=>log.push(`pageerror @${p.url()}: ${e.message.slice(0,300)}`));
+const step=async(n)=>{await p.waitForTimeout(700);await p.screenshot({path:S+n+".png"});console.log(n,p.url());};
+await p.goto(B+"/");await p.waitForLoadState("networkidle");
+const gi=p.getByRole("button",{name:"Got it"});if(await gi.isVisible())await gi.click();
+await p.locator("input[type=text]").first().click();await p.locator("input[type=text]").first().fill("Lyth");await step("s2-where");
+console.log("options:",await p.locator("[role=option], [role=listbox] li").allInnerTexts());
+await p.keyboard.press("ArrowDown");await p.keyboard.press("Enter");await step("s2-where2");
+await p.getByRole("button",{name:/Check-in/}).click();await step("s2-cal");
+// pick dates: buttons in calendar with day numbers
+const days=p.locator("[role=dialog] button:not([disabled]), [role=grid] button:not([disabled])");
+console.log("day buttons",await days.count(), (await days.allInnerTexts()).slice(0,12));
+await step("s2-cal2");
+console.log(log.join("\n"));
+await browser.close();

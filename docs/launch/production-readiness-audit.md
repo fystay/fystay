@@ -121,11 +121,10 @@ Each fix has tests. Results: **1,349/1,349 unit tests, 115/115 browser tests** o
 
 **Needs Vercel config (Production only; you add the values):**
 - `STRIPE_SECRET_KEY` (live, `sk_live_…`)
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (`pk_live_…`)
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_CONNECT_WEBHOOK_SECRET`
 
-Today none are set. Test keys stay on Preview only.
+Today none are set. Test keys stay on Preview only. (No publishable key is needed: checkout is Stripe's hosted page.)
 
 **Needs Stripe Dashboard config:**
 1. Activate the live account: business details, bank account, identity. Charges, payouts and details are all off today (`acct_1UNcL1CgubLh6wuS`).
@@ -387,7 +386,7 @@ Only real problems were fixed: the promo line, deposit disclosure, checkout agre
 2. **Stripe live:**
    - activate the account
    - enable Connect live
-   - add the 4 live keys in Vercel Production
+   - add the 3 live keys in Vercel Production
    - add the two live webhook endpoints (§2)
 3. **Email:** `RESEND_API_KEY` is already set in Production. Still needed:
    - a verified sending domain in Resend
