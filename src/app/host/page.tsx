@@ -16,7 +16,7 @@ import { DEFAULT_SHARE_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
 
 const title = "List Your Holiday Let in Lancashire & the North West";
 const description =
-  "List your holiday home, apartment, lodge or guest house on FYStay - a local marketplace for Blackpool, the Fylde Coast and across Lancashire. Reach guests directly, manage bookings from one dashboard, and see exactly what you earn.";
+  "List your holiday home, apartment, lodge or guest house on FYStay - a local marketplace that started on Blackpool and the Fylde Coast and welcomes hosts across Lancashire and the North West. Reach guests directly, manage bookings from one dashboard, and see exactly what you earn.";
 
 export const metadata: Metadata = {
   title,
@@ -45,7 +45,7 @@ const REASONS = [
     icon: Users,
     title: "Guests who've already chosen the area",
     description:
-      "People come to FYStay looking for a stay on the Fylde Coast and across Lancashire - you're reaching guests who've already picked the area, not hoping to be noticed inside a worldwide catalogue.",
+      "Guests come to FYStay to find a stay from a local host - you're reaching people who've already picked the area, not hoping to be noticed inside a worldwide catalogue.",
   },
   {
     icon: LayoutDashboard,
@@ -119,9 +119,9 @@ export default async function BecomeAHostPage() {
           </h1>
           <p className="mt-4 text-base text-white/85 sm:text-lg">
             {SITE_NAME} - for your stay - is a local booking platform that knows the area, not a
-            global marketplace you disappear into. Started on the Fylde Coast and growing across
-            Lancashire. List your holiday home, apartment, lodge or guest house and reach guests
-            who are already looking for a stay near you.
+            global marketplace you disappear into. It started on the Fylde Coast and welcomes
+            hosts across Lancashire and the North West. List your holiday home, apartment, lodge or
+            guest house and reach guests looking for a stay near you.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             {cta(cn(buttonVariants({ size: "lg" }), "bg-white text-brand-800 hover:bg-white/90"))}

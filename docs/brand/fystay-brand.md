@@ -56,9 +56,9 @@ recognition of the name instead of competing with it. It's welcoming (it
 puts the guest first), it's true wherever FYStay operates, and it needs no
 rewrite as coverage grows.
 
-Where a longer line is useful (About page, share image), it's paired with
-a coverage line that is kept accurate:
-**"For Your Stay. Independent stays from local hosts, across Lancashire."**
+Where a longer line is useful (share image), it's paired with a line that
+makes no coverage claim, so it can't go stale in a cached preview:
+**"For Your Stay. Independent holiday stays from local hosts."**
 
 Alternatives considered:
 
@@ -77,33 +77,73 @@ payment, reviews only from guests who stayed, real local hosts) rather than
 "best", "guaranteed" or "verified". British English. Name places precisely.
 
 - **Guests:** "Find your stay. Independent holiday homes, apartments and
-  lodges from local hosts, with the full price shown before you book."
+  guest houses from local hosts, with the full price shown before you book."
 - **Hosts:** "List your place with a marketplace that knows your area.
   Reach guests looking for a stay near you and run everything from one
   dashboard."
 
 ## Regional identity and growth
 
-- Today's coverage is described as **Lancashire**: the Fylde Coast towns
-  (Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood,
-  Thornton-Cleveleys) plus North Lancashire, where Lodge on the Lake
-  (Carnforth) is FYStay's first listing beyond the Fylde. Lancashire is
-  accurate, broader than one coastline, and a real search term.
-- The Fylde Coast stays the anchor: its towns keep their own pages, guides
-  and URLs.
-- Never claim the Lake District, Lancaster, Morecambe or "UK-wide" until
-  there are live, bookable listings there. "The edge of the Lakes" is used
-  only where it describes a real listing's location.
-- **Inventory check (10 Oct 2026):** Production has no published listings
-  yet (Lodge on the Lake is waiting for import). Preview has demo listings
-  in the six Fylde towns only. Copy naming North Lancashire assumes the
-  Lodge goes live with this release.
+Three kinds of statement, kept apart:
+
+1. **Where guests can book (availability).** Static copy names only the
+   Fylde Coast towns that have their own pages (Blackpool, Lytham, St Annes,
+   Poulton-le-Fylde, Fleetwood, Thornton-Cleveleys). "In Lancashire" is
+   fine as a plain location ("Find your stay in Lancashire": every
+   destination FYStay has is in Lancashire). Breadth claims ("across
+   Lancashire", "North Lancashire", "to the edge of the Lakes") are not
+   used. Any other town appears only when it has live, bookable stays:
+   `townsBeyondTheFyldeCoast()` (`src/lib/destinationInventory.ts`), read by
+   the destinations hub and `llms.txt`, uses the same published / not
+   suspended / payable-host rule as search.
+2. **Where FYStay wants hosts (recruitment).** Host pages may invite owners
+   "across Lancashire and the North West". That's an invitation, not a claim
+   about stays.
+3. **Ambition.** Growth across Lancashire, the North West and the UK is
+   written as a plan ("plans to grow", "adds new towns as local hosts
+   join"), never as current coverage.
+
+Never say the Lake District, Lancaster or Morecambe have stays until real
+listings there are live. Carnforth (Lodge on the Lake) is in Lancashire,
+near but **outside** the Lake District National Park, and one property is
+not Lake District coverage.
+
+**Inventory check (10-11 Oct 2026, read-only database queries):**
+Production has 0 listings and 0 host accounts, so Lodge on the Lake has not
+been imported. Preview has 61 published demo listings, all in the six Fylde
+towns, and no Lodge or Carnforth listing. Lodge on the Lake therefore
+appears nowhere until it's imported, published and its host can take
+payouts. At that point the hub lists Carnforth automatically.
+
+## Homepage headline contrast
+
+The hero is a looping video, from the Tower's dark ironwork to bright sky
+and sand, so no text colour is readable over every frame on the general
+scrim alone. Measured with the text hidden, against every pixel behind it
+in the poster plus 10 frames of the matching video file per breakpoint:
+
+| Breakpoint | Old "Lancashire" (brand-400) worst / median | Now (brand-200 + headline shade) worst / 1st pct | "Find your stay" (white) worst | Subtitle (white) worst |
+| --- | --- | --- | --- | --- |
+| Mobile 390px | 2.34 / 4.48* | 3.96 / 4.64 | 3.52 | 9.34 |
+| Tablet 820px | 3.12 / 4.57* | 5.29 / 6.03 | 7.48 | 9.46 |
+| Laptop 1024px | 2.55 / 3.84* | 4.33 / 4.74 | 4.39 | 7.47 |
+| Desktop 1440px | 2.82 / 4.75* | 4.78 / 5.43 | 4.05 | 8.50 |
+
+\* Old colour measured over the new shade. Without the shade it was
+1.00-1.25 worst-case and 1.35-2.55 median.
+
+The fix is a soft, blurred patch of the scrim's own brown
+(`rgba(46,24,14,0.6)`, `blur-2xl`) behind the headline and subtitle only.
+The place name is `brand-200` (`#edcfc5`), a pale terracotta. A darker
+terracotta was measured and rejected: against this mid-to-dark background
+brand-600 reaches only about 1.0-1.1:1 at the 5th percentile. WCAG large
+text needs 3:1; every element now clears it against the worst pixel.
 
 ## Page titles
 
 - Pattern: `{search intent or place} · FYStay`, from the root template.
   Keep the place or intent first: it's what searchers scan for.
-- Homepage: `FYStay | Holiday Stays in Blackpool, the Fylde Coast & Lancashire`.
+- Homepage: `FYStay | Holiday Stays in Blackpool & the Fylde Coast, Lancashire`.
 - Default (pages without their own title): `FYStay: For Your Stay`.
 - Destination pages: `Holiday Accommodation in {Town}, Fylde Coast · FYStay`.
 
@@ -115,7 +155,7 @@ inventory, and a page that lists nothing would be thin and misleading.
 
 | Destination | Existing route | Action | Main intent | Prerequisites | SEO rationale |
 | --- | --- | --- | --- | --- | --- |
-| Fylde Coast | `/destinations` (index, titled "Explore the Fylde Coast") | **Improve**: retitle as FYStay's destinations hub, keep the Fylde Coast section, stop claiming "nowhere else", add to sitemap | "Fylde Coast holiday accommodation" | None | It already links to every town page. It was missing from the sitemap. |
+| Fylde Coast | `/destinations` (index, titled "Explore the Fylde Coast") | **Improved**: now "Where to stay with FYStay", with a Fylde Coast section and a "Beyond the Fylde Coast" list read from live listings (empty today). No longer claims "nowhere else". Added to sitemap | "Fylde Coast holiday accommodation" | None | It already links to every town page. It was missing from the sitemap. |
 | Blackpool | `/destinations/blackpool` | **Retain, improve metadata** | "Blackpool holiday accommodation / lets" | None (demo inventory on Preview, real listings at launch) | Strongest search demand in the area. URL kept. |
 | Lytham St Annes | `/destinations/lytham` and `/destinations/st-annes` | **Retain both**; mention "Lytham St Annes" in their descriptions | "Lytham St Annes holiday stays" | None | The two towns have distinct guides already. A combined page would duplicate both, and merging would throw away two indexed URLs. |
 | Poulton-le-Fylde, Fleetwood, Thornton-Cleveleys | `/destinations/{slug}` | **Retain, improve metadata** | Town-specific stays | None | Existing pages with distinct local guides. |

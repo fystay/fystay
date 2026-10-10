@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "About",
-  description: "Why FYStay - For Your Stay - exists: a local holiday accommodation marketplace that started on the Fylde Coast and is growing across Lancashire.",
+  description: "Why FYStay - For Your Stay - exists: a local holiday accommodation marketplace that started on Blackpool and the Fylde Coast.",
   path: "/about",
 });
 
@@ -41,10 +41,11 @@ export default function AboutPage() {
       <p className="mt-4 text-sm leading-relaxed text-stone-600">
         FYStay stands for &ldquo;For Your Stay&rdquo;: a booking platform for independent holiday
         accommodation, and a local alternative to the big booking platforms. We started on
-        Blackpool and the Fylde Coast and are growing across Lancashire, because the region is
-        full of great, independently run places to stay that deserve a straightforward way to
-        reach guests directly - without disappearing into a global marketplace alongside
-        thousands of listings from everywhere else.
+        Blackpool and the Fylde Coast, and plan to grow across Lancashire, the North West and
+        beyond as local hosts join, because the region is full of great, independently run places
+        to stay that deserve a straightforward way to reach guests directly - without
+        disappearing into a global marketplace alongside thousands of listings from everywhere
+        else.
       </p>
       <p className="mt-3 text-sm leading-relaxed text-stone-600">
         Guests get a simple way to search, compare, and book real local stays with genuine

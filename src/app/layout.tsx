@@ -46,7 +46,7 @@ const dmSerifDisplay = DM_Serif_Display({
 // "{place or intent} · FYStay" titles through the template below.
 const defaultTitle = `${SITE_NAME}: For Your Stay`;
 const description =
-  "Book independent holiday homes, apartments, lodges and guest houses from local hosts in Blackpool, the Fylde Coast and across Lancashire. See the full price before you book.";
+  "Book independent holiday homes, apartments and guest houses from local hosts in Blackpool and on the Fylde Coast, Lancashire. See the full price before you book.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

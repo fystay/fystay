@@ -176,7 +176,7 @@ export function BookingsTabs({
     upcoming: {
       bookings: upcoming,
       emptyMessage: "No upcoming trips",
-      emptyHint: "Find your next stay from local hosts across Lancashire.",
+      emptyHint: "Find your next stay from local hosts.",
       showCta: true,
     },
     past: {

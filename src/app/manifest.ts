@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: `${SITE_NAME}: For Your Stay`,
     short_name: SITE_NAME,
     description:
-      "Book independent holiday homes, apartments, lodges and guest houses from local hosts across Lancashire.",
+      "Book independent holiday homes, apartments and guest houses from local hosts in Blackpool and on the Fylde Coast.",
     start_url: "/",
     display: "standalone",
     background_color: "#f6f3ec",

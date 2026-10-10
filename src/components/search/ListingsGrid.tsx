@@ -424,7 +424,7 @@ async function NoResults({
     title = `FYStay doesn't cover ${city} yet`;
     hint = (
       <>
-        FYStay is growing across Lancashire, starting on the Fylde Coast. Try{" "}
+        FYStay started on the Fylde Coast and adds towns as local hosts join. Try{" "}
         {FYLDE_COAST_DESTINATIONS.map((town, i) => (
           <span key={town.slug}>
             {i > 0 && (i === FYLDE_COAST_DESTINATIONS.length - 1 ? " or " : ", ")}

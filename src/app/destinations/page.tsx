@@ -4,13 +4,12 @@ import { pageMetadata } from "@/lib/seo";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { DESTINATION_PHOTOS } from "@/lib/destinationPhotos";
 import { cn } from "@/lib/cn";
-import { prisma } from "@/lib/prisma";
-import { bookableHostWhere } from "@/lib/stripeConnect";
+import { townsBeyondTheFyldeCoast } from "@/lib/destinationInventory";
 
 export const metadata = pageMetadata({
-  title: "Holiday Destinations on the Fylde Coast & in Lancashire",
+  title: "Holiday Destinations on the Fylde Coast, Lancashire",
   description:
-    "Where to stay with FYStay: Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood and Thornton-Cleveleys on the Fylde Coast, each with local stays and its own Local Guide - plus FYStay's first stays in North Lancashire.",
+    "Where to stay with FYStay: Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood and Thornton-Cleveleys on the Fylde Coast, each with its own page and Local Guide.",
   path: "/destinations",
 });
 
@@ -27,29 +26,10 @@ const DESTINATION_ART: Record<string, { icon: LucideIcon; gradient: string }> = 
 /** Fallback look for a town with no bespoke icon/gradient in DESTINATION_ART - none currently, since all six towns FYStay covers have their own, but kept so a future addition to destinations.ts fails gracefully rather than crashing this page. */
 const FALLBACK_ART = { icon: MapPin, gradient: "from-stone-500 to-ink" };
 
-// The "beyond the Fylde Coast" list below is read from live listings, so
-// it's never built at deploy time (see scripts/ci/check-build-database-free.mjs).
+// The "beyond the Fylde Coast" list below is read from live listings
+// (townsBeyondTheFyldeCoast), so it's never built at deploy time (see
+// scripts/ci/check-build-database-free.mjs).
 export const dynamic = "force-dynamic";
-
-/**
- * Towns with live, bookable stays that don't have their own destination
- * page yet (e.g. Carnforth in North Lancashire) - read from real listings,
- * so this page only ever names a place where a guest can actually book,
- * and an area graduates to its own page once it has enough stays and a
- * guide (docs/brand/fystay-brand.md, destination plan).
- */
-async function townsBeyondTheFyldeCoast(): Promise<{ city: string; count: number }[]> {
-  const coveredCities = FYLDE_COAST_DESTINATIONS.map((destination) => destination.searchCity);
-  const groups = await prisma.listing
-    .groupBy({
-      by: ["city"],
-      where: { published: true, suspendedAt: null, ...bookableHostWhere(), city: { notIn: coveredCities } },
-      _count: { _all: true },
-      orderBy: { city: "asc" },
-    })
-    .catch(() => []);
-  return groups.map((group) => ({ city: group.city, count: group._count._all }));
-}
 
 export default async function DestinationsIndexPage() {
   const otherTowns = await townsBeyondTheFyldeCoast();
@@ -57,9 +37,9 @@ export default async function DestinationsIndexPage() {
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Where to stay with FYStay</h1>
       <p className="mt-2 max-w-2xl text-sm text-stone-500 sm:text-base">
-        FYStay started on the Fylde Coast and is growing across Lancashire. Each town below has
-        its own page with local stays and a Local Guide written for that town - not a generic
-        city page.
+        FYStay started on the Fylde Coast and adds new towns as local hosts join. Each town below
+        has its own page with the stays local hosts have listed there and a Local Guide written
+        for that town - not a generic city page.
       </p>
 
       <h2 className="mt-10 text-lg font-bold text-foreground sm:text-xl">The Fylde Coast</h2>
@@ -115,8 +95,8 @@ export default async function DestinationsIndexPage() {
         <section className="mt-12">
           <h2 className="text-lg font-bold text-foreground sm:text-xl">Beyond the Fylde Coast</h2>
           <p className="mt-1 max-w-2xl text-sm text-stone-500">
-            FYStay&rsquo;s newest stays elsewhere in Lancashire. These towns get their own page
-            and Local Guide as more local hosts join.
+            Towns where local hosts already have stays you can book, ahead of getting their own
+            page and Local Guide.
           </p>
           <ul className="mt-4 flex flex-wrap gap-2">
             {otherTowns.map(({ city, count }) => (

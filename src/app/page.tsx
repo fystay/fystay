@@ -62,9 +62,9 @@ const TRUST_POINTS = [
 // Brand first on the homepage alone (absolute, so the "· FYStay" template
 // doesn't repeat it), then the regional searches it should answer - see
 // docs/brand/fystay-brand.md for the title convention.
-const title = "FYStay | Holiday Stays in Blackpool, the Fylde Coast & Lancashire";
+const title = "FYStay | Holiday Stays in Blackpool & the Fylde Coast, Lancashire";
 const description =
-  "Find your stay with FYStay: independent holiday homes, apartments, lodges and guest houses from local hosts in Blackpool, the Fylde Coast and across Lancashire. Full price shown before you book.";
+  "Find your stay with FYStay: independent holiday homes, apartments and guest houses from local hosts in Blackpool and on the Fylde Coast, Lancashire. Full price shown before you book.";
 
 // Per-user and database-backed throughout (auth() in PopularStaysSection,
 // live listing counts), so the page was already rendered per request - this
@@ -130,7 +130,7 @@ async function PopularStaysSection() {
   if (!listings || listings.length === 0) {
     return (
       <section className="mt-10 sm:mt-14">
-        <SectionHeader title="Explore stays across Lancashire" subtitle="Stays from local hosts, from the Fylde Coast to North Lancashire." />
+        <SectionHeader title="Explore stays in Lancashire" subtitle="Stays from local hosts, starting on the Fylde Coast." />
         <HomeSectionEmpty
           message={
             listings
@@ -164,7 +164,7 @@ async function PopularStaysSection() {
   return (
     <section className="mt-10 sm:mt-14">
       <PopularStays
-        title="Explore stays across Lancashire"
+        title="Explore stays in Lancashire"
         subtitle={`${listings.length} stay${listings.length === 1 ? "" : "s"} from local hosts. Narrow it down by the kind of stay or by town.`}
         listings={shown}
         filters={filters}
@@ -210,15 +210,12 @@ export default async function Home() {
         logo: `${SITE_URL}/apple-icon`,
         description,
         slogan: "For Your Stay",
-        // Lancashire as a whole (the Fylde Coast towns and North Lancashire,
-        // where FYStay has listings) plus each town with its own page.
-        areaServed: [
-          { "@type": "AdministrativeArea", name: "Lancashire" },
-          ...FYLDE_COAST_DESTINATIONS.map((destination) => ({
-            "@type": "Place",
-            name: destination.name,
-          })),
-        ],
+        // The towns with their own pages - not "Lancashire" as a whole,
+        // which would claim coverage FYStay's listings don't back yet.
+        areaServed: FYLDE_COAST_DESTINATIONS.map((destination) => ({
+          "@type": "Place",
+          name: destination.name,
+        })),
         contactPoint: {
           "@type": "ContactPoint",
           email: SUPPORT_EMAIL,
@@ -273,20 +270,32 @@ export default async function Home() {
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-[88px] [text-shadow:0_1px_18px_rgba(46,24,14,0.5)] sm:pb-[156px] lg:pb-[196px]">
-          {/* "Find your stay" echoes the name itself (FYStay - For Your
-              Stay); "in Lancashire" never splits, so the place reads as one
-              phrase. From sm the place name takes a light tone of the brand
-              terracotta (the logo's own shade is too dark to read on the
-              hero's shading); on phones it stays white, because there it
-              lands on bright sand, where terracotta measured about 1.4:1. */}
-          <h1 className="max-w-3xl text-[2rem] leading-[1.06] tracking-[-0.01em] text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[4rem]">
-            Find your stay <span className="whitespace-nowrap">in <span className="sm:text-brand-400">Lancashire</span></span>
-          </h1>
-          {/* One supporting line - the headline already says where. Full
-              white and medium weight: it sits over bright sand. */}
-          <p className="mt-2 max-w-2xl text-pretty text-[15px] font-medium leading-snug text-white sm:mt-3 sm:text-lg sm:leading-relaxed">
-            Holiday homes, apartments, lodges and guest houses from local hosts, from the Fylde Coast to the edge of the Lakes.
-          </p>
+          {/* A soft patch of the scrim's own warm brown, just behind the
+              headline and its supporting line: the video swings from the
+              Tower's dark ironwork to bright sky and sand, and no text colour
+              stays readable over every frame on the general scrim alone. The
+              patch is blurred so it reads as shade, not a box, and leaves the
+              rest of the footage untouched. Measured against every pixel of
+              eleven frames per breakpoint - see docs/brand/fystay-brand.md.
+              w-fit keeps it to the text's own width. */}
+          <div className="relative w-fit max-w-3xl">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-x-12 -inset-y-12 -z-10 rounded-[56px] bg-[rgba(46,24,14,var(--hero-shade))] blur-2xl [--hero-shade:0.6] sm:-inset-x-16 sm:-inset-y-14"
+            />
+            {/* "Find your stay" echoes the name itself (FYStay - For Your
+                Stay); "in Lancashire" never splits, so the place reads as one
+                phrase, in a pale tone of the brand terracotta. */}
+            <h1 className="text-[2rem] leading-[1.06] tracking-[-0.01em] text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[4rem]">
+              Find your stay <span className="whitespace-nowrap">in <span className="text-brand-200">Lancashire</span></span>
+            </h1>
+            {/* One supporting line. It names only the area where FYStay
+                has towns of its own; anywhere else appears once a host
+                there is live (the destinations hub reads real listings). */}
+            <p className="mt-2 max-w-2xl text-pretty text-[15px] font-medium leading-snug text-white sm:mt-3 sm:text-lg sm:leading-relaxed">
+              Holiday homes, apartments and guest houses from local hosts, starting on the Fylde Coast.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -455,7 +464,7 @@ function PopularStaysSkeleton() {
   return (
     <section className="mt-10 sm:mt-14" aria-hidden>
       <div className="mb-5 sm:mb-6">
-        <h2 className="text-xl font-bold text-foreground sm:text-2xl">Explore stays across Lancashire</h2>
+        <h2 className="text-xl font-bold text-foreground sm:text-2xl">Explore stays in Lancashire</h2>
         <div className="skeleton-shimmer mt-2 h-4 w-64 max-w-full rounded" />
       </div>
       <div className="mb-6 flex h-10 gap-2 overflow-hidden">

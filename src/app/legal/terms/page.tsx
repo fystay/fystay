@@ -19,7 +19,7 @@ export default function TermsPage() {
       <LegalSection heading="1. Who these terms are between">
         <p>
           These terms govern your use of FYStay (the &quot;Platform&quot;), a website that lets
-          guests search for and book independent accommodation in the United Kingdom, and lets hosts
+          guests search for and book independent accommodation listed by hosts, and lets hosts
           list their properties for guests to book. By creating an account, browsing listings, or
           making a booking, you agree to these terms.
         </p>
@@ -61,7 +61,7 @@ export default function TermsPage() {
           Non-refundable, or a host-defined Custom policy), shown on the listing page before you
           book. Refund amounts for a cancellation are calculated automatically based on that policy
           and how far in advance you cancel (or, under Non-refundable, whether you cancel within 24
-          hours of paying). See our{" "}
+          hours of paying and before your check-in date). See our{" "}
           <Link href="/cancellation-policies" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
             Cancellation Policies
           </Link>{" "}

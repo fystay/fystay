@@ -30,7 +30,7 @@ export const DEFAULT_SHARE_IMAGE = {
   url: "/opengraph-image",
   width: 1200,
   height: 630,
-  alt: "FYStay - For Your Stay. Independent stays from local hosts across Lancashire.",
+  alt: "FYStay - For Your Stay. Independent holiday stays from local hosts.",
 };
 
 /**

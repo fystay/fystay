@@ -2,7 +2,7 @@
 
 A local holiday accommodation marketplace: guests search and book stays from independent hosts,
 hosts list and manage their properties, and payments run through Stripe Checkout. FYStay started
-on the Fylde Coast and is growing across Lancashire. Brand rules (name, logo, tagline, voice) and
+on the Fylde Coast and plans to grow across Lancashire and the North West. Brand rules (name, logo, tagline, voice) and
 the destination-page plan: [docs/brand/fystay-brand.md](docs/brand/fystay-brand.md).
 
 ## Stack
