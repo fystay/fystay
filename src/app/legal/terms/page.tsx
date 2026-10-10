@@ -5,11 +5,11 @@ import { LEGAL_EMAIL, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Terms and Conditions",
-  description: "The terms that govern using FYStay to book or list accommodation on the Fylde Coast.",
+  description: "The terms that govern using FYStay to book or list holiday accommodation.",
   path: "/legal/terms",
 });
 
-const LAST_UPDATED = "31 August 2026";
+const LAST_UPDATED = "10 October 2026";
 
 export default function TermsPage() {
   const company = getCompanyInfo();
@@ -19,7 +19,7 @@ export default function TermsPage() {
       <LegalSection heading="1. Who these terms are between">
         <p>
           These terms govern your use of FYStay (the &quot;Platform&quot;), a website that lets
-          guests search for and book independent accommodation on the Fylde Coast, and lets hosts
+          guests search for and book independent accommodation in the United Kingdom, and lets hosts
           list their properties for guests to book. By creating an account, browsing listings, or
           making a booking, you agree to these terms.
         </p>

@@ -41,12 +41,16 @@ const dmSerifDisplay = DM_Serif_Display({
 // reasonably specific rather than a bare brand name, since a route added
 // later without its own metadata would otherwise fall back to a title with
 // no useful information in it.
-const defaultTitle = `${SITE_NAME} — Local Accommodation on the Fylde Coast`;
+// FYStay: For Your Stay - the name's own meaning as the fallback title for
+// any page without one (docs/brand/fystay-brand.md). Pages set their own
+// "{place or intent} · FYStay" titles through the template below.
+const defaultTitle = `${SITE_NAME}: For Your Stay`;
 const description =
-  "Book independent apartments, cottages and guest houses across Blackpool and the Fylde Coast - real local hosts, genuine reviews, secure booking.";
+  "Book independent holiday homes, apartments, lodges and guest houses from local hosts in Blackpool, the Fylde Coast and across Lancashire. See the full price before you book.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
   title: {
     default: defaultTitle,
     template: `%s · ${SITE_NAME}`,

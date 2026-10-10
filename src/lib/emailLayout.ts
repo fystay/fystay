@@ -104,6 +104,7 @@ export function renderEmail(content: EmailContent): string {
             <tr>
               <td style="padding:0 4px 20px;font-family:${SERIF};font-size:26px;font-weight:700;letter-spacing:-0.5px;">
                 <span style="color:${COLORS.brand};">FY</span><span style="color:${COLORS.ink};">Stay</span>
+                <div style="margin-top:4px;font-family:${SERIF};font-size:9px;font-weight:400;letter-spacing:2.4px;text-transform:uppercase;color:${COLORS.ink};">For Your Stay</div>
               </td>
             </tr>
             <tr>
@@ -122,7 +123,7 @@ export function renderEmail(content: EmailContent): string {
             <tr>
               <td style="padding:18px 4px 0;font-family:${SANS};font-size:12px;line-height:1.6;color:${COLORS.muted};">
                 Questions? Write to <a href="mailto:${SUPPORT_EMAIL}" style="color:${COLORS.button};">${SUPPORT_EMAIL}</a>.<br>
-                ${footerLine} Local stays on the Fylde Coast.
+                ${footerLine} FYStay: for your stay.
               </td>
             </tr>
           </table>

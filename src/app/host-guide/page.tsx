@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Host guide",
-  description: "How to list and manage a property on FYStay, the Fylde Coast's local accommodation marketplace.",
+  description: "How to list and manage a holiday let on FYStay, the local accommodation marketplace for the Fylde Coast and Lancashire.",
   path: "/host-guide",
 });
 

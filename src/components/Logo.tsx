@@ -18,10 +18,8 @@ export function Logo({
 }: {
   size?: keyof typeof sizeClasses;
   withTagline?: boolean;
-  /** Overrides the tagline's own size/spacing - the default (text-sm) suits
-   * the footer's roomier logo block, but a sticky navbar shown on every
-   * page needs it noticeably smaller so the header doesn't grow taller
-   * site-wide. */
+  /** Extra classes for the "For Your Stay" descriptor line. Its size
+   * follows the wordmark (a quarter of it), so callers rarely need this. */
   taglineClassName?: string;
   className?: string;
 }) {
@@ -29,7 +27,10 @@ export function Logo({
   const isHero = tone === "hero";
 
   return (
-    <span className={cn("inline-flex flex-col", className)}>
+    // w-fit: the lockup is always exactly as wide as the wordmark, even
+    // inside a stretching flex column (the footer's). The size class sits
+    // here so the descriptor below can be sized as a fraction of it (em).
+    <span className={cn("inline-flex w-fit flex-col", sizeClasses[size], className)}>
       <span
         className={cn(
           // tracking-tight pulls DM Serif Display's fairly generous default
@@ -38,39 +39,29 @@ export function Logo({
           // browser synthesizing a bolder weight than the single 400 the
           // font actually ships.
           "font-[family-name:var(--font-logo)] font-normal leading-none tracking-tight",
-          sizeClasses[size],
         )}
       >
         <span className="text-brand-600">FY</span>
         <span className={cn("text-[var(--color-ink)]", isHero && "text-white")}>Stay</span>
       </span>
+      {/* Separates "FYStay" from "For Your Stay" for screen readers; the
+          flex column ignores it visually. */}{" "}
       {withTagline && (
+        // The name's own meaning, as the logo's descriptor line
+        // (docs/brand/fystay-brand.md): spaced capitals at a quarter of the
+        // wordmark's size, which with this tracking very nearly fills its
+        // width at every size; justify-between absorbs the last few pixels
+        // so both ends line up exactly.
         <span
           className={cn(
-            // Sized to match the "FYStay" wordmark's own rendered width at
-            // this component's "sm" size (the only size any caller
-            // currently pairs with a tagline) - "Apartments · B&Bs · Lodges"
-            // is roughly 3x the character count of "FYStay", so fitting it
-            // into the same width needs a font size this much smaller, not
-            // just a token step down like text-sm/text-xs.
-            //
-            // States what's actually on the marketplace (three real
-            // property-type categories, not a mood line) - "Your stay,
-            // your way" said nothing a visitor couldn't already guess from
-            // "FYStay" itself.
-            "mt-1.5 flex items-center gap-1 font-[family-name:var(--font-logo)] text-[7px] uppercase tracking-wide",
+            "mt-[0.2em] flex w-full justify-between font-[family-name:var(--font-logo)] text-[0.25em] uppercase leading-none tracking-[0.24em] text-[var(--color-ink)]",
+            isHero && "text-white/90",
             taglineClassName,
           )}
         >
-          <span className={cn("text-[var(--color-ink)]", isHero && "text-white/90")}>Apartments</span>
-          <span className={cn("text-stone-400", isHero && "text-white/40")} aria-hidden>
-            &middot;
-          </span>
-          <span className={cn("text-[var(--color-ink)]", isHero && "text-white/90")}>B&amp;Bs</span>
-          <span className={cn("text-stone-400", isHero && "text-white/40")} aria-hidden>
-            &middot;
-          </span>
-          <span className={cn("text-[var(--color-ink)]", isHero && "text-white/90")}>Lodges</span>
+          {/* The spaces are for screen readers ("For Your Stay", not
+              "ForYourStay"); flex layout ignores them visually. */}
+          <span>For</span> <span>Your</span> <span>Stay</span>
         </span>
       )}
     </span>

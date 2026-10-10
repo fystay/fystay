@@ -1,9 +1,15 @@
 import { ImageResponse } from "next/og";
+import { BRAND_COLORS, BRAND_FONT_NAME, brandFonts } from "@/lib/brandImage";
 
+// The default share image for any page without its own (listing pages use
+// their cover photo): the FYStay lockup - wordmark over "For Your Stay" -
+// and an accurate coverage line, centred with generous margins so nothing
+// important is lost when a platform crops it to a square or a 1.91:1 card.
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+export const alt = "FYStay - For Your Stay. Independent stays from local hosts across Lancashire.";
 
-export default function OpengraphImage() {
+export default async function OpengraphImage() {
   return new ImageResponse(
     (
       <div
@@ -14,28 +20,32 @@ export default function OpengraphImage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#f6f3ec",
+          background: BRAND_COLORS.cream,
+          fontFamily: BRAND_FONT_NAME,
         }}
       >
-        <div style={{ display: "flex", fontSize: 132, fontWeight: 700, fontFamily: "sans-serif" }}>
-          <span style={{ color: "#d97757" }}>FY</span>
-          <span style={{ color: "#301a13" }}>Stay</span>
+        <div style={{ display: "flex", fontSize: 168, lineHeight: 1, letterSpacing: -3 }}>
+          <span style={{ color: BRAND_COLORS.terracotta }}>FY</span>
+          <span style={{ color: BRAND_COLORS.ink }}>Stay</span>
         </div>
         <div
           style={{
-            marginTop: 24,
+            marginTop: 22,
             display: "flex",
             fontSize: 34,
-            fontFamily: "sans-serif",
+            letterSpacing: 12,
             textTransform: "uppercase",
-            letterSpacing: 1,
+            color: BRAND_COLORS.ink,
           }}
         >
-          <span style={{ color: "#d97757" }}>Your stay,&nbsp;</span>
-          <span style={{ color: "#301a13" }}>your way</span>
+          For Your Stay
+        </div>
+        <div style={{ marginTop: 44, width: 72, height: 3, background: BRAND_COLORS.terracotta, display: "flex" }} />
+        <div style={{ marginTop: 40, display: "flex", fontSize: 34, color: "#6b5a52" }}>
+          Independent stays from local hosts, across Lancashire
         </div>
       </div>
     ),
-    size,
+    { ...size, fonts: await brandFonts() },
   );
 }

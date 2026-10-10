@@ -16,7 +16,7 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-// The homepage's Explore the Fylde Coast row of stays and its filter
+// The homepage's Explore stays across Lancashire row of stays and its filter
 // buttons: the kind of stay (Top rated, Families, Long-stay discounts, Sea
 // views), then one per town with enough stays.
 const filterButton = (page: Page, name: string) =>
@@ -24,7 +24,7 @@ const filterButton = (page: Page, name: string) =>
 const townButton = filterButton;
 
 const exploreRow = (page: Page) =>
-  page.locator("section", { has: page.getByRole("heading", { name: "Explore the Fylde Coast" }) });
+  page.locator("section", { has: page.getByRole("heading", { name: "Explore stays across Lancashire" }) });
 
 /** The ids of the stays the row is showing right now. */
 async function shownListingIds(page: Page): Promise<string[]> {
@@ -34,7 +34,7 @@ async function shownListingIds(page: Page): Promise<string[]> {
   return [...new Set(hrefs.map((href) => href.split("/")[2].split(/[?#]/)[0]))];
 }
 
-test("Explore the Fylde Coast offers a town or sea-views filter only once real data supports it", async ({ page }) => {
+test("Explore stays across Lancashire offers a town or sea-views filter only once real data supports it", async ({ page }) => {
   const host = await prisma.user.findUniqueOrThrow({ where: { email: "host@fystay.dev" } });
 
   // A city name unique to this test run, not a real seeded (or otherwise
@@ -68,7 +68,7 @@ test("Explore the Fylde Coast offers a town or sea-views filter only once real d
   try {
     // One listing in a brand-new city isn't enough to offer it as a filter.
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Explore the Fylde Coast" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Explore stays across Lancashire" })).toBeVisible();
     await expect(townButton(page, fixtureCity)).toHaveCount(0);
 
     // A second listing in the same fixture city, with a beach-style

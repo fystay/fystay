@@ -3,7 +3,7 @@ import { SUPPORT_EMAIL, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Safety information",
-  description: "How FYStay keeps bookings, payments and stays on the Fylde Coast safe.",
+  description: "How FYStay keeps bookings, payments and stays safe for guests and hosts.",
   path: "/safety",
 });
 

@@ -12,18 +12,18 @@ import {
 import { auth } from "@/auth";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import { DEFAULT_SHARE_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
 
-const title = "List your property on the Fylde Coast";
+const title = "List Your Holiday Let in Lancashire & the North West";
 const description =
-  "List your Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood or Thornton-Cleveleys property on FYStay. Reach local guests directly, manage bookings from one dashboard, and see exactly what you earn - no unsupported promises, just how it actually works.";
+  "List your holiday home, apartment, lodge or guest house on FYStay - a local marketplace for Blackpool, the Fylde Coast and across Lancashire. Reach guests directly, manage bookings from one dashboard, and see exactly what you earn.";
 
 export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: `${SITE_URL}/host` },
-  openGraph: { title, description, url: `${SITE_URL}/host`, type: "website" },
-  twitter: { card: "summary_large_image", title, description },
+  openGraph: { title, description, url: `${SITE_URL}/host`, type: "website", images: [DEFAULT_SHARE_IMAGE] },
+  twitter: { card: "summary_large_image", title, description, images: [DEFAULT_SHARE_IMAGE] },
 };
 
 /**
@@ -39,13 +39,13 @@ const REASONS = [
     icon: MapPin,
     title: "Local exposure, not a drop in a global ocean",
     description:
-      "FYStay only ever shows guests stays on the Fylde Coast. Your listing sits alongside a handful of other local places, not millions of listings from every country.",
+      "FYStay is a regional marketplace, not a worldwide catalogue. Your listing sits alongside a handful of other local places, not millions of listings from every country.",
   },
   {
     icon: Users,
-    title: "A genuinely local customer base",
+    title: "Guests who've already chosen the area",
     description:
-      "Every search on FYStay is already scoped to Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood or Thornton-Cleveleys - you're reaching people who've chosen this coast, not hoping to be noticed inside a worldwide catalogue.",
+      "People come to FYStay looking for a stay on the Fylde Coast and across Lancashire - you're reaching guests who've already picked the area, not hoping to be noticed inside a worldwide catalogue.",
   },
   {
     icon: LayoutDashboard,
@@ -112,15 +112,16 @@ export default async function BecomeAHostPage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600 px-6 py-16 sm:py-24">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent-400 sm:text-sm">
-            For Fylde Coast property owners
+            For holiday let owners across the North West
           </p>
           <h1 className="mt-3 text-3xl font-bold leading-tight text-white sm:text-5xl">
-            List your place on the Fylde Coast
+            List your place on FYStay
           </h1>
           <p className="mt-4 text-base text-white/85 sm:text-lg">
-            {SITE_NAME} is a booking platform built around one coastline, not a global
-            marketplace you disappear into. List your apartment, cottage or guest house and
-            reach guests who are already looking for a stay right here.
+            {SITE_NAME} - for your stay - is a local booking platform that knows the area, not a
+            global marketplace you disappear into. Started on the Fylde Coast and growing across
+            Lancashire. List your holiday home, apartment, lodge or guest house and reach guests
+            who are already looking for a stay near you.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             {cta(cn(buttonVariants({ size: "lg" }), "bg-white text-brand-800 hover:bg-white/90"))}
@@ -144,7 +145,7 @@ export default async function BecomeAHostPage() {
           </h2>
           <p className="mt-1 text-sm text-stone-500">
             No unsupported promises about bookings or earnings - just how the platform actually
-            works for a host on this coast.
+            works for a local host.
           </p>
         </div>
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

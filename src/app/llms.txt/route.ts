@@ -8,15 +8,16 @@ import { SITE_URL } from "@/lib/seo";
 export function GET() {
   const body = `# FYStay
 
-> FYStay is a local accommodation marketplace for the Fylde Coast in Lancashire, England - Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood and Thornton-Cleveleys. Guests search, compare and book independent apartments, cottages, guest houses and small hotels listed directly by local hosts. Hosts manage listings, pricing, availability and bookings from their own dashboard.
+> FYStay ("For Your Stay") is a local holiday accommodation marketplace in Lancashire, England: the Fylde Coast towns of Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood and Thornton-Cleveleys, and North Lancashire (near Carnforth). Guests search, compare and book independent holiday homes, apartments, lodges, guest houses and small hotels listed directly by local hosts. Hosts manage listings, pricing, availability and bookings from their own dashboard.
 
-FYStay is not a global marketplace and does not list accommodation outside the Fylde Coast. Every listing is managed by an individual host, not a resold or aggregated inventory feed. Payments are processed by Stripe; a host's contact details are shared with a guest only after a booking is confirmed. Only a guest who has completed a paid stay can leave a review for that listing. Every destination page also carries a town-specific Local Guide (things to do, where locals actually go, live weather and events) - not a generic city description.
+FYStay is a regional marketplace, not a global one: it lists accommodation only where it has local hosts, currently in Lancashire. It does not list stays in the Lake District or elsewhere in the UK yet. Every listing is managed by an individual host, not a resold or aggregated inventory feed. Payments are processed by Stripe; a host's contact details are shared with a guest only after a booking is confirmed. Only a guest who has completed a paid stay can leave a review for that listing. Every destination page also carries a town-specific Local Guide (things to do, where locals actually go, live weather and events) - not a generic city description.
 
 ## Key pages
 
 - [Homepage](${SITE_URL}/): search by destination, dates and guests; browse stays by town.
 - [Search results](${SITE_URL}/search): filterable, sortable listing search (not indexed by search engines - every filter combination renders the same URL shape).
-- [Destination pages](${SITE_URL}/destinations/blackpool): one page per town (Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood, Thornton-Cleveleys) listing that town's available stays and its own Local Guide.
+- [Destinations](${SITE_URL}/destinations): every town FYStay covers.
+- [Destination pages](${SITE_URL}/destinations/blackpool): one page per Fylde Coast town (Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood, Thornton-Cleveleys) listing that town's available stays and its own Local Guide.
 - [Help centre](${SITE_URL}/help): frequently asked questions about booking, cancelling, hosting and payments.
 - [Cancellation policies](${SITE_URL}/cancellation-policies): the Flexible, Moderate, Strict and Non-refundable policies a host can choose for their listing.
 - [Safety information](${SITE_URL}/safety): how bookings, payments and reviews are kept trustworthy.

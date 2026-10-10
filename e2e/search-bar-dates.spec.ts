@@ -74,7 +74,7 @@ test("homepage search's date picker sets checkIn/checkOut and filters results", 
 
 test("pressing Search on the homepage navigates to the dedicated results page", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Find your stay on the Fylde Coast" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Find your stay in Lancashire" })).toBeVisible();
   // Let the page settle first: the cookie notice appears just after load and
   // pushes the page down, which would move the button out from under a click
   // aimed a moment earlier.
@@ -82,7 +82,7 @@ test("pressing Search on the homepage navigates to the dedicated results page", 
 
   await page.getByRole("button", { name: "Search", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "Stays on the Fylde Coast" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Stays across Lancashire" })).toBeVisible();
   expect(page.url()).toContain("/search");
 });
 

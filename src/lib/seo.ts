@@ -21,6 +21,19 @@ export const PRIVACY_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_EMAIL || "privacy@f
 export const LEGAL_EMAIL = process.env.NEXT_PUBLIC_LEGAL_EMAIL || "legal@fystay.co.uk";
 
 /**
+ * The site-wide share image (src/app/opengraph-image.tsx). Next only adds
+ * that file's image to pages that don't set their own `openGraph`, so a
+ * page that does (pageMetadata below, the host page) has to name it
+ * itself - without this, links to those pages unfurled with no image.
+ */
+export const DEFAULT_SHARE_IMAGE = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "FYStay - For Your Stay. Independent stays from local hosts across Lancashire.",
+};
+
+/**
  * A page's <title>/description already need to be page-specific for users
  * and organic search - but Next's metadata merging only overrides the
  * fields a route actually sets, so a route that skips `openGraph`/`twitter`
@@ -49,8 +62,8 @@ export function pageMetadata({
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, type: "website" },
-    twitter: { card: "summary_large_image", title, description },
+    openGraph: { title, description, url, type: "website", images: [DEFAULT_SHARE_IMAGE] },
+    twitter: { card: "summary_large_image", title, description, images: [DEFAULT_SHARE_IMAGE] },
     ...(robots ? { robots } : {}),
   };
 }

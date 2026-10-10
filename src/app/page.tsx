@@ -38,13 +38,13 @@ import * as Sentry from "@sentry/nextjs";
 
 // The four reasons to trust a booking, shown directly under the hero search
 // so they're read in the same glance as it. Each is already true site-wide:
-// payment runs through Stripe Checkout, every listing is a Fylde Coast host,
-// only a guest with a completed paid stay can review, and every listing
+// payment runs through Stripe Checkout, every listing comes straight from
+// its own independent host (never resold or aggregated), only a guest with a completed paid stay can review, and every listing
 // shows its cancellation policy before payment. TRUST_POINTS below is the
 // fuller "Why FYStay?" version further down the page.
 const TRUST_STRIP = [
   { icon: ShieldCheck, label: "Secure payments", detail: "Encrypted Stripe checkout" },
-  { icon: MapPin, label: "Local hosts", detail: "Based on the Fylde Coast" },
+  { icon: MapPin, label: "Local hosts", detail: "Independent, never resold" },
   { icon: BadgeCheck, label: "Genuine reviews", detail: "Only from guests who stayed" },
   { icon: CalendarCheck, label: "Flexible cancellation", detail: "Where available, shown upfront" },
 ];
@@ -53,15 +53,18 @@ const TRUST_STRIP = [
 // site-wide (local hosts only, the full price before payment, reviews only
 // from completed paid stays, transfers and services booked alongside).
 const TRUST_POINTS = [
-  { icon: MapPin, title: "Local", description: "Real Fylde Coast hosts and properties." },
+  { icon: MapPin, title: "Local", description: "Independent hosts and their own properties, never resold." },
   { icon: Receipt, title: "Transparent", description: "See the full price before you book." },
   { icon: Star, title: "Trusted", description: "Reviews only from guests who've stayed." },
   { icon: Compass, title: "Everything in one place", description: "Stay, travel and local services together." },
 ];
 
-const title = "Local Accommodation in Blackpool & the Fylde Coast";
+// Brand first on the homepage alone (absolute, so the "· FYStay" template
+// doesn't repeat it), then the regional searches it should answer - see
+// docs/brand/fystay-brand.md for the title convention.
+const title = "FYStay | Holiday Stays in Blackpool, the Fylde Coast & Lancashire";
 const description =
-  "Search and book independent apartments, cottages and guest houses across Blackpool and the Fylde Coast. Real local hosts, genuine reviews, secure booking.";
+  "Find your stay with FYStay: independent holiday homes, apartments, lodges and guest houses from local hosts in Blackpool, the Fylde Coast and across Lancashire. Full price shown before you book.";
 
 // Per-user and database-backed throughout (auth() in PopularStaysSection,
 // live listing counts), so the page was already rendered per request - this
@@ -70,7 +73,7 @@ const description =
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title,
+  title: { absolute: title },
   description,
   alternates: { canonical: SITE_URL },
   openGraph: { title, description, url: SITE_URL, type: "website" },
@@ -127,7 +130,7 @@ async function PopularStaysSection() {
   if (!listings || listings.length === 0) {
     return (
       <section className="mt-10 sm:mt-14">
-        <SectionHeader title="Explore the Fylde Coast" subtitle="Stays from local hosts, from Fleetwood to Lytham." />
+        <SectionHeader title="Explore stays across Lancashire" subtitle="Stays from local hosts, from the Fylde Coast to North Lancashire." />
         <HomeSectionEmpty
           message={
             listings
@@ -161,7 +164,7 @@ async function PopularStaysSection() {
   return (
     <section className="mt-10 sm:mt-14">
       <PopularStays
-        title="Explore the Fylde Coast"
+        title="Explore stays across Lancashire"
         subtitle={`${listings.length} stay${listings.length === 1 ? "" : "s"} from local hosts. Narrow it down by the kind of stay or by town.`}
         listings={shown}
         filters={filters}
@@ -206,10 +209,16 @@ export default async function Home() {
         url: SITE_URL,
         logo: `${SITE_URL}/apple-icon`,
         description,
-        areaServed: FYLDE_COAST_DESTINATIONS.map((destination) => ({
-          "@type": "Place",
-          name: destination.name,
-        })),
+        slogan: "For Your Stay",
+        // Lancashire as a whole (the Fylde Coast towns and North Lancashire,
+        // where FYStay has listings) plus each town with its own page.
+        areaServed: [
+          { "@type": "AdministrativeArea", name: "Lancashire" },
+          ...FYLDE_COAST_DESTINATIONS.map((destination) => ({
+            "@type": "Place",
+            name: destination.name,
+          })),
+        ],
         contactPoint: {
           "@type": "ContactPoint",
           email: SUPPORT_EMAIL,
@@ -264,17 +273,19 @@ export default async function Home() {
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-[88px] [text-shadow:0_1px_18px_rgba(46,24,14,0.5)] sm:pb-[156px] lg:pb-[196px]">
-          {/* "on the Fylde Coast" never splits, so the place reads as one
-              phrase on its own line rather than "...stay on / the Fylde Coast".
-              The place name takes a light tone of the brand terracotta: the
-              logo's own shade is too dark to read on the hero's shading. */}
+          {/* "Find your stay" echoes the name itself (FYStay - For Your
+              Stay); "in Lancashire" never splits, so the place reads as one
+              phrase. From sm the place name takes a light tone of the brand
+              terracotta (the logo's own shade is too dark to read on the
+              hero's shading); on phones it stays white, because there it
+              lands on bright sand, where terracotta measured about 1.4:1. */}
           <h1 className="max-w-3xl text-[2rem] leading-[1.06] tracking-[-0.01em] text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[4rem]">
-            Find your stay <span className="whitespace-nowrap">on the <span className="text-brand-400">Fylde Coast</span></span>
+            Find your stay <span className="whitespace-nowrap">in <span className="sm:text-brand-400">Lancashire</span></span>
           </h1>
           {/* One supporting line - the headline already says where. Full
               white and medium weight: it sits over bright sand. */}
           <p className="mt-2 max-w-2xl text-pretty text-[15px] font-medium leading-snug text-white sm:mt-3 sm:text-lg sm:leading-relaxed">
-            Apartments, cottages, hotels and guest houses from Fleetwood to Lytham.
+            Holiday homes, apartments, lodges and guest houses from local hosts, from the Fylde Coast to the edge of the Lakes.
           </p>
         </div>
       </section>
@@ -414,11 +425,11 @@ export default async function Home() {
               </span>
               <div>
                 <h2 className="text-xl font-bold text-white sm:text-2xl">
-                  Own a place on the Fylde Coast?
+                  Own a holiday let in the North West?
                 </h2>
                 <p className="mt-1 max-w-md text-sm text-white/80">
-                  Reach guests who want to stay here, and run bookings, calendar and payouts from
-                  one dashboard.
+                  List it with a marketplace that knows the area. Reach guests looking for a stay
+                  near you, and run bookings, calendar and payouts from one dashboard.
                 </p>
                 <Suspense fallback={null}>
                   <LiveStayCount />
@@ -444,7 +455,7 @@ function PopularStaysSkeleton() {
   return (
     <section className="mt-10 sm:mt-14" aria-hidden>
       <div className="mb-5 sm:mb-6">
-        <h2 className="text-xl font-bold text-foreground sm:text-2xl">Explore the Fylde Coast</h2>
+        <h2 className="text-xl font-bold text-foreground sm:text-2xl">Explore stays across Lancashire</h2>
         <div className="skeleton-shimmer mt-2 h-4 w-64 max-w-full rounded" />
       </div>
       <div className="mb-6 flex h-10 gap-2 overflow-hidden">
@@ -473,7 +484,7 @@ async function LiveStayCount() {
 
   return (
     <p className="mt-3 text-xs font-medium text-white/70">
-      {count} stay{count === 1 ? "" : "s"} already live across the Fylde Coast
+      {count} stay{count === 1 ? "" : "s"} already live on FYStay
     </p>
   );
 }

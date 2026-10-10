@@ -8,7 +8,7 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Sign up",
-  description: "Create a free FYStay account to book stays or start hosting on the Fylde Coast.",
+  description: "Create a free FYStay account to book your stay or start hosting your holiday let.",
   path: "/register",
 });
 

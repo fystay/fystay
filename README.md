@@ -1,7 +1,9 @@
-# fystay
+# FYStay - For Your Stay
 
-A booking marketplace in the spirit of Airbnb: guests search and book stays, hosts list and
-manage properties, and payments run through Stripe Checkout.
+A local holiday accommodation marketplace: guests search and book stays from independent hosts,
+hosts list and manage their properties, and payments run through Stripe Checkout. FYStay started
+on the Fylde Coast and is growing across Lancashire. Brand rules (name, logo, tagline, voice) and
+the destination-page plan: [docs/brand/fystay-brand.md](docs/brand/fystay-brand.md).
 
 ## Stack
 

@@ -63,7 +63,7 @@ function withoutParam(searchParams: SearchParams, param: string): string {
 // below, so there's no way to push pagination down to the query without
 // losing correctness. This cap is the safety net against that unbounded
 // fetch growing without limit as the number of listings scales well past
-// what a single page of hand-picked Fylde Coast stays needs today; raise
+// what a single page of hand-picked local stays needs today; raise
 // it (or replace this whole approach with a real search index) long
 // before the platform's real listing count gets anywhere near it.
 const MAX_CANDIDATE_LISTINGS = 500;
@@ -400,11 +400,19 @@ async function NoResults({
   datesFiltered: boolean;
   searchParams: SearchParams;
 }) {
-  const knownTown = !city || FYLDE_COAST_DESTINATIONS.some(
-    (town) =>
-      town.searchCity.toLowerCase().includes(city.toLowerCase()) ||
-      city.toLowerCase().includes(town.searchCity.toLowerCase()),
-  );
+  // A town FYStay covers: one with its own destination page, or anywhere
+  // a live listing already is (Carnforth, say) - so a fully booked town is
+  // never told "FYStay doesn't cover it".
+  const knownTown =
+    !city ||
+    FYLDE_COAST_DESTINATIONS.some(
+      (town) =>
+        town.searchCity.toLowerCase().includes(city.toLowerCase()) ||
+        city.toLowerCase().includes(town.searchCity.toLowerCase()),
+    ) ||
+    (await prisma.listing
+      .count({ where: { published: true, suspendedAt: null, ...bookableHostWhere(), city: { contains: city, mode: "insensitive" } } })
+      .catch(() => 0)) > 0;
   const largest = knownTown
     ? (await prisma.listing.aggregate({ where: { published: true, suspendedAt: null, ...bookableHostWhere() }, _max: { maxGuests: true } }))
         ._max.maxGuests
@@ -416,7 +424,7 @@ async function NoResults({
     title = `FYStay doesn't cover ${city} yet`;
     hint = (
       <>
-        We&apos;re local to the Fylde Coast. Try{" "}
+        FYStay is growing across Lancashire, starting on the Fylde Coast. Try{" "}
         {FYLDE_COAST_DESTINATIONS.map((town, i) => (
           <span key={town.slug}>
             {i > 0 && (i === FYLDE_COAST_DESTINATIONS.length - 1 ? " or " : ", ")}

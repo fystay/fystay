@@ -4,11 +4,13 @@ import { pageMetadata } from "@/lib/seo";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { DESTINATION_PHOTOS } from "@/lib/destinationPhotos";
 import { cn } from "@/lib/cn";
+import { prisma } from "@/lib/prisma";
+import { bookableHostWhere } from "@/lib/stripeConnect";
 
 export const metadata = pageMetadata({
-  title: "Explore the Fylde Coast",
+  title: "Holiday Destinations on the Fylde Coast & in Lancashire",
   description:
-    "Every Fylde Coast town FYStay covers - Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood and Thornton-Cleveleys - each with real local stays and its own Local Guide.",
+    "Where to stay with FYStay: Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood and Thornton-Cleveleys on the Fylde Coast, each with local stays and its own Local Guide - plus FYStay's first stays in North Lancashire.",
   path: "/destinations",
 });
 
@@ -25,18 +27,49 @@ const DESTINATION_ART: Record<string, { icon: LucideIcon; gradient: string }> = 
 /** Fallback look for a town with no bespoke icon/gradient in DESTINATION_ART - none currently, since all six towns FYStay covers have their own, but kept so a future addition to destinations.ts fails gracefully rather than crashing this page. */
 const FALLBACK_ART = { icon: MapPin, gradient: "from-stone-500 to-ink" };
 
-export default function DestinationsIndexPage() {
+// The "beyond the Fylde Coast" list below is read from live listings, so
+// it's never built at deploy time (see scripts/ci/check-build-database-free.mjs).
+export const dynamic = "force-dynamic";
+
+/**
+ * Towns with live, bookable stays that don't have their own destination
+ * page yet (e.g. Carnforth in North Lancashire) - read from real listings,
+ * so this page only ever names a place where a guest can actually book,
+ * and an area graduates to its own page once it has enough stays and a
+ * guide (docs/brand/fystay-brand.md, destination plan).
+ */
+async function townsBeyondTheFyldeCoast(): Promise<{ city: string; count: number }[]> {
+  const coveredCities = FYLDE_COAST_DESTINATIONS.map((destination) => destination.searchCity);
+  const groups = await prisma.listing
+    .groupBy({
+      by: ["city"],
+      where: { published: true, suspendedAt: null, ...bookableHostWhere(), city: { notIn: coveredCities } },
+      _count: { _all: true },
+      orderBy: { city: "asc" },
+    })
+    .catch(() => []);
+  return groups.map((group) => ({ city: group.city, count: group._count._all }));
+}
+
+export default async function DestinationsIndexPage() {
+  const otherTowns = await townsBeyondTheFyldeCoast();
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
-      <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Six towns, not a search filter</h1>
+      <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Where to stay with FYStay</h1>
       <p className="mt-2 max-w-2xl text-sm text-stone-500 sm:text-base">
-        FYStay covers the Fylde Coast and nowhere else - Blackpool&rsquo;s promenade, Lytham and St
-        Annes&rsquo; two different seafronts, Poulton-le-Fylde&rsquo;s market square, Fleetwood&rsquo;s
-        fishing port and Thornton-Cleveleys&rsquo; open coast. Pick a town for real local stays and its
-        own Local Guide - not a generic city page.
+        FYStay started on the Fylde Coast and is growing across Lancashire. Each town below has
+        its own page with local stays and a Local Guide written for that town - not a generic
+        city page.
       </p>
 
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+      <h2 className="mt-10 text-lg font-bold text-foreground sm:text-xl">The Fylde Coast</h2>
+      <p className="mt-1 max-w-2xl text-sm text-stone-500">
+        Blackpool&rsquo;s promenade, Lytham and St Annes&rsquo; two different seafronts,
+        Poulton-le-Fylde&rsquo;s market square, Fleetwood&rsquo;s fishing port and
+        Thornton-Cleveleys&rsquo; open coast.
+      </p>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
         {FYLDE_COAST_DESTINATIONS.map((destination) => {
           const art = DESTINATION_ART[destination.slug] ?? FALLBACK_ART;
           const Icon = art.icon;
@@ -77,6 +110,32 @@ export default function DestinationsIndexPage() {
           );
         })}
       </div>
+
+      {otherTowns.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-lg font-bold text-foreground sm:text-xl">Beyond the Fylde Coast</h2>
+          <p className="mt-1 max-w-2xl text-sm text-stone-500">
+            FYStay&rsquo;s newest stays elsewhere in Lancashire. These towns get their own page
+            and Local Guide as more local hosts join.
+          </p>
+          <ul className="mt-4 flex flex-wrap gap-2">
+            {otherTowns.map(({ city, count }) => (
+              <li key={city}>
+                <Link
+                  href={`/search?city=${encodeURIComponent(city)}`}
+                  className="focus-ring inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-4 py-2 text-sm font-medium text-foreground hover:border-brand-300 hover:text-brand-700"
+                >
+                  <MapPin className="h-4 w-4 text-brand-600" aria-hidden />
+                  {city}
+                  <span className="text-stone-500">
+                    · {count} stay{count === 1 ? "" : "s"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
