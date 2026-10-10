@@ -14,12 +14,11 @@ import type { CreateListingInput } from "@/lib/listingInput";
  * and the owner's Airbnb listing (rooms/49558875), used only to cross-check
  * facts - none of its copy, ratings or reviews are reused.
  *
- * Deliberately absent, because no source states them and FYStay never
- * fills a guess in for a host: nightly rate, fees, deposit, minimum stay,
- * cancellation policy, smoking and party rules, check-in/out times, pets,
- * accessibility and the lodge's own street address. The first five are
- * required import arguments (OwnerTerms) so the owner states them
- * explicitly; the rest stay unset and simply don't render.
+ * The business terms (LODGE_ON_THE_LAKE_OWNER_TERMS) are the owner's, given
+ * on 10 Oct 2026. Deliberately absent, because no source states them and
+ * FYStay never fills a guess in for a host: cleaning fee, damage deposit,
+ * check-in/out times, pets, accessibility and the lodge's street address -
+ * unset, so they simply don't render.
  */
 
 export const LODGE_ON_THE_LAKE_TITLE = "Lodge on the Lake | 3-Bedroom Lakeside Retreat";
@@ -73,8 +72,8 @@ export const LODGE_ON_THE_LAKE_ADDITIONAL_RULES =
 
 /**
  * The gallery, in display order (the first is the search-card cover). From
- * the 21 photos the owner supplied with permission for their own site in
- * October 2026; omitted are two living-room shots of what may be an older
+ * the 21 photos the owner supplied in October 2026, with permission to use
+ * them on FYStay confirmed on 10 Oct 2026; omitted are two living-room shots of what may be an older
  * layout and two decorative close-ups. FYStay stores photo URLs only, so
  * this alt text is kept here as the record for when per-photo alt text is
  * supported - the gallery currently labels photos "<title> photo N".
@@ -99,21 +98,34 @@ export const LODGE_ON_THE_LAKE_PHOTOS: { file: string; alt: string }[] = [
   { file: "17-deck-gazebo-evening.jpg", alt: "A covered seating area on the decking after dark, lit by small deck lights" },
 ];
 
-/**
- * What only the owner can decide. Required at import time so none of them
- * is ever filled in by a schema default: an unset smokingAllowed would
- * publish "No smoking", and an unset cancellationPolicy would publish
- * FYStay's Moderate terms, as if the owner had chosen them.
- */
+/** What only the owner can decide - never filled in by a schema default. */
 export type OwnerTerms = {
   pricePerNightCents: number;
+  /** Friday and Saturday nights. */
+  weekendPricePerNightCents: number;
   minNights: number;
-  cancellationPolicy: "FLEXIBLE" | "MODERATE" | "STRICT";
+  cancellationPolicy: "FLEXIBLE" | "MODERATE" | "STRICT" | "NON_REFUNDABLE";
   smokingAllowed: boolean;
   partiesAllowed: boolean;
-  cleaningFeeCents?: number;
-  checkInTime?: string;
-  checkOutTime?: string;
+};
+
+/**
+ * The owner's terms, given 10 Oct 2026: £255 a night Sunday-Thursday and
+ * £275 on Friday and Saturday nights, two nights minimum, "can cancel
+ * within 24 hours of booking, after that no cancellation" (FYStay's
+ * Non-refundable policy, whose 24 hours run from payment because this is a
+ * request-to-book listing), and no smoking. Parties: the owner pointed to
+ * the Airbnb listing, which bars stag and hen groups (Airbnb also bans
+ * parties and events platform-wide), so no parties or events, with the
+ * stag/hen rule spelled out in LODGE_ON_THE_LAKE_ADDITIONAL_RULES.
+ */
+export const LODGE_ON_THE_LAKE_OWNER_TERMS: OwnerTerms = {
+  pricePerNightCents: 25_500,
+  weekendPricePerNightCents: 27_500,
+  minNights: 2,
+  cancellationPolicy: "NON_REFUNDABLE",
+  smokingAllowed: false,
+  partiesAllowed: false,
 };
 
 /**
@@ -124,7 +136,10 @@ export type OwnerTerms = {
  * import creates it hidden (published=false) for the owner to check before
  * going Live.
  */
-export function buildLodgeOnTheLakeListing(terms: OwnerTerms, photoUrls: string[]): CreateListingInput {
+export function buildLodgeOnTheLakeListing(
+  photoUrls: string[],
+  terms: OwnerTerms = LODGE_ON_THE_LAKE_OWNER_TERMS,
+): CreateListingInput {
   return {
     title: LODGE_ON_THE_LAKE_TITLE,
     description: LODGE_ON_THE_LAKE_DESCRIPTION,
@@ -134,7 +149,8 @@ export function buildLodgeOnTheLakeListing(terms: OwnerTerms, photoUrls: string[
     city: LODGE_ON_THE_LAKE_CITY,
     country: "United Kingdom",
     pricePerNightCents: terms.pricePerNightCents,
-    cleaningFeeCents: terms.cleaningFeeCents ?? 0,
+    weekendPricePerNightCents: terms.weekendPricePerNightCents,
+    cleaningFeeCents: 0,
     maxGuests: 6,
     bedrooms: 3,
     beds: 4,
@@ -143,65 +159,11 @@ export function buildLodgeOnTheLakeListing(terms: OwnerTerms, photoUrls: string[
     amenities: LODGE_ON_THE_LAKE_AMENITIES,
     cancellationPolicy: terms.cancellationPolicy,
     minNights: terms.minNights,
-    checkInTime: terms.checkInTime ?? null,
-    checkOutTime: terms.checkOutTime ?? null,
+    checkInTime: null,
+    checkOutTime: null,
     instantBook: false,
     smokingAllowed: terms.smokingAllowed,
     partiesAllowed: terms.partiesAllowed,
     additionalRules: LODGE_ON_THE_LAKE_ADDITIONAL_RULES,
-  };
-}
-
-/** Parses the import script's owner-terms flags; returns every problem at once rather than failing on the first. */
-export function parseOwnerTerms(args: string[]): { terms: OwnerTerms } | { errors: string[] } {
-  const flag = (name: string) => {
-    const index = args.indexOf(`--${name}`);
-    return index >= 0 ? args[index + 1] : undefined;
-  };
-  const errors: string[] = [];
-  const pounds = (name: string, required: boolean): number | undefined => {
-    const raw = flag(name);
-    if (raw === undefined) {
-      if (required) errors.push(`--${name} is required (in pounds, e.g. 150 or 149.50)`);
-      return undefined;
-    }
-    if (!/^\d+(\.\d{1,2})?$/.test(raw)) {
-      errors.push(`--${name} must be an amount in pounds, e.g. 150 or 149.50`);
-      return undefined;
-    }
-    return Math.round(Number(raw) * 100);
-  };
-  const yesNo = (name: string): boolean | undefined => {
-    const raw = flag(name);
-    if (raw === "yes") return true;
-    if (raw === "no") return false;
-    errors.push(`--${name} is required: yes or no`);
-    return undefined;
-  };
-
-  const pricePerNightCents = pounds("nightly-price", true);
-  const cleaningFeeCents = pounds("cleaning-fee", false);
-  const minNightsRaw = flag("min-nights");
-  const minNights = minNightsRaw && /^\d+$/.test(minNightsRaw) ? Number(minNightsRaw) : undefined;
-  if (minNights === undefined || minNights < 1) errors.push("--min-nights is required (a whole number of nights, 1 or more)");
-  const policy = flag("cancellation-policy")?.toUpperCase();
-  if (policy !== "FLEXIBLE" && policy !== "MODERATE" && policy !== "STRICT") {
-    errors.push("--cancellation-policy is required: flexible, moderate or strict");
-  }
-  const smokingAllowed = yesNo("smoking-allowed");
-  const partiesAllowed = yesNo("parties-allowed");
-
-  if (errors.length > 0) return { errors };
-  return {
-    terms: {
-      pricePerNightCents: pricePerNightCents!,
-      cleaningFeeCents,
-      minNights: minNights!,
-      cancellationPolicy: policy as OwnerTerms["cancellationPolicy"],
-      smokingAllowed: smokingAllowed!,
-      partiesAllowed: partiesAllowed!,
-      checkInTime: flag("check-in"),
-      checkOutTime: flag("check-out"),
-    },
   };
 }

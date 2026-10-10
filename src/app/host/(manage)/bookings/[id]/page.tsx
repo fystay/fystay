@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { bookingNightlySubtotalCents, nightlyChargeLines } from "@/lib/pricing";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
@@ -67,7 +68,7 @@ export default async function HostBookingPage({ params }: { params: Promise<{ id
   const net = booking.paidAt ? hostRevenueCents(booking) : gross;
   const fystayFee = booking.totalPriceCents - gross;
   const refunded = booking.refundedAmountCents ?? 0;
-  const roomCents = booking.nightlyPriceCents * booking.nights - booking.lengthOfStayDiscountCents;
+  const roomCents = bookingNightlySubtotalCents(booking) - booking.lengthOfStayDiscountCents;
 
   const timeline = [
     { at: booking.createdAt, label: isRequest ? "Request sent" : "Booked" },
@@ -272,7 +273,9 @@ export default async function HostBookingPage({ params }: { params: Promise<{ id
                   : "Due once the guest pays."}
             </p>
             <dl className="mt-4 flex flex-col gap-1.5 border-t border-border-subtle pt-3 text-sm">
-              <Row label={`${formatPrice(booking.nightlyPriceCents)} × ${booking.nights} nights`} value={booking.nightlyPriceCents * booking.nights} />
+              {nightlyChargeLines(booking, formatPrice).map((line) => (
+                <Row key={line.label} label={line.label} value={line.cents} />
+              ))}
               {booking.lengthOfStayDiscountCents > 0 && (
                 <Row label="Length-of-stay discount" value={-booking.lengthOfStayDiscountCents} />
               )}

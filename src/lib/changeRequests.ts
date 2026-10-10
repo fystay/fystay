@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { computeBookingPricing, splitBookingChange } from "@/lib/pricing";
+import { computeBookingPricing, splitBookingChange, weekendNightsBetween } from "@/lib/pricing";
 import { nightsBetween } from "@/lib/availability";
 
 export type CancellableBooking = {
@@ -70,27 +70,39 @@ export function bookingGrossTotalCents(booking: {
  *
  * Weekly/monthly percentages aren't snapshotted on a booking, so the
  * listing's current ones decide whether a longer or shorter stay qualifies.
+ * A weekend rate is snapshotted (Booking.weekendNightlyPriceCents), so the
+ * new dates' Friday and Saturday nights are charged at it: moving a
+ * Mon-Wed stay to Fri-Sun costs the weekend difference, and nothing else.
+ *
+ * Also what the guest's change dialog previews (RequestChangeDialog), so
+ * the preview is exactly what the request will charge or refund.
  *
  * The discounts stay fixed amounts off the new stay, so a refund can't be
  * more than the guest actually paid: a shorter stay that now costs less
  * than the credit and promo already applied refunds everything paid and
  * no more.
  */
+export type ChangePricingBooking = {
+  nightlyPriceCents: number;
+  weekendNightlyPriceCents: number | null;
+  cleaningFeeCents: number;
+  lastMinuteDiscountPercent: number | null;
+  totalPriceCents: number;
+  creditAppliedCents: number;
+  promoDiscountCents: number;
+};
+
 export function changePriceDeltaCents(
-  booking: {
-    nightlyPriceCents: number;
-    cleaningFeeCents: number;
-    lastMinuteDiscountPercent: number | null;
-    totalPriceCents: number;
-    creditAppliedCents: number;
-    promoDiscountCents: number;
-  },
+  booking: ChangePricingBooking,
   listing: { weeklyDiscountPercent: number | null; monthlyDiscountPercent: number | null },
-  requestedNights: number,
+  requested: { checkIn: Date; checkOut: Date },
 ): number {
+  const { weekendNightlyPriceCents } = booking;
   const grossDeltaCents = computePriceDeltaCents({
-    requestedNights,
+    requestedNights: nightsBetween(requested.checkIn, requested.checkOut),
     pricePerNightCents: booking.nightlyPriceCents,
+    weekendPricePerNightCents: weekendNightlyPriceCents,
+    weekendNights: weekendNightlyPriceCents === null ? 0 : weekendNightsBetween(requested.checkIn, requested.checkOut),
     cleaningFeeCents: booking.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
@@ -104,6 +116,8 @@ export function changePriceDeltaCents(
 export function computePriceDeltaCents(params: {
   requestedNights: number;
   pricePerNightCents: number;
+  weekendPricePerNightCents?: number | null;
+  weekendNights?: number;
   cleaningFeeCents?: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
@@ -114,6 +128,8 @@ export function computePriceDeltaCents(params: {
   const {
     requestedNights,
     pricePerNightCents,
+    weekendPricePerNightCents,
+    weekendNights,
     cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
@@ -123,6 +139,8 @@ export function computePriceDeltaCents(params: {
   const { totalPriceCents } = computeBookingPricing({
     nights: requestedNights,
     pricePerNightCents,
+    weekendPricePerNightCents,
+    weekendNights,
     cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
@@ -140,7 +158,7 @@ export function computePriceDeltaCents(params: {
  * later change, refund or receipt.
  */
 export function bookingFieldsAfterChange(
-  booking: Parameters<typeof splitBookingChange>[1],
+  booking: Parameters<typeof splitBookingChange>[1] & { weekendNightlyPriceCents: number | null },
   change: { requestedCheckIn: Date; requestedCheckOut: Date; requestedGuests: number; priceDeltaCents: number },
 ) {
   const { platformShareCents } = splitBookingChange(change.priceDeltaCents, booking);
@@ -148,6 +166,12 @@ export function bookingFieldsAfterChange(
     checkIn: change.requestedCheckIn,
     checkOut: change.requestedCheckOut,
     nights: nightsBetween(change.requestedCheckIn, change.requestedCheckOut),
+    // The new dates' Friday/Saturday nights, at the booking's own weekend
+    // rate - the same count changePriceDeltaCents priced the change with.
+    weekendNights:
+      booking.weekendNightlyPriceCents === null
+        ? 0
+        : weekendNightsBetween(change.requestedCheckIn, change.requestedCheckOut),
     guests: change.requestedGuests,
     totalPriceCents: booking.totalPriceCents + change.priceDeltaCents,
     serviceFeeCents: booking.serviceFeeCents + platformShareCents,

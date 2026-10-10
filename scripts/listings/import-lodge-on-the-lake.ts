@@ -5,15 +5,12 @@
  *
  *   DATABASE_URL="<target database>" \
  *   NEXT_PUBLIC_SUPABASE_URL="..." SUPABASE_SERVICE_ROLE_KEY="..." \
- *   npm run listing:import-lodge -- --host-email owner@example.com \
- *     --nightly-price 150 --min-nights 2 --cancellation-policy moderate \
- *     --smoking-allowed no --parties-allowed no \
- *     [--cleaning-fee 60] [--check-in "From 4pm"] [--check-out "By 10am"] \
- *     [--confirm]
+ *   npm run listing:import-lodge -- --host-email owner@example.com [--confirm]
  *
- * Every business term is the owner's to state - nothing is defaulted (see
- * OwnerTerms in src/lib/listingImports/lodgeOnTheLake.ts). Without
- * --confirm it only validates and says what it would do. It prints the
+ * The listing, its photos and the owner's own terms (rates, minimum stay,
+ * cancellation and house rules) are in
+ * src/lib/listingImports/lodgeOnTheLake.ts. Without --confirm it only
+ * validates and says what it would do. It prints the
  * target database host (never the password). The listing is created
  * hidden; the owner reviews it at /host/listings and switches it to Live.
  * Running it twice for the same host is refused rather than duplicating.
@@ -27,11 +24,12 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { createListingSchema } from "../../src/lib/listingInput";
 import { geocodeListing } from "../../src/lib/geocoding";
+import { weekendRateError } from "../../src/lib/pricing";
 import {
   LODGE_ON_THE_LAKE_PHOTOS,
   LODGE_ON_THE_LAKE_TITLE,
   buildLodgeOnTheLakeListing,
-  parseOwnerTerms,
+  LODGE_ON_THE_LAKE_OWNER_TERMS as terms,
 } from "../../src/lib/listingImports/lodgeOnTheLake";
 
 const PHOTO_DIR = path.join(__dirname, "lodge-on-the-lake", "photos");
@@ -49,11 +47,10 @@ async function main() {
   const photoBaseUrl = flag(args, "photo-base-url");
   const url = process.env.DATABASE_URL;
 
-  const parsedTerms = parseOwnerTerms(args);
-  const problems = "errors" in parsedTerms ? [...parsedTerms.errors] : [];
-  if (!hostEmail) problems.unshift("--host-email is required (the owner's existing FYStay host account)");
-  if (!url) problems.unshift("DATABASE_URL is not set");
-  if (problems.length > 0 || "errors" in parsedTerms) {
+  const problems: string[] = [];
+  if (!url) problems.push("DATABASE_URL is not set");
+  if (!hostEmail) problems.push("--host-email is required (the owner's existing FYStay host account)");
+  if (problems.length > 0) {
     for (const problem of problems) console.error(`- ${problem}`);
     console.error(USAGE);
     process.exit(1);
@@ -68,13 +65,19 @@ async function main() {
 
   // Validate the full input before touching anything, with stand-in photo
   // URLs of the right shape - the real ones only exist after upload.
-  const draft = buildLodgeOnTheLakeListing(
-    parsedTerms.terms,
-    LODGE_ON_THE_LAKE_PHOTOS.map((p) => `https://example.invalid/${p.file}`),
-  );
+  const draft = buildLodgeOnTheLakeListing(LODGE_ON_THE_LAKE_PHOTOS.map((p) => `https://example.invalid/${p.file}`));
   const validated = createListingSchema.safeParse(draft);
   if (!validated.success) {
     for (const issue of validated.error.issues) console.error(`- ${issue.path.join(".")}: ${issue.message}`);
+    process.exit(1);
+  }
+  const weekendError = weekendRateError({
+    pricePerNightCents: terms.pricePerNightCents,
+    weekendPricePerNightCents: terms.weekendPricePerNightCents,
+    propertyType: draft.propertyType,
+  });
+  if (weekendError) {
+    console.error(`- ${weekendError}`);
     process.exit(1);
   }
 
@@ -101,12 +104,12 @@ async function main() {
       process.exit(1);
     }
 
-    const { terms } = parsedTerms;
+    const pounds = (cents: number) => `£${(cents / 100).toFixed(2)}`;
     console.log(
       [
         `Would create "${LODGE_ON_THE_LAKE_TITLE}" for ${hostEmail}, hidden and request-to-book:`,
-        `  £${(terms.pricePerNightCents / 100).toFixed(2)} a night, cleaning fee £${((terms.cleaningFeeCents ?? 0) / 100).toFixed(2)}, minimum ${terms.minNights} night(s)`,
-        `  ${terms.cancellationPolicy.toLowerCase()} cancellation, smoking ${terms.smokingAllowed ? "allowed" : "not allowed"}, parties ${terms.partiesAllowed ? "allowed" : "not allowed"}`,
+        `  ${pounds(terms.pricePerNightCents)} a night, ${pounds(terms.weekendPricePerNightCents)} on Fri/Sat nights, minimum ${terms.minNights} nights`,
+        `  ${terms.cancellationPolicy.toLowerCase().replace("_", "-")} cancellation, smoking ${terms.smokingAllowed ? "allowed" : "not allowed"}, parties ${terms.partiesAllowed ? "allowed" : "not allowed"}`,
         `  ${LODGE_ON_THE_LAKE_PHOTOS.length} photos ${photoBaseUrl ? `from ${photoBaseUrl}` : "uploaded to listing-photos storage"}`,
       ].join("\n"),
     );
@@ -141,7 +144,7 @@ async function main() {
 
     // Not a hotel and no last-minute deal, so the parsed input is exactly
     // Listing's own columns.
-    const { roomTypes, ...input } = createListingSchema.parse(buildLodgeOnTheLakeListing(terms, photoUrls));
+    const { roomTypes, ...input } = createListingSchema.parse(buildLodgeOnTheLakeListing(photoUrls));
     if (roomTypes) throw new Error("Lodge on the Lake is not a hotel listing; it has no room types.");
     const listing = await prisma.listing.create({
       data: {

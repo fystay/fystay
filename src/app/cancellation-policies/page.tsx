@@ -3,7 +3,7 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Cancellation policies",
-  description: "The Flexible, Moderate and Strict cancellation policies FYStay hosts can choose from.",
+  description: "The Flexible, Moderate, Strict and Non-refundable cancellation policies FYStay hosts can choose from.",
   path: "/cancellation-policies",
 });
 
@@ -27,6 +27,13 @@ const POLICIES = [
     label: "Strict",
     tiers: [
       "50% refund if you cancel at least 7 days before check-in",
+      "No refund after that",
+    ],
+  },
+  {
+    label: "Non-refundable",
+    tiers: [
+      "Full refund if you cancel within 24 hours of paying, as long as that's before your check-in date",
       "No refund after that",
     ],
   },
@@ -68,7 +75,8 @@ export default function CancellationPoliciesPage() {
 
       <p className="mt-8 text-sm text-stone-500">
         Refunds are calculated automatically and shown to you before you confirm a cancellation,
-        based on the exact policy on your listing and how many days remain before check-in.
+        based on the exact policy on your booking and how many days remain before check-in (or,
+        for Non-refundable, how long ago you paid).
       </p>
     </div>
   );

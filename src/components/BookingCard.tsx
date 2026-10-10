@@ -60,6 +60,14 @@ export type BookingCardBooking = {
   guests: number;
   lastMinuteDiscountPercent?: number | null;
   totalPriceCents: number;
+  /** The booking's own snapshotted rates and discounts - what a date change is priced from. */
+  nightlyPriceCents: number;
+  weekendNightlyPriceCents: number | null;
+  cleaningFeeCents: number;
+  creditAppliedCents: number;
+  promoDiscountCents: number;
+  /** When the guest paid - starts a non-refundable policy's 24-hour full-refund window. */
+  paidAt?: Date | null;
   /** What was actually refunded on a cancelled, paid booking (may be part or none). */
   refundedAmountCents?: number | null;
   review: { rating: number } | null;
@@ -291,12 +299,17 @@ export function BookingCard({
                 currentCheckIn={booking.checkIn}
                 currentCheckOut={booking.checkOut}
                 currentGuests={booking.guests}
-                currentTotalPriceCents={booking.totalPriceCents}
-                pricePerNightCents={booking.listing.pricePerNightCents}
-                cleaningFeeCents={booking.listing.cleaningFeeCents}
+                priceBasis={{
+                  nightlyPriceCents: booking.nightlyPriceCents,
+                  weekendNightlyPriceCents: booking.weekendNightlyPriceCents,
+                  cleaningFeeCents: booking.cleaningFeeCents,
+                  lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent ?? null,
+                  totalPriceCents: booking.totalPriceCents,
+                  creditAppliedCents: booking.creditAppliedCents,
+                  promoDiscountCents: booking.promoDiscountCents,
+                }}
                 weeklyDiscountPercent={booking.listing.weeklyDiscountPercent}
                 monthlyDiscountPercent={booking.listing.monthlyDiscountPercent}
-                lastMinuteDiscountPercent={booking.lastMinuteDiscountPercent}
                 minNights={booking.listing.minNights}
                 maxNights={booking.listing.maxNights}
                 maxGuests={booking.listing.maxGuests}
@@ -312,6 +325,7 @@ export function BookingCard({
                   wasPaid: booking.paymentStatus === "PAID",
                   totalPriceCents: booking.totalPriceCents,
                   checkIn: booking.checkIn,
+                  paidAt: booking.paidAt,
                 })}
                 onCancelled={() => setOptimisticStatus("CANCELLED")}
                 onCancelFailed={() => setOptimisticStatus(null)}

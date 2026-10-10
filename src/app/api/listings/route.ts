@@ -16,6 +16,7 @@ import { parseStayDate } from "@/lib/stayDates";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { resolveLastMinuteDeal } from "@/lib/dealValidation";
 import { createListingSchema } from "@/lib/listingInput";
+import { weekendRateError } from "@/lib/pricing";
 
 const LISTINGS_API_PAGE_SIZE = 24;
 
@@ -142,6 +143,14 @@ async function postHandler(request: Request) {
   const deal = resolveLastMinuteDeal(parsed.data);
   if ("error" in deal) {
     return NextResponse.json({ error: deal.error }, { status: 400 });
+  }
+  const weekendError = weekendRateError({
+    pricePerNightCents: parsed.data.pricePerNightCents ?? 0,
+    weekendPricePerNightCents: parsed.data.weekendPricePerNightCents ?? null,
+    propertyType: parsed.data.propertyType,
+  });
+  if (weekendError) {
+    return NextResponse.json({ error: weekendError }, { status: 400 });
   }
 
   const { roomTypes, pricePerNightCents, maxGuests, bedrooms, beds, bathrooms, ...rest } =

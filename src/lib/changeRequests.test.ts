@@ -3,6 +3,7 @@ import {
   bookingGrossTotalCents,
   canCancelBooking,
   canRequestBookingChange,
+  bookingFieldsAfterChange,
   changePriceDeltaCents,
   computePriceDeltaCents,
   isBookingStillChangeable,
@@ -115,6 +116,7 @@ describe("changePriceDeltaCents", () => {
   // £280 of it after £30 of referral credit and a £20 promo code.
   const discountedBooking = {
     nightlyPriceCents: 10000,
+    weekendNightlyPriceCents: null,
     cleaningFeeCents: 0,
     lastMinuteDiscountPercent: null,
     totalPriceCents: 28000,
@@ -122,21 +124,26 @@ describe("changePriceDeltaCents", () => {
     promoDiscountCents: 2000,
   };
   const listing = { weeklyDiscountPercent: null, monthlyDiscountPercent: null };
+  // A stay of `nights` nights from Monday 2 November 2026.
+  const stay = (nights: number) => ({
+    checkIn: new Date("2026-11-02T00:00:00Z"),
+    checkOut: new Date(Date.UTC(2026, 10, 2 + nights)),
+  });
 
   it("is zero for new dates of the same length on a discounted booking - the discounts aren't charged again", () => {
-    expect(changePriceDeltaCents(discountedBooking, listing, 3)).toBe(0);
+    expect(changePriceDeltaCents(discountedBooking, listing, stay(3))).toBe(0);
   });
 
   it("prices extra nights at the booking's own snapshotted rate, not the listing's rate today", () => {
     // One more night at the booking's £100 (+£10 fee); the listing's
     // current price isn't even an input.
-    expect(changePriceDeltaCents(discountedBooking, listing, 4)).toBe(11000);
+    expect(changePriceDeltaCents(discountedBooking, listing, stay(4))).toBe(11000);
   });
 
   it("refunds a shorter stay's difference, but never more than the guest actually paid", () => {
-    expect(changePriceDeltaCents(discountedBooking, listing, 2)).toBe(-11000);
+    expect(changePriceDeltaCents(discountedBooking, listing, stay(2))).toBe(-11000);
     const mostlyCredit = { ...discountedBooking, totalPriceCents: 3000, creditAppliedCents: 28000 };
-    expect(changePriceDeltaCents(mostlyCredit, listing, 1)).toBe(-3000);
+    expect(changePriceDeltaCents(mostlyCredit, listing, stay(1))).toBe(-3000);
   });
 
   it("keeps the booking's snapshotted cleaning fee and last-minute deal", () => {
@@ -144,7 +151,32 @@ describe("changePriceDeltaCents", () => {
     // £234 of it paid after the £50 of discounts.
     const booking = { ...discountedBooking, cleaningFeeCents: 2000, lastMinuteDiscountPercent: 20, totalPriceCents: 23400 };
     expect(bookingGrossTotalCents(booking)).toBe(28400);
-    expect(changePriceDeltaCents(booking, listing, 3)).toBe(0);
+    expect(changePriceDeltaCents(booking, listing, stay(3))).toBe(0);
+  });
+
+  describe("with a weekend rate", () => {
+    // Booked Mon-Wed (2 weeknights @ £255) under a £275 Fri/Sat rate:
+    // £510 + £51 fee = £561, all paid.
+    const weekendBooking = {
+      nightlyPriceCents: 25500,
+      weekendNightlyPriceCents: 27500,
+      cleaningFeeCents: 0,
+      lastMinuteDiscountPercent: null,
+      totalPriceCents: 56100,
+      creditAppliedCents: 0,
+      promoDiscountCents: 0,
+    };
+
+    it("charges the weekend difference for moving the same nights onto Fri and Sat", () => {
+      const friToSun = { checkIn: new Date("2026-11-06T00:00:00Z"), checkOut: new Date("2026-11-08T00:00:00Z") };
+      // 2 x £20 more, plus 10% fee.
+      expect(changePriceDeltaCents(weekendBooking, listing, friToSun)).toBe(4400);
+    });
+
+    it("costs nothing to move to other weeknights", () => {
+      const tueToThu = { checkIn: new Date("2026-11-03T00:00:00Z"), checkOut: new Date("2026-11-05T00:00:00Z") };
+      expect(changePriceDeltaCents(weekendBooking, listing, tueToThu)).toBe(0);
+    });
   });
 });
 
@@ -153,5 +185,27 @@ describe("isBookingStillChangeable", () => {
     expect(isBookingStillChangeable({ status: "CONFIRMED", checkIn: new Date("2026-06-20") }, now)).toBe(true);
     expect(isBookingStillChangeable({ status: "CANCELLED", checkIn: new Date("2026-06-20") }, now)).toBe(false);
     expect(isBookingStillChangeable({ status: "CONFIRMED", checkIn: new Date("2026-06-10") }, now)).toBe(false);
+  });
+});
+
+describe("bookingFieldsAfterChange with a weekend rate", () => {
+  const booking = {
+    totalPriceCents: 56_100,
+    cleaningFeeCents: 0,
+    serviceFeeCents: 5_100,
+    taxCents: 0,
+    creditAppliedCents: 0,
+    promoDiscountCents: 0,
+  };
+
+  it("recounts the weekend nights for the new dates", () => {
+    const change = {
+      requestedCheckIn: new Date("2026-11-06T00:00:00Z"),
+      requestedCheckOut: new Date("2026-11-09T00:00:00Z"),
+      requestedGuests: 2,
+      priceDeltaCents: 32_450,
+    };
+    expect(bookingFieldsAfterChange({ ...booking, weekendNightlyPriceCents: 27_500 }, change)).toMatchObject({ nights: 3, weekendNights: 2 });
+    expect(bookingFieldsAfterChange({ ...booking, weekendNightlyPriceCents: null }, change)).toMatchObject({ nights: 3, weekendNights: 0 });
   });
 });

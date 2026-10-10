@@ -14,7 +14,7 @@ export type CancellableBooking = Booking & {
   listing: {
     title: string;
     city: string;
-    cancellationPolicy: "FLEXIBLE" | "MODERATE" | "STRICT" | "CUSTOM";
+    cancellationPolicy: "FLEXIBLE" | "MODERATE" | "STRICT" | "NON_REFUNDABLE" | "CUSTOM";
     customCancellationCutoffDays: number | null;
     customCancellationRefundPercent: number | null;
     host: { name: string; email: string };
@@ -61,6 +61,7 @@ export async function cancelBookingAndRefund(
     totalPriceCents: booking.totalPriceCents,
     checkIn: booking.checkIn,
     now,
+    paidAt: booking.paidAt,
     refundPercentOverride,
   });
 

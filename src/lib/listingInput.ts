@@ -32,6 +32,8 @@ export const createListingSchema = z
     // HOTEL listing instead takes its price/capacity from roomTypes and
     // these are simply ignored if a client somehow still sends them).
     pricePerNightCents: listingFieldSchemas.pricePerNightCents.optional(),
+    // Friday/Saturday rate; null or omitted means every night is pricePerNightCents.
+    weekendPricePerNightCents: listingFieldSchemas.pricePerNightCents.nullable().optional(),
     cleaningFeeCents: listingFieldSchemas.cleaningFeeCents.default(0),
     weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
@@ -42,7 +44,7 @@ export const createListingSchema = z
     bathrooms: z.number().int().min(0).max(50).optional(),
     photos: z.array(httpUrlSchema).min(1),
     amenities: z.array(z.string()).default([]),
-    cancellationPolicy: z.enum(["FLEXIBLE", "MODERATE", "STRICT", "CUSTOM"]).optional(),
+    cancellationPolicy: z.enum(["FLEXIBLE", "MODERATE", "STRICT", "NON_REFUNDABLE", "CUSTOM"]).optional(),
     customCancellationCutoffDays: z.number().int().min(0).max(90).optional(),
     customCancellationRefundPercent: z.number().int().min(0).max(100).optional(),
     minNights: z.number().int().min(1).max(365).optional(),

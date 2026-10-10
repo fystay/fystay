@@ -7,7 +7,7 @@ import { getActiveOfferingByCategory } from "@/lib/travelAddons";
 import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
 import { isAbandonedReservation } from "@/lib/bookingLifecycle";
 import { bookingCancellationTerms, cancellationStanding, resolveCancellationPolicy } from "@/lib/cancellationPolicy";
-import { formatStayDate } from "@/lib/format";
+import { formatCancellationDeadline } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Booking confirmed", robots: { index: false } };
 
@@ -46,11 +46,13 @@ export default async function BookingConfirmationPage({
   }
 
   const policy = resolveCancellationPolicy(bookingCancellationTerms(booking));
-  const standing = cancellationStanding(policy, booking.checkIn);
+  // Straight after paying, the webhook that records paidAt may not have
+  // landed yet; the 24-hour window (if any) is then counted from now.
+  const standing = cancellationStanding(policy, booking.checkIn, new Date(), booking.paidAt ?? new Date());
   const cancellationLine = standing.until
     ? standing.refundPercent === 100
-      ? `Free cancellation until ${formatStayDate(standing.until)}`
-      : `${standing.refundPercent}% refund if you cancel by ${formatStayDate(standing.until)}`
+      ? `Free cancellation until ${formatCancellationDeadline(standing)}`
+      : `${standing.refundPercent}% refund if you cancel by ${formatCancellationDeadline(standing)}`
     : "This booking is non-refundable";
 
   // Same eligibility as tripExtraPurchaseError: only worth querying once
@@ -97,6 +99,8 @@ export default async function BookingConfirmationPage({
         nights={booking.nights}
         guests={booking.guests}
         nightlyPriceCents={booking.nightlyPriceCents}
+        weekendNights={booking.weekendNights}
+        weekendNightlyPriceCents={booking.weekendNightlyPriceCents}
         lengthOfStayDiscountCents={booking.lengthOfStayDiscountCents}
         lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as LengthOfStayDiscountLabel | null}
         cleaningFeeCents={booking.cleaningFeeCents}

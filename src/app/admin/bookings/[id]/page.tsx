@@ -49,6 +49,7 @@ export default async function AdminBookingDetailPage({
     wasPaid,
     totalPriceCents: booking.totalPriceCents,
     checkIn: booking.checkIn,
+    paidAt: booking.paidAt,
   });
 
   return (

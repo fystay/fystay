@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, subDays } from "date-fns";
+import { addHours, differenceInCalendarDays, subDays } from "date-fns";
 
 /**
  * A host's refund rules for a guest-initiated cancellation. Modeled as an
@@ -9,7 +9,7 @@ import { differenceInCalendarDays, subDays } from "date-fns";
  * caller goes through resolveCancellationPolicy + computeCancellationRefund
  * rather than hand-rolling refund math against a listing's raw fields.
  */
-export type CancellationPolicyKind = "FLEXIBLE" | "MODERATE" | "STRICT" | "CUSTOM";
+export type CancellationPolicyKind = "FLEXIBLE" | "MODERATE" | "STRICT" | "NON_REFUNDABLE" | "CUSTOM";
 
 export type CancellationPolicyTier = {
   /** This tier applies once at least this many days remain before check-in. */
@@ -23,6 +23,14 @@ export type CancellationPolicy = {
   description: string;
   /** Must include a tier with minDaysBeforeCheckIn: 0 as the final fallback. */
   tiers: CancellationPolicyTier[];
+  /**
+   * A full refund for this many hours after the guest pays, whatever the
+   * tiers say - but only while it's still before the check-in date, so a
+   * same-day booking can't be cancelled for free after arrival. Measured
+   * from payment rather than the request, since a request-to-book stay can
+   * wait up to a day for the host before the guest is charged.
+   */
+  fullRefundHoursAfterPayment?: number;
 };
 
 const FLEXIBLE: CancellationPolicy = {
@@ -55,6 +63,15 @@ const STRICT: CancellationPolicy = {
     { minDaysBeforeCheckIn: 7, refundPercent: 50 },
     { minDaysBeforeCheckIn: 0, refundPercent: 0 },
   ],
+};
+
+const NON_REFUNDABLE: CancellationPolicy = {
+  kind: "NON_REFUNDABLE",
+  label: "Non-refundable",
+  description:
+    "Full refund if you cancel within 24 hours of paying, as long as that's before your check-in date. No refund after that.",
+  tiers: [{ minDaysBeforeCheckIn: 0, refundPercent: 0 }],
+  fullRefundHoursAfterPayment: 24,
 };
 
 const DEFAULT_CUSTOM_CUTOFF_DAYS = 7;
@@ -107,6 +124,8 @@ export function resolveCancellationPolicy(listing: {
       return FLEXIBLE;
     case "STRICT":
       return STRICT;
+    case "NON_REFUNDABLE":
+      return NON_REFUNDABLE;
     case "CUSTOM": {
       const cutoff = listing.customCancellationCutoffDays ?? DEFAULT_CUSTOM_CUTOFF_DAYS;
       const percent = listing.customCancellationRefundPercent ?? DEFAULT_CUSTOM_REFUND_PERCENT;
@@ -136,6 +155,27 @@ export function daysBeforeCheckIn(checkIn: Date, now: Date = new Date()): number
   return differenceInCalendarDays(checkIn, now);
 }
 
+/**
+ * When a policy's after-payment full-refund window closes for this booking
+ * (see CancellationPolicy.fullRefundHoursAfterPayment): that many hours
+ * after payment, or the start of the check-in date if that comes first.
+ * Null when the policy has no window or the booking isn't paid.
+ */
+export function fullRefundWindowEnd(
+  policy: CancellationPolicy,
+  paidAt: Date | null | undefined,
+  checkIn: Date,
+): Date | null {
+  if (!policy.fullRefundHoursAfterPayment || !paidAt) return null;
+  const end = addHours(paidAt, policy.fullRefundHoursAfterPayment);
+  return end < checkIn ? end : checkIn;
+}
+
+function inFullRefundWindow(policy: CancellationPolicy, paidAt: Date | null | undefined, checkIn: Date, now: Date) {
+  const end = fullRefundWindowEnd(policy, paidAt, checkIn);
+  return end !== null && now < end;
+}
+
 export type CancellationRefund = {
   refundPercent: number;
   refundCents: number;
@@ -154,8 +194,10 @@ export function computeCancellationRefund(params: {
   amountPaidCents: number;
   checkIn: Date;
   now?: Date;
+  /** When the booking was paid - needed by a policy with an after-payment refund window. */
+  paidAt?: Date | null;
 }): CancellationRefund {
-  const { policy, amountPaidCents, checkIn, now = new Date() } = params;
+  const { policy, amountPaidCents, checkIn, now = new Date(), paidAt } = params;
 
   if (amountPaidCents <= 0) {
     return { refundPercent: 0, refundCents: 0, nonRefundableCents: 0 };
@@ -165,7 +207,7 @@ export function computeCancellationRefund(params: {
   const tier = [...policy.tiers]
     .sort((a, b) => b.minDaysBeforeCheckIn - a.minDaysBeforeCheckIn)
     .find((t) => days >= t.minDaysBeforeCheckIn);
-  const refundPercent = tier?.refundPercent ?? 0;
+  const refundPercent = inFullRefundWindow(policy, paidAt, checkIn, now) ? 100 : (tier?.refundPercent ?? 0);
   const refundCents = Math.round((amountPaidCents * refundPercent) / 100);
 
   return { refundPercent, refundCents, nonRefundableCents: amountPaidCents - refundCents };
@@ -183,7 +225,12 @@ export function cancellationStanding(
   policy: CancellationPolicy,
   checkIn: Date,
   now: Date = new Date(),
-): { refundPercent: number; until: Date | null } {
+  paidAt?: Date | null,
+): { refundPercent: number; until: Date | null; untilIsTime?: boolean } {
+  // An after-payment window ends at a moment, not a whole day - shown with
+  // its time ("until 3:40pm, 12 Oct") rather than as a stay date.
+  const windowEnd = fullRefundWindowEnd(policy, paidAt, checkIn);
+  if (windowEnd && now < windowEnd) return { refundPercent: 100, until: windowEnd, untilIsTime: true };
   const days = daysBeforeCheckIn(checkIn, now);
   const tier = [...policy.tiers]
     .sort((a, b) => b.minDaysBeforeCheckIn - a.minDaysBeforeCheckIn)
@@ -222,9 +269,11 @@ export function previewCancellation(params: {
   totalPriceCents: number;
   checkIn: Date;
   now?: Date;
+  /** When the booking was paid, for a policy with an after-payment refund window. */
+  paidAt?: Date | null;
   refundPercentOverride?: number;
 }): CancellationPreview {
-  const { listing, wasPaid, totalPriceCents, checkIn, now, refundPercentOverride } = params;
+  const { listing, wasPaid, totalPriceCents, checkIn, now, paidAt, refundPercentOverride } = params;
   const amountPaidCents = wasPaid ? totalPriceCents : 0;
   const policy: CancellationPolicy =
     refundPercentOverride === undefined
@@ -235,6 +284,6 @@ export function previewCancellation(params: {
           description: `Support set the refund to ${refundPercentOverride}%, overriding the listing's own cancellation policy.`,
           tiers: [{ minDaysBeforeCheckIn: 0, refundPercent: refundPercentOverride }],
         };
-  const refund = computeCancellationRefund({ policy, amountPaidCents, checkIn, now });
+  const refund = computeCancellationRefund({ policy, amountPaidCents, checkIn, now, paidAt });
   return { policyLabel: policy.label, policyDescription: policy.description, amountPaidCents, ...refund };
 }

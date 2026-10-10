@@ -8,7 +8,7 @@ hard-coded page).
 
 | Piece | File |
 | --- | --- |
-| Listing copy, facts, amenities, rules, photo order and alt text | `src/lib/listingImports/lodgeOnTheLake.ts` |
+| Listing copy, facts, amenities, rules, photo order and alt text, and the owner's terms | `src/lib/listingImports/lodgeOnTheLake.ts` |
 | Tests (validation, no unconfirmed claims, photos present) | `src/lib/listingImports/lodgeOnTheLake.test.ts` |
 | One-off import script | `scripts/listings/import-lodge-on-the-lake.ts` (`npm run listing:import-lodge`) |
 | The 17 gallery photos | `scripts/listings/lodge-on-the-lake/photos/` |
@@ -24,21 +24,29 @@ Live/Hidden, location and capacity.
 
 ## How it goes live
 
+**Release order matters.** This branch adds weekend rates and the
+Non-refundable cancellation policy, which need migration
+`20261010120000_add_weekend_rates_and_non_refundable_policy`. Run the
+"Production database migration" workflow from this branch **before**
+merging it into the deploying branch, the same order as every earlier
+migration (see `docs/launch/handover.md`). The new columns are nullable or
+have defaults, so the current live code keeps working once the migration
+is applied.
+
 1. The owner creates a FYStay account and chooses **Become a host**.
-2. Someone with production access runs the import with **the owner's own
-   terms**. Nothing is defaulted, and the script refuses to run without them:
+2. Someone with production access applies the
+   `20261010120000_add_weekend_rates_and_non_refundable_policy` migration
+   (the usual "Production database migration" workflow), then runs:
 
    ```sh
    DATABASE_URL="<production direct URL>" \
    NEXT_PUBLIC_SUPABASE_URL="..." SUPABASE_SERVICE_ROLE_KEY="..." \
-   npm run listing:import-lodge -- --host-email <owner's email> \
-     --nightly-price <£> --min-nights <n> --cancellation-policy <flexible|moderate|strict> \
-     --smoking-allowed <yes|no> --parties-allowed <yes|no> \
-     [--cleaning-fee <£>] [--check-in "From 4pm"] [--check-out "By 10am"]
+   npm run listing:import-lodge -- --host-email <owner's email>
    ```
 
-   Without `--confirm` it is a dry run that prints the target database host.
-   Add `--confirm` to write. A second run for the same host is refused.
+   Without `--confirm` it is a dry run that prints the target database host
+   and the terms it will use. Add `--confirm` to write. A second run for the
+   same host is refused.
 3. The listing is created **Hidden** and **request-to-book**: every request
    waits for the owner's approval before the guest is charged, so dates the
    owner hasn't confirmed can't be booked.
@@ -50,13 +58,30 @@ Live/Hidden, location and capacity.
      can't be paid once Stripe is live;
    - switches the listing to **Live**.
 
+## Owner's terms (given 10 October 2026)
+
+| Term | Value on FYStay |
+| --- | --- |
+| Nightly rate | £255 Sunday-Thursday nights, £275 Friday and Saturday nights (guests see £280.50 / £302.50 with FYStay's 10% service fee) |
+| Minimum stay | 2 nights |
+| Cancellation | Non-refundable: full refund within 24 hours of paying (and before the check-in date), nothing after |
+| Smoking | Not allowed |
+| Parties | Not allowed: the Airbnb listing bars stag and hen groups, and Airbnb bans parties platform-wide |
+| Photos | Permission to use them on FYStay confirmed |
+
+Two interpretations to check with the owner:
+
+- **"Within 24 hours of booking"** runs from when the guest **pays**. The
+  Lodge is request-to-book, so a guest only pays once the owner accepts, and
+  counting from the request could leave them minutes. The window also ends
+  at the start of the check-in date, so a same-day booking can't be
+  cancelled for free after arrival.
+- **Request-to-book** is kept (the owner approves each stay), matching the
+  Lodge's own site. Switching to instant booking is one toggle in the host
+  dashboard.
+
 ## Still to confirm with the owner
 
-- **Nightly rate, fees, deposit, minimum stay, cancellation policy, smoking and
-  party rules.** Not supplied; required at import.
-- **Minimum stay.** The brief says "two nights per the property website", but
-  the Lodge site's own facts register says that 2 is only a placeholder search
-  default, not a confirmed rule.
 - **Bed sizes.** Airbnb says two king beds; the Lodge site says doubles. The
   listing says king-size, per the brief. Owner to confirm.
 - **Two bathrooms.** Only one is pictured.
@@ -65,8 +90,8 @@ Live/Hidden, location and capacity.
   small lake" and "decking overlooking the water", but not "waterfront".
 - **Fishing.** Airbnb says free for guests; FYStay only says it's available
   subject to village rules and a rod licence until confirmed.
-- **Check-in/out times, pets, accessibility, quiet hours, safety devices.**
-  Unknown; left unset, so nothing is shown.
+- **Cleaning fee, damage deposit, check-in/out times, pets, accessibility,
+  quiet hours, safety devices.** Not given; left unset, so nothing is shown.
 - **Full amenities list.** Airbnb lists 55 but only 5 are readable. FYStay
   lists only what a source states or a photo plainly shows.
 - **Living-room layout.** Two layouts appear in the owner's photos; only the
@@ -78,10 +103,8 @@ Live/Hidden, location and capacity.
 
 ## Photos and rights
 
-17 of the 21 photos the owner supplied, with permission, for the Lodge's own
-site in October 2026 (recorded in `fystay/lsl-lodge`
-`src/content/photos.ts`). **That permission covered the Lodge's own site. Get
-the owner's written OK for FYStay too before going Live.** Not used: two
+17 of the 21 photos the owner supplied in October 2026. Permission to use
+them on FYStay was confirmed on 10 October 2026. Not used: two
 possibly-outdated living-room shots and two decorative close-ups. Nothing is
 hotlinked from Airbnb.
 
@@ -106,6 +129,8 @@ on FYStay" until its first one.
 - **Gallery alt text** is generic ("<title> photo N"): FYStay stores photo
   URLs only. Descriptive alt text for each photo is kept in the content file
   for when per-photo alt text is supported.
+- **Map pins** show the weekday rate (the lowest). Cards, the booking box and
+  every breakdown say "from" and show the Friday/Saturday rate.
 - **12% commission.** FYStay's existing fee settings are unchanged. Whether
   FYStay can charge this host 10% + 2% is a separate commercial and payments
   change.

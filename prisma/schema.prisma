@@ -43,6 +43,9 @@ enum CancellationPolicyKind {
   FLEXIBLE
   MODERATE
   STRICT
+  // No refund, except a full one within 24 hours of paying (before the
+  // check-in date) - see NON_REFUNDABLE in src/lib/cancellationPolicy.ts.
+  NON_REFUNDABLE
   CUSTOM
 }
 
@@ -397,6 +400,12 @@ model Listing {
   longitude                 Float?
   propertyType              PropertyType @default(OTHER)
   pricePerNightCents        Int
+  // The rate for Friday and Saturday nights, when a host charges more (or
+  // less) at weekends. Null (the default) means every night is
+  // pricePerNightCents, exactly as before. Never applies to a HOTEL
+  // listing, whose rates live on its room types. See weekendNightsBetween
+  // and computeBookingPricing in src/lib/pricing.ts.
+  weekendPricePerNightCents Int?
   // A flat, once-per-stay fee (housekeeping between guests), separate from
   // the nightly rate. Zero means the host hasn't set one, in which case the
   // booking summary simply omits that line rather than showing "£0".
@@ -651,10 +660,18 @@ model Booking {
 
   // Price breakdown, snapshotted at booking time so a later change to the
   // listing's price or fees never rewrites the price a guest already agreed
-  // to. totalPriceCents is always (nightlyPriceCents * nights) -
+  // to. totalPriceCents is always the gross accommodation (nightlyPriceCents
+  // for each weekday night, weekendNightlyPriceCents for each of the
+  // weekendNights - bookingNightlySubtotalCents in src/lib/pricing.ts) -
   // lengthOfStayDiscountCents + cleaningFeeCents + serviceFeeCents + taxCents
   // - creditAppliedCents.
   nightlyPriceCents         Int
+  // How many of the stay's nights were Friday or Saturday nights charged at
+  // the listing's weekend rate, and that rate, copied at booking so a later
+  // price change can't alter this booking. 0/null: every night was
+  // nightlyPriceCents (every booking before weekend rates existed).
+  weekendNights             Int        @default(0)
+  weekendNightlyPriceCents  Int?
   // Amount and which threshold (weekly/monthly) applied, snapshotted the
   // same way as the other price fields - a later edit to the listing's
   // discount settings never rewrites what a guest already agreed to.

@@ -123,6 +123,25 @@ describe("cancelBookingAndRefund", () => {
     );
   });
 
+  it("refunds a non-refundable booking in full only within 24 hours of payment", async () => {
+    const nonRefundable = { ...booking, cancellationPolicy: "NON_REFUNDABLE" } as CancellableBooking;
+    const { refund } = await cancelBookingAndRefund(
+      prisma,
+      { ...nonRefundable, paidAt: new Date("2026-10-06T09:00:00Z") } as CancellableBooking,
+      { now },
+    );
+    expect(refund.refundCents).toBe(50_000);
+
+    state.status = "CONFIRMED";
+    const late = await cancelBookingAndRefund(
+      prisma,
+      { ...nonRefundable, paidAt: new Date("2026-10-05T09:00:00Z") } as CancellableBooking,
+      { now },
+    );
+    expect(late.refund.refundCents).toBe(0);
+    expect(refundAcrossPayments).toHaveBeenCalledTimes(1);
+  });
+
   it("lets only one of two racing cancellations refund", async () => {
     const results = await Promise.allSettled([
       cancelBookingAndRefund(prisma, booking, { now }),

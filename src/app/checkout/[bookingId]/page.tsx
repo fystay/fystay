@@ -145,6 +145,8 @@ export default async function CheckoutPage({
               nights={booking.nights}
               guests={booking.guests}
               nightlyPriceCents={booking.nightlyPriceCents}
+              weekendNights={booking.weekendNights}
+              weekendNightlyPriceCents={booking.weekendNightlyPriceCents}
               lengthOfStayDiscountCents={booking.lengthOfStayDiscountCents}
               lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as LengthOfStayDiscountLabel | null}
               cleaningFeeCents={booking.cleaningFeeCents}

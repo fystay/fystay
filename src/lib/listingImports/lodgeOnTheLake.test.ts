@@ -8,44 +8,49 @@ import {
   LODGE_ON_THE_LAKE_AMENITIES,
   LODGE_ON_THE_LAKE_DESCRIPTION,
   LODGE_ON_THE_LAKE_PHOTOS,
+  LODGE_ON_THE_LAKE_OWNER_TERMS,
   buildLodgeOnTheLakeListing,
-  parseOwnerTerms,
-  type OwnerTerms,
 } from "./lodgeOnTheLake";
+import { cancellationTermsSnapshot } from "@/lib/cancellationPolicy";
+import { computeBookingPricing, stayRates, weekendRateError } from "@/lib/pricing";
 
-const TERMS: OwnerTerms = {
-  pricePerNightCents: 15_000,
-  minNights: 2,
-  cancellationPolicy: "MODERATE",
-  smokingAllowed: false,
-  partiesAllowed: false,
-};
 const URLS = LODGE_ON_THE_LAKE_PHOTOS.map((p) => `https://example.supabase.co/storage/v1/object/public/listing-photos/h/${p.file}`);
 
-const REQUIRED_ARGS = [
-  "--nightly-price", "150",
-  "--min-nights", "2",
-  "--cancellation-policy", "moderate",
-  "--smoking-allowed", "no",
-  "--parties-allowed", "no",
-];
 
 describe("Lodge on the Lake listing", () => {
   it("passes the same validation as a host's own create-listing form", () => {
-    expect(createListingSchema.safeParse(buildLodgeOnTheLakeListing(TERMS, URLS)).success).toBe(true);
+    expect(createListingSchema.safeParse(buildLodgeOnTheLakeListing(URLS)).success).toBe(true);
   });
 
   it("carries the confirmed facts and is always request-to-book", () => {
-    const listing = buildLodgeOnTheLakeListing(TERMS, URLS);
+    const listing = buildLodgeOnTheLakeListing(URLS);
     expect(listing).toMatchObject({ maxGuests: 6, bedrooms: 3, beds: 4, bathrooms: 2, city: "Carnforth", instantBook: false });
     expect(listing.photos).toEqual(URLS);
   });
 
-  it("takes every business term from the owner, never a default", () => {
-    const listing = buildLodgeOnTheLakeListing({ ...TERMS, smokingAllowed: true, cancellationPolicy: "STRICT", minNights: 3 }, URLS);
-    expect(listing).toMatchObject({ smokingAllowed: true, cancellationPolicy: "STRICT", minNights: 3, pricePerNightCents: 15_000 });
-    expect(listing.cleaningFeeCents).toBe(0);
-    expect(listing.checkInTime).toBeNull();
+  it("carries the owner's own terms, not schema defaults", () => {
+    const listing = buildLodgeOnTheLakeListing(URLS);
+    expect(listing).toMatchObject({
+      pricePerNightCents: 25_500,
+      weekendPricePerNightCents: 27_500,
+      minNights: 2,
+      cancellationPolicy: "NON_REFUNDABLE",
+      smokingAllowed: false,
+      partiesAllowed: false,
+      cleaningFeeCents: 0,
+      checkInTime: null,
+    });
+    expect(weekendRateError({ ...LODGE_ON_THE_LAKE_OWNER_TERMS, propertyType: listing.propertyType })).toBeNull();
+    expect(cancellationTermsSnapshot(LODGE_ON_THE_LAKE_OWNER_TERMS).cancellationPolicy).toBe("NON_REFUNDABLE");
+  });
+
+  it("prices a Thursday-to-Sunday stay at £255 + 2 x £275, plus FYStay's 10% fee", () => {
+    const pricing = computeBookingPricing({
+      nights: 3,
+      ...stayRates(LODGE_ON_THE_LAKE_OWNER_TERMS, new Date("2026-11-05T00:00:00Z"), new Date("2026-11-08T00:00:00Z")),
+    });
+    expect(pricing.nightlySubtotalCents).toBe(80_500);
+    expect(pricing.totalPriceCents).toBe(88_550);
   });
 
   it("doesn't let the description contradict the bedroom count", () => {
@@ -75,41 +80,5 @@ describe("Lodge on the Lake listing", () => {
       expect(photo.alt.length).toBeGreaterThan(20);
     }
     expect(LODGE_ON_THE_LAKE_PHOTOS[0].file).toBe("01-lodge-across-water.jpg");
-  });
-});
-
-describe("parseOwnerTerms", () => {
-  it("reads the owner's terms", () => {
-    expect(parseOwnerTerms([...REQUIRED_ARGS, "--cleaning-fee", "59.50", "--check-in", "From 4pm"])).toEqual({
-      terms: {
-        pricePerNightCents: 15_000,
-        cleaningFeeCents: 5_950,
-        minNights: 2,
-        cancellationPolicy: "MODERATE",
-        smokingAllowed: false,
-        partiesAllowed: false,
-        checkInTime: "From 4pm",
-        checkOutTime: undefined,
-      },
-    });
-  });
-
-  it("refuses to run without the owner's terms, naming each one", () => {
-    const result = parseOwnerTerms([]);
-    expect("errors" in result && result.errors).toEqual([
-      expect.stringContaining("--nightly-price"),
-      expect.stringContaining("--min-nights"),
-      expect.stringContaining("--cancellation-policy"),
-      expect.stringContaining("--smoking-allowed"),
-      expect.stringContaining("--parties-allowed"),
-    ]);
-  });
-
-  it("rejects malformed values rather than guessing", () => {
-    for (const [name, value] of [["--nightly-price", "£150"], ["--min-nights", "0"], ["--cancellation-policy", "custom"], ["--smoking-allowed", "maybe"]]) {
-      const args = [...REQUIRED_ARGS];
-      args[args.indexOf(name) + 1] = value;
-      expect("errors" in parseOwnerTerms(args), `${name} ${value}`).toBe(true);
-    }
   });
 });

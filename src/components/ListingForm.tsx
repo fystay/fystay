@@ -57,6 +57,8 @@ export type ListingFormValues = {
   country: string;
   address: string;
   pricePerNight: string;
+  /** Friday/Saturday price; blank means the same as pricePerNight. */
+  weekendPricePerNight: string;
   cleaningFee: string;
   securityDeposit: string;
   weeklyDiscountPercent: string;
@@ -99,6 +101,7 @@ const emptyValues: ListingFormValues = {
   country: "",
   address: "",
   pricePerNight: "",
+  weekendPricePerNight: "",
   cleaningFee: "",
   securityDeposit: "",
   weeklyDiscountPercent: "",
@@ -178,6 +181,7 @@ const POLICY_PREVIEWS: Record<Exclude<CancellationPolicyKind, "CUSTOM">, string>
   FLEXIBLE: resolveCancellationPolicy({ cancellationPolicy: "FLEXIBLE" }).description,
   MODERATE: resolveCancellationPolicy({ cancellationPolicy: "MODERATE" }).description,
   STRICT: resolveCancellationPolicy({ cancellationPolicy: "STRICT" }).description,
+  NON_REFUNDABLE: resolveCancellationPolicy({ cancellationPolicy: "NON_REFUNDABLE" }).description,
 };
 
 type Props = {
@@ -249,6 +253,9 @@ export function ListingForm({ listingId, initialValues }: Props) {
         ? {}
         : {
             pricePerNightCents: Math.round(Number(values.pricePerNight) * 100),
+            weekendPricePerNightCents: values.weekendPricePerNight
+              ? Math.round(Number(values.weekendPricePerNight) * 100)
+              : null,
             maxGuests: Number(values.maxGuests),
             bedrooms: Number(values.bedrooms),
             beds: Number(values.beds),
@@ -451,6 +458,22 @@ export function ListingForm({ listingId, initialValues }: Props) {
                   value={values.pricePerNight}
                   onChange={(e) => update("pricePerNight", e.target.value)}
                 />
+              </Field>
+            )}
+            {values.propertyType !== "HOTEL" && (
+              <Field>
+                <Label htmlFor="weekendPrice">Fri &amp; Sat price / night (£, optional)</Label>
+                <Input
+                  id="weekendPrice"
+                  type="number"
+                  min={values.pricePerNight || 1}
+                  max={10000}
+                  step="0.01"
+                  value={values.weekendPricePerNight}
+                  onChange={(e) => update("weekendPricePerNight", e.target.value)}
+                  placeholder={values.pricePerNight || "Same as weekdays"}
+                />
+                <FieldHint>Charged for Friday and Saturday nights. Leave blank to charge the same every night.</FieldHint>
               </Field>
             )}
             <Field>
@@ -844,6 +867,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
               <option value="FLEXIBLE">Flexible</option>
               <option value="MODERATE">Moderate</option>
               <option value="STRICT">Strict</option>
+              <option value="NON_REFUNDABLE">Non-refundable</option>
               <option value="CUSTOM">Custom</option>
             </Select>
             <FieldHint>

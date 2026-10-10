@@ -18,7 +18,7 @@ FYStay is not a global marketplace and does not list accommodation outside the F
 - [Search results](${SITE_URL}/search): filterable, sortable listing search (not indexed by search engines - every filter combination renders the same URL shape).
 - [Destination pages](${SITE_URL}/destinations/blackpool): one page per town (Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood, Thornton-Cleveleys) listing that town's available stays and its own Local Guide.
 - [Help centre](${SITE_URL}/help): frequently asked questions about booking, cancelling, hosting and payments.
-- [Cancellation policies](${SITE_URL}/cancellation-policies): the Flexible, Moderate and Strict policies a host can choose for their listing.
+- [Cancellation policies](${SITE_URL}/cancellation-policies): the Flexible, Moderate, Strict and Non-refundable policies a host can choose for their listing.
 - [Safety information](${SITE_URL}/safety): how bookings, payments and reviews are kept trustworthy.
 - [Host guide](${SITE_URL}/host-guide): how to list and manage a property on FYStay.
 - [About](${SITE_URL}/about): why FYStay exists and how it differs from a national booking platform.

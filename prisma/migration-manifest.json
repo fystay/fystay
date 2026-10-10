@@ -320,6 +320,12 @@
       "files": {
         "migration.sql": "cced89253072295d37b2e0d4a07456f8e73f4e80255d394510c8d3e3c463a342"
       }
+    },
+    {
+      "name": "20261010120000_add_weekend_rates_and_non_refundable_policy",
+      "files": {
+        "migration.sql": "5eac66d8aea7835c87de6805a646f6e351d1ed071e80118f8741daa80efda742"
+      }
     }
   ],
   "retired": [

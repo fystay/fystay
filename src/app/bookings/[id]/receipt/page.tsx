@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { PrintButton } from "@/components/PrintButton";
 import { cn } from "@/lib/cn";
-import { stayDiscountName } from "@/lib/pricing";
+import { nightlyChargeLines, stayDiscountName } from "@/lib/pricing";
 
 export const metadata: Metadata = { title: "Receipt", robots: { index: false } };
 
@@ -44,7 +44,6 @@ export default async function BookingReceiptPage({
     booking.paymentStatus === "PAID" ||
     booking.paymentStatus === "PARTIALLY_REFUNDED" ||
     booking.paymentStatus === "REFUNDED";
-  const nightlySubtotalCents = booking.nights * booking.nightlyPriceCents;
   const refundedAmountCents = booking.refundedAmountCents ?? 0;
 
   return (
@@ -125,13 +124,12 @@ export default async function BookingReceiptPage({
             </dl>
 
             <div className="flex flex-col gap-2 border-t border-border-subtle pt-4 text-sm text-stone-700">
-              <div className="flex justify-between">
-                <span>
-                  {formatPrice(booking.nightlyPriceCents)} × {booking.nights} night
-                  {booking.nights === 1 ? "" : "s"}
-                </span>
-                <span>{formatPrice(nightlySubtotalCents)}</span>
-              </div>
+              {nightlyChargeLines(booking, formatPrice).map((line) => (
+                <div key={line.label} className="flex justify-between">
+                  <span>{line.label}</span>
+                  <span>{formatPrice(line.cents)}</span>
+                </div>
+              ))}
               {booking.lengthOfStayDiscountCents > 0 && (
                 <div className="flex justify-between text-brand-700">
                   <span>
