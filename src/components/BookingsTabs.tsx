@@ -176,7 +176,7 @@ export function BookingsTabs({
     upcoming: {
       bookings: upcoming,
       emptyMessage: "No upcoming trips",
-      emptyHint: "Browse stays along the Fylde coast and book your next getaway.",
+      emptyHint: "Find your next stay from local hosts.",
       showCta: true,
     },
     past: {

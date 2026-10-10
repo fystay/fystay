@@ -95,7 +95,7 @@ export function recentlyAddedSection<T extends MarketplaceListing>(
   return {
     key: "recently-added",
     title: "Recently added",
-    subtitle: "New stays just listed on the Fylde Coast",
+    subtitle: "New stays just listed on FYStay",
     listings: recent,
   };
 }

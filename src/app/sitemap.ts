@@ -53,6 +53,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly" as const,
       priority: 0.3,
     })),
+    // The destinations hub links to every town page; it was missing here.
+    {
+      url: `${SITE_URL}/destinations`,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    },
     ...FYLDE_COAST_DESTINATIONS.map((destination) => ({
       url: `${SITE_URL}/destinations/${destination.slug}`,
       lastModified: new Date(),

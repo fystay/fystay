@@ -18,8 +18,8 @@ export function MapViewPlaceholder({ cityCounts }: { cityCounts: Map<string, num
       <MapPinned className="h-8 w-8 text-stone-300" />
       <p className="font-medium text-foreground">No map for these results yet</p>
       <p className="max-w-sm text-sm text-stone-500">
-        These stays fall outside the Fylde Coast towns FYStay has mapped so far. Here&apos;s where
-        they are instead:
+        These stays are in towns FYStay hasn&apos;t mapped yet. Here&apos;s where they are
+        instead:
       </p>
       {cities.length > 0 && (
         <ul className="mt-2 flex flex-wrap justify-center gap-2">

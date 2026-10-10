@@ -11,7 +11,7 @@ export const metadata = pageMetadata({
   path: "/legal/privacy",
 });
 
-const LAST_UPDATED = "1 October 2026";
+const LAST_UPDATED = "10 October 2026";
 
 export default function PrivacyPolicyPage() {
   const company = getCompanyInfo();
@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
       <LegalSection heading="Who we are">
         <p>
           FYStay (&quot;we&quot;, &quot;us&quot;) operates {siteHost}, a booking platform
-          for independent accommodation on the Fylde Coast. This policy explains what personal
+          for independent accommodation. This policy explains what personal
           data we collect, why, and the rights you have over it under UK GDPR and the Data
           Protection Act 2018. For questions or to exercise any of the rights below, contact{" "}
           <a href={`mailto:${PRIVACY_EMAIL}`} className="text-brand-700 underline underline-offset-2 hover:text-brand-800">

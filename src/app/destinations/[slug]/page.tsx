@@ -63,8 +63,12 @@ export async function generateMetadata({
   const destination = findDestination(slug);
   if (!destination) return {};
 
-  const title = `Accommodation in ${destination.name}, Fylde Coast`;
-  const description = `${destination.description} Browse independent apartments, cottages and guest houses in ${destination.name} with genuine reviews and secure booking on FYStay.`;
+  // "{intent} in {town}, Fylde Coast · FYStay" (docs/brand/fystay-brand.md).
+  // Lytham and St Annes keep separate pages but are searched for together,
+  // so both name the combined town too.
+  const title = `Holiday Accommodation in ${destination.name}, Fylde Coast`;
+  const lythamStAnnes = destination.slug === "lytham" || destination.slug === "st-annes";
+  const description = `${destination.description} Find your stay in ${destination.name}${lythamStAnnes ? " (Lytham St Annes)" : ""}: independent holiday homes, apartments and guest houses from local hosts, with the full price shown before you book.`;
 
   return pageMetadata({ title, description, path: `/destinations/${destination.slug}` });
 }

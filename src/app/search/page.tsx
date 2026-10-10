@@ -9,7 +9,7 @@ type SearchParams = Record<string, string | string[] | undefined>;
 
 export const metadata: Metadata = {
   title: "Search results",
-  description: "Browse available places to stay across Blackpool and the Fylde Coast.",
+  description: "Browse available places to stay from local hosts on FYStay.",
   // Every combination of filters/sort/dates renders from the same URL
   // shape, none of it worth indexing separately from the homepage.
   robots: { index: false, follow: true },
@@ -33,7 +33,7 @@ export default async function SearchPage({
 
       <div className="mt-8">
         <h1 className="text-xl font-bold text-foreground sm:text-2xl">
-          {landmark ? `Stays near ${landmark.name}` : city ? `Stays in ${city}` : "Stays on the Fylde Coast"}
+          {landmark ? `Stays near ${landmark.name}` : city ? `Stays in ${city}` : "Stays from local hosts"}
         </h1>
         {landmark && (
           <p className="mt-1 text-sm text-stone-500">

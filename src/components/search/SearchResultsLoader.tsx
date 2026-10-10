@@ -33,7 +33,7 @@ export function SearchResultsLoader() {
 
       <div className="flex flex-col items-center gap-3 py-2 text-center">
         <p className="animate-search-caption-in font-serif text-lg italic text-stone-600">
-          Curating stays along the Fylde Coast&hellip;
+          Finding your stay&hellip;
         </p>
         <div className="relative h-[3px] w-40 overflow-hidden rounded-full bg-brand-50">
           <span className="search-sweep" />

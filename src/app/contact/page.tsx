@@ -32,8 +32,7 @@ export default function ContactPage() {
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Contact us</h1>
       <p className="mt-2 text-sm text-stone-500">
-        FYStay is a small, Fylde Coast-focused team - every message reaches a real person, not a
-        queue.
+        FYStay is a small, local team - every message reaches a real person, not a queue.
       </p>
 
       <div className="mt-8 flex flex-col divide-y divide-border-subtle rounded-2xl border border-border-subtle bg-surface">

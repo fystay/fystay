@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withCity } from "./seo";
+import { DEFAULT_SHARE_IMAGE, pageMetadata, withCity } from "./seo";
 
 describe("withCity", () => {
   it("leaves a title that already names the city untouched", () => {
@@ -16,5 +16,14 @@ describe("withCity", () => {
     expect(withCity("A stay in BLACKPOOL town centre", "Blackpool")).toBe(
       "A stay in BLACKPOOL town centre",
     );
+  });
+});
+
+describe("pageMetadata", () => {
+  it("gives every content page the FYStay share image, which Next would otherwise drop", () => {
+    const metadata = pageMetadata({ title: "About", description: "Why FYStay exists.", path: "/about" });
+    expect(metadata.openGraph?.images).toEqual([DEFAULT_SHARE_IMAGE]);
+    expect(metadata.twitter?.images).toEqual([DEFAULT_SHARE_IMAGE]);
+    expect(metadata.alternates?.canonical).toMatch(/\/about$/);
   });
 });

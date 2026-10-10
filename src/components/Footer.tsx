@@ -40,7 +40,7 @@ export function Footer() {
     <footer className="border-t border-border-subtle bg-surface-muted">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-6 py-12 sm:grid-cols-4">
         <div className="col-span-2 flex flex-col gap-6 sm:col-span-1">
-          <Logo size="sm" withTagline />
+          <Logo size="md" withTagline />
           <CurrencySelector />
         </div>
         {columns.map((col) => (

@@ -1,33 +1,14 @@
 import { ImageResponse } from "next/og";
+import { brandFonts, MonogramTile } from "@/lib/brandImage";
 
+// Home-screen icon. Square corners: iOS applies its own rounded mask, and a
+// pre-rounded tile would show cream corners inside it.
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
-export default function AppleIcon() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#ffffff",
-        }}
-      >
-        <span
-          style={{
-            fontSize: 92,
-            fontWeight: 700,
-            fontFamily: "sans-serif",
-            display: "flex",
-          }}
-        >
-          <span style={{ color: "#d97757" }}>FY</span>
-        </span>
-      </div>
-    ),
-    size,
-  );
+export default async function AppleIcon() {
+  return new ImageResponse(<MonogramTile size={size.width} rounded={false} />, {
+    ...size,
+    fonts: await brandFonts(),
+  });
 }
