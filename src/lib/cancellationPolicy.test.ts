@@ -178,3 +178,55 @@ describe("bookingCancellationTerms", () => {
     expect(bookingCancellationTerms({ cancellationPolicy: null, listing: strictNow })).toBe(strictNow);
   });
 });
+
+describe("Non-refundable with a 24-hour window after payment", () => {
+  const policy = resolveCancellationPolicy({ cancellationPolicy: "NON_REFUNDABLE" });
+  const checkIn = new Date("2026-11-20T00:00:00Z");
+  const paidAt = new Date("2026-11-01T10:00:00Z");
+  const refundAt = (now: Date, paid: Date | null = paidAt, at = checkIn) =>
+    computeCancellationRefund({ policy, amountPaidCents: 59_400, checkIn: at, now, paidAt: paid });
+
+  it("refunds in full within 24 hours of paying", () => {
+    expect(refundAt(new Date("2026-11-02T09:59:00Z"))).toEqual({ refundPercent: 100, refundCents: 59_400, nonRefundableCents: 0 });
+  });
+
+  it("refunds nothing once 24 hours have passed, however far off check-in is", () => {
+    expect(refundAt(new Date("2026-11-02T10:00:00Z")).refundCents).toBe(0);
+    expect(refundAt(new Date("2026-11-10T10:00:00Z")).refundCents).toBe(0);
+  });
+
+  it("refunds nothing without a payment time (and nothing unpaid at all)", () => {
+    expect(refundAt(new Date("2026-11-01T11:00:00Z"), null).refundCents).toBe(0);
+    expect(computeCancellationRefund({ policy, amountPaidCents: 0, checkIn, paidAt, now: new Date("2026-11-01T11:00:00Z") }).refundCents).toBe(0);
+  });
+
+  it("closes the window at the start of the check-in date", () => {
+    const lateBooking = new Date("2026-11-19T18:00:00Z");
+    expect(refundAt(new Date("2026-11-19T23:00:00Z"), lateBooking).refundPercent).toBe(100);
+    expect(refundAt(new Date("2026-11-20T08:00:00Z"), lateBooking).refundPercent).toBe(0);
+    // Paid on the check-in date itself: no window at all.
+    expect(refundAt(new Date("2026-11-20T10:00:00Z"), new Date("2026-11-20T09:00:00Z")).refundPercent).toBe(0);
+  });
+
+  it("shows the deadline as a moment, and nothing after it", () => {
+    expect(cancellationStanding(policy, checkIn, new Date("2026-11-01T12:00:00Z"), paidAt)).toEqual({
+      refundPercent: 100,
+      until: new Date("2026-11-02T10:00:00Z"),
+      untilIsTime: true,
+    });
+    expect(cancellationStanding(policy, checkIn, new Date("2026-11-03T12:00:00Z"), paidAt)).toEqual({ refundPercent: 0, until: null });
+  });
+
+  it("doesn't give other policies the window", () => {
+    const strict = resolveCancellationPolicy({ cancellationPolicy: "STRICT" });
+    expect(computeCancellationRefund({ policy: strict, amountPaidCents: 10_000, checkIn, paidAt, now: new Date("2026-11-15T10:30:00Z") }).refundPercent).toBe(0);
+  });
+
+  it("is snapshotted onto bookings like every other policy", () => {
+    expect(cancellationTermsSnapshot({ cancellationPolicy: "NON_REFUNDABLE" })).toEqual({
+      cancellationPolicy: "NON_REFUNDABLE",
+      customCancellationCutoffDays: null,
+      customCancellationRefundPercent: null,
+    });
+  });
+});

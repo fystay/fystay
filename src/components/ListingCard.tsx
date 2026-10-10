@@ -5,7 +5,7 @@ import type { TouchEvent } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
 import { useFormattedPrice } from "@/components/CurrencyProvider";
-import { computeBookingPricing, guestNightlyPriceCents } from "@/lib/pricing";
+import { computeBookingPricing, guestNightlyPriceCents, stayRates } from "@/lib/pricing";
 import { SaveButton } from "@/components/SaveButton";
 import { averageRating as computeAverageRating } from "@/lib/reviews";
 import { AMENITY_CATEGORIES } from "@/lib/amenityCategories";
@@ -25,6 +25,8 @@ export type ListingCardData = {
   city: string;
   country: string;
   pricePerNightCents: number;
+  /** Friday/Saturday rate, if any - never below pricePerNightCents, so the headline stays a true "from" price. */
+  weekendPricePerNightCents?: number | null;
   cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
@@ -165,6 +167,12 @@ export function ListingCard({
     else if (delta >= SWIPE_THRESHOLD_PX) goToPhoto(photoIndex - 1);
   }
 
+  const searchedCheckIn = checkIn ? parseStayDate(checkIn) : null;
+  const hasWeekendRate =
+    listing.weekendPricePerNightCents !== null &&
+    listing.weekendPricePerNightCents !== undefined &&
+    listing.weekendPricePerNightCents !== listing.pricePerNightCents;
+
   // The last-minute percentage the searched check-in gets, if any.
   const searchedLastMinutePercent = checkIn
     ? lastMinuteDiscountFor(
@@ -180,7 +188,9 @@ export function ListingCard({
     nights && nights > 0
       ? computeBookingPricing({
           nights,
-          pricePerNightCents: listing.pricePerNightCents,
+          ...(searchedCheckIn
+            ? stayRates(listing, searchedCheckIn, new Date(searchedCheckIn.getTime() + nights * 24 * 60 * 60 * 1000))
+            : { pricePerNightCents: listing.pricePerNightCents }),
           cleaningFeeCents: listing.cleaningFeeCents,
           weeklyDiscountPercent: listing.weeklyDiscountPercent,
           monthlyDiscountPercent: listing.monthlyDiscountPercent,
@@ -401,6 +411,7 @@ export function ListingCard({
                   {formattedWasPrice}
                 </s>
               )}
+              {hasWeekendRate && <span className="text-xs text-stone-500">from</span>}
               <span className="font-serif text-xl tabular-nums text-brand-800">
                 {formattedNightlyPrice}
               </span>

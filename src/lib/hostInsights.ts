@@ -1,4 +1,5 @@
 import { hostPayoutCents, hostRevenueCents, type RevenueBooking } from "@/lib/hostStats";
+import { bookingNightlySubtotalCents } from "@/lib/pricing";
 
 /**
  * Everything the host dashboard, bookings and earnings pages show about a
@@ -32,6 +33,8 @@ export type InsightBooking = RevenueBooking & {
   guests: number;
   guestName: string;
   nightlyPriceCents: number;
+  weekendNights?: number;
+  weekendNightlyPriceCents?: number | null;
   lengthOfStayDiscountCents: number;
   roomsBooked: number;
   createdAt: Date;
@@ -187,7 +190,7 @@ export function summarizePeriod(bookings: InsightBooking[], start: Date, end: Da
 
   const nights = live.reduce((sum, b) => sum + b.nights * b.roomsBooked, 0);
   const roomRevenue = live.reduce(
-    (sum, b) => sum + b.nightlyPriceCents * b.nights - b.lengthOfStayDiscountCents,
+    (sum, b) => sum + bookingNightlySubtotalCents(b) - b.lengthOfStayDiscountCents,
     0,
   );
   const liveNights = live.reduce((sum, b) => sum + b.nights, 0);

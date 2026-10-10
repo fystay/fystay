@@ -506,6 +506,7 @@ export default async function ListingDetailPage({
             <BookingWidget
               listingId={listing.id}
               pricePerNightCents={listing.pricePerNightCents}
+              weekendPricePerNightCents={listing.weekendPricePerNightCents}
               cleaningFeeCents={listing.cleaningFeeCents}
               weeklyDiscountPercent={listing.weeklyDiscountPercent}
               monthlyDiscountPercent={listing.monthlyDiscountPercent}

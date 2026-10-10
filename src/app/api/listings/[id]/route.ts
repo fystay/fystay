@@ -8,6 +8,7 @@ import { geocodeListing } from "@/lib/geocoding";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { priceChangeFields } from "@/lib/deals";
+import { weekendRateError } from "@/lib/pricing";
 import { lastMinuteDealInput, resolveLastMinuteDeal } from "@/lib/dealValidation";
 
 const updateListingSchema = z
@@ -21,6 +22,7 @@ const updateListingSchema = z
     country: z.string().min(1).max(100).optional(),
     address: z.string().max(200).optional(),
     pricePerNightCents: listingFieldSchemas.pricePerNightCents.optional(),
+    weekendPricePerNightCents: listingFieldSchemas.pricePerNightCents.nullable().optional(),
     cleaningFeeCents: listingFieldSchemas.cleaningFeeCents.optional(),
     weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
@@ -32,7 +34,7 @@ const updateListingSchema = z
     photos: z.array(httpUrlSchema).min(1).optional(),
     amenities: z.array(z.string()).optional(),
     published: z.boolean().optional(),
-    cancellationPolicy: z.enum(["FLEXIBLE", "MODERATE", "STRICT", "CUSTOM"]).optional(),
+    cancellationPolicy: z.enum(["FLEXIBLE", "MODERATE", "STRICT", "NON_REFUNDABLE", "CUSTOM"]).optional(),
     customCancellationCutoffDays: z.number().int().min(0).max(90).optional(),
     customCancellationRefundPercent: z.number().int().min(0).max(100).optional(),
     minNights: z.number().int().min(1).max(365).optional(),
@@ -182,6 +184,20 @@ async function patchHandler(
       { error: "Maximum stay can't be shorter than the minimum stay" },
       { status: 400 },
     );
+  }
+
+  // Checked against the persisted values too: raising only the weekday
+  // price above an existing weekend price would otherwise slip through.
+  const weekendError = weekendRateError({
+    pricePerNightCents: parsed.data.pricePerNightCents ?? listing.pricePerNightCents,
+    weekendPricePerNightCents:
+      parsed.data.weekendPricePerNightCents !== undefined
+        ? parsed.data.weekendPricePerNightCents
+        : listing.weekendPricePerNightCents,
+    propertyType: parsed.data.propertyType ?? listing.propertyType,
+  });
+  if (weekendError) {
+    return NextResponse.json({ error: weekendError }, { status: 400 });
   }
 
   // Re-geocode only when the city actually changed - an edit to the price

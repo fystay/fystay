@@ -57,10 +57,11 @@ export default function TermsPage() {
 
       <LegalSection heading="4. Cancellations and refunds">
         <p>
-          Each listing has a cancellation policy set by its host (Flexible, Moderate, Strict, or a
-          host-defined Custom policy), shown on the listing page before you book. Refund amounts
-          for a cancellation are calculated automatically based on that policy and how far in
-          advance you cancel. See our{" "}
+          Each listing has a cancellation policy set by its host (Flexible, Moderate, Strict,
+          Non-refundable, or a host-defined Custom policy), shown on the listing page before you
+          book. Refund amounts for a cancellation are calculated automatically based on that policy
+          and how far in advance you cancel (or, under Non-refundable, whether you cancel within 24
+          hours of paying). See our{" "}
           <Link href="/cancellation-policies" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
             Cancellation Policies
           </Link>{" "}

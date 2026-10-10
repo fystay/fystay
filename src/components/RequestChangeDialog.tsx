@@ -10,21 +10,18 @@ import { Button } from "@/components/ui/Button";
 import { DateRangeField } from "@/components/DateRangeField";
 import { formatPrice } from "@/lib/format";
 import { nightsBetween, rangesOverlap, stayLengthError } from "@/lib/availability";
-import { computeBookingPricing } from "@/lib/pricing";
+import { changePriceDeltaCents, type ChangePricingBooking } from "@/lib/changeRequests";
 import { cn } from "@/lib/cn";
-import { stayDateToLocal, toStayDateString } from "@/lib/stayDates";
+import { parseStayDate, stayDateToLocal, toStayDateString } from "@/lib/stayDates";
 
 export function RequestChangeDialog({
   bookingId,
   currentCheckIn,
   currentCheckOut,
   currentGuests,
-  currentTotalPriceCents,
-  pricePerNightCents,
-  cleaningFeeCents = 0,
+  priceBasis,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
-  lastMinuteDiscountPercent,
   minNights,
   maxNights,
   maxGuests,
@@ -34,13 +31,10 @@ export function RequestChangeDialog({
   currentCheckIn: Date;
   currentCheckOut: Date;
   currentGuests: number;
-  currentTotalPriceCents: number;
-  pricePerNightCents: number;
-  cleaningFeeCents?: number;
+  /** The booking's own snapshotted rates and totals - what the server prices a change from. */
+  priceBasis: ChangePricingBooking;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
-  /** The booking's own last-minute deal, which a date change keeps. */
-  lastMinuteDiscountPercent?: number | null;
   minNights: number;
   maxNights: number | null;
   maxGuests: number;
@@ -67,15 +61,19 @@ export function RequestChangeDialog({
   );
 
   const nights = range?.from && range?.to ? nightsBetween(range.from, range.to) : 0;
-  const { totalPriceCents: newTotalPriceCents } = computeBookingPricing({
-    nights,
-    pricePerNightCents,
-    cleaningFeeCents,
-    weeklyDiscountPercent,
-    monthlyDiscountPercent,
-    lastMinuteDiscountPercent,
-  });
-  const priceDeltaCents = newTotalPriceCents - currentTotalPriceCents;
+  // Exactly what POST /api/bookings/[id]/change-requests will charge or
+  // refund: the same function, from the booking's own rates.
+  const priceDeltaCents =
+    range?.from && range?.to
+      ? changePriceDeltaCents(
+          priceBasis,
+          { weeklyDiscountPercent: weeklyDiscountPercent ?? null, monthlyDiscountPercent: monthlyDiscountPercent ?? null },
+          {
+            checkIn: parseStayDate(toStayDateString(range.from))!,
+            checkOut: parseStayDate(toStayDateString(range.to))!,
+          },
+        )
+      : 0;
 
   function isSelectionValid(): boolean {
     if (!range?.from || !range?.to) return false;
@@ -183,11 +181,11 @@ export function RequestChangeDialog({
             <div className="flex flex-col gap-1.5 rounded-lg bg-surface-muted p-3 text-sm">
               <div className="flex justify-between text-stone-600">
                 <span>Original total</span>
-                <span>{formatPrice(currentTotalPriceCents)}</span>
+                <span>{formatPrice(priceBasis.totalPriceCents)}</span>
               </div>
               <div className="flex justify-between text-stone-600">
                 <span>New total</span>
-                <span>{formatPrice(newTotalPriceCents)}</span>
+                <span>{formatPrice(priceBasis.totalPriceCents + priceDeltaCents)}</span>
               </div>
               {priceDeltaCents !== 0 && (
                 <div className="flex justify-between border-t border-border-subtle pt-1.5 font-semibold text-foreground">

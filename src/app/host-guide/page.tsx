@@ -23,7 +23,7 @@ const STEPS = [
   {
     title: "3. Choose a cancellation policy",
     description:
-      "Pick Flexible, Moderate, Strict, or set your own Custom refund percentage and cutoff. This is shown to guests before they book, and drives every refund calculation automatically.",
+      "Pick Flexible, Moderate, Strict, Non-refundable (a full refund only within 24 hours of paying), or set your own Custom refund percentage and cutoff. This is shown to guests before they book, and drives every refund calculation automatically.",
   },
   {
     title: "4. Publish and manage availability",

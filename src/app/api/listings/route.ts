@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { bookableHostWhere } from "@/lib/stripeConnect";
 import { auth } from "@/auth";
@@ -10,112 +9,16 @@ import {
   isRangeAvailable,
   isRoomTypeRangeAvailable,
 } from "@/lib/availability";
-import { httpUrlSchema, listingFieldSchemas } from "@/lib/validation";
 import { geocodeListing } from "@/lib/geocoding";
 import { paginateListings, parsePageParam } from "@/lib/listingSearch";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { parseStayDate } from "@/lib/stayDates";
 import { withApiErrorHandling } from "@/lib/apiError";
-import { lastMinuteDealInput, resolveLastMinuteDeal } from "@/lib/dealValidation";
+import { resolveLastMinuteDeal } from "@/lib/dealValidation";
+import { createListingSchema } from "@/lib/listingInput";
+import { weekendRateError } from "@/lib/pricing";
 
 const LISTINGS_API_PAGE_SIZE = 24;
-
-// One category of room within a HOTEL listing (see prisma/schema.prisma's
-// RoomType model). Every non-hotel property type has zero of these and
-// keeps using the flat price/capacity fields below directly.
-const roomTypeInputSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(2000).nullable().optional(),
-  pricePerNightCents: listingFieldSchemas.pricePerNightCents,
-  maxGuests: z.number().int().min(1).max(50),
-  bedrooms: z.number().int().min(0).max(50),
-  beds: z.number().int().min(1).max(50),
-  bathrooms: z.number().int().min(0).max(50),
-  photos: z.array(httpUrlSchema).min(1),
-  totalRooms: z.number().int().min(1).max(500),
-});
-
-const createListingSchema = z
-  .object({
-    title: listingFieldSchemas.title,
-    description: listingFieldSchemas.description,
-    propertyType: z
-      .enum(["APARTMENT", "HOUSE", "HOTEL", "COTTAGE", "VILLA", "STUDIO", "OTHER"])
-      .optional(),
-    city: z.string().min(1).max(100),
-    country: z.string().min(1).max(100),
-    address: z.string().max(200).optional(),
-    // Required for every non-HOTEL property type (enforced below, since a
-    // HOTEL listing instead takes its price/capacity from roomTypes and
-    // these are simply ignored if a client somehow still sends them).
-    pricePerNightCents: listingFieldSchemas.pricePerNightCents.optional(),
-    cleaningFeeCents: listingFieldSchemas.cleaningFeeCents.default(0),
-    weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
-    monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
-    ...lastMinuteDealInput,
-    maxGuests: z.number().int().min(1).max(50).optional(),
-    bedrooms: z.number().int().min(0).max(50).optional(),
-    beds: z.number().int().min(1).max(50).optional(),
-    bathrooms: z.number().int().min(0).max(50).optional(),
-    photos: z.array(httpUrlSchema).min(1),
-    amenities: z.array(z.string()).default([]),
-    cancellationPolicy: z.enum(["FLEXIBLE", "MODERATE", "STRICT", "CUSTOM"]).optional(),
-    customCancellationCutoffDays: z.number().int().min(0).max(90).optional(),
-    customCancellationRefundPercent: z.number().int().min(0).max(100).optional(),
-    minNights: z.number().int().min(1).max(365).optional(),
-    maxNights: z.number().int().min(1).max(365).nullable().optional(),
-    checkInTime: z.string().max(50).nullable().optional(),
-    checkOutTime: z.string().max(50).nullable().optional(),
-    selfCheckIn: z.boolean().optional(),
-    instantBook: z.boolean().optional(),
-    securityDepositCents: listingFieldSchemas.securityDepositCents.optional(),
-    checkInInstructions: z.string().max(2000).nullable().optional(),
-    wifiNetwork: z.string().max(100).nullable().optional(),
-    wifiPassword: z.string().max(100).nullable().optional(),
-    smokingAllowed: z.boolean().optional(),
-    partiesAllowed: z.boolean().optional(),
-    quietHoursStart: z.string().max(50).nullable().optional(),
-    quietHoursEnd: z.string().max(50).nullable().optional(),
-    additionalRules: z.string().max(2000).nullable().optional(),
-    roomTypes: z.array(roomTypeInputSchema).optional(),
-  })
-  .refine(
-    (data) =>
-      data.cancellationPolicy !== "CUSTOM" ||
-      (data.customCancellationCutoffDays !== undefined &&
-        data.customCancellationRefundPercent !== undefined),
-    { message: "A custom cancellation policy needs a cutoff and a refund percentage" },
-  )
-  .refine(
-    (data) =>
-      data.maxNights === undefined || data.maxNights === null || !data.minNights ||
-      data.maxNights >= data.minNights,
-    { message: "Maximum stay can't be shorter than the minimum stay" },
-  )
-  .superRefine((data, ctx) => {
-    if (data.propertyType === "HOTEL") {
-      if (!data.roomTypes || data.roomTypes.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "A hotel listing needs at least one room type",
-          path: ["roomTypes"],
-        });
-      }
-      return;
-    }
-    // Every non-hotel property type keeps requiring its own flat
-    // price/capacity fields, exactly as before roomTypes existed.
-    const requiredFields = ["pricePerNightCents", "maxGuests", "bedrooms", "beds", "bathrooms"] as const;
-    for (const field of requiredFields) {
-      if (data[field] === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Required",
-          path: [field],
-        });
-      }
-    }
-  });
 
 async function getHandler(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -240,6 +143,14 @@ async function postHandler(request: Request) {
   const deal = resolveLastMinuteDeal(parsed.data);
   if ("error" in deal) {
     return NextResponse.json({ error: deal.error }, { status: 400 });
+  }
+  const weekendError = weekendRateError({
+    pricePerNightCents: parsed.data.pricePerNightCents ?? 0,
+    weekendPricePerNightCents: parsed.data.weekendPricePerNightCents ?? null,
+    propertyType: parsed.data.propertyType,
+  });
+  if (weekendError) {
+    return NextResponse.json({ error: weekendError }, { status: 400 });
   }
 
   const { roomTypes, pricePerNightCents, maxGuests, bedrooms, beds, bathrooms, ...rest } =

@@ -8,6 +8,12 @@ import {
   guestNightlyPriceCents,
   resolveLengthOfStayDiscount,
   splitBookingChange,
+  isWeekendNight,
+  weekendNightsBetween,
+  stayRates,
+  bookingNightlySubtotalCents,
+  nightlyChargeLines,
+  weekendRateError,
 } from "./pricing";
 
 describe("computeBookingPricing", () => {
@@ -252,5 +258,80 @@ describe("guestNightlyPriceCents", () => {
     // Matches a one-night booking's accommodation + service fee exactly.
     const oneNight = computeBookingPricing({ nights: 1, pricePerNightCents: 12345 });
     expect(guestNightlyPriceCents(12345)).toBe(oneNight.nightlySubtotalCents + oneNight.serviceFeeCents);
+  });
+});
+
+describe("weekend rates", () => {
+  const d = (iso: string) => new Date(`${iso}T00:00:00Z`);
+
+  it("counts Friday and Saturday nights only", () => {
+    expect(isWeekendNight(d("2026-11-06"))).toBe(true); // Friday
+    expect(isWeekendNight(d("2026-11-07"))).toBe(true); // Saturday
+    expect(isWeekendNight(d("2026-11-08"))).toBe(false); // Sunday
+    expect(isWeekendNight(d("2026-11-05"))).toBe(false); // Thursday
+    expect(weekendNightsBetween(d("2026-11-05"), d("2026-11-09"))).toBe(2); // Thu-Mon
+    expect(weekendNightsBetween(d("2026-11-08"), d("2026-11-13"))).toBe(0); // Sun-Fri: checkout day isn't a night
+    expect(weekendNightsBetween(d("2026-11-02"), d("2026-11-16"))).toBe(4); // two weeks
+  });
+
+  it("charges weeknights and Fri/Sat nights at their own rates", () => {
+    // Thu-Sun: Thu at £255, Fri + Sat at £275 = £805, + 10% fee.
+    const pricing = computeBookingPricing({
+      nights: 3,
+      ...stayRates({ pricePerNightCents: 25_500, weekendPricePerNightCents: 27_500 }, d("2026-11-05"), d("2026-11-08")),
+    });
+    expect(pricing).toMatchObject({
+      nightlySubtotalCents: 80_500,
+      weekendNights: 2,
+      weekendNightlyPriceCents: 27_500,
+      serviceFeeCents: 8_050,
+      totalPriceCents: 88_550,
+    });
+  });
+
+  it("prices exactly as before for a listing without a weekend rate", () => {
+    const rates = stayRates({ pricePerNightCents: 10_000 }, d("2026-11-05"), d("2026-11-08"));
+    expect(rates).toEqual({ pricePerNightCents: 10_000, weekendPricePerNightCents: null, weekendNights: 0 });
+    expect(computeBookingPricing({ nights: 3, ...rates }).nightlySubtotalCents).toBe(30_000);
+  });
+
+  it("applies a stay discount to the whole weekday + weekend subtotal", () => {
+    const pricing = computeBookingPricing({
+      nights: 7,
+      ...stayRates({ pricePerNightCents: 25_500, weekendPricePerNightCents: 27_500 }, d("2026-11-02"), d("2026-11-09")),
+      weeklyDiscountPercent: 10,
+    });
+    // 5 x £255 + 2 x £275 = £1,825; 10% off = £182.50.
+    expect(pricing.nightlySubtotalCents).toBe(182_500);
+    expect(pricing.lengthOfStayDiscountCents).toBe(18_250);
+  });
+
+  it("works out a booking's accommodation from its own snapshot", () => {
+    const booking = { nights: 3, nightlyPriceCents: 25_500, weekendNights: 2, weekendNightlyPriceCents: 27_500, lengthOfStayDiscountCents: 0 };
+    expect(bookingNightlySubtotalCents(booking)).toBe(80_500);
+    expect(discountedAccommodationCents(booking)).toBe(80_500);
+    // Bookings from before weekend rates: nights x nightly rate, unchanged.
+    expect(bookingNightlySubtotalCents({ nights: 3, nightlyPriceCents: 10_000 })).toBe(30_000);
+    expect(bookingNightlySubtotalCents({ nights: 3, nightlyPriceCents: 10_000, weekendNights: 0, weekendNightlyPriceCents: null })).toBe(30_000);
+  });
+
+  it("splits the breakdown into weeknight and Fri/Sat lines that add up", () => {
+    const fmt = (c: number) => `£${c / 100}`;
+    const lines = nightlyChargeLines({ nights: 3, nightlyPriceCents: 25_500, weekendNights: 2, weekendNightlyPriceCents: 27_500 }, fmt);
+    expect(lines).toEqual([
+      { label: "£255 × 1 weeknight", cents: 25_500 },
+      { label: "£275 × 2 Fri/Sat nights", cents: 55_000 },
+    ]);
+    expect(nightlyChargeLines({ nights: 2, nightlyPriceCents: 25_500, weekendNights: 2, weekendNightlyPriceCents: 27_500 }, fmt)).toEqual([
+      { label: "£275 × 2 Fri/Sat nights", cents: 55_000 },
+    ]);
+    expect(nightlyChargeLines({ nights: 2, nightlyPriceCents: 10_000 }, fmt)).toEqual([{ label: "£100 × 2 nights", cents: 20_000 }]);
+  });
+
+  it("only allows a weekend rate at or above the weekday rate, and never on a hotel", () => {
+    expect(weekendRateError({ pricePerNightCents: 25_500, weekendPricePerNightCents: 27_500 })).toBeNull();
+    expect(weekendRateError({ pricePerNightCents: 25_500, weekendPricePerNightCents: null })).toBeNull();
+    expect(weekendRateError({ pricePerNightCents: 25_500, weekendPricePerNightCents: 20_000 })).toMatch(/can't be lower/);
+    expect(weekendRateError({ pricePerNightCents: 25_500, weekendPricePerNightCents: 27_500, propertyType: "HOTEL" })).toMatch(/room type/);
   });
 });

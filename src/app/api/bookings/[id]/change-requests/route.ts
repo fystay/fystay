@@ -139,7 +139,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   // price the new stay at the listing's rate today against the discounted
   // total, so a same-length change could charge the guest their discount
   // again, or a host's later price rise.)
-  const priceDeltaCents = changePriceDeltaCents(booking, booking.listing, nights);
+  const priceDeltaCents = changePriceDeltaCents(booking, booking.listing, { checkIn, checkOut });
 
   // The in-progress check above is repeated under the listing's lock, so two
   // requests sent at once (a double submit, two tabs) can't both be created.

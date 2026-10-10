@@ -17,7 +17,7 @@ const REASONS = [
   {
     icon: MapPinned,
     title: "Genuinely local",
-    description: "Every stay is on the Fylde Coast, not a generic listing pulled in from anywhere else.",
+    description: "Every stay is in North West England, not a generic listing pulled in from anywhere else.",
   },
   {
     icon: MessageCircle,

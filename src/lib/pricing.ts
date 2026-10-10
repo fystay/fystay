@@ -58,9 +58,82 @@ export function resolveLengthOfStayDiscount(params: {
   return { percent: 0, label: null };
 }
 
+/**
+ * Friday and Saturday nights - the nights a weekend rate applies to (the
+ * usual UK holiday-let and OTA meaning). A stay date is a UTC-midnight
+ * calendar date (see stayDates.ts), and the night belongs to the date it
+ * starts on: a Friday check-in's first night is a weekend night, a Sunday
+ * check-in's isn't.
+ */
+export function isWeekendNight(night: Date): boolean {
+  const day = night.getUTCDay();
+  return day === 5 || day === 6;
+}
+
+/** How many of the nights from checkIn up to (not including) checkOut are weekend nights. */
+export function weekendNightsBetween(checkIn: Date, checkOut: Date): number {
+  let count = 0;
+  for (let night = checkIn.getTime(); night < checkOut.getTime(); night += 24 * 60 * 60 * 1000) {
+    if (isWeekendNight(new Date(night))) count++;
+  }
+  return count;
+}
+
+/**
+ * A listing's rates for one stay, ready for computeBookingPricing: its
+ * weekday rate, its weekend rate (if it has one) and how many weekend nights
+ * the dates contain. The one place a listing's weekend rate meets a stay's
+ * dates, so the quote, the booking and its snapshot agree.
+ */
+export function stayRates(
+  listing: { pricePerNightCents: number; weekendPricePerNightCents?: number | null },
+  checkIn: Date,
+  checkOut: Date,
+): { pricePerNightCents: number; weekendPricePerNightCents: number | null; weekendNights: number } {
+  const weekendPricePerNightCents = listing.weekendPricePerNightCents ?? null;
+  return {
+    pricePerNightCents: listing.pricePerNightCents,
+    weekendPricePerNightCents,
+    weekendNights: weekendPricePerNightCents === null ? 0 : weekendNightsBetween(checkIn, checkOut),
+  };
+}
+
+/**
+ * A booking's gross accommodation, before its stay discount: weekday nights
+ * at its nightly rate and weekend nights at its weekend rate, both as copied
+ * when it was booked. Every booking from before weekend rates has
+ * weekendNights 0, so this is nights x nightlyPriceCents for those.
+ */
+export function bookingNightlySubtotalCents(booking: {
+  nights: number;
+  nightlyPriceCents: number;
+  weekendNights?: number | null;
+  weekendNightlyPriceCents?: number | null;
+}): number {
+  return nightlySubtotal(booking.nights, booking.nightlyPriceCents, booking.weekendNights, booking.weekendNightlyPriceCents);
+}
+
+function nightlySubtotal(
+  nights: number,
+  pricePerNightCents: number,
+  weekendNights: number | null | undefined,
+  weekendPricePerNightCents: number | null | undefined,
+): number {
+  const allNights = Math.max(0, nights);
+  const atWeekendRate =
+    weekendPricePerNightCents === null || weekendPricePerNightCents === undefined
+      ? 0
+      : Math.min(allNights, Math.max(0, weekendNights ?? 0));
+  return (allNights - atWeekendRate) * pricePerNightCents + atWeekendRate * (weekendPricePerNightCents ?? 0);
+}
+
 export type BookingPriceBreakdown = {
-  /** Gross, before any length-of-stay discount: nights * pricePerNightCents. */
+  /** Gross, before any length-of-stay discount: weekday nights at the nightly rate plus weekend nights at the weekend rate. */
   nightlySubtotalCents: number;
+  /** Nights charged at weekendNightlyPriceCents; 0 when the stay has none or the listing has no weekend rate. */
+  weekendNights: number;
+  /** The weekend rate the stay was priced with, copied onto the booking; null when the listing has none. */
+  weekendNightlyPriceCents: number | null;
   lengthOfStayDiscountPercent: number;
   lengthOfStayDiscountCents: number;
   lengthOfStayDiscountLabel: LengthOfStayDiscountLabel | null;
@@ -84,6 +157,10 @@ export type BookingPriceBreakdown = {
 export function computeBookingPricing(params: {
   nights: number;
   pricePerNightCents: number;
+  /** The listing's Friday/Saturday rate (see stayRates); omitted or null means every night is pricePerNightCents. */
+  weekendPricePerNightCents?: number | null;
+  /** How many of the nights are Friday or Saturday nights (weekendNightsBetween). */
+  weekendNights?: number;
   cleaningFeeCents?: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
@@ -97,12 +174,16 @@ export function computeBookingPricing(params: {
   const {
     nights,
     pricePerNightCents,
+    weekendPricePerNightCents = null,
+    weekendNights = 0,
     cleaningFeeCents = 0,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
     lastMinuteDiscountPercent,
   } = params;
-  const nightlySubtotalCents = Math.max(0, nights) * pricePerNightCents;
+  const nightlySubtotalCents = nightlySubtotal(nights, pricePerNightCents, weekendNights, weekendPricePerNightCents);
+  const chargedWeekendNights =
+    weekendPricePerNightCents === null ? 0 : Math.min(Math.max(0, nights), Math.max(0, weekendNights));
   const lengthOfStay = resolveLengthOfStayDiscount({ nights, weeklyDiscountPercent, monthlyDiscountPercent });
   const { percent: lengthOfStayDiscountPercent, label: lengthOfStayDiscountLabel } =
     lastMinuteDiscountPercent && lastMinuteDiscountPercent > lengthOfStay.percent
@@ -119,6 +200,8 @@ export function computeBookingPricing(params: {
 
   return {
     nightlySubtotalCents,
+    weekendNights: chargedWeekendNights,
+    weekendNightlyPriceCents: weekendPricePerNightCents,
     lengthOfStayDiscountPercent,
     lengthOfStayDiscountCents,
     lengthOfStayDiscountLabel,
@@ -165,9 +248,11 @@ export function applyDiscountsToApplicationFee(
 export function discountedAccommodationCents(booking: {
   nights: number;
   nightlyPriceCents: number;
+  weekendNights?: number | null;
+  weekendNightlyPriceCents?: number | null;
   lengthOfStayDiscountCents: number;
 }): number {
-  return booking.nights * booking.nightlyPriceCents - booking.lengthOfStayDiscountCents;
+  return bookingNightlySubtotalCents(booking) - booking.lengthOfStayDiscountCents;
 }
 
 export type ChangeSplitBooking = {
@@ -229,4 +314,54 @@ export function splitBookingChange(
       ? Math.min(Math.max(rawPlatformShare, 0), deltaCents)
       : Math.max(Math.min(rawPlatformShare, 0), deltaCents);
   return { hostShareCents: deltaCents - platformShareCents, platformShareCents };
+}
+
+/**
+ * The accommodation lines of a price breakdown: one "£X × N nights" line
+ * as always, or - for a stay with weekend nights at a weekend rate - one for
+ * the weeknights and one for the Friday/Saturday nights, so every breakdown
+ * (quote, checkout, receipt, host view) adds up the same way. `format` is
+ * the caller's money formatter (some show the guest's display currency).
+ */
+export function nightlyChargeLines(
+  stay: { nights: number; nightlyPriceCents: number; weekendNights?: number | null; weekendNightlyPriceCents?: number | null },
+  format: (cents: number) => string,
+): { label: string; cents: number }[] {
+  const weekend =
+    stay.weekendNightlyPriceCents === null || stay.weekendNightlyPriceCents === undefined
+      ? 0
+      : Math.min(Math.max(0, stay.nights), Math.max(0, stay.weekendNights ?? 0));
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  if (weekend === 0) {
+    return [{ label: `${format(stay.nightlyPriceCents)} × ${plural(stay.nights, "night")}`, cents: stay.nights * stay.nightlyPriceCents }];
+  }
+  const weeknights = stay.nights - weekend;
+  const lines: { label: string; cents: number }[] = [];
+  if (weeknights > 0) {
+    lines.push({ label: `${format(stay.nightlyPriceCents)} × ${plural(weeknights, "weeknight")}`, cents: weeknights * stay.nightlyPriceCents });
+  }
+  lines.push({
+    label: `${format(stay.weekendNightlyPriceCents!)} × ${plural(weekend, "Fri/Sat night")}`,
+    cents: weekend * stay.weekendNightlyPriceCents!,
+  });
+  return lines;
+}
+
+/**
+ * Why a listing's weekend rate isn't allowed, or null. It can't be below the
+ * weekday rate: pricePerNightCents is the "from" price every card, search
+ * filter and meta description leads with, and a cheaper weekend would make
+ * that headline untrue. A hotel's prices live on its room types instead.
+ */
+export function weekendRateError(listing: {
+  pricePerNightCents: number;
+  weekendPricePerNightCents: number | null;
+  propertyType?: string | null;
+}): string | null {
+  if (listing.weekendPricePerNightCents === null) return null;
+  if (listing.propertyType === "HOTEL") return "Hotels set their prices on each room type, not a weekend rate";
+  if (listing.weekendPricePerNightCents < listing.pricePerNightCents) {
+    return "The Friday and Saturday price can't be lower than the weekday price";
+  }
+  return null;
 }

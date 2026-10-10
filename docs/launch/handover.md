@@ -38,6 +38,18 @@ remaining item.
   homepage shows no stays (Spotlight, Last Minute Deals and Explore are empty).
   Applied on 6 Oct by run #17 (see the connection audit below).
 
+## Status 10 Oct: Lodge on the Lake, weekend rates, Non-refundable policy (not live yet)
+
+Branch `claude/lodge-on-the-lake`. Adds FYStay's first North West listing
+(Lodge on the Lake, Carnforth) as a one-off import, plus two features its
+owner needed: **Friday/Saturday rates** (optional per listing, never below
+the weekday rate; copied onto each booking, used by quotes, receipts, date
+changes and host earnings) and a **Non-refundable** cancellation policy
+(full refund within 24 hours of paying, before the check-in date). One new
+migration, `20261010120000_add_weekend_rates_and_non_refundable_policy`:
+apply it to Production **before** merging. Everything else is in
+[../listings/lodge-on-the-lake.md](../listings/lodge-on-the-lake.md).
+
 ## Status 7 Oct, evening: production-readiness audit (not live yet)
 
 Full write-up, scorecard and owner actions:

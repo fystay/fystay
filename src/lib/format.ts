@@ -89,3 +89,13 @@ const ukTimeFormatter = new Intl.DateTimeFormat("en-GB", {
 export function formatUkTime(date: Date | string): string {
   return ukTimeFormatter.format(new Date(date));
 }
+
+/**
+ * A cancellation deadline from cancellationStanding: a stay date for the
+ * usual "N days before check-in" tiers, or a UK date and time for a
+ * non-refundable policy's 24-hour window after payment.
+ */
+export function formatCancellationDeadline(standing: { until: Date | null; untilIsTime?: boolean }): string {
+  if (!standing.until) return "";
+  return standing.untilIsTime ? formatDateTime(standing.until) : formatStayDate(standing.until);
+}

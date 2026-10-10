@@ -71,6 +71,8 @@ export async function loadHostPortfolio(prisma: PrismaClient, hostId: string) {
         guests: true,
         guestName: true,
         nightlyPriceCents: true,
+        weekendNights: true,
+        weekendNightlyPriceCents: true,
         lengthOfStayDiscountCents: true,
         roomsBooked: true,
         createdAt: true,

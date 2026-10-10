@@ -28,7 +28,7 @@ import { needsDepositAuthorization } from "@/lib/securityDeposit";
 import { DepositStatusCard } from "@/components/DepositStatusCard";
 import { TripExtrasCard } from "@/components/TripExtrasCard";
 import type { BadgeProps } from "@/components/ui/Badge";
-import { formatDate, formatDateTime, formatPrice, formatStayDate, formatUkTime } from "@/lib/format";
+import { formatDate, formatCancellationDeadline, formatDateTime, formatPrice, formatUkTime } from "@/lib/format";
 import { buildStayQuery } from "@/lib/stayQuery";
 import type { LengthOfStayDiscountLabel } from "@/lib/pricing";
 
@@ -153,7 +153,7 @@ export default async function BookingDetailPage({
   // rule the Cancel button refunds by (see cancellationStanding).
   const standing =
     booking.status === "CONFIRMED" && booking.paymentStatus === "PAID"
-      ? cancellationStanding(policy, booking.checkIn, now)
+      ? cancellationStanding(policy, booking.checkIn, now, booking.paidAt)
       : null;
   const wasCancelledAfterPaying =
     (booking.status === "CANCELLED" || booking.status === "REFUNDED") && booking.paidAt !== null;
@@ -351,8 +351,8 @@ export default async function BookingDetailPage({
                   <p className="font-medium text-foreground">
                     {standing.until
                       ? standing.refundPercent === 100
-                        ? `Free cancellation until ${formatStayDate(standing.until)}`
-                        : `${standing.refundPercent}% refund if you cancel by ${formatStayDate(standing.until)}`
+                        ? `Free cancellation until ${formatCancellationDeadline(standing)}`
+                        : `${standing.refundPercent}% refund if you cancel by ${formatCancellationDeadline(standing)}`
                       : "This stay can no longer be refunded"}
                   </p>
                   <p className="mt-0.5">
@@ -468,12 +468,17 @@ export default async function BookingDetailPage({
                     currentCheckIn={booking.checkIn}
                     currentCheckOut={booking.checkOut}
                     currentGuests={booking.guests}
-                    currentTotalPriceCents={booking.totalPriceCents}
-                    pricePerNightCents={booking.listing.pricePerNightCents}
-                    cleaningFeeCents={booking.listing.cleaningFeeCents}
+                    priceBasis={{
+                      nightlyPriceCents: booking.nightlyPriceCents,
+                      weekendNightlyPriceCents: booking.weekendNightlyPriceCents,
+                      cleaningFeeCents: booking.cleaningFeeCents,
+                      lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent,
+                      totalPriceCents: booking.totalPriceCents,
+                      creditAppliedCents: booking.creditAppliedCents,
+                      promoDiscountCents: booking.promoDiscountCents,
+                    }}
                     weeklyDiscountPercent={booking.listing.weeklyDiscountPercent}
                     monthlyDiscountPercent={booking.listing.monthlyDiscountPercent}
-                    lastMinuteDiscountPercent={booking.lastMinuteDiscountPercent}
                     minNights={booking.listing.minNights}
                     maxNights={booking.listing.maxNights}
                     maxGuests={booking.listing.maxGuests}
@@ -490,6 +495,7 @@ export default async function BookingDetailPage({
                       wasPaid: booking.paymentStatus === "PAID",
                       totalPriceCents: booking.totalPriceCents,
                       checkIn: booking.checkIn,
+                      paidAt: booking.paidAt,
                     })}
                   />
                 )}
@@ -524,6 +530,8 @@ export default async function BookingDetailPage({
             nights={booking.nights}
             guests={booking.guests}
             nightlyPriceCents={booking.nightlyPriceCents}
+            weekendNights={booking.weekendNights}
+            weekendNightlyPriceCents={booking.weekendNightlyPriceCents}
             lengthOfStayDiscountCents={booking.lengthOfStayDiscountCents}
             lengthOfStayDiscountLabel={booking.lengthOfStayDiscountLabel as LengthOfStayDiscountLabel | null}
             cleaningFeeCents={booking.cleaningFeeCents}

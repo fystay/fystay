@@ -14,7 +14,7 @@ import {
   REQUEST_HOLD_HOURS,
   stayLengthError,
 } from "@/lib/availability";
-import { computeBookingPricing, maxFyStayDiscountCents } from "@/lib/pricing";
+import { computeBookingPricing, maxFyStayDiscountCents, stayRates } from "@/lib/pricing";
 import { cancellationTermsSnapshot } from "@/lib/cancellationPolicy";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { generateBookingReference } from "@/lib/bookingReference";
@@ -425,7 +425,7 @@ async function createListingBooking(
   const lastMinuteDiscountPercent = lastMinuteDiscountFor(listing, checkIn);
   const pricing = computeBookingPricing({
     nights,
-    pricePerNightCents: listing.pricePerNightCents,
+    ...stayRates(listing, checkIn, checkOut),
     cleaningFeeCents: listing.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
@@ -460,6 +460,8 @@ async function createListingBooking(
       guests,
       nights,
       nightlyPriceCents: listing.pricePerNightCents,
+      weekendNights: pricing.weekendNights,
+      weekendNightlyPriceCents: pricing.weekendNightlyPriceCents,
       lengthOfStayDiscountCents: pricing.lengthOfStayDiscountCents,
       lengthOfStayDiscountLabel: pricing.lengthOfStayDiscountLabel,
       lastMinuteDiscountPercent,

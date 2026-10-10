@@ -11,7 +11,7 @@ import {
   isRoomTypeRangeAvailable,
   nightsBetween,
 } from "@/lib/availability";
-import { computeBookingPricing, maxFyStayDiscountCents } from "@/lib/pricing";
+import { computeBookingPricing, maxFyStayDiscountCents, stayRates } from "@/lib/pricing";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { computePromoDiscount, normalizePromoCode, validatePromoCode } from "@/lib/promoCode";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
@@ -229,7 +229,7 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
   const nights = nightsBetween(checkIn, checkOut);
   const pricing = computeBookingPricing({
     nights,
-    pricePerNightCents: listing.pricePerNightCents,
+    ...stayRates(listing, checkIn, checkOut),
     cleaningFeeCents: listing.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,

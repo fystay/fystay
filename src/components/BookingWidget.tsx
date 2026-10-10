@@ -22,6 +22,8 @@ import {
   stayDiscountName,
   WEEKLY_DISCOUNT_MIN_NIGHTS,
   guestNightlyPriceCents,
+  nightlyChargeLines,
+  stayRates,
 } from "@/lib/pricing";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { isPetFriendly, totalOccupants, type GuestCounts } from "@/lib/search";
@@ -32,6 +34,8 @@ import { parseStayDate, stayDateToLocal, toStayDateString } from "@/lib/stayDate
 type Props = {
   listingId: string;
   pricePerNightCents: number;
+  /** Friday/Saturday rate, when the host charges one (never below pricePerNightCents). */
+  weekendPricePerNightCents?: number | null;
   cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
@@ -72,6 +76,7 @@ function fitGuestsToListing(guests: GuestCounts, capacity: number, petsAllowed: 
 export function BookingWidget({
   listingId,
   pricePerNightCents,
+  weekendPricePerNightCents = null,
   cleaningFeeCents,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
@@ -130,6 +135,7 @@ export function BookingWidget({
   );
 
   const nights = range?.from && range?.to ? nightsBetween(range.from, range.to) : 0;
+  const hasWeekendRate = weekendPricePerNightCents !== null && weekendPricePerNightCents !== pricePerNightCents;
 
   // The most guest-friendly tier is always authored first (see
   // cancellationPolicy.ts) - once real check-in dates are picked, that
@@ -148,9 +154,12 @@ export function BookingWidget({
   const lastMinuteForStay = selectedCheckIn
     ? lastMinuteDiscountFor({ lastMinuteDiscountPercent, lastMinuteWindowDays }, selectedCheckIn)
     : null;
+  const selectedCheckOut = range?.to ? parseStayDate(toStayDateString(range.to)) : null;
   const pricing = computeBookingPricing({
     nights,
-    pricePerNightCents,
+    ...(selectedCheckIn && selectedCheckOut
+      ? stayRates({ pricePerNightCents, weekendPricePerNightCents }, selectedCheckIn, selectedCheckOut)
+      : { pricePerNightCents }),
     cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
@@ -309,6 +318,7 @@ export function BookingWidget({
                   {formatPrice(guestNightlyPriceCents(priceDropFromCents))}
                 </s>
               )}
+              {hasWeekendRate && <span className="mr-1 text-sm font-normal text-stone-500">from</span>}
               {formatPrice(guestNightlyPriceCents(pricePerNightCents))}
               <span className="ml-1 text-sm font-normal text-stone-500">/ night</span>
             </p>
@@ -324,6 +334,7 @@ export function BookingWidget({
               name the one per-stay charge it can't include per night. */}
           <p className="mt-0.5 text-xs text-stone-500">
             Includes FYStay&apos;s service fee
+            {hasWeekendRate && ` · ${formatPrice(guestNightlyPriceCents(weekendPricePerNightCents!))} on Fri and Sat nights`}
             {cleaningFeeCents > 0 && ` · plus ${formatPrice(cleaningFeeCents)} cleaning per stay`}
           </p>
 
@@ -370,12 +381,20 @@ export function BookingWidget({
 
           {nights > 0 && (
             <div className="mt-4 flex flex-col gap-2 border-t border-border-subtle pt-4 text-sm text-stone-700">
-              <div className="flex justify-between">
-                <span>
-                  {formatPrice(pricePerNightCents)} × {nights} night{nights > 1 ? "s" : ""}
-                </span>
-                <span>{formatPrice(pricing.nightlySubtotalCents)}</span>
-              </div>
+              {nightlyChargeLines(
+                {
+                  nights,
+                  nightlyPriceCents: pricePerNightCents,
+                  weekendNights: pricing.weekendNights,
+                  weekendNightlyPriceCents: pricing.weekendNightlyPriceCents,
+                },
+                formatPrice,
+              ).map((line) => (
+                <div key={line.label} className="flex justify-between">
+                  <span>{line.label}</span>
+                  <span>{formatPrice(line.cents)}</span>
+                </div>
+              ))}
               {pricing.lengthOfStayDiscountCents > 0 && (
                 <div className="flex justify-between text-brand-700">
                   <span>
@@ -546,6 +565,7 @@ export function BookingWidget({
             </>
           ) : (
             <>
+              {hasWeekendRate && <span className="text-sm text-stone-500">from </span>}
               <span className="font-bold text-brand-800">{formatPrice(guestNightlyPriceCents(pricePerNightCents))}</span>{" "}
               <span className="text-sm text-stone-500">/ night incl. service fee</span>
             </>

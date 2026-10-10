@@ -78,7 +78,7 @@ const STEPS = [
   },
   {
     title: "3. Set your availability and cancellation policy",
-    description: "Flexible, Moderate, Strict, or a Custom policy - entirely your call.",
+    description: "Flexible, Moderate, Strict, Non-refundable or a Custom policy - entirely your call.",
   },
   {
     title: "4. Publish and start hosting",

@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
 import { formatPrice } from "@/lib/format";
 import { isOptimizableImage } from "@/lib/image";
-import { stayDiscountName, type LengthOfStayDiscountLabel } from "@/lib/pricing";
+import { nightlyChargeLines, stayDiscountName, type LengthOfStayDiscountLabel } from "@/lib/pricing";
 
 const paymentStatusLabel: Record<string, string> = {
   UNPAID: "Unpaid",
@@ -34,6 +34,8 @@ export function BookingSummaryCard({
   nights,
   guests,
   nightlyPriceCents,
+  weekendNights = 0,
+  weekendNightlyPriceCents = null,
   lengthOfStayDiscountCents = 0,
   lengthOfStayDiscountLabel = null,
   cleaningFeeCents,
@@ -57,6 +59,9 @@ export function BookingSummaryCard({
   nights: number;
   guests: number;
   nightlyPriceCents: number;
+  /** Friday/Saturday nights charged at weekendNightlyPriceCents (Booking.weekendNights). */
+  weekendNights?: number;
+  weekendNightlyPriceCents?: number | null;
   lengthOfStayDiscountCents?: number;
   lengthOfStayDiscountLabel?: LengthOfStayDiscountLabel | null;
   cleaningFeeCents: number;
@@ -82,8 +87,6 @@ export function BookingSummaryCard({
   cancellationPolicyLabel?: string;
   cancellationPolicyDescription?: string;
 }) {
-  const nightlySubtotalCents = nights * nightlyPriceCents;
-
   return (
     <Card className="p-5">
       <CardContent className="flex flex-col gap-4 p-0">
@@ -176,12 +179,12 @@ export function BookingSummaryCard({
         )}
 
         <div className="flex flex-col gap-2 border-t border-border-subtle pt-4 text-sm text-stone-700">
-          <div className="flex justify-between">
-            <span>
-              {formatPrice(nightlyPriceCents)} × {nights} night{nights === 1 ? "" : "s"}
-            </span>
-            <span>{formatPrice(nightlySubtotalCents)}</span>
-          </div>
+          {nightlyChargeLines({ nights, nightlyPriceCents, weekendNights, weekendNightlyPriceCents }, formatPrice).map((line) => (
+            <div key={line.label} className="flex justify-between">
+              <span>{line.label}</span>
+              <span>{formatPrice(line.cents)}</span>
+            </div>
+          ))}
           {lengthOfStayDiscountCents > 0 && (
             <div className="flex justify-between text-brand-700">
               <span>{stayDiscountName(lengthOfStayDiscountLabel)}</span>
