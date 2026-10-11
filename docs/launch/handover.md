@@ -5,6 +5,28 @@ For whoever picks this up next, person or Claude session. **Read this first,
 then [master-checklist.md](master-checklist.md)**, the running list of every
 remaining item.
 
+## Supabase projects (owner decision, 11 Oct 2026) - supersedes older notes below
+
+FYStay has exactly two Supabase projects, and no third is wanted:
+
+| Project | Role |
+|---|---|
+| `wzatjhyfwtmxdxfmurkm` | **FYStay Production** |
+| `sqkpixwvugrxllrxlexs`, renamed **"fystaybackup"** | **FYStay Backup**: disaster-recovery restore target only |
+
+- The backup project is **not** a Preview/test database and must never take
+  test or live traffic. Older notes below calling it Preview's database, or
+  "lsllodge", are out of date.
+- The separate lsllodge website (Vercel project `lsllodge`) is redundant; its
+  code is kept only as a reusable template. Nothing should depend on it.
+- Still to clean up before the project can serve as a backup (each needs the
+  owner's approval): the old `lodge` schema and FYStay demo tables in its
+  `public` schema; the lsllodge Vercel Preview `DATABASE_URL` that still
+  points at it; FYStay Preview's `NEXT_PUBLIC_SUPABASE_URL` that still points
+  at it. Then set up the backup and restore drill.
+- Stripe sandbox testing uses a temporary non-Supabase database for the
+  branch Preview (proposed: Neon via Vercel Marketplace), never this project.
+
 ## Where things stand
 
 - **The product is built.** Guests can search, book, pay (Stripe Checkout),
