@@ -106,8 +106,9 @@ export async function generateMetadata({
   // A suspended listing gets no metadata/indexing, the same as an
   // unpublished one - it may still 200 for its own host below, but that's
   // not a page search engines (or link previews) should ever surface.
-  if (!listing || !listing.published) return {};
-  if (isSuspended(listing)) return { robots: { index: false, follow: false } };
+  if (!listing) return {};
+  // An unpublished listing is only ever a private preview (see below).
+  if (!listing.published || isSuspended(listing)) return { robots: { index: false, follow: false } };
 
   const title = withCity(listing.title, listing.city);
   const description = `${PROPERTY_TYPE_LABEL[listing.propertyType]} in ${listing.city}, ${listing.country} - ${listing.bedrooms} bedroom${listing.bedrooms === 1 ? "" : "s"}, sleeps ${listing.maxGuests}, from ${formatPrice(guestNightlyPriceCents(listing.pricePerNightCents))}/night incl. service fee. ${listing.description.slice(0, 110)}`;
@@ -147,8 +148,16 @@ export default async function ListingDetailPage({
     getFeaturedOffering(),
   ]);
 
-  if (!listing || !listing.published) {
-    notFound();
+  if (!listing) notFound();
+
+  // An unpublished listing is a private preview: its own host (once they
+  // have access - not while it's held for an invitation) and FYStay's
+  // admins see the page exactly as guests will, with a banner and booking
+  // switched off. Everyone else gets a 404, as before.
+  const isPreview = !listing.published;
+  if (isPreview) {
+    const isOwnHost = session?.user?.id === listing.hostId && !listing.hostInvitationId;
+    if (!isOwnHost && session?.user?.role !== "ADMIN") notFound();
   }
 
   // A suspended listing still 200s for its own host (so they can see why)
@@ -323,6 +332,22 @@ export default async function ListingDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+      {isPreview && (
+        <div role="status" className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+          <p className="font-semibold">Preview - guests can&apos;t see this listing yet</p>
+          <p className="mt-1">
+            This is exactly how the page will look once it&apos;s live. Booking is switched off in the preview.
+            {listing.preparedById && session?.user?.id === listing.hostId && (
+              <>
+                {" "}
+                <Link href={`/host/listings/${listing.id}/review`} className="font-medium underline">
+                  Back to your review
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
@@ -484,7 +509,7 @@ export default async function ListingDetailPage({
           </div>
         </div>
 
-        <div id="booking-widget">
+        <div id="booking-widget" inert={isPreview} className={isPreview ? "opacity-60" : undefined}>
           {listing.propertyType === "HOTEL" ? (
             <HotelBookingWidget
               listingId={listing.id}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { CalendarDays, CheckCircle2, Circle, Eye, Home, ImageOff, PencilLine, PlusCircle, Star } from "lucide-react";
+import { CalendarDays, CheckCircle2, Circle, ClipboardCheck, Eye, Home, ImageOff, PencilLine, PlusCircle, Star } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { loadHostPortfolio, type PortfolioListing } from "@/lib/hostData";
@@ -12,6 +12,8 @@ import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 import { formatPrice } from "@/lib/format";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
+import { PUBLICATION_LISTING_SELECT, publicationState } from "@/lib/listingOnboarding";
+import { STAGE_LABEL, type LifecycleStage, type PublicationBlocker } from "@/lib/listingReview";
 import { HostPageEmpty, HostPageHeader, Meter, Pill, hostPageClassName } from "@/components/host/HostUi";
 import { PublishToggle } from "@/components/host/PublishToggle";
 import { DeleteListingButton } from "@/components/DeleteListingButton";
@@ -30,12 +32,17 @@ export default async function HostListingsPage() {
   if (session.user.role !== "HOST") redirect("/host");
   const hostId = session.user.id;
 
-  const [{ listings, bookings, reviews }, host] = await Promise.all([
+  const [{ listings, bookings, reviews }, host, publication] = await Promise.all([
     loadHostPortfolio(prisma, hostId),
     prisma.user.findUniqueOrThrow({
       where: { id: hostId },
       select: { stripeConnectAccountId: true, stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true },
     }),
+    // Each listing's place in review and what stops it going live, in the
+    // host's own words (see src/lib/listingReview.ts).
+    prisma.listing
+      .findMany({ where: { hostId, hostInvitationId: null }, select: PUBLICATION_LISTING_SELECT })
+      .then((rows) => new Map(rows.map((row) => [row.id, { prepared: row.preparedById !== null, ...publicationState(row) }]))),
   ]);
 
   const today = ukToday();
@@ -97,6 +104,7 @@ export default async function HostListingsPage() {
               reviewCount={reviews.filter((r) => r.listingId === listing.id).length}
               monthLabel={month.start.toLocaleString("en-GB", { month: "long", timeZone: "UTC" })}
               canTakeBookings={canTakeBookings}
+              publication={publication.get(listing.id)}
             />
           </li>
         ))}
@@ -113,6 +121,7 @@ function ListingCard({
   reviewCount,
   monthLabel,
   canTakeBookings,
+  publication,
 }: {
   listing: PortfolioListing;
   earnedCents: number;
@@ -121,12 +130,22 @@ function ListingCard({
   reviewCount: number;
   monthLabel: string;
   canTakeBookings: boolean;
+  publication?: { prepared: boolean; stage: LifecycleStage; blockers: PublicationBlocker[] };
 }) {
   const health = listingHealth(listing);
   const todo = health.items.filter((i) => !i.done);
+  // A listing FYStay prepared shows where it is in review until it's live.
+  const reviewLabel =
+    publication?.prepared && !listing.published && !listing.suspendedAt
+      ? publication.stage === "awaiting_host_review"
+        ? "Awaiting your review"
+        : STAGE_LABEL[publication.stage]
+      : null;
   const status = listing.suspendedAt
     ? { label: "Paused by FYStay", tone: "danger" as const }
-    : !listing.published
+    : reviewLabel
+      ? { label: reviewLabel, tone: publication?.stage === "ready_to_publish" ? ("success" as const) : ("warning" as const) }
+      : !listing.published
       ? { label: "Hidden", tone: "neutral" as const }
       : canTakeBookings
         ? { label: "Live", tone: "success" as const }
@@ -178,6 +197,24 @@ function ListingCard({
         </div>
       </div>
 
+      {publication?.prepared && publication.stage === "awaiting_host_review" ? (
+        <p className="border-t border-border-subtle bg-amber-50 px-4 py-3 text-xs text-amber-950">
+          FYStay prepared this listing for you. Please check it and approve it, or ask for changes.{" "}
+          <Link href={`/host/listings/${listing.id}/review`} className="font-semibold underline">
+            Review it now
+          </Link>
+        </p>
+      ) : (
+        !listing.published &&
+        !listing.suspendedAt &&
+        publication &&
+        publication.blockers.length > 0 && (
+          <p className="border-t border-border-subtle px-4 py-3 text-xs text-stone-700">
+            <span className="font-medium text-foreground">Not live yet:</span> {publication.blockers[0].message}
+          </p>
+        )
+      )}
+
       <details className="group border-t border-border-subtle px-4 py-3">
         <summary className="flex cursor-pointer list-none items-center gap-3 text-xs [&::-webkit-details-marker]:hidden">
           <span className="font-medium text-foreground">Listing {health.score}% complete</span>
@@ -216,6 +253,9 @@ function ListingCard({
       <div className="mt-auto flex flex-wrap items-center gap-1 border-t border-border-subtle px-3 py-2">
         {!listing.suspendedAt && <PublishToggle listingId={listing.id} published={listing.published} title={listing.title} />}
         <span className="ml-auto flex flex-wrap items-center gap-0.5">
+          {publication?.prepared && (
+            <ActionLink href={`/host/listings/${listing.id}/review`} icon={ClipboardCheck} label="Review" />
+          )}
           <ActionLink href={`/host/listings/${listing.id}/edit`} icon={PencilLine} label="Edit" />
           <ActionLink href={`/host/listings/${listing.id}/calendar`} icon={CalendarDays} label="Calendar" />
           <ActionLink href={`/host/listings/${listing.id}/reviews`} icon={Star} label="Reviews" />

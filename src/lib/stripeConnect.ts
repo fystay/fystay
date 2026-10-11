@@ -115,9 +115,19 @@ export function hostAcceptsPaidBookings(host: {
  * same as hostAcceptsPaidBookings.
  */
 export function bookableHostWhere(): Prisma.ListingWhereInput {
-  return getStripeClient()
+  return payoutReadinessRequired()
     ? { host: { stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true } }
     : {};
+}
+
+/**
+ * Whether a host must be payout-ready before their listing is shown or
+ * published - the condition behind bookableHostWhere() and
+ * hostAcceptsPaidBookings(), for the publication checks in
+ * src/lib/listingReview.ts.
+ */
+export function payoutReadinessRequired(): boolean {
+  return Boolean(getStripeClient());
 }
 
 /**

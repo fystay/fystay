@@ -5,15 +5,19 @@
  *
  *   DATABASE_URL="<target database>" \
  *   NEXT_PUBLIC_SUPABASE_URL="..." SUPABASE_SERVICE_ROLE_KEY="..." \
- *   npm run listing:import-lodge -- --host-email owner@example.com [--confirm]
+ *   npm run listing:import-lodge -- --host-email owner@example.com --prepared-by admin@example.com [--confirm]
  *
  * The listing, its photos and the owner's own terms (rates, minimum stay,
  * cancellation and house rules) are in
  * src/lib/listingImports/lodgeOnTheLake.ts. Without --confirm it only
  * validates and says what it would do. It prints the
- * target database host (never the password). The listing is created
- * hidden; the owner reviews it at /host/listings and switches it to Live.
- * Running it twice for the same host is refused rather than duplicating.
+ * target database host (never the password). The listing is created as a
+ * private draft prepared by FYStay (--prepared-by, an admin account), so it
+ * follows admin-assisted onboarding (src/lib/listingReview.ts): the admin
+ * sends it for review from /admin/properties, the owner checks and
+ * explicitly approves it, and only then can it be published. Importing
+ * never counts as the owner's approval. Running it twice for the same host
+ * is refused rather than duplicating.
  *
  * Local testing only: --photo-base-url http://localhost:3000/some/dir uses
  * already-served copies of the photos instead of uploading, and is refused
@@ -44,12 +48,14 @@ async function main() {
   const args = process.argv.slice(2);
   const confirmed = args.includes("--confirm");
   const hostEmail = flag(args, "host-email")?.trim().toLowerCase();
+  const preparedByEmail = flag(args, "prepared-by")?.trim().toLowerCase();
   const photoBaseUrl = flag(args, "photo-base-url");
   const url = process.env.DATABASE_URL;
 
   const problems: string[] = [];
   if (!url) problems.push("DATABASE_URL is not set");
   if (!hostEmail) problems.push("--host-email is required (the owner's existing FYStay host account)");
+  if (!preparedByEmail) problems.push("--prepared-by is required (the FYStay admin account preparing the listing)");
   if (problems.length > 0) {
     for (const problem of problems) console.error(`- ${problem}`);
     console.error(USAGE);
@@ -95,6 +101,14 @@ async function main() {
       console.error(`Refused: ${hostEmail} is a ${host.role} account, not a host. They choose "Become a host" first.`);
       process.exit(1);
     }
+    const admin = await prisma.user.findUnique({
+      where: { email: preparedByEmail },
+      select: { id: true, role: true, deletedAt: true },
+    });
+    if (!admin || admin.deletedAt || admin.role !== "ADMIN") {
+      console.error(`Refused: --prepared-by ${preparedByEmail} must be an active FYStay admin account.`);
+      process.exit(1);
+    }
     const existing = await prisma.listing.findFirst({
       where: { hostId: host.id, title: LODGE_ON_THE_LAKE_TITLE },
       select: { id: true },
@@ -107,7 +121,7 @@ async function main() {
     const pounds = (cents: number) => `£${(cents / 100).toFixed(2)}`;
     console.log(
       [
-        `Would create "${LODGE_ON_THE_LAKE_TITLE}" for ${hostEmail}, hidden and request-to-book:`,
+        `Would create "${LODGE_ON_THE_LAKE_TITLE}" for ${hostEmail} as a private draft prepared by ${preparedByEmail}, request-to-book:`,
         `  ${pounds(terms.pricePerNightCents)} a night, ${pounds(terms.weekendPricePerNightCents)} on Fri/Sat nights, minimum ${terms.minNights} nights`,
         `  ${terms.cancellationPolicy.toLowerCase().replace("_", "-")} cancellation, smoking ${terms.smokingAllowed ? "allowed" : "not allowed"}, parties ${terms.partiesAllowed ? "allowed" : "not allowed"}`,
         `  ${LODGE_ON_THE_LAKE_PHOTOS.length} photos ${photoBaseUrl ? `from ${photoBaseUrl}` : "uploaded to listing-photos storage"}`,
@@ -156,6 +170,9 @@ async function main() {
         bathrooms: input.bathrooms!,
         hostId: host.id,
         published: false,
+        preparedById: admin.id,
+        reviewStatus: "DRAFT",
+        reviewEvents: { create: { type: "PREPARED", revision: 1, actorId: admin.id, actorRole: "ADMIN", note: "Imported from the owner's agreed terms" } },
       },
     });
     const coordinates = geocodeListing({ id: listing.id, city: listing.city });
@@ -163,9 +180,10 @@ async function main() {
 
     console.log(
       [
-        `Created listing ${listing.id} (hidden).`,
-        "Next: the owner signs in, opens /host/listings, checks every detail and photo, adds the Airbnb",
-        "calendar link under Calendar sync, then switches the listing to Live.",
+        `Created listing ${listing.id} as a private draft.`,
+        `Next: check it at /admin/properties/${listing.id} and send it to the owner for review. The owner`,
+        "checks every detail and photo, adds the Airbnb calendar link under Calendar sync, and approves it;",
+        "it can be published once every check on that page passes.",
       ].join("\n"),
     );
   } finally {

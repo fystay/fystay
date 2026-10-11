@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ListingForm } from "@/components/ListingForm";
+import { listingFormValues } from "@/lib/listingFormValues";
 
 export async function generateMetadata({
   params,
@@ -36,68 +38,24 @@ export default async function EditListingPage({
     include: { roomTypes: { orderBy: { createdAt: "asc" } } },
   });
   if (!listing) notFound();
-  if (listing.hostId !== session.user.id) redirect("/host/dashboard");
+  // Not a draft FYStay is still holding for an invited owner.
+  if (listing.hostId !== session.user.id || listing.hostInvitationId) redirect("/host/dashboard");
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
       <h1 className="mb-6 text-2xl font-bold">Edit listing</h1>
+      {listing.preparedById && listing.reviewStatus !== "HOST_APPROVED" && (
+        <p className="mb-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
+          FYStay prepared this listing. Saving your corrections doesn&apos;t approve it - when everything&apos;s right,{" "}
+          <Link href={`/host/listings/${listing.id}/review`} className="font-semibold underline">
+            approve it on the review page
+          </Link>
+          .
+        </p>
+      )}
       <ListingForm
         listingId={listing.id}
-        initialValues={{
-          title: listing.title,
-          description: listing.description,
-          city: listing.city,
-          country: listing.country,
-          propertyType: listing.propertyType,
-          address: listing.address ?? "",
-          pricePerNight: (listing.pricePerNightCents / 100).toString(),
-          weekendPricePerNight:
-            listing.weekendPricePerNightCents !== null ? (listing.weekendPricePerNightCents / 100).toString() : "",
-          cleaningFee: listing.cleaningFeeCents > 0 ? (listing.cleaningFeeCents / 100).toString() : "",
-          securityDeposit:
-            listing.securityDepositCents > 0 ? (listing.securityDepositCents / 100).toString() : "",
-          weeklyDiscountPercent: listing.weeklyDiscountPercent?.toString() ?? "",
-          monthlyDiscountPercent: listing.monthlyDiscountPercent?.toString() ?? "",
-          lastMinuteDiscountPercent: listing.lastMinuteDiscountPercent?.toString() ?? "",
-          lastMinuteWindowDays: listing.lastMinuteWindowDays?.toString() ?? "7",
-          maxGuests: listing.maxGuests.toString(),
-          bedrooms: listing.bedrooms.toString(),
-          beds: listing.beds.toString(),
-          bathrooms: listing.bathrooms.toString(),
-          photos: listing.photos,
-          amenities: listing.amenities,
-          cancellationPolicy: listing.cancellationPolicy,
-          customCancellationCutoffDays: (listing.customCancellationCutoffDays ?? 7).toString(),
-          customCancellationRefundPercent: (
-            listing.customCancellationRefundPercent ?? 50
-          ).toString(),
-          minNights: listing.minNights.toString(),
-          maxNights: listing.maxNights?.toString() ?? "",
-          instantBook: listing.instantBook,
-          checkInTime: listing.checkInTime ?? "",
-          checkOutTime: listing.checkOutTime ?? "",
-          selfCheckIn: listing.selfCheckIn,
-          checkInInstructions: listing.checkInInstructions ?? "",
-          wifiNetwork: listing.wifiNetwork ?? "",
-          wifiPassword: listing.wifiPassword ?? "",
-          smokingAllowed: listing.smokingAllowed,
-          partiesAllowed: listing.partiesAllowed,
-          quietHoursStart: listing.quietHoursStart ?? "",
-          quietHoursEnd: listing.quietHoursEnd ?? "",
-          additionalRules: listing.additionalRules ?? "",
-          roomTypes: listing.roomTypes.map((roomType) => ({
-            id: roomType.id,
-            name: roomType.name,
-            description: roomType.description ?? "",
-            pricePerNight: (roomType.pricePerNightCents / 100).toString(),
-            maxGuests: roomType.maxGuests.toString(),
-            bedrooms: roomType.bedrooms.toString(),
-            beds: roomType.beds.toString(),
-            bathrooms: roomType.bathrooms.toString(),
-            photos: roomType.photos,
-            totalRooms: roomType.totalRooms.toString(),
-          })),
-        }}
+        initialValues={listingFormValues(listing)}
       />
     </div>
   );
