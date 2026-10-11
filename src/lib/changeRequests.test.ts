@@ -7,6 +7,7 @@ import {
   changePriceDeltaCents,
   computePriceDeltaCents,
   isBookingStillChangeable,
+  isRefundChangeOnDiscountedBooking,
 } from "./changeRequests";
 
 const now = new Date("2026-06-15");
@@ -375,5 +376,58 @@ describe("bookingFieldsAfterChange", () => {
     const fields = bookingFieldsAfterChange(booking, { ...friToSun, priceDeltaCents: 4_400 });
     expect(fields).toMatchObject({ totalPriceCents: 60_500, serviceFeeCents: 5_500 });
     expect(fields).not.toHaveProperty("hostCommissionCents");
+  });
+});
+
+describe("isRefundChangeOnDiscountedBooking (launch rule: no refunding date change on a discounted booking)", () => {
+  const promo = { promoDiscountCents: 2_000, creditAppliedCents: 0 };
+  const credit = { promoDiscountCents: 0, creditAppliedCents: 1_500 };
+  const both = { promoDiscountCents: 2_000, creditAppliedCents: 1_500 };
+  const none = { promoDiscountCents: 0, creditAppliedCents: 0 };
+
+  it("blocks a shorter or cheaper stay on a promo booking", () => {
+    expect(isRefundChangeOnDiscountedBooking(promo, -10_000)).toBe(true);
+  });
+
+  it("blocks it on a referral-credit booking, and on one with both", () => {
+    expect(isRefundChangeOnDiscountedBooking(credit, -10_000)).toBe(true);
+    expect(isRefundChangeOnDiscountedBooking(both, -10_000)).toBe(true);
+  });
+
+  it("blocks even a one-penny refund - any refund would go back proportionally", () => {
+    expect(isRefundChangeOnDiscountedBooking(promo, -1)).toBe(true);
+  });
+
+  it("allows a change that costs the same or more on a discounted booking", () => {
+    expect(isRefundChangeOnDiscountedBooking(promo, 0)).toBe(false);
+    expect(isRefundChangeOnDiscountedBooking(promo, 1)).toBe(false);
+    expect(isRefundChangeOnDiscountedBooking(both, 14_500)).toBe(false);
+  });
+
+  it("never blocks a booking without a discount", () => {
+    expect(isRefundChangeOnDiscountedBooking(none, -10_000)).toBe(false);
+    expect(isRefundChangeOnDiscountedBooking(none, -1)).toBe(false);
+  });
+
+  it("catches a same-length move to cheaper nights, not only a shorter stay", () => {
+    // Fri-Sun at a £150 weekend rate moved to Tue-Thu at £100: same nights, £100 cheaper.
+    const weekendBooking = {
+      nightlyPriceCents: 10_000,
+      weekendNightlyPriceCents: 15_000,
+      cleaningFeeCents: 0,
+      serviceFeeCents: 0,
+      hostCommissionCents: 3_000,
+      lastMinuteDiscountPercent: null,
+      totalPriceCents: 28_000,
+      creditAppliedCents: 0,
+      promoDiscountCents: 2_000,
+    };
+    const delta = changePriceDeltaCents(
+      weekendBooking,
+      { weeklyDiscountPercent: null, monthlyDiscountPercent: null },
+      { checkIn: new Date("2026-12-08"), checkOut: new Date("2026-12-10") },
+    );
+    expect(delta).toBe(-10_000);
+    expect(isRefundChangeOnDiscountedBooking(weekendBooking, delta)).toBe(true);
   });
 });

@@ -9,6 +9,7 @@ import {
   bookingMatchesChangeSnapshot,
   CHANGE_REQUEST_IN_PROGRESS_MESSAGE,
   isBookingStillChangeable,
+  isRefundChangeOnDiscountedBooking,
   OUTSTANDING_CHANGE_REQUEST_WHERE,
 } from "@/lib/changeRequests";
 import { bookingPayments, RefundIncompleteError, refundAcrossPayments } from "@/lib/connectRefunds";
@@ -84,6 +85,12 @@ async function postHandler(
   const outcome = await withListingAvailabilityLock(prisma, changeRequest.booking.listingId, async (tx) => {
     const booking = await tx.booking.findUnique({ where: { id: changeRequest.bookingId } });
     if (!booking || !isBookingStillChangeable(booking)) return { kind: "not_changeable" as const };
+    // A request asked for before this rule existed, or made some other way,
+    // still never refunds a discounted booking - checked here, before the
+    // claim, so nothing is approved, moved or refunded.
+    if (isRefundChangeOnDiscountedBooking(booking, changeRequest.priceDeltaCents)) {
+      return { kind: "discounted_refund" as const };
+    }
     // One change at a time: another request still awaiting the host or the
     // guest's payment would apply its difference on top of this one's. And
     // this request's difference was priced against the booking as it stood
@@ -125,6 +132,16 @@ async function postHandler(
     );
   }
   if (outcome.kind === "already_responded") return alreadyResponded;
+  if (outcome.kind === "discounted_refund") {
+    return NextResponse.json(
+      {
+        error:
+          "This booking used a promo code or referral credit, so it can't be moved to a shorter or cheaper stay. " +
+          "Decline this request - the guest can cancel under the booking's policy and book again.",
+      },
+      { status: 409 },
+    );
+  }
   if (outcome.kind === "other_in_progress") {
     return NextResponse.json({ error: CHANGE_REQUEST_IN_PROGRESS_MESSAGE }, { status: 409 });
   }

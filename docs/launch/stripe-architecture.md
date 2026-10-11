@@ -72,6 +72,47 @@ once can't both refund, and each Stripe refund carries an idempotency key.
 If Stripe refuses a refund, the booking is put back as it was. Each refund
 takes back the same proportion from the host's payout and from FYStay's fee.
 
+**Launch rule (owner decision, 11 Oct 2026): no refunding date change on a
+discounted booking.** A booking that used a promo code or referral credit
+can't be moved to a shorter or cheaper stay; the guest cancels under its
+policy and books again. Enforced when the guest asks
+(`POST /api/bookings/[id]/change-requests`) and again, under the listing
+lock, when the host approves (`.../respond`), so a request made before the
+rule can't refund either. Same-price and longer changes are unaffected.
+Rule: `isRefundChangeOnDiscountedBooking` in `src/lib/changeRequests.ts`.
+
+### Deferred: shortened-stay refunds (post-launch improvement)
+
+Why the rule exists. A date-change refund uses `reverse_transfer` and
+`refund_application_fee`, which Stripe applies in proportion to the refund
+across the whole *discounted* payment. On a discounted booking that passes
+part of FYStay's promo cost to the host: 3 nights at £100 with a £20 promo,
+shortened to 1 night, leaves the host £77.14 instead of 90% of £100 (£90).
+The unused helper `refundChangeDifference` is not a fix as it stands: it
+asks Stripe to refund more application fee than was collected (£20 against
+£10), which Stripe refuses after the guest refund and transfer reversal
+have already gone through.
+
+What a proper workflow needs, all verified in the Stripe sandbox first:
+
+- Refund the guest without the proportional flags, then reverse exactly the
+  host's share (90% of the reduction) from the charge's transfer, so FYStay
+  bears its own promo or credit.
+- One idempotent, resumable job per change: each step (refund, reversal)
+  recorded before and after, retried from where it stopped, with an ops
+  alert if a later step can't complete. Never undo the date change once
+  money has moved.
+- Bookings with several payments: split the refund and the reversal across
+  the payments' transfers, each capped by what that transfer has left.
+- Reconciliation: FYStay's records (`hostCommissionCents`) are the truth,
+  because Stripe's application fee object keeps its original amount.
+- Later cancellations: check how Stripe's proportional reversal behaves on
+  a charge already partly refunded this way (a full refund reverses the
+  rest exactly; a partial one may not), and use the same exact method there
+  if needed.
+- Then lift the launch rule and show the host's earnings as accommodation
+  less commission, matching what Stripe paid.
+
 Webhook events handled: `checkout.session.completed`, `.async_payment_succeeded`,
 `.async_payment_failed`, `.expired`; `charge.dispute.created/updated/closed`;
 `charge.refunded` and `refund.failed` (ops alerts, once each);

@@ -15,6 +15,8 @@ import {
   canRequestBookingChange,
   CHANGE_REQUEST_IN_PROGRESS_MESSAGE,
   changePriceDeltaCents,
+  DISCOUNTED_BOOKING_REFUND_CHANGE_MESSAGE,
+  isRefundChangeOnDiscountedBooking,
   OUTSTANDING_CHANGE_REQUEST_WHERE,
 } from "@/lib/changeRequests";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
@@ -140,6 +142,9 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   // total, so a same-length change could charge the guest their discount
   // again, or a host's later price rise.)
   const priceDeltaCents = changePriceDeltaCents(booking, booking.listing, { checkIn, checkOut });
+  if (isRefundChangeOnDiscountedBooking(booking, priceDeltaCents)) {
+    return NextResponse.json({ error: DISCOUNTED_BOOKING_REFUND_CHANGE_MESSAGE }, { status: 409 });
+  }
 
   // The in-progress check above is repeated under the listing's lock, so two
   // requests sent at once (a double submit, two tabs) can't both be created.

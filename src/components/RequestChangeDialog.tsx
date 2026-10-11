@@ -10,7 +10,11 @@ import { Button } from "@/components/ui/Button";
 import { DateRangeField } from "@/components/DateRangeField";
 import { formatPrice } from "@/lib/format";
 import { nightsBetween, rangesOverlap, stayLengthError } from "@/lib/availability";
-import { changePriceDeltaCents, type ChangePricingBooking } from "@/lib/changeRequests";
+import {
+  changePriceDeltaCents,
+  isRefundChangeOnDiscountedBooking,
+  type ChangePricingBooking,
+} from "@/lib/changeRequests";
 import { cn } from "@/lib/cn";
 import { parseStayDate, stayDateToLocal, toStayDateString } from "@/lib/stayDates";
 
@@ -74,6 +78,9 @@ export function RequestChangeDialog({
           },
         )
       : 0;
+  // Mirrors the server's refusal (see isRefundChangeOnDiscountedBooking), so
+  // the guest learns why before submitting rather than from an error.
+  const refundBlockedByDiscount = isRefundChangeOnDiscountedBooking(priceBasis, priceDeltaCents);
 
   function isSelectionValid(): boolean {
     if (!range?.from || !range?.to) return false;
@@ -187,13 +194,13 @@ export function RequestChangeDialog({
                 <span>New total</span>
                 <span>{formatPrice(priceBasis.totalPriceCents + priceDeltaCents)}</span>
               </div>
-              {priceDeltaCents !== 0 && (
+              {priceDeltaCents !== 0 && !refundBlockedByDiscount && (
                 <div className="flex justify-between border-t border-border-subtle pt-1.5 font-semibold text-foreground">
                   <span>{priceDeltaCents > 0 ? "Additional payment" : "Refund due"}</span>
                   <span>{formatPrice(Math.abs(priceDeltaCents))}</span>
                 </div>
               )}
-              {priceDeltaCents !== 0 && (
+              {priceDeltaCents !== 0 && !refundBlockedByDiscount && (
                 <p className="text-xs text-stone-500">
                   {priceDeltaCents > 0
                     ? `You'll owe an extra ${formatPrice(priceDeltaCents)} if approved.`
@@ -203,13 +210,28 @@ export function RequestChangeDialog({
             </div>
           )}
 
+          {nights > 0 && refundBlockedByDiscount && (
+            <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="font-semibold">These dates can&apos;t be requested</p>
+              <p className="mt-1">
+                This booking used a promo code or referral credit, so it can&apos;t be changed to a shorter or cheaper
+                stay. You can still move it to dates that cost the same or more.
+              </p>
+              <p className="mt-1">
+                Or close this and use <strong>Cancel booking</strong> to see what you&apos;d get back under its
+                cancellation policy, then book the new dates.
+              </p>
+            </div>
+          )}
+
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
-              Cancel
+              {/* "Cancel" beside a note about cancelling the booking would read as that. */}
+              {refundBlockedByDiscount ? "Close" : "Cancel"}
             </Button>
-            <Button onClick={handleSubmit} loading={loading}>
+            <Button onClick={handleSubmit} loading={loading} disabled={refundBlockedByDiscount}>
               Submit request
             </Button>
           </div>

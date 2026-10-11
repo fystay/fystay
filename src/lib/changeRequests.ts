@@ -204,6 +204,32 @@ export const CHANGE_REQUEST_IN_PROGRESS_MESSAGE =
   "This booking already has a date change in progress - withdraw it or finish paying for it first.";
 
 /**
+ * Why a discounted booking can't move to a cheaper stay. A refund on a date
+ * change goes back through Stripe proportionally across the discounted
+ * payment, which would pass part of FYStay's promo or referral credit on to
+ * the host - so until a dedicated refund workflow exists (see
+ * docs/launch/stripe-architecture.md, "Deferred: shortened-stay refunds"),
+ * such a change isn't offered. Cancelling under the booking's own policy
+ * and booking again keeps every split exact.
+ */
+export const DISCOUNTED_BOOKING_REFUND_CHANGE_MESSAGE =
+  "This booking used a promo code or referral credit, so its dates can't be changed to a shorter or cheaper stay. " +
+  "You can cancel it under its cancellation policy and book the new dates instead.";
+
+/**
+ * Whether a date change would refund part of a booking that used a promo
+ * code or referral credit - shortening it, or moving it to cheaper nights.
+ * Changes that cost the same or more are unaffected: they refund nothing,
+ * and any extra is a separate payment with no discount on it.
+ */
+export function isRefundChangeOnDiscountedBooking(
+  booking: { promoDiscountCents: number; creditAppliedCents: number },
+  priceDeltaCents: number,
+): boolean {
+  return priceDeltaCents < 0 && (booking.promoDiscountCents > 0 || booking.creditAppliedCents > 0);
+}
+
+/**
  * Whether the booking is still exactly the stay a change request was priced
  * against (its original* snapshot). Once any other change has moved its
  * dates or total, this request's difference no longer describes the move
