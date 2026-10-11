@@ -158,14 +158,26 @@ export async function cancelBookingAndRefund(
         ? "REFUNDED"
         : "PARTIALLY_REFUNDED";
 
-  const updated = await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      status: "CANCELLED",
-      paymentStatus,
-      ...(wasPaid ? { refundedAmountCents: refundedCents } : {}),
-      ...(wasPaid && refundedCents > 0 ? { refundedAt: now } : {}),
-    },
+  // A paid booking refunded in full gives back the referral credit and promo
+  // redemption it used, like a booking that was never paid for: the guest
+  // ends up where they were before booking. Only once every penny the policy
+  // promised has actually gone back - a partial refund, by policy or because
+  // Stripe refused part of it, keeps them spent. At most once per booking:
+  // only the request that won the claim above gets here, and nothing else
+  // (webhooks included) restores a paid booking's discounts.
+  const fullyRefunded = wasPaid && refund.refundPercent === 100 && refundedCents >= refund.amountPaidCents;
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        status: "CANCELLED",
+        paymentStatus,
+        ...(wasPaid ? { refundedAmountCents: refundedCents } : {}),
+        ...(wasPaid && refundedCents > 0 ? { refundedAt: now } : {}),
+      },
+    });
+    if (fullyRefunded) await giveBackReservedDiscounts(tx, booking);
+    return row;
   });
 
   await settleDepositOnCancellation(prisma, booking.id);

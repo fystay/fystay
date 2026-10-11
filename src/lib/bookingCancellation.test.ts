@@ -192,10 +192,57 @@ describe("cancelBookingAndRefund", () => {
     expect(refundAcrossPayments).not.toHaveBeenCalled();
   });
 
-  it("doesn't give back discounts on a paid booking (they were part of what the guest paid for)", async () => {
-    await cancelBookingAndRefund(prisma, { ...booking, creditAppliedCents: 1_500, promoCodeId: "promo_1" } as CancellableBooking, {
-      now,
+  const discounted = { ...booking, creditAppliedCents: 1_500, promoCodeId: "promo_1" } as CancellableBooking;
+  const fullyRefundable = {
+    ...discounted,
+    listing: { ...booking.listing, customCancellationRefundPercent: 100 },
+  } as CancellableBooking;
+
+  it("doesn't give back discounts on a partly refunded paid booking", async () => {
+    const { updated } = await cancelBookingAndRefund(prisma, discounted, { now });
+    expect(updated.paymentStatus).toBe("PARTIALLY_REFUNDED");
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(promoUpdate).not.toHaveBeenCalled();
+  });
+
+  it("gives back the credit and promo a paid booking used once it's refunded in full, once", async () => {
+    const results = await Promise.allSettled([
+      cancelBookingAndRefund(prisma, fullyRefundable, { now }),
+      cancelBookingAndRefund(prisma, fullyRefundable, { now }),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(refundAcrossPayments).toHaveBeenCalledWith(stripe, expect.anything(), 50_000, "booking-cancel:bk_1");
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ paymentStatus: "REFUNDED" }) }));
+    expect(userUpdate).toHaveBeenCalledTimes(1);
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: "guest_1" },
+      data: { creditBalanceCents: { increment: 1_500 } },
     });
+    expect(promoUpdate).toHaveBeenCalledTimes(1);
+    expect(promoUpdate).toHaveBeenCalledWith({ where: { id: "promo_1" }, data: { redemptionCount: { decrement: 1 } } });
+
+    // Cancelling again (a retried request) can't give them back a second time.
+    await expect(cancelBookingAndRefund(prisma, fullyRefundable, { now })).rejects.toBeInstanceOf(BookingAlreadyProcessedError);
+    expect(userUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives them back on an admin cancellation refunded in full", async () => {
+    await cancelBookingAndRefund(prisma, discounted, { now, refundPercentOverride: 100 });
+    expect(userUpdate).toHaveBeenCalledTimes(1);
+    expect(promoUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps them spent when a full refund only partly goes through", async () => {
+    refundAcrossPayments.mockRejectedValueOnce(new RefundIncompleteError(10_000, 50_000, new Error("card_declined")));
+    const { updated } = await cancelBookingAndRefund(prisma, fullyRefundable, { now });
+    expect(updated.paymentStatus).toBe("PARTIALLY_REFUNDED");
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(promoUpdate).not.toHaveBeenCalled();
+  });
+
+  it("keeps them spent when Stripe refuses the refund outright", async () => {
+    refundAcrossPayments.mockRejectedValueOnce(new Error("stripe down"));
+    await expect(cancelBookingAndRefund(prisma, fullyRefundable, { now })).rejects.toThrow("stripe down");
     expect(userUpdate).not.toHaveBeenCalled();
     expect(promoUpdate).not.toHaveBeenCalled();
   });
