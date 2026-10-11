@@ -13,7 +13,7 @@ const STEPS = [
   {
     title: "1. Create a listing",
     description:
-      "From your host dashboard, add your property's title, description, city, address, and property type, plus your nightly price, cleaning fee, and how many guests/bedrooms/beds/bathrooms it has.",
+      "From your host dashboard, add your property's title, description, city, address, and property type, plus your nightly price (with cleaning included - there's no separate cleaning fee), and how many guests/bedrooms/beds/bathrooms it has.",
   },
   {
     title: "2. Add photos and amenities",

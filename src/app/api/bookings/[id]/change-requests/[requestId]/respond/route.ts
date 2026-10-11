@@ -189,6 +189,7 @@ async function postHandler(
             guests: booking.guests,
             totalPriceCents: booking.totalPriceCents,
             serviceFeeCents: booking.serviceFeeCents,
+            hostCommissionCents: booking.hostCommissionCents,
           },
         }),
       ]);

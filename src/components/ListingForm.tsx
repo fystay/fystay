@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AlertTriangle, Camera, ClipboardList, Home, MapPin, ShieldCheck, Wallet, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Field, FieldHint, Label } from "@/components/ui/Label";
+import { hostCommissionFor } from "@/lib/pricing";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
@@ -59,7 +60,6 @@ export type ListingFormValues = {
   pricePerNight: string;
   /** Friday/Saturday price; blank means the same as pricePerNight. */
   weekendPricePerNight: string;
-  cleaningFee: string;
   securityDeposit: string;
   weeklyDiscountPercent: string;
   monthlyDiscountPercent: string;
@@ -102,7 +102,6 @@ const emptyValues: ListingFormValues = {
   address: "",
   pricePerNight: "",
   weekendPricePerNight: "",
-  cleaningFee: "",
   securityDeposit: "",
   weeklyDiscountPercent: "",
   monthlyDiscountPercent: "",
@@ -261,7 +260,6 @@ export function ListingForm({ listingId, initialValues }: Props) {
             beds: Number(values.beds),
             bathrooms: Number(values.bathrooms),
           }),
-      cleaningFeeCents: values.cleaningFee ? Math.round(Number(values.cleaningFee) * 100) : 0,
       securityDepositCents: values.securityDeposit ? Math.round(Number(values.securityDeposit) * 100) : 0,
       weeklyDiscountPercent: values.weeklyDiscountPercent
         ? Number(values.weeklyDiscountPercent)
@@ -457,7 +455,9 @@ export function ListingForm({ listingId, initialValues }: Props) {
                   step="0.01"
                   value={values.pricePerNight}
                   onChange={(e) => update("pricePerNight", e.target.value)}
+                  aria-describedby="price-hint"
                 />
+                <p id="price-hint" className="mt-1.5 text-xs text-stone-500">{nightlyEarningsHint(values.pricePerNight)}</p>
               </Field>
             )}
             {values.propertyType !== "HOTEL" && (
@@ -476,19 +476,6 @@ export function ListingForm({ listingId, initialValues }: Props) {
                 <FieldHint>Charged for Friday and Saturday nights. Leave blank to charge the same every night.</FieldHint>
               </Field>
             )}
-            <Field>
-              <Label htmlFor="cleaningFee">Cleaning fee (£, optional)</Label>
-              <Input
-                id="cleaningFee"
-                type="number"
-                min={0}
-                max={1000}
-                step="0.01"
-                value={values.cleaningFee}
-                onChange={(e) => update("cleaningFee", e.target.value)}
-                placeholder="0"
-              />
-            </Field>
             <Field>
               <Label htmlFor="weeklyDiscountPercent">Weekly discount % (optional)</Label>
               <Input
@@ -913,4 +900,18 @@ export function ListingForm({ listingId, initialValues }: Props) {
       </Button>
     </form>
   );
+}
+
+/**
+ * What a host keeps from their nightly price, shown under the price box so
+ * the commission is never a surprise: guests pay exactly this price, and
+ * FYStay's 10% comes out of it.
+ */
+function nightlyEarningsHint(pricePerNight: string): string {
+  const cents = Math.round(Number(pricePerNight) * 100);
+  if (!Number.isFinite(cents) || cents <= 0) {
+    return "Include cleaning - there's no separate cleaning fee. Guests pay this price; FYStay keeps 10%.";
+  }
+  const pounds = (c: number) => `£${(c / 100).toFixed(2).replace(/\.00$/, "")}`;
+  return `Guests pay ${pounds(cents)} a night. You receive ${pounds(cents - hostCommissionFor(cents))} after FYStay's 10%. Include cleaning in this price.`;
 }

@@ -811,7 +811,6 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
     const pricing = computeBookingPricing({
       nights: seed.nights,
       pricePerNightCents: reviewedListing.pricePerNightCents,
-      cleaningFeeCents: reviewedListing.cleaningFeeCents,
     });
     const booking = await prisma.booking.create({
       data: {
@@ -825,6 +824,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
         nightlyPriceCents: reviewedListing.pricePerNightCents,
         cleaningFeeCents: pricing.cleaningFeeCents,
         serviceFeeCents: pricing.serviceFeeCents,
+        hostCommissionCents: pricing.hostCommissionCents,
         taxCents: pricing.taxCents,
         totalPriceCents: pricing.totalPriceCents,
         status: "COMPLETED",
@@ -1080,7 +1080,6 @@ async function seedDemoHostActivity(
     const pricing = computeBookingPricing({
       nights,
       pricePerNightCents: listing.pricePerNightCents,
-      cleaningFeeCents: listing.cleaningFeeCents,
     });
     const paid = state !== "REQUEST";
     const paidAt = paid ? new Date(Math.min(checkIn.getTime() - 14 * DAY_MS, Date.now() - DAY_MS)) : null;
@@ -1097,6 +1096,7 @@ async function seedDemoHostActivity(
         nightlyPriceCents: listing.pricePerNightCents,
         cleaningFeeCents: pricing.cleaningFeeCents,
         serviceFeeCents: pricing.serviceFeeCents,
+        hostCommissionCents: pricing.hostCommissionCents,
         taxCents: pricing.taxCents,
         totalPriceCents: pricing.totalPriceCents,
         status: state === "REQUEST" ? "PENDING" : state,

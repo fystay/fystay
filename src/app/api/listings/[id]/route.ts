@@ -23,7 +23,6 @@ const updateListingSchema = z
     address: z.string().max(200).optional(),
     pricePerNightCents: listingFieldSchemas.pricePerNightCents.optional(),
     weekendPricePerNightCents: listingFieldSchemas.pricePerNightCents.nullable().optional(),
-    cleaningFeeCents: listingFieldSchemas.cleaningFeeCents.optional(),
     weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     ...lastMinuteDealInput,

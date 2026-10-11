@@ -64,6 +64,8 @@ export type BookingCardBooking = {
   nightlyPriceCents: number;
   weekendNightlyPriceCents: number | null;
   cleaningFeeCents: number;
+  serviceFeeCents: number;
+  hostCommissionCents: number;
   creditAppliedCents: number;
   promoDiscountCents: number;
   /** When the guest paid - starts a non-refundable policy's 24-hour full-refund window. */
@@ -303,6 +305,8 @@ export function BookingCard({
                   nightlyPriceCents: booking.nightlyPriceCents,
                   weekendNightlyPriceCents: booking.weekendNightlyPriceCents,
                   cleaningFeeCents: booking.cleaningFeeCents,
+                  serviceFeeCents: booking.serviceFeeCents,
+                  hostCommissionCents: booking.hostCommissionCents,
                   lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent ?? null,
                   totalPriceCents: booking.totalPriceCents,
                   creditAppliedCents: booking.creditAppliedCents,

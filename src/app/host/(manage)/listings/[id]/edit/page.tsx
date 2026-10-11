@@ -53,7 +53,6 @@ export default async function EditListingPage({
           pricePerNight: (listing.pricePerNightCents / 100).toString(),
           weekendPricePerNight:
             listing.weekendPricePerNightCents !== null ? (listing.weekendPricePerNightCents / 100).toString() : "",
-          cleaningFee: listing.cleaningFeeCents > 0 ? (listing.cleaningFeeCents / 100).toString() : "",
           securityDeposit:
             listing.securityDepositCents > 0 ? (listing.securityDepositCents / 100).toString() : "",
           weeklyDiscountPercent: listing.weeklyDiscountPercent?.toString() ?? "",

@@ -665,6 +665,12 @@ model Booking {
   // weekendNights - bookingNightlySubtotalCents in src/lib/pricing.ts) -
   // lengthOfStayDiscountCents + cleaningFeeCents + serviceFeeCents + taxCents
   // - creditAppliedCents.
+  //
+  // Since the commission model, a new booking has cleaningFeeCents and
+  // serviceFeeCents 0 (cleaning is in the nightly rate; guests pay no fee)
+  // and FYStay's 10% is hostCommissionCents, taken out of the host's payout
+  // rather than added to the guest's total. Older bookings keep their
+  // cleaning and service fee and a hostCommissionCents of 0.
   nightlyPriceCents         Int
   // How many of the stay's nights were Friday or Saturday nights charged at
   // the listing's weekend rate, and that rate, copied at booking so a later
@@ -686,6 +692,7 @@ model Booking {
   lastMinuteDiscountPercent Int?
   cleaningFeeCents          Int        @default(0)
   serviceFeeCents           Int        @default(0)
+  hostCommissionCents       Int        @default(0)
   taxCents                  Int        @default(0)
   // Referral-program credit spent on this booking (see User.creditBalanceCents
   // in referral.ts) - deducted from the guest's balance at booking creation

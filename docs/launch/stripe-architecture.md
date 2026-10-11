@@ -40,10 +40,14 @@ burden). The planner's default for this setup.
 ### Money movement (Connect, destination charges)
 
 - FYStay is the merchant of record (the guest's statement shows FYStay once the statement descriptor is set in Stripe).
-- At payment, Stripe moves the **stay + cleaning fee** to the host's Stripe
-  account and FYStay keeps the **guest service fee (10% of the stay after
-  any length-of-stay discount)**, less any promo code or referral credit
-  (those come out of FYStay's fee, never the host's).
+- Guests pay the host's price and nothing on top: no service fee and no
+  cleaning fee (hosts include cleaning in their nightly rate). Decided by
+  the owner on 11 Oct 2026.
+- At payment, Stripe moves the stay **less FYStay's 10% commission** to the
+  host's Stripe account and FYStay keeps the **commission (10% of the stay
+  after any length-of-stay discount, `Booking.hostCommissionCents`)**, less
+  any promo code or referral credit (those come out of FYStay's commission,
+  never the host's share).
 - FYStay pays Stripe's processing fees out of its share.
 - FYStay is liable for losses (refunds or chargebacks a host can't cover).
 - Hosts are Stripe "recipient" accounts (Accounts v2), UK, Express dashboard,
@@ -94,9 +98,9 @@ Webhook events handled: `checkout.session.completed`, `.async_payment_succeeded`
 2. **Who pays back what on a refund.** Today a refund takes the same share
    from the host and from FYStay's fee. Alternatives: FYStay keeps its
    service fee on guest cancellations, or the host bears the whole refund.
-3. **Fee model.** Today: 10% guest service fee on top, nothing taken from the
-   host, FYStay absorbs Stripe's fees and promo/credit discounts. Confirm, or
-   add a host commission.
-4. **VAT** on the service fee (accountant). The code has a tax line ready, at 0.
+3. ~~**Fee model.**~~ Decided 11 Oct 2026: 10% host commission, no guest
+   service fee, no cleaning fee; FYStay absorbs Stripe's fees and
+   promo/credit discounts. Bookings made before keep their service fee.
+4. **VAT** on the commission (accountant). The code has a tax line ready, at 0.
 5. **Billing** later, if wanted: e.g. a Spotlight subscription or a host
    plan, as Stripe Billing subscriptions on the host's FYStay customer.

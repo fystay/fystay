@@ -63,7 +63,7 @@ const REASONS = [
     icon: PoundSterling,
     title: "Transparent fees, shown upfront",
     description:
-      "You set your own nightly rate and cleaning fee - that's what you earn per booking. FYStay's only charge is a service fee shown to the guest at checkout; it isn't deducted from your payout.",
+      "You set your own nightly rate, with cleaning included - guests pay exactly that, with no booking fees added. FYStay's only charge is a 10% commission on each booking, taken before your payout. No card fees, no subscription.",
   },
 ];
 

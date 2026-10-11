@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { bookingNightlySubtotalCents, nightlyChargeLines } from "@/lib/pricing";
+import { nightlyChargeLines } from "@/lib/pricing";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
@@ -68,7 +68,6 @@ export default async function HostBookingPage({ params }: { params: Promise<{ id
   const net = booking.paidAt ? hostRevenueCents(booking) : gross;
   const fystayFee = booking.totalPriceCents - gross;
   const refunded = booking.refundedAmountCents ?? 0;
-  const roomCents = bookingNightlySubtotalCents(booking) - booking.lengthOfStayDiscountCents;
 
   const timeline = [
     { at: booking.createdAt, label: isRequest ? "Request sent" : "Booked" },
@@ -280,14 +279,19 @@ export default async function HostBookingPage({ params }: { params: Promise<{ id
                 <Row label="Length-of-stay discount" value={-booking.lengthOfStayDiscountCents} />
               )}
               {booking.cleaningFeeCents > 0 && <Row label="Cleaning fee" value={booking.cleaningFeeCents} />}
-              <Row label="Your share" value={roomCents + booking.cleaningFeeCents} strong />
+              {booking.hostCommissionCents > 0 && (
+                <Row label="FYStay commission (10%)" value={-booking.hostCommissionCents} />
+              )}
+              <Row label="Your share" value={gross} strong />
               {refunded > 0 && booking.paidAt && (
                 <Row label="Your part of the refund" value={-(gross - net)} />
               )}
             </dl>
             <dl className="mt-3 flex flex-col gap-1.5 border-t border-border-subtle pt-3 text-xs text-stone-500">
               <Row label="Guest paid in total" value={booking.totalPriceCents} muted />
-              <Row label="FYStay service fee (paid by the guest)" value={fystayFee} muted />
+              {booking.serviceFeeCents > 0 && (
+                <Row label="FYStay service fee (paid by the guest)" value={fystayFee} muted />
+              )}
               <Row label="Card processing" value={0} muted note="FYStay covers it" />
               {refunded > 0 && <Row label="Refunded to guest" value={refunded} muted />}
             </dl>

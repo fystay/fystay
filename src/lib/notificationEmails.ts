@@ -121,7 +121,7 @@ export async function sendBookingConfirmedEmails(
         paragraphs: [
           ...(host.earningsCents !== undefined
             ? [
-                "Your earnings (your nightly rate and cleaning fee - FYStay's service fee is paid by the guest on top) go straight to your Stripe account, and Stripe pays them into your bank on your payout schedule.",
+                "Your earnings (the booking total less FYStay's 10% commission) go straight to your Stripe account, and Stripe pays them into your bank on your payout schedule.",
               ]
             : []),
           "Their contact details are on your dashboard, and they can message you through FYStay.",

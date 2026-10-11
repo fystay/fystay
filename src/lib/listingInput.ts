@@ -34,7 +34,6 @@ export const createListingSchema = z
     pricePerNightCents: listingFieldSchemas.pricePerNightCents.optional(),
     // Friday/Saturday rate; null or omitted means every night is pricePerNightCents.
     weekendPricePerNightCents: listingFieldSchemas.pricePerNightCents.nullable().optional(),
-    cleaningFeeCents: listingFieldSchemas.cleaningFeeCents.default(0),
     weeklyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     monthlyDiscountPercent: z.number().int().min(0).max(90).nullable().optional(),
     ...lastMinuteDealInput,

@@ -35,7 +35,7 @@ const querySchema = z.object({
  */
 async function previewPromoDiscount(
   promoCodeInput: string,
-  pricing: { totalPriceCents: number; serviceFeeCents: number; taxCents: number },
+  pricing: { totalPriceCents: number; serviceFeeCents: number; taxCents: number; hostCommissionCents: number },
 ): Promise<{ valid: true; discountCents: number } | { valid: false; error: string }> {
   const promoCode = await prisma.promoCode.findUnique({
     where: { code: normalizePromoCode(promoCodeInput) },
@@ -169,7 +169,6 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
     const pricing = computeBookingPricing({
       nights,
       pricePerNightCents: roomType.pricePerNightCents * roomsBooked,
-      cleaningFeeCents: roomType.listing.cleaningFeeCents,
       weeklyDiscountPercent: roomType.listing.weeklyDiscountPercent,
       monthlyDiscountPercent: roomType.listing.monthlyDiscountPercent,
       lastMinuteDiscountPercent: lastMinuteDiscountFor(roomType.listing, checkIn),
@@ -230,7 +229,6 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
   const pricing = computeBookingPricing({
     nights,
     ...stayRates(listing, checkIn, checkOut),
-    cleaningFeeCents: listing.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
     lastMinuteDiscountPercent: lastMinuteDiscountFor(listing, checkIn),

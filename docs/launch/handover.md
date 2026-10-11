@@ -246,7 +246,7 @@ settings.
 | # | What | Who | Guide |
 |---|---|---|---|
 | 1 | Decide the trading entity; set `NEXT_PUBLIC_COMPANY_LEGAL_NAME`, `NEXT_PUBLIC_COMPANY_ADDRESS` (+ `NEXT_PUBLIC_COMPANY_NUMBER` if a company). UK law requires them on the site. | Owner | [environment-variables.md](environment-variables.md) |
-| 2 | Solicitor review: Terms, Privacy, Cookies, cancellation wording, **host terms (none exist yet)**. Accountant: VAT on the 10% service fee. | Owner | [legal-drafts.md](legal-drafts.md) |
+| 2 | Solicitor review: Terms, Privacy, Cookies, cancellation wording, **host terms (none exist yet)**. Accountant: VAT on the 10% host commission. | Owner | [legal-drafts.md](legal-drafts.md) |
 | 3 | Domain: add it in Vercel; then set `NEXT_PUBLIC_BASE_URL` and `NEXTAUTH_URL` to it. | Owner | [launch-runbook.md](launch-runbook.md) §2-3 |
 | 4 | **Email (Resend):** verify the sending domain; set `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_SUPPORT_EMAIL`. Without it there are no booking emails **and no password resets**. | Owner enters secrets | [stripe-and-email-setup.md](stripe-and-email-setup.md) §2 |
 | 5 | `TWO_FACTOR_ENCRYPTION_KEY` (`openssl rand -hex 32`, never change it). | Owner | [environment-variables.md](environment-variables.md) |

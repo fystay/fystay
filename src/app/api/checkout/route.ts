@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
-import { applyDiscountsToApplicationFee, discountedAccommodationCents } from "@/lib/pricing";
+import { applyDiscountsToApplicationFee, discountedAccommodationCents, fyStayFeeCents } from "@/lib/pricing";
 import { hostPayoutCents } from "@/lib/hostStats";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
 import { awardReferralBonusIfEligible } from "@/lib/referral";
@@ -227,7 +227,7 @@ async function postHandler(request: Request) {
 
   // Every paid booking is a destination charge: the host's share moves to
   // their Connect account as part of the payment and FYStay keeps its
-  // service fee as the application fee. A host whose account can't receive
+  // commission (an older booking's service fee) as the application fee. A host whose account can't receive
   // that right now (none, onboarding unfinished, or restricted - re-checked
   // live with Stripe here) can't take a payment at all, so no guest money
   // ever sits in FYStay's balance waiting to be paid out by hand.
@@ -239,10 +239,7 @@ async function postHandler(request: Request) {
   // see applyDiscountsToApplicationFee's own comment for why their combined
   // total comes out of this fee first, not the host's transfer.
   const totalDiscountCents = booking.creditAppliedCents + booking.promoDiscountCents;
-  const applicationFeeCents = applyDiscountsToApplicationFee(
-    booking.serviceFeeCents + booking.taxCents,
-    totalDiscountCents,
-  );
+  const applicationFeeCents = applyDiscountsToApplicationFee(fyStayFeeCents(booking), totalDiscountCents);
 
   // The line items above total the pre-discount price; a one-off coupon
   // brings what's actually charged down to booking.totalPriceCents (already
