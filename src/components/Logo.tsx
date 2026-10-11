@@ -10,6 +10,16 @@ const sizeClasses = {
   xl: "text-5xl",
 };
 
+// The descriptor line's size per logo size: 7px under the header's (lg)
+// wordmark spans it exactly; the sign-in pages' larger (xl) wordmark gets a
+// proportionally larger line so it still spans the full width.
+const taglineSizeClasses = {
+  sm: "mt-1.5 text-[7px]",
+  md: "mt-2 text-[7px]",
+  lg: "mt-2 text-[7px]",
+  xl: "mt-2.5 text-[9.4px]",
+};
+
 export function Logo({
   size = "md",
   withTagline = false,
@@ -19,7 +29,7 @@ export function Logo({
   size?: keyof typeof sizeClasses;
   withTagline?: boolean;
   /** Extra classes for the "Apartments · B&Bs · Lodges" descriptor line
-   * (7px spaced capitals at every logo size). */
+   * (small spaced capitals, sized per logo size). */
   taglineClassName?: string;
   className?: string;
 }) {
@@ -51,7 +61,8 @@ export function Logo({
         // spaced capitals clear of the wordmark's descenders.
         <span
           className={cn(
-            "mt-2 flex items-center gap-1 whitespace-nowrap font-[family-name:var(--font-logo)] text-[7px] uppercase leading-tight tracking-wide text-[var(--color-ink)]",
+            "flex items-center gap-1 whitespace-nowrap font-[family-name:var(--font-logo)] uppercase leading-tight tracking-wide text-[var(--color-ink)]",
+            taglineSizeClasses[size],
             isHero && "text-white/90",
             taglineClassName,
           )}

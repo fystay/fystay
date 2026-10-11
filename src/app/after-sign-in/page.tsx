@@ -30,7 +30,7 @@ export default async function AfterSignInPage({ searchParams }: PageProps<"/afte
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col px-4 py-12 sm:py-16">
-      <Logo />
+      <Logo withTagline />
       <Card className="mt-6">
         <CardContent className="pt-6">
           <h1 className="text-xl font-semibold text-stone-900">You&apos;re signed in. Ready to host?</h1>
