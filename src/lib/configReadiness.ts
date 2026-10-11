@@ -5,7 +5,8 @@
  * monitor - can see at a glance what's missing, instead of finding out
  * when a guest's confirmation email never arrives.
  *
- * "blocker": a guest booking, payment, payout or sign-in breaks without it.
+ * "blocker": a guest booking, payment, payout or sign-in breaks without it -
+ * or, on the live site, nobody would hear about it when one does (Sentry).
  * "warning": the site works, but something fails quietly or nobody hears
  * about a problem.
  */
@@ -43,8 +44,10 @@ export function configReadiness(env: Env = process.env): ConfigCheck[] {
     { key: "CRON_SECRET", ok: set(env, "CRON_SECRET"), severity: "blocker", why: "Daily jobs (deposit holds and releases, unpaid request expiry, reminder emails) never run." },
     { key: "TWO_FACTOR_ENCRYPTION_KEY", ok: set(env, "TWO_FACTOR_ENCRYPTION_KEY"), severity: "blocker", why: "Two-factor sign-in can't be set up or checked." },
     { key: "SUPABASE_SERVICE_ROLE_KEY", ok: set(env, "SUPABASE_SERVICE_ROLE_KEY"), severity: "blocker", why: "Photo uploads fail." },
-    { key: "SENTRY_DSN", ok: set(env, "SENTRY_DSN"), severity: "warning", why: "Server errors and refused emails go unreported." },
-    { key: "NEXT_PUBLIC_SENTRY_DSN", ok: set(env, "NEXT_PUBLIC_SENTRY_DSN"), severity: "warning", why: "Errors in guests' browsers go unreported." },
+    // Production's only error monitoring: without it a failing payment or
+    // booking goes unnoticed, so the live site isn't ready without it.
+    { key: "SENTRY_DSN", ok: set(env, "SENTRY_DSN"), severity: live ? "blocker" : "warning", why: "Server errors and refused emails go unreported." },
+    { key: "NEXT_PUBLIC_SENTRY_DSN", ok: set(env, "NEXT_PUBLIC_SENTRY_DSN"), severity: live ? "blocker" : "warning", why: "Errors in guests' browsers go unreported." },
     { key: "DISPUTE_ALERT_EMAIL", ok: set(env, "DISPUTE_ALERT_EMAIL"), severity: "warning", why: "Payment alerts (disputes, failed refunds, unpaid deposit claims) go to the public support inbox." },
     { key: "NEXT_PUBLIC_COMPANY_LEGAL_NAME", ok: set(env, "NEXT_PUBLIC_COMPANY_LEGAL_NAME"), severity: "warning", why: "Terms, receipts and the footer don't name the company guests are dealing with." },
   ];
