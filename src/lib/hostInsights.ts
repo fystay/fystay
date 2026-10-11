@@ -386,7 +386,6 @@ export type HealthListing = {
   quietHoursStart: string | null;
   additionalRules: string | null;
   weeklyDiscountPercent: number | null;
-  cleaningFeeCents: number;
 };
 
 export type HealthItem = { key: string; label: string; done: boolean; hint: string };

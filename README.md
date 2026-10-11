@@ -55,8 +55,9 @@ plus shared `not-found.tsx` and `error.tsx` boundaries.
   availability function) so a future rule, like a minimum/maximum stay, an advance-booking window,
   buffer days between stays, or seasonal availability, is a new predicate run alongside the
   existing ones rather than a rewrite.
-- **Pricing**: nightly rate × nights, plus an optional per-listing cleaning fee and a 10% guest
-  service fee (`src/lib/pricing.ts`), snapshotted onto the booking at creation time so a later
+- **Pricing**: nightly rate × nights, less any length-of-stay or last-minute discount - guests pay
+  nothing on top (no service or cleaning fee). FYStay keeps a 10% commission out of the host's
+  share (`src/lib/pricing.ts`). Both are snapshotted onto the booking at creation time so a later
   change to the listing's rates never rewrites what a guest already agreed to pay.
 - **Payments**: paying creates a Stripe Checkout session itemized by that breakdown; card details
   never touch FYStay's servers or database, since the guest enters them on Stripe's own hosted
@@ -72,9 +73,9 @@ plus shared `not-found.tsx` and `error.tsx` boundaries.
   `COMPLETED` (once the stay ends) or `CANCELLED`/`REFUNDED`.
 - **Host payouts (Stripe Connect)**: a host connects a Stripe Express account from `/host/payouts`
   (`src/lib/stripeConnect.ts`); once Stripe reports both `charges_enabled` and `payouts_enabled`,
-  every future booking's Checkout session is a destination charge - the nightly rate + cleaning fee
-  transfer straight to the host's own bank account, and FYStay's 10% service fee is retained as an
-  `application_fee_amount`. A host who hasn't connected (or hasn't finished onboarding) still takes
+  every future booking's Checkout session is a destination charge - the stay less FYStay's 10%
+  commission transfers straight to the host's own bank account, and the commission is retained as
+  an `application_fee_amount`. A host who hasn't connected (or hasn't finished onboarding) still takes
   bookings exactly as before; the money simply settles to FYStay's own Stripe balance until they do,
   rather than blocking anything. Cancelling a booking that did pay out via Connect reverses the same
   proportion of the transfer and the platform fee (`reverse_transfer`/`refund_application_fee`) so a

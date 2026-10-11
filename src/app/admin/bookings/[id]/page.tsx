@@ -120,8 +120,8 @@ export default async function AdminBookingDetailPage({
                 <span className="text-stone-500">Total:</span> {formatPrice(booking.totalPriceCents)}
               </p>
               <p>
-                <span className="text-stone-500">Service fee:</span>{" "}
-                {formatPrice(booking.serviceFeeCents)}
+                <span className="text-stone-500">FYStay commission:</span>{" "}
+                {formatPrice(booking.hostCommissionCents + booking.serviceFeeCents)}
               </p>
               <p>
                 <span className="text-stone-500">Refunded so far:</span>{" "}

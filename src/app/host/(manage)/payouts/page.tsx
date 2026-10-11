@@ -81,10 +81,9 @@ export default async function HostPayoutsPage({
           {ready ? (
             <>
               <p className="text-sm text-stone-600">
-                Your listings can take bookings. For each one you receive your full nightly price
-                and cleaning fee automatically - FYStay&apos;s service fee is paid by the guest on
-                top - and Stripe pays it out to your bank account. You don&apos;t need to do
-                anything else.
+                Your listings can take bookings. For each one you receive the booking total less
+                FYStay&apos;s 10% commission automatically, and Stripe pays it out to your bank
+                account. You don&apos;t need to do anything else.
               </p>
               <a
                 href="/api/host/stripe/dashboard"

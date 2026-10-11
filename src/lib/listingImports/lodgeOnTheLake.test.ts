@@ -37,20 +37,27 @@ describe("Lodge on the Lake listing", () => {
       cancellationPolicy: "NON_REFUNDABLE",
       smokingAllowed: false,
       partiesAllowed: false,
-      cleaningFeeCents: 0,
       checkInTime: null,
     });
+    // No separate cleaning fee exists any more - cleaning is in the nightly rate.
+    expect(listing).not.toHaveProperty("cleaningFeeCents");
     expect(weekendRateError({ ...LODGE_ON_THE_LAKE_OWNER_TERMS, propertyType: listing.propertyType })).toBeNull();
     expect(cancellationTermsSnapshot(LODGE_ON_THE_LAKE_OWNER_TERMS).cancellationPolicy).toBe("NON_REFUNDABLE");
   });
 
-  it("prices a Thursday-to-Sunday stay at £255 + 2 x £275, plus FYStay's 10% fee", () => {
+  it("prices a Thursday-to-Sunday stay at £255 + 2 x £275 with nothing on top, FYStay's 10% coming out of the owner's share", () => {
     const pricing = computeBookingPricing({
       nights: 3,
       ...stayRates(LODGE_ON_THE_LAKE_OWNER_TERMS, new Date("2026-11-05T00:00:00Z"), new Date("2026-11-08T00:00:00Z")),
     });
     expect(pricing.nightlySubtotalCents).toBe(80_500);
-    expect(pricing.totalPriceCents).toBe(88_550);
+    expect(pricing.serviceFeeCents).toBe(0);
+    expect(pricing.cleaningFeeCents).toBe(0);
+    // The guest pays exactly the owner's price: £805.
+    expect(pricing.totalPriceCents).toBe(80_500);
+    // FYStay's commission is £80.50, so the owner receives £724.50.
+    expect(pricing.hostCommissionCents).toBe(8_050);
+    expect(pricing.totalPriceCents - pricing.hostCommissionCents).toBe(72_450);
   });
 
   it("doesn't let the description contradict the bedroom count", () => {

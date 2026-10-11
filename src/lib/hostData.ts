@@ -78,6 +78,7 @@ export async function loadHostPortfolio(prisma: PrismaClient, hostId: string) {
         createdAt: true,
         totalPriceCents: true,
         serviceFeeCents: true,
+        hostCommissionCents: true,
         taxCents: true,
         creditAppliedCents: true,
         promoDiscountCents: true,

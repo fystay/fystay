@@ -3,7 +3,6 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { guestNightlyPriceCents } from "@/lib/pricing";
 import {
   ArrowRight,
   Bath,
@@ -110,7 +109,7 @@ export async function generateMetadata({
   if (isSuspended(listing)) return { robots: { index: false, follow: false } };
 
   const title = withCity(listing.title, listing.city);
-  const description = `${PROPERTY_TYPE_LABEL[listing.propertyType]} in ${listing.city}, ${listing.country} - ${listing.bedrooms} bedroom${listing.bedrooms === 1 ? "" : "s"}, sleeps ${listing.maxGuests}, from ${formatPrice(guestNightlyPriceCents(listing.pricePerNightCents))}/night incl. service fee. ${listing.description.slice(0, 110)}`;
+  const description = `${PROPERTY_TYPE_LABEL[listing.propertyType]} in ${listing.city}, ${listing.country} - ${listing.bedrooms} bedroom${listing.bedrooms === 1 ? "" : "s"}, sleeps ${listing.maxGuests}, from ${formatPrice(listing.pricePerNightCents)}/night, no booking fees. ${listing.description.slice(0, 110)}`;
   const url = `${SITE_URL}/listings/${listing.id}`;
 
   return {
@@ -273,8 +272,8 @@ export default async function ListingDetailPage({
     ],
     offers: {
       "@type": "Offer",
-      // What a guest pays per night, service fee included - as shown on the page.
-      price: (guestNightlyPriceCents(listing.pricePerNightCents) / 100).toFixed(2),
+      // What a guest pays per night - there are no fees on top.
+      price: (listing.pricePerNightCents / 100).toFixed(2),
       priceCurrency: "GBP",
       availability: "https://schema.org/InStock",
       url: `${SITE_URL}/listings/${listing.id}`,
@@ -489,7 +488,6 @@ export default async function ListingDetailPage({
             <HotelBookingWidget
               listingId={listing.id}
               roomTypes={listing.roomTypes}
-              cleaningFeeCents={listing.cleaningFeeCents}
               weeklyDiscountPercent={listing.weeklyDiscountPercent}
               monthlyDiscountPercent={listing.monthlyDiscountPercent}
               lastMinuteDiscountPercent={listing.lastMinuteDiscountPercent}
@@ -507,7 +505,6 @@ export default async function ListingDetailPage({
               listingId={listing.id}
               pricePerNightCents={listing.pricePerNightCents}
               weekendPricePerNightCents={listing.weekendPricePerNightCents}
-              cleaningFeeCents={listing.cleaningFeeCents}
               weeklyDiscountPercent={listing.weeklyDiscountPercent}
               monthlyDiscountPercent={listing.monthlyDiscountPercent}
               lastMinuteDiscountPercent={listing.lastMinuteDiscountPercent}

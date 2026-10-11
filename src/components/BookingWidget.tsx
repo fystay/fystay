@@ -21,7 +21,6 @@ import {
   MONTHLY_DISCOUNT_MIN_NIGHTS,
   stayDiscountName,
   WEEKLY_DISCOUNT_MIN_NIGHTS,
-  guestNightlyPriceCents,
   nightlyChargeLines,
   stayRates,
 } from "@/lib/pricing";
@@ -36,7 +35,6 @@ type Props = {
   pricePerNightCents: number;
   /** Friday/Saturday rate, when the host charges one (never below pricePerNightCents). */
   weekendPricePerNightCents?: number | null;
-  cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
   /** The listing's last-minute deal (see src/lib/deals.ts), applied when the chosen check-in is within the window. */
@@ -77,7 +75,6 @@ export function BookingWidget({
   listingId,
   pricePerNightCents,
   weekendPricePerNightCents = null,
-  cleaningFeeCents,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
   lastMinuteDiscountPercent = null,
@@ -160,7 +157,6 @@ export function BookingWidget({
     ...(selectedCheckIn && selectedCheckOut
       ? stayRates({ pricePerNightCents, weekendPricePerNightCents }, selectedCheckIn, selectedCheckOut)
       : { pricePerNightCents }),
-    cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
     lastMinuteDiscountPercent: lastMinuteForStay,
@@ -315,11 +311,11 @@ export function BookingWidget({
               {priceDropFromCents && (
                 <s className="mr-1.5 text-base font-medium text-stone-600">
                   <span className="sr-only">Was </span>
-                  {formatPrice(guestNightlyPriceCents(priceDropFromCents))}
+                  {formatPrice(priceDropFromCents)}
                 </s>
               )}
               {hasWeekendRate && <span className="mr-1 text-sm font-normal text-stone-500">from</span>}
-              {formatPrice(guestNightlyPriceCents(pricePerNightCents))}
+              {formatPrice(pricePerNightCents)}
               <span className="ml-1 text-sm font-normal text-stone-500">/ night</span>
             </p>
             {rating !== null && (
@@ -330,12 +326,10 @@ export function BookingWidget({
               </span>
             )}
           </div>
-          {/* The headline already includes FYStay's service fee; say so, and
-              name the one per-stay charge it can't include per night. */}
+          {/* The nightly price is all a guest pays: no service or cleaning fee on top. */}
           <p className="mt-0.5 text-xs text-stone-500">
-            Includes FYStay&apos;s service fee
-            {hasWeekendRate && ` · ${formatPrice(guestNightlyPriceCents(weekendPricePerNightCents!))} on Fri and Sat nights`}
-            {cleaningFeeCents > 0 && ` · plus ${formatPrice(cleaningFeeCents)} cleaning per stay`}
+            No booking or cleaning fees
+            {hasWeekendRate && ` · ${formatPrice(weekendPricePerNightCents!)} on Fri and Sat nights`}
           </p>
 
           {lastMinuteDiscountPercent && lastMinuteWindowDays && (
@@ -403,16 +397,6 @@ export function BookingWidget({
                   <span>&minus;{formatPrice(pricing.lengthOfStayDiscountCents)}</span>
                 </div>
               )}
-              {pricing.cleaningFeeCents > 0 && (
-                <div className="flex justify-between">
-                  <span>Cleaning fee</span>
-                  <span>{formatPrice(pricing.cleaningFeeCents)}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span>Service fee</span>
-                <span>{formatPrice(pricing.serviceFeeCents)}</span>
-              </div>
               {promoActive && (
                 <div className="flex justify-between text-brand-700">
                   <span>Promo code ({appliedPromoCode})</span>
@@ -566,8 +550,8 @@ export function BookingWidget({
           ) : (
             <>
               {hasWeekendRate && <span className="text-sm text-stone-500">from </span>}
-              <span className="font-bold text-brand-800">{formatPrice(guestNightlyPriceCents(pricePerNightCents))}</span>{" "}
-              <span className="text-sm text-stone-500">/ night incl. service fee</span>
+              <span className="font-bold text-brand-800">{formatPrice(pricePerNightCents)}</span>{" "}
+              <span className="text-sm text-stone-500">/ night</span>
             </>
           )
         }

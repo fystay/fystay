@@ -81,8 +81,8 @@ export default async function HostListingsPage() {
           action={{ href: "/host/listings/new", label: "Create a listing" }}
           secondary={{ href: "/host-guide", label: "Read the host guide" }}
         >
-          Add a few photos, your nightly price and your house rules - about ten minutes. You keep your full price:
-          FYStay&apos;s fee is added on top for the guest, and you decide when it goes live.
+          Add a few photos, your nightly price and your house rules - about ten minutes. Guests pay your price with
+          no fees added, FYStay keeps 10% when you&apos;re paid, and you decide when it goes live.
         </HostPageEmpty>
       )}
 

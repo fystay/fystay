@@ -91,6 +91,24 @@ export async function refreshConnectAccountStatus(accountId: string) {
 export { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
 
 /**
+ * A destination charge's payment_intent_data: the whole payment goes to the
+ * host's connected account and FYStay's application fee comes back from it.
+ * A promo or referral credit can use up the whole commission, and 10% of a
+ * very small date-change difference can round to nothing - then there's no
+ * fee to take and the host keeps the full charge (still exactly their share),
+ * so only a positive fee is sent.
+ */
+export function destinationChargeData(
+  destinationAccountId: string,
+  applicationFeeCents: number,
+): Pick<Stripe.PaymentIntentCreateParams, "application_fee_amount" | "transfer_data"> {
+  return {
+    ...(applicationFeeCents > 0 && { application_fee_amount: applicationFeeCents }),
+    transfer_data: { destination: destinationAccountId },
+  };
+}
+
+/**
  * Whether a host can take a *paid* booking right now: only once their
  * Connect account can receive their share automatically, so a guest's
  * payment never sits in FYStay's balance waiting to be paid out by hand.

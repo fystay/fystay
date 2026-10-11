@@ -44,9 +44,10 @@ export default function TermsPage() {
 
       <LegalSection heading="3. Bookings and payment">
         <p>
-          When you book a listing, you agree to pay the total price shown at checkout, including
-          the nightly rate, any cleaning fee, and any service fee. Payments are processed securely
-          by Stripe; FYStay does not receive or store your full card details.
+          When you book a listing, you agree to pay the total price shown at checkout. That price
+          is the host&apos;s nightly rate for your stay, less any discount: FYStay adds no booking,
+          service, cleaning or card fee on top. Payments are processed securely by Stripe; FYStay
+          does not receive or store your full card details.
         </p>
         <p>
           A booking is confirmed once payment has been successfully processed. You&apos;ll receive
@@ -79,6 +80,13 @@ export default function TermsPage() {
           availability, and amenities), for the property being safe and as described, and for
           honouring confirmed bookings. FYStay may remove a listing that is inaccurate, unsafe,
           or breaches these terms.
+        </p>
+        <p>
+          FYStay keeps a commission of 10% of the amount the guest pays for each booking, deducted
+          before the rest is paid to the host through Stripe Connect. FYStay pays card processing
+          costs out of its commission; there is no separate charge to the host or the guest for
+          them. If a booking is refunded under its cancellation policy, the host&apos;s payout and
+          FYStay&apos;s commission are reduced in the same proportion.
         </p>
       </LegalSection>
 

@@ -330,7 +330,6 @@ export const DEMO_LISTINGS = [
     country: "England",
     propertyType: "APARTMENT" as const,
     pricePerNightCents: 32000,
-    cleaningFeeCents: 6000,
     maxGuests: 6,
     bedrooms: 3,
     beds: 3,
@@ -357,7 +356,6 @@ export const DEMO_LISTINGS = [
     country: "England",
     propertyType: "VILLA" as const,
     pricePerNightCents: 39000,
-    cleaningFeeCents: 9000,
     maxGuests: 8,
     bedrooms: 4,
     beds: 5,
@@ -386,7 +384,6 @@ export const DEMO_LISTINGS = [
     country: "England",
     propertyType: "APARTMENT" as const,
     pricePerNightCents: 21000,
-    cleaningFeeCents: 5000,
     maxGuests: 5,
     bedrooms: 2,
     beds: 3,
@@ -811,7 +808,6 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
     const pricing = computeBookingPricing({
       nights: seed.nights,
       pricePerNightCents: reviewedListing.pricePerNightCents,
-      cleaningFeeCents: reviewedListing.cleaningFeeCents,
     });
     const booking = await prisma.booking.create({
       data: {
@@ -825,6 +821,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
         nightlyPriceCents: reviewedListing.pricePerNightCents,
         cleaningFeeCents: pricing.cleaningFeeCents,
         serviceFeeCents: pricing.serviceFeeCents,
+        hostCommissionCents: pricing.hostCommissionCents,
         taxCents: pricing.taxCents,
         totalPriceCents: pricing.totalPriceCents,
         status: "COMPLETED",
@@ -1080,7 +1077,6 @@ async function seedDemoHostActivity(
     const pricing = computeBookingPricing({
       nights,
       pricePerNightCents: listing.pricePerNightCents,
-      cleaningFeeCents: listing.cleaningFeeCents,
     });
     const paid = state !== "REQUEST";
     const paidAt = paid ? new Date(Math.min(checkIn.getTime() - 14 * DAY_MS, Date.now() - DAY_MS)) : null;
@@ -1097,6 +1093,7 @@ async function seedDemoHostActivity(
         nightlyPriceCents: listing.pricePerNightCents,
         cleaningFeeCents: pricing.cleaningFeeCents,
         serviceFeeCents: pricing.serviceFeeCents,
+        hostCommissionCents: pricing.hostCommissionCents,
         taxCents: pricing.taxCents,
         totalPriceCents: pricing.totalPriceCents,
         status: state === "REQUEST" ? "PENDING" : state,

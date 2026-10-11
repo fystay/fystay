@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
 import { bookingPayments, RefundIncompleteError, refundAcrossPayments, refundChangeDifference } from "./connectRefunds";
 
-function fakeStripe(charges: Record<string, { amount: number; amount_refunded?: number }>) {
+function fakeStripe(charges: Record<string, { amount: number; amount_refunded?: number; noFee?: boolean }>) {
   const calls = {
     refunds: [] as unknown[],
     reversals: [] as unknown[],
@@ -16,7 +16,7 @@ function fakeStripe(charges: Record<string, { amount: number; amount_refunded?: 
           amount: charges[id].amount,
           amount_refunded: charges[id].amount_refunded ?? 0,
           transfer: `tr_${id}`,
-          application_fee: `fee_${id}`,
+          application_fee: charges[id].noFee ? null : `fee_${id}`,
         },
       })),
     },
@@ -94,6 +94,16 @@ describe("refundAcrossPayments", () => {
       5000,
     );
     expect(calls.refunds).toEqual([{ payment_intent: "pi_old", amount: 5000, metadata: { source: "fystay" } }]);
+  });
+
+  it("reverses the host's transfer but asks for no fee refund on a charge that paid FYStay no fee", async () => {
+    // A £150 stay with a £20 promo: the promo used up FYStay's £15 commission,
+    // so the charge carried no application fee - there's none to return.
+    const { stripe, calls } = fakeStripe({ pi_promo: { amount: 13000, noFee: true } });
+    await refundAcrossPayments(stripe, [{ paymentIntentId: "pi_promo", viaConnect: true }], 13000);
+    expect(calls.refunds).toEqual([
+      { payment_intent: "pi_promo", amount: 13000, metadata: { source: "fystay" }, reverse_transfer: true },
+    ]);
   });
 
   it("names each refund for Stripe's idempotency when asked, so a repeat returns the first", async () => {

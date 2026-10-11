@@ -5,7 +5,7 @@ import type { TouchEvent } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
 import { useFormattedPrice } from "@/components/CurrencyProvider";
-import { computeBookingPricing, guestNightlyPriceCents, stayRates } from "@/lib/pricing";
+import { computeBookingPricing, stayRates } from "@/lib/pricing";
 import { SaveButton } from "@/components/SaveButton";
 import { averageRating as computeAverageRating } from "@/lib/reviews";
 import { AMENITY_CATEGORIES } from "@/lib/amenityCategories";
@@ -27,7 +27,6 @@ export type ListingCardData = {
   pricePerNightCents: number;
   /** Friday/Saturday rate, if any - never below pricePerNightCents, so the headline stays a true "from" price. */
   weekendPricePerNightCents?: number | null;
-  cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
   photos: string[];
@@ -191,7 +190,6 @@ export function ListingCard({
           ...(searchedCheckIn
             ? stayRates(listing, searchedCheckIn, new Date(searchedCheckIn.getTime() + nights * 24 * 60 * 60 * 1000))
             : { pricePerNightCents: listing.pricePerNightCents }),
-          cleaningFeeCents: listing.cleaningFeeCents,
           weeklyDiscountPercent: listing.weeklyDiscountPercent,
           monthlyDiscountPercent: listing.monthlyDiscountPercent,
           lastMinuteDiscountPercent: searchedLastMinutePercent,
@@ -217,9 +215,9 @@ export function ListingCard({
   // totalPriceCents may be null - formattedTotal is simply unused in that
   // case, exactly like the totalPriceCents !== null check below already
   // gates whether it renders.
-  // Headline prices include FYStay's service fee (guestNightlyPriceCents).
-  const formattedNightlyPrice = useFormattedPrice(guestNightlyPriceCents(shownNightlyCents));
-  const formattedWasPrice = useFormattedPrice(guestNightlyPriceCents(struckNightlyCents ?? 0));
+  // Headline prices are what guests pay: there are no fees on top.
+  const formattedNightlyPrice = useFormattedPrice(shownNightlyCents);
+  const formattedWasPrice = useFormattedPrice(struckNightlyCents ?? 0);
   const formattedTotal = useFormattedPrice(totalPriceCents ?? 0);
 
   return (
@@ -418,9 +416,9 @@ export function ListingCard({
               <span className="text-xs text-stone-500">/ night</span>
             </p>
             {totalPriceCents !== null ? (
-              <span className="text-xs text-stone-500">{formattedTotal} total, all fees included</span>
+              <span className="text-xs text-stone-500">{formattedTotal} total</span>
             ) : (
-              <span className="text-xs text-stone-500">incl. service fee</span>
+              <span className="text-xs text-stone-500">no booking fees</span>
             )}
           </div>
           {rating !== null ? (

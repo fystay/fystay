@@ -53,11 +53,14 @@ describe("applyListingFilters", () => {
     ]);
   });
 
-  it("filters on the price guests see, service fee included", () => {
-    // £140 a night is £154 to the guest: outside "up to £150", inside "from £150".
+  it("filters on the host's nightly price, which is exactly what guests pay - nothing is added on top", () => {
+    // £140 a night is £140 to the guest: inside "up to £150", outside "from £150".
     const listings = [listing({ id: "edge", pricePerNightCents: 14000 })];
-    expect(applyListingFilters(listings, { maxPriceCents: 15000 })).toEqual([]);
-    expect(applyListingFilters(listings, { minPriceCents: 15000 }).map((l) => l.id)).toEqual(["edge"]);
+    expect(applyListingFilters(listings, { maxPriceCents: 15000 }).map((l) => l.id)).toEqual(["edge"]);
+    expect(applyListingFilters(listings, { minPriceCents: 15000 })).toEqual([]);
+    // The bounds are inclusive at the exact nightly price.
+    expect(applyListingFilters(listings, { minPriceCents: 14000, maxPriceCents: 14000 }).map((l) => l.id)).toEqual(["edge"]);
+    expect(applyListingFilters(listings, { maxPriceCents: 13999 })).toEqual([]);
   });
 
   it("filters by minimum bedrooms and bathrooms", () => {

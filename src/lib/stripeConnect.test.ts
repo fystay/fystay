@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
-import { bookableHostWhere, connectFlagsFromV2Account, hostConnectAccountParams, isConnectReady } from "./stripeConnect";
+import { bookableHostWhere, connectFlagsFromV2Account, destinationChargeData, hostConnectAccountParams, isConnectReady } from "./stripeConnect";
 
 type Status = "active" | "pending" | "restricted" | "unsupported";
 
@@ -79,5 +79,22 @@ describe("bookableHostWhere", () => {
   it("filters nothing without a Stripe key, where bookings confirm without payment", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     expect(bookableHostWhere()).toEqual({});
+  });
+});
+
+describe("destinationChargeData", () => {
+  it("sends the whole payment to the host and takes FYStay's fee back: £435 -> £43.50 fee", () => {
+    expect(destinationChargeData("acct_host", 4_350)).toEqual({
+      application_fee_amount: 4_350,
+      transfer_data: { destination: "acct_host" },
+    });
+  });
+
+  it("sends no fee at all when promos or credit used up the whole commission", () => {
+    expect(destinationChargeData("acct_host", 0)).toEqual({ transfer_data: { destination: "acct_host" } });
+  });
+
+  it("never sends a negative fee", () => {
+    expect(destinationChargeData("acct_host", -5)).toEqual({ transfer_data: { destination: "acct_host" } });
   });
 });

@@ -326,6 +326,12 @@
       "files": {
         "migration.sql": "5eac66d8aea7835c87de6805a646f6e351d1ed071e80118f8741daa80efda742"
       }
+    },
+    {
+      "name": "20261011120000_add_host_commission",
+      "files": {
+        "migration.sql": "8db3929ae66e398be7f295fd549620fd613977ef2947d86373f29198557bf267"
+      }
     }
   ],
   "retired": [

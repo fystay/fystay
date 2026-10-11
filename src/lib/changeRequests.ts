@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { computeBookingPricing, splitBookingChange, weekendNightsBetween } from "@/lib/pricing";
+import { computeBookingPricing, isLegacyServiceFeeBooking, legacyGuestServiceFeeFor, splitBookingChange, weekendNightsBetween } from "@/lib/pricing";
 import { nightsBetween } from "@/lib/availability";
 
 export type CancellableBooking = {
@@ -86,6 +86,8 @@ export type ChangePricingBooking = {
   nightlyPriceCents: number;
   weekendNightlyPriceCents: number | null;
   cleaningFeeCents: number;
+  serviceFeeCents: number;
+  hostCommissionCents: number;
   lastMinuteDiscountPercent: number | null;
   totalPriceCents: number;
   creditAppliedCents: number;
@@ -104,6 +106,7 @@ export function changePriceDeltaCents(
     weekendPricePerNightCents: weekendNightlyPriceCents,
     weekendNights: weekendNightlyPriceCents === null ? 0 : weekendNightsBetween(requested.checkIn, requested.checkOut),
     cleaningFeeCents: booking.cleaningFeeCents,
+    legacyServiceFee: isLegacyServiceFeeBooking(booking),
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
     lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent,
@@ -118,7 +121,10 @@ export function computePriceDeltaCents(params: {
   pricePerNightCents: number;
   weekendPricePerNightCents?: number | null;
   weekendNights?: number;
+  /** The booking's own cleaning fee - only older bookings have one; it stays the same through a change. */
   cleaningFeeCents?: number;
+  /** An older booking priced with a guest service fee on top (isLegacyServiceFeeBooking): the new stay is too. */
+  legacyServiceFee?: boolean;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
   /** The booking's own snapshotted last-minute deal (Booking.lastMinuteDiscountPercent), kept through a change. */
@@ -130,30 +136,32 @@ export function computePriceDeltaCents(params: {
     pricePerNightCents,
     weekendPricePerNightCents,
     weekendNights,
-    cleaningFeeCents,
+    cleaningFeeCents = 0,
+    legacyServiceFee = false,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
     lastMinuteDiscountPercent,
     currentTotalPriceCents,
   } = params;
-  const { totalPriceCents } = computeBookingPricing({
+  const { totalPriceCents, taxCents } = computeBookingPricing({
     nights: requestedNights,
     pricePerNightCents,
     weekendPricePerNightCents,
     weekendNights,
-    cleaningFeeCents,
     weeklyDiscountPercent,
     monthlyDiscountPercent,
     lastMinuteDiscountPercent,
   });
-  return totalPriceCents - currentTotalPriceCents;
+  const serviceFeeCents = legacyServiceFee ? legacyGuestServiceFeeFor(totalPriceCents - taxCents) : 0;
+  return totalPriceCents + cleaningFeeCents + serviceFeeCents - currentTotalPriceCents;
 }
 
 /**
  * The booking's stay and price fields once a change is applied - shared by
  * a paid change (applyApprovedChange in the pay route) and a refunded or
- * no-cost one (respond/route.ts). The
- * service fee moves by FYStay's share of the difference and the night count
+ * no-cost one (respond/route.ts). FYStay's
+ * fee (its commission, or an older booking's service fee) moves by its
+ * share of the difference and the night count
  * follows the new dates, so the booking's own breakdown stays true for any
  * later change, refund or receipt.
  */
@@ -174,7 +182,9 @@ export function bookingFieldsAfterChange(
         : weekendNightsBetween(change.requestedCheckIn, change.requestedCheckOut),
     guests: change.requestedGuests,
     totalPriceCents: booking.totalPriceCents + change.priceDeltaCents,
-    serviceFeeCents: booking.serviceFeeCents + platformShareCents,
+    ...(isLegacyServiceFeeBooking(booking)
+      ? { serviceFeeCents: booking.serviceFeeCents + platformShareCents }
+      : { hostCommissionCents: booking.hostCommissionCents + platformShareCents }),
   };
 }
 
@@ -192,6 +202,32 @@ export const OUTSTANDING_CHANGE_REQUEST_WHERE = {
 
 export const CHANGE_REQUEST_IN_PROGRESS_MESSAGE =
   "This booking already has a date change in progress - withdraw it or finish paying for it first.";
+
+/**
+ * Why a discounted booking can't move to a cheaper stay. A refund on a date
+ * change goes back through Stripe proportionally across the discounted
+ * payment, which would pass part of FYStay's promo or referral credit on to
+ * the host - so until a dedicated refund workflow exists (see
+ * docs/launch/stripe-architecture.md, "Deferred: shortened-stay refunds"),
+ * such a change isn't offered. Cancelling under the booking's own policy
+ * and booking again keeps every split exact.
+ */
+export const DISCOUNTED_BOOKING_REFUND_CHANGE_MESSAGE =
+  "This booking used a promo code or referral credit, so its dates can't be changed to a shorter or cheaper stay. " +
+  "You can cancel it under its cancellation policy and book the new dates instead.";
+
+/**
+ * Whether a date change would refund part of a booking that used a promo
+ * code or referral credit - shortening it, or moving it to cheaper nights.
+ * Changes that cost the same or more are unaffected: they refund nothing,
+ * and any extra is a separate payment with no discount on it.
+ */
+export function isRefundChangeOnDiscountedBooking(
+  booking: { promoDiscountCents: number; creditAppliedCents: number },
+  priceDeltaCents: number,
+): boolean {
+  return priceDeltaCents < 0 && (booking.promoDiscountCents > 0 || booking.creditAppliedCents > 0);
+}
 
 /**
  * Whether the booking is still exactly the stay a change request was priced

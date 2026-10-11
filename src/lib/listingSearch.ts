@@ -1,4 +1,3 @@
-import { guestNightlyPriceCents } from "@/lib/pricing";
 import { averageRating } from "@/lib/reviews";
 import { matchesAmenityCategories } from "@/lib/amenityCategories";
 import { distanceMiles } from "@/lib/geo";
@@ -47,10 +46,10 @@ export function applyListingFilters<T extends SearchableListing>(
     if (filters.propertyTypes?.length && !filters.propertyTypes.includes(listing.propertyType)) {
       return false;
     }
-    if (filters.minPriceCents !== undefined && guestNightlyPriceCents(listing.pricePerNightCents) < filters.minPriceCents) {
+    if (filters.minPriceCents !== undefined && listing.pricePerNightCents < filters.minPriceCents) {
       return false;
     }
-    if (filters.maxPriceCents !== undefined && guestNightlyPriceCents(listing.pricePerNightCents) > filters.maxPriceCents) {
+    if (filters.maxPriceCents !== undefined && listing.pricePerNightCents > filters.maxPriceCents) {
       return false;
     }
     if (filters.minBedrooms !== undefined && listing.bedrooms < filters.minBedrooms) {

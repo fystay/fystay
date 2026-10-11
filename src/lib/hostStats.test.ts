@@ -3,23 +3,32 @@ import {
   computeHostResponseStats,
   computeOccupancyRate,
   formatResponseTime,
+  hostPayoutCents,
   hostRevenueCents,
   isGreatHost,
   summarizeEarnings,
 } from "./hostStats";
 
 function booking(overrides: Partial<Parameters<typeof hostRevenueCents>[0]> = {}) {
-  // Two nights at £50 plus £20 cleaning (£120 for the host) and a £12 service fee.
+  // Two nights at £60: the guest pays £120 and nothing on top; FYStay's 10%
+  // commission (£12) comes out of the host's share, leaving them £108.
   return {
-    serviceFeeCents: 1200,
+    serviceFeeCents: 0,
+    hostCommissionCents: 1200,
     taxCents: 0,
     creditAppliedCents: 0,
     promoDiscountCents: 0,
-    totalPriceCents: 13200,
+    totalPriceCents: 12000,
     refundedAmountCents: null,
     paymentStatus: "PAID" as const,
     ...overrides,
   };
+}
+
+// An older booking: two nights at £50 plus £20 cleaning (£120 for the host)
+// and a £12 guest service fee on top, no commission.
+function legacyBooking(overrides: Partial<Parameters<typeof hostRevenueCents>[0]> = {}) {
+  return booking({ totalPriceCents: 13200, serviceFeeCents: 1200, hostCommissionCents: 0, ...overrides });
 }
 
 describe("hostRevenueCents", () => {
@@ -27,35 +36,79 @@ describe("hostRevenueCents", () => {
     expect(hostRevenueCents(booking({ paymentStatus: "UNPAID" }))).toBe(0);
   });
 
-  it("excludes the guest service fee from a fully paid, unrefunded booking", () => {
-    // 13200 paid - 1200 service fee = 12000, every night plus cleaning
-    expect(hostRevenueCents(booking())).toBe(12000);
+  it("is what the guest paid less FYStay's 10% commission for a fully paid, unrefunded booking", () => {
+    // 12000 paid - 1200 commission = 10800
+    expect(hostRevenueCents(booking())).toBe(10800);
   });
 
   it("counts every night of the stay, not just one", () => {
-    // 7 nights at £100 less a £70 weekly discount, £20 cleaning, £65 service fee
-    expect(hostRevenueCents(booking({ totalPriceCents: 71500, serviceFeeCents: 6500 }))).toBe(65000);
+    // 7 nights at £100 less a £70 weekly discount = £630 paid, £63 commission
+    expect(hostRevenueCents(booking({ totalPriceCents: 63000, hostCommissionCents: 6300 }))).toBe(56700);
   });
 
-  it("isn't reduced by a promo code or referral credit - FYStay absorbs those out of its fee", () => {
+  it("isn't reduced by a promo code or referral credit - FYStay absorbs those out of its commission", () => {
+    // £120 stay, £3 credit + £2 promo: the guest pays £115, FYStay's fee
+    // drops from £12 to £7, and the host still gets £108.
     expect(
-      hostRevenueCents(booking({ totalPriceCents: 12700, creditAppliedCents: 300, promoDiscountCents: 200 })),
-    ).toBe(12000);
+      hostRevenueCents(booking({ totalPriceCents: 11500, creditAppliedCents: 300, promoDiscountCents: 200 })),
+    ).toBe(10800);
   });
 
   it("reduces revenue proportionally for a partial refund", () => {
-    // 50% of the 13200 total refunded -> host keeps 50% of their 12000 share
-    expect(hostRevenueCents(booking({ paymentStatus: "PARTIALLY_REFUNDED", refundedAmountCents: 6600 }))).toBe(
-      6000,
+    // 50% of the 12000 total refunded -> host keeps 50% of their 10800 share
+    expect(hostRevenueCents(booking({ paymentStatus: "PARTIALLY_REFUNDED", refundedAmountCents: 6000 }))).toBe(
+      5400,
     );
   });
 
   it("is 0 for a fully refunded booking", () => {
-    expect(hostRevenueCents(booking({ paymentStatus: "REFUNDED", refundedAmountCents: 13200 }))).toBe(0);
+    expect(hostRevenueCents(booking({ paymentStatus: "REFUNDED", refundedAmountCents: 12000 }))).toBe(0);
   });
 
   it("never goes negative if a refund somehow exceeds the total", () => {
     expect(hostRevenueCents(booking({ paymentStatus: "REFUNDED", refundedAmountCents: 99999 }))).toBe(0);
+  });
+
+  describe("an older service-fee booking", () => {
+    it("excludes the guest service fee, so the host keeps every night plus cleaning", () => {
+      // 13200 paid - 1200 service fee = 12000
+      expect(hostRevenueCents(legacyBooking())).toBe(12000);
+    });
+
+    it("isn't reduced by a promo code or referral credit either", () => {
+      expect(
+        hostRevenueCents(legacyBooking({ totalPriceCents: 12700, creditAppliedCents: 300, promoDiscountCents: 200 })),
+      ).toBe(12000);
+    });
+
+    it("reduces revenue proportionally for a partial refund", () => {
+      expect(
+        hostRevenueCents(legacyBooking({ paymentStatus: "PARTIALLY_REFUNDED", refundedAmountCents: 6600 })),
+      ).toBe(6000);
+    });
+  });
+});
+
+describe("hostPayoutCents", () => {
+  it("is the guest's total less FYStay's commission on a commission booking", () => {
+    expect(hostPayoutCents(booking())).toBe(10800);
+  });
+
+  it("takes a promo code and referral credit out of FYStay's commission, not the host's payout", () => {
+    // £120 stay, £5 promo + £3 credit: guest pays £112; application fee
+    // £12 - £8 = £4; host gets £112 - £4 = £108 - the same as with no promo.
+    expect(hostPayoutCents(booking({ totalPriceCents: 11200, promoDiscountCents: 500, creditAppliedCents: 300 }))).toBe(
+      10800,
+    );
+  });
+
+  it("only reaches into the host's share when discounts exceed the whole commission (bookings from before the cap)", () => {
+    // £15 promo on a £12 commission: fee floors at 0, guest paid £105, host gets all of it.
+    expect(hostPayoutCents(booking({ totalPriceCents: 10500, promoDiscountCents: 1500 }))).toBe(10500);
+  });
+
+  it("is the guest's total less the service fee on an older booking", () => {
+    expect(hostPayoutCents(legacyBooking())).toBe(12000);
   });
 });
 
@@ -67,9 +120,9 @@ describe("summarizeEarnings", () => {
       [{ ...booking(), checkIn: new Date("2026-06-20T00:00:00Z") }],
       reference,
     );
-    expect(summary.totalCents).toBe(12000);
-    expect(summary.thisMonthCents).toBe(12000);
-    expect(summary.upcoming30DaysCents).toBe(12000);
+    expect(summary.totalCents).toBe(10800);
+    expect(summary.thisMonthCents).toBe(10800);
+    expect(summary.upcoming30DaysCents).toBe(10800);
   });
 
   it("counts a booking from last month toward total only", () => {
@@ -77,7 +130,7 @@ describe("summarizeEarnings", () => {
       [{ ...booking(), checkIn: new Date("2026-05-10T00:00:00Z") }],
       reference,
     );
-    expect(summary.totalCents).toBe(12000);
+    expect(summary.totalCents).toBe(10800);
     expect(summary.thisMonthCents).toBe(0);
     expect(summary.upcoming30DaysCents).toBe(0);
   });
@@ -87,7 +140,7 @@ describe("summarizeEarnings", () => {
       [{ ...booking(), checkIn: new Date("2026-07-30T00:00:00Z") }],
       reference,
     );
-    expect(summary.totalCents).toBe(12000);
+    expect(summary.totalCents).toBe(10800);
     expect(summary.upcoming30DaysCents).toBe(0);
   });
 
@@ -99,15 +152,16 @@ describe("summarizeEarnings", () => {
     expect(summary).toEqual({ totalCents: 0, thisMonthCents: 0, upcoming30DaysCents: 0 });
   });
 
-  it("sums multiple bookings", () => {
+  it("sums multiple bookings, commission and older service-fee ones alike", () => {
     const summary = summarizeEarnings(
       [
         { ...booking(), checkIn: new Date("2026-06-16T00:00:00Z") },
         { ...booking(), checkIn: new Date("2026-06-17T00:00:00Z") },
+        { ...legacyBooking(), checkIn: new Date("2026-06-18T00:00:00Z") },
       ],
       reference,
     );
-    expect(summary.totalCents).toBe(24000);
+    expect(summary.totalCents).toBe(10800 + 10800 + 12000);
   });
 });
 

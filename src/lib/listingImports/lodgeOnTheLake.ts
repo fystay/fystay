@@ -16,7 +16,7 @@ import type { CreateListingInput } from "@/lib/listingInput";
  *
  * The business terms (LODGE_ON_THE_LAKE_OWNER_TERMS) are the owner's, given
  * on 10 Oct 2026. Deliberately absent, because no source states them and
- * FYStay never fills a guess in for a host: cleaning fee, damage deposit,
+ * FYStay never fills a guess in for a host: damage deposit,
  * check-in/out times, pets, accessibility and the lodge's street address -
  * unset, so they simply don't render.
  */
@@ -150,7 +150,6 @@ export function buildLodgeOnTheLakeListing(
     country: "United Kingdom",
     pricePerNightCents: terms.pricePerNightCents,
     weekendPricePerNightCents: terms.weekendPricePerNightCents,
-    cleaningFeeCents: 0,
     maxGuests: 6,
     bedrooms: 3,
     beds: 4,
