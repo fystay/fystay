@@ -25,7 +25,9 @@ vi.mock("@/lib/stripe", () => ({
     },
   }),
 }));
-vi.mock("@/lib/stripeConnect", () => ({
+vi.mock("@/lib/stripeConnect", async (importOriginal) => ({
+  // The real destination-charge shape; only the live readiness check is faked.
+  destinationChargeData: (await importOriginal<typeof import("@/lib/stripeConnect")>()).destinationChargeData,
   HOST_NOT_PAYMENT_READY_MESSAGE: "host not ready",
   verifyHostPaymentReady: async () => true,
 }));
@@ -105,6 +107,7 @@ beforeEach(() => {
     nights: 3,
     totalPriceCents: 33_000,
     serviceFeeCents: 3_000,
+    hostCommissionCents: 0,
     cleaningFeeCents: 0,
     taxCents: 0,
     creditAppliedCents: 0,
@@ -143,6 +146,11 @@ describe("paying for a date change", () => {
     mocks.sessionsCreate.mockResolvedValue({ id: "cs_new", url: "https://pay/cs_new" });
     expect(await (await pay()).json()).toEqual({ url: "https://pay/cs_new" });
     expect(state.request.stripeSessionId).toBe("cs_new");
+    // An older service-fee booking: £110 more = £100 to the host, £10 FYStay's.
+    expect(mocks.sessionsCreate.mock.calls[0][0].payment_intent_data).toEqual({
+      application_fee_amount: 1_000,
+      transfer_data: { destination: "acct_1" },
+    });
   });
 
   it("closes the open payment page and declines when the new dates were taken", async () => {

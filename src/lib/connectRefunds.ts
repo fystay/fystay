@@ -126,7 +126,9 @@ export async function refundAcrossPayments(
           payment_intent: payment.paymentIntentId,
           amount,
           metadata: FYSTAY_REFUND_METADATA,
-          ...(payment.viaConnect && { reverse_transfer: true, refund_application_fee: true }),
+          // Return FYStay's fee only where the charge has one: a booking whose
+          // promo or credit used up the whole commission paid no fee.
+          ...(payment.viaConnect && { reverse_transfer: true, ...(charge?.application_fee && { refund_application_fee: true }) }),
         },
         idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${payment.paymentIntentId}:${amount}` } : undefined,
       );

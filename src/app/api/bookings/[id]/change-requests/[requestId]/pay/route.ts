@@ -13,7 +13,7 @@ import {
 } from "@/lib/changeRequests";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
-import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
+import { destinationChargeData, HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
 import { isRequestedRangeStillAvailable } from "@/lib/availability";
 import { refundAcrossPayments } from "@/lib/connectRefunds";
 import { BASE_URL } from "@/lib/baseUrl";
@@ -149,10 +149,7 @@ async function postHandler(
     expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
     success_url: `${baseUrl}/bookings?success=1`,
     cancel_url: `${baseUrl}/bookings`,
-    payment_intent_data: {
-      application_fee_amount: applicationFeeCents,
-      transfer_data: { destination: changeRequest.booking.listing.host.stripeConnectAccountId! },
-    },
+    payment_intent_data: destinationChargeData(changeRequest.booking.listing.host.stripeConnectAccountId!, applicationFeeCents),
   });
 
   // Attached only if no other request attached a session since we read it;

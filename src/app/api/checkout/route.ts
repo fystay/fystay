@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
-import { HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
+import { destinationChargeData, HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
 import { applyDiscountsToApplicationFee, discountedAccommodationCents, fyStayFeeCents } from "@/lib/pricing";
 import { hostPayoutCents } from "@/lib/hostStats";
 import { sendBookingConfirmedEmails } from "@/lib/notificationEmails";
@@ -285,10 +285,7 @@ async function postHandler(request: Request) {
     expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_SECONDS,
     success_url: `${confirmationUrl}?success=1`,
     cancel_url: `${baseUrl}/checkout/${booking.id}?cancelled=1`,
-    payment_intent_data: {
-      application_fee_amount: applicationFeeCents,
-      transfer_data: { destination: booking.listing.host.stripeConnectAccountId! },
-    },
+    payment_intent_data: destinationChargeData(booking.listing.host.stripeConnectAccountId!, applicationFeeCents),
   });
 
   // Conditional on stripeSessionId still being what we read (unset, or an
