@@ -5,6 +5,25 @@ For whoever picks this up next, person or Claude session. **Read this first,
 then [master-checklist.md](master-checklist.md)**, the running list of every
 remaining item.
 
+## Stripe: sandbox tests passed, live webhooks set up (11 Oct 2026)
+
+Sandbox, on the `claude/host-commission` Preview (test mode only):
+
+- Demo host `host@fystay.dev` onboarded through Stripe's own pages (test account `acct_1UPNM3CyjWUOQkFI`, payouts enabled).
+- £435 booking (3 x £145): guest charged £435, host kept £391.50, FYStay's fee £43.50; Stripe's fee came off FYStay only. Confirmed by the signed webhook.
+- Promo (£20) + referral credit (£15) on £392: guest paid £357, fee £4.20, host £352.80 (exactly 90%).
+- Shortening that discounted booking: refused (409, Option C).
+- Strict cancellation: 50% refunded, host and fee reversed in proportion. Flexible cancellation of the discounted booking: full refund, transfer and fee fully reversed.
+- Repeat cancel and repeat checkout refused (409); webhook redelivery covered by route tests.
+- Stripe shows every event from these tests delivered (account-events endpoint secret proven). The connected-accounts endpoint's delivery is not yet proven: check its "Event deliveries" in the Stripe sandbox for the 14:23 UTC account.updated events.
+
+Live (account `acct_1UNcL1CgubLh6wuS`):
+
+- Endpoints `we_1UPO6rCgubLh6wuSvfaxQhCe` (account events, 11 events) and `we_1UPO7PCgubLh6wuSUMnK0HfM` (connected accounts, account.updated), both `https://www.fystay.co.uk/api/webhooks/stripe`, API version 2026-08-26.dahlia.
+- Their signing secrets are in Vercel Production as `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` (sensitive). They take effect on the next Production deploy.
+
+Owner decisions raised: Stripe Adaptive Pricing is on (foreign cards see their own currency plus a 4% conversion fee by default); referral credit isn't returned when a paid booking is refunded; the Lodge on the Lake app's tests use the same FYStay sandbox account.
+
 ## Supabase projects (owner decision, 11 Oct 2026) - supersedes older notes below
 
 FYStay has exactly two Supabase projects, and no third is wanted:
