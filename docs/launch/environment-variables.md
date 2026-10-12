@@ -29,7 +29,8 @@ Secret = mark it **Sensitive** in Vercel. Public = safe to be seen; the
 | Variable | Used in | Type | Production |
 |---|---|---|---|
 | `RESEND_API_KEY` | `src/lib/email.ts`: every email (booking, reset, email change) | Secret | **Missing** |
-| `EMAIL_FROM` | Sender, e.g. `FYStay <bookings@mail.yourdomain>`; must be on the Resend-verified domain | Server-only | **Missing** (fallback only reaches the Resend account owner) |
+| `EMAIL_FROM` | Sender on every email: `FYStay <hello@fystay.co.uk>` (also the code default, `src/lib/email.ts`); `fystay.co.uk` must be verified in Resend | Server-only | Set on the own domain (12 Oct); **change to `FYStay <hello@fystay.co.uk>`** - `/api/health/config` warns until it is |
+| `EMAIL_REPLY_TO` | Where replies go and the address emails tell people to write to; defaults to `hello@fystay.co.uk` | Server-only | Unset (fine) |
 | `TWO_FACTOR_ENCRYPTION_KEY` | `src/lib/twoFactorCrypto.ts`: encrypts 2FA secrets (AES-256-GCM, key derived from any string). Use `openssl rand -hex 32`. **Never change once anyone uses 2FA.** | Secret | **Missing** (2FA shows "not available") |
 | `NEXT_PUBLIC_COMPANY_LEGAL_NAME` | Terms + Privacy operator disclosure (`src/lib/companyInfo.ts`) | Public | **Missing** |
 | `NEXT_PUBLIC_COMPANY_ADDRESS` | Same | Public | **Missing** |

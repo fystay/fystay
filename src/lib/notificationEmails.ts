@@ -1,4 +1,4 @@
-import { getResendClient, EMAIL_FROM, reportUnsentOpsAlert } from "@/lib/email";
+import { getResendClient, EMAIL_FROM, EMAIL_REPLY_TO, reportUnsentOpsAlert } from "@/lib/email";
 import { formatPrice } from "@/lib/format";
 import { SUPPORT_EMAIL } from "@/lib/seo";
 import { BASE_URL } from "@/lib/baseUrl";
@@ -492,7 +492,7 @@ export async function sendDepositResolvedEmail(
             intro: `${greeting(ctx.guestName)} ${escapeHtml(ctx.hostName)} claimed ${formatPrice(outcome.capturedCents)} of your ${formatPrice(outcome.depositCents)} security deposit. The reason they gave: "${escapeHtml(outcome.reason)}"`,
             details: stayDetails(ctx, [{ label: "Claimed", value: formatPrice(outcome.capturedCents) }]),
             paragraphs: [
-              `If you think this is wrong, write to ${SUPPORT_EMAIL} with your booking reference and we'll look into it.`,
+              `If you think this is wrong, write to ${EMAIL_REPLY_TO} with your booking reference and we'll look into it.`,
             ],
             cta: { label: "View your booking", url: ctx.bookingUrl },
           },

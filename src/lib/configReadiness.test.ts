@@ -38,6 +38,15 @@ describe("configReadiness", () => {
     }
   });
 
+  it("warns, without blocking, until emails come from hello@fystay.co.uk", () => {
+    for (const EMAIL_FROM of ["FYStay <bookings@mail.fystay.co.uk>", "nothello@fystay.co.uk"]) {
+      const summary = readinessSummary(configReadiness({ ...complete, EMAIL_FROM }));
+      expect(summary.ready).toBe(true);
+      expect(summary.warnings.map((w) => w.key)).toEqual(["EMAIL_FROM is hello@fystay.co.uk"]);
+    }
+    expect(readinessSummary(configReadiness({ ...complete, EMAIL_FROM: "hello@fystay.co.uk" })).warnings).toEqual([]);
+  });
+
   it("blocks production without Sentry, server or browser", () => {
     for (const missing of ["SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"] as const) {
       const summary = readinessSummary(configReadiness({ ...complete, [missing]: " " }));
