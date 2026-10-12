@@ -70,7 +70,7 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | [#20](https://github.com/fystay/fystay/pull/20) | Email confirm link opened while signed out says it worked | |
 | [#21](https://github.com/fystay/fystay/pull/21) | Sort/filter changes go back to page 1 | |
 | [#22](https://github.com/fystay/fystay/pull/22) | Re-sync an imported calendar (Airbnb etc.) before taking a booking if over 30 min old | Double-booking safeguard |
-| [#23](https://github.com/fystay/fystay/pull/23) | Email replies go to the support inbox | Confirm `support@` receives mail (blocker 10) |
+| [#23](https://github.com/fystay/fystay/pull/23) | hello@fystay.co.uk as sender and reply-to on every email | First commit already live (deployed from the branch 12 Oct 10:53). Owner: verify `fystay.co.uk` in Resend, make hello@ a real mailbox, then set `EMAIL_FROM` to `FYStay <hello@fystay.co.uk>` |
 | [#24](https://github.com/fystay/fystay/pull/24) | Admin badge and Admin link in the account menu | |
 | [#25](https://github.com/fystay/fystay/pull/25) | Admin property management: import a listing from pasted text or a public link (AI, flagged gaps, editable preview, saved as draft); admin-only host transfer; suspend/reinstate/delete accounts with confirmation and an admin record | Stacked on #17 (merge #17 first). New migration: run the Production migration workflow with #17's. Import needs `ANTHROPIC_API_KEY` |
 
