@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { PrismaClient, type Listing } from "@prisma/client";
+import { fyldeCoastSearchUrl, searchUrl } from "./support/search";
 
 // Playwright's test process doesn't load .env the way `next dev` does.
 // CI sets these vars directly instead of via a .env file, so don't fail
@@ -63,7 +64,7 @@ test("Blackpool + under £150 + parking genuinely narrows results to matching li
   });
 
   try {
-    await page.goto("/search?city=Blackpool&adults=2&maxPrice=150&amenities=parking");
+    await page.goto(searchUrl("city=Blackpool&adults=2&maxPrice=150&amenities=parking"));
 
     await expect(page.getByRole("heading", { name: "Stays in Blackpool" })).toBeVisible();
     // The real seeded Blackpool listing (£75/night, parking) genuinely matches.
@@ -89,15 +90,17 @@ test("Blackpool + under £150 + parking genuinely narrows results to matching li
 test("property type filter, applied through the filter sheet, narrows real results", async ({
   page,
 }) => {
+  // A villa rather than a hotel: a hotel needs room types to be bookable on
+  // the searched dates, and this fixture has none.
   const hotel = await fixtureListing({
-    title: "E2E fixture: Blackpool hotel room",
+    title: "E2E fixture: Blackpool villa",
     city: "Blackpool",
-    propertyType: "HOTEL",
+    propertyType: "VILLA",
     pricePerNightCents: 9000,
   });
 
   try {
-    await page.goto("/search?city=Blackpool");
+    await page.goto(searchUrl("city=Blackpool"));
     await expect(page.getByText(hotel.title)).toBeVisible();
     await expect(
       page.getByText("Seafront apartment overlooking Blackpool promenade"),
@@ -105,10 +108,10 @@ test("property type filter, applied through the filter sheet, narrows real resul
 
     await page.getByRole("button", { name: /Filters/ }).click();
     await expect(page.getByRole("dialog", { name: "Filters" })).toBeVisible();
-    await page.getByRole("button", { name: "Hotel", exact: true }).click();
+    await page.getByRole("button", { name: "Villa", exact: true }).click();
     await page.getByRole("button", { name: "Show results" }).click();
 
-    await page.waitForURL(/propertyType=HOTEL/);
+    await page.waitForURL(/propertyType=VILLA/);
     await expect(page.getByText(hotel.title)).toBeVisible();
     await expect(
       page.getByText("Seafront apartment overlooking Blackpool promenade"),
@@ -119,7 +122,7 @@ test("property type filter, applied through the filter sheet, narrows real resul
 });
 
 test("minimum rating filter excludes listings with no qualifying reviews", async ({ page }) => {
-  await page.goto("/search?minRating=4");
+  await page.goto(fyldeCoastSearchUrl("minRating=4"));
 
   // Only the seeded listing with a genuine 5-star review qualifies.
   await expect(
@@ -146,13 +149,13 @@ test("sorting by price low to high genuinely reorders results", async ({ page })
     expect(indices).toEqual([...indices].sort((a, b) => a - b));
   }
 
-  await assertPriceOrder("/search?sort=price_asc", [
+  await assertPriceOrder(fyldeCoastSearchUrl("sort=price_asc"), [
     "Cosy cottage near Fleetwood Marina",
     "Seafront apartment overlooking Blackpool promenade",
     "Elegant Victorian townhouse in Lytham",
   ]);
 
-  await assertPriceOrder("/search?sort=price_desc", [
+  await assertPriceOrder(fyldeCoastSearchUrl("sort=price_desc"), [
     "Elegant Victorian townhouse in Lytham",
     "Seafront apartment overlooking Blackpool promenade",
     "Cosy cottage near Fleetwood Marina",
@@ -173,7 +176,7 @@ test("list/map view toggle switches the results presentation without losing filt
   });
 
   try {
-    await page.goto(`/search?city=${encodeURIComponent(city)}`);
+    await page.goto(searchUrl(`city=${encodeURIComponent(city)}`));
     await expect(page.getByRole("button", { name: "Map" })).toBeVisible();
 
     await page.getByRole("button", { name: "Map" }).click();
@@ -204,12 +207,12 @@ test.afterAll(async () => {
 });
 
 test("changing the sort or applying filters goes back to page 1", async ({ page }) => {
-  await page.goto("/search?page=2");
+  await page.goto(fyldeCoastSearchUrl("page=2"));
   await page.getByLabel("Sort results").selectOption("price_asc");
   await expect(page).toHaveURL((url) => url.searchParams.get("sort") === "price_asc" && !url.searchParams.has("page"));
 
-  await page.goto("/search?page=2");
+  await page.goto(fyldeCoastSearchUrl("page=2"));
   await page.getByRole("button", { name: "Filters" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();
-  await expect(page).toHaveURL((url) => url.pathname === "/search" && !url.searchParams.has("page"));
+  await expect(page).toHaveURL((url) => url.pathname === "/search" && !url.searchParams.has("page") && url.searchParams.has("checkIn"));
 });

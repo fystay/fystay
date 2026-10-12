@@ -529,6 +529,8 @@ model Listing {
 
   @@index([city])
   @@index([hostId])
+  // The search's area query (src/lib/searchRequest.ts locationWhere).
+  @@index([latitude, longitude])
 }
 
 // A distinct category of room within a HOTEL-type Listing (e.g. "Standard

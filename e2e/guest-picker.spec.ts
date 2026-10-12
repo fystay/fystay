@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { pickDates, pickMockPlace } from "./support/search";
 
 test("guest picker toggles adults, children, infants, and pets, and filters results", async ({
   page,
@@ -20,6 +21,9 @@ test("guest picker toggles adults, children, infants, and pets, and filters resu
   // pressed - matching the date-range picker's confirm-on-Done behavior.
   await page.getByRole("button", { name: "Done" }).click();
 
+  // An area covering every seeded town, so only guests and pets narrow it.
+  await pickMockPlace(page);
+  await pickDates(page, 200);
   await page.getByRole("button", { name: "Search" }).click();
   await page.waitForURL(/children=1/);
   expect(page.url()).toContain("infants=1");

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { fyldeCoastSearchUrl } from "./support/search";
 import { PrismaClient } from "@prisma/client";
 
 // Playwright's test process doesn't load .env the way `next dev` does.
@@ -190,11 +191,10 @@ test("See all follows the chosen filter to the results page, and Back keeps it",
 
   await seeAll.click();
   await expect(page).toHaveURL(/\/search\?city=Blackpool$/);
-  await expect(page.getByRole("heading", { name: "Stays in Blackpool" })).toBeVisible();
-  const blackpoolStays = await prisma.listing.count({
-    where: { published: true, suspendedAt: null, city: { contains: "Blackpool", mode: "insensitive" } },
-  });
-  await expect(page.getByText(`Blackpool · ${blackpoolStays} stay${blackpoolStays === 1 ? "" : "s"}`)).toBeVisible();
+  // Blackpool carries over into the search box; the dates are still needed
+  // before any results show.
+  await expect(page.locator("#search-city")).toHaveValue("Blackpool");
+  await expect(page.getByTestId("search-validation")).toContainText("Check-in: Add a check-in date.");
 
   await page.goBack();
   await expect(filterButton(page, "Blackpool")).toHaveAttribute("aria-pressed", "true");
@@ -202,18 +202,13 @@ test("See all follows the chosen filter to the results page, and Back keeps it",
 });
 
 test("the long-stay filter carries to the results page as a chip that can be removed", async ({ page }) => {
-  await page.goto("/search?longStay=1");
+  await page.goto(fyldeCoastSearchUrl("longStay=1"));
   const chip = page.getByRole("link", { name: "Remove filter: Long-stay discounts" });
   await expect(chip).toBeVisible();
-  const discounted = await prisma.listing.count({
-    where: {
-      published: true,
-      suspendedAt: null,
-      OR: [{ weeklyDiscountPercent: { gt: 0 } }, { monthlyDiscountPercent: { gt: 0 } }],
-    },
-  });
-  await expect(page.getByText(`${discounted} stay${discounted === 1 ? "" : "s"}`, { exact: true })).toBeVisible();
+  const cards = page.locator('main [data-testid="listing-card-title"]');
+  const withFilter = await cards.count();
   await chip.click();
-  await expect(page).toHaveURL(/\/search$/);
+  await expect(page).toHaveURL((url) => !url.searchParams.has("longStay") && url.searchParams.has("checkIn") && url.searchParams.has("place"));
   await expect(chip).toHaveCount(0);
+  await expect.poll(() => cards.count()).toBeGreaterThanOrEqual(withFilter);
 });

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SearchX, X } from "lucide-react";
+import { Search, SearchX, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { prisma } from "@/lib/prisma";
 import { bookableHostWhere } from "@/lib/stripeConnect";
@@ -12,8 +12,8 @@ import {
   nightsBetween,
 } from "@/lib/availability";
 import { isPetFriendly, parseGuestParam, totalOccupants } from "@/lib/search";
-import { findLandmarkByName } from "@/lib/landmarks";
-import { getPlaceLocation } from "@/lib/googlePlaces";
+import { isKnownTown } from "@/lib/searchTown";
+import { locationWhere, matchesLocation, parseSearchRequest, searchArea, type SearchField } from "@/lib/searchRequest";
 import { auth } from "@/auth";
 import { ListingsCarousel } from "@/components/ListingsCarousel";
 import { ListingCard } from "@/components/ListingCard";
@@ -36,7 +36,6 @@ import {
 import { availableAmenityCategories } from "@/lib/amenityCategories";
 import { PROPERTY_TYPES } from "@/lib/propertyType";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
-import { todayStayDate } from "@/lib/stayDates";
 import { Pagination } from "@/components/Pagination";
 
 // The homepage's Explore filters that the filter panel doesn't cover, shown
@@ -87,22 +86,22 @@ export async function ListingsGrid({
   searchParams: SearchParams;
   showResultsView: boolean;
 }) {
-  // A Google Places location (?place=<id>) is resolved to coordinates on
-  // the server; when it resolves it replaces the city filter, so every stay
-  // shows, nearest to it first. Null when the key isn't set or the id is
-  // unknown, and then the search behaves as if no place was chosen.
-  const placeId = typeof searchParams.place === "string" ? searchParams.place : "";
-  const place = placeId ? await getPlaceLocation(placeId) : null;
-  const city = !place && typeof searchParams.city === "string" ? searchParams.city : "";
-  // A specific named place within that city (e.g. "Blackpool Pleasure
-  // Beach"), selected from the destination autocomplete's landmark
-  // suggestions - undefined for any value that isn't one of the app's own
-  // curated places, so an arbitrary/stale ?near= in the URL never trusts
-  // unverified coordinates.
-  const nearParam = typeof searchParams.near === "string" ? searchParams.near : "";
-  const landmark = (nearParam ? findLandmarkByName(nearParam) : undefined) ?? place ?? undefined;
-  const checkInParam = typeof searchParams.checkIn === "string" ? searchParams.checkIn : "";
-  const checkOutParam = typeof searchParams.checkOut === "string" ? searchParams.checkOut : "";
+  // The results page runs only a complete, valid search: a place picked
+  // from the suggestions, check-in (not past) and check-out (after it).
+  // The homepage carousel is a browse list, not a search, so it skips this.
+  const request = showResultsView ? parseSearchRequest(searchParams) : null;
+  if (request && !request.ok) return <SearchPrompt errors={request.errors} empty={request.empty} />;
+  const location = request?.ok ? request.location : null;
+  if (location?.kind === "town" && !(await isKnownTown(location.city))) {
+    return <SearchPrompt errors={{ where: "Choose a place from the suggestions." }} empty={false} />;
+  }
+  const city = location?.kind === "town" ? location.city : "";
+  const area = location ? searchArea(location) : null;
+  // The point distances on the cards and the nearest-first sort measure from.
+  const landmark =
+    area && location && location.kind !== "town"
+      ? { name: location.kind === "landmark" ? location.name : location.label, ...area.center }
+      : undefined;
   const adults = parseGuestParam(searchParams.adults, 1);
   const children = parseGuestParam(searchParams.children, 0);
   const pets = parseGuestParam(searchParams.pets, 0);
@@ -119,14 +118,7 @@ export async function ListingsGrid({
         suspendedAt: null,
         ...bookableHostWhere(),
         maxGuests: { gte: guestsNeeded },
-        ...(city
-          ? {
-              OR: [
-                { city: { contains: city, mode: "insensitive" } },
-                { country: { contains: city, mode: "insensitive" } },
-              ],
-            }
-          : {}),
+        ...(location ? locationWhere(location) : {}),
       },
       include: {
         bookings: {
@@ -167,40 +159,13 @@ export async function ListingsGrid({
       )
     : new Set<string>();
 
-  // A hand-edited or stale URL can carry dates that aren't a usable range
-  // (unparseable, or check-out not after check-in) - those are ignored,
-  // with a note saying so, rather than filtering results by a broken range.
-  const parsedCheckIn = checkInParam ? new Date(checkInParam) : null;
-  const parsedCheckOut = checkOutParam ? new Date(checkOutParam) : null;
-  const datesReadable =
-    !!parsedCheckIn &&
-    !!parsedCheckOut &&
-    !Number.isNaN(parsedCheckIn.getTime()) &&
-    !Number.isNaN(parsedCheckOut.getTime());
-  const datesInPast = datesReadable && parsedCheckIn! < todayStayDate();
-  const datesUsable = datesReadable && parsedCheckOut! > parsedCheckIn! && !datesInPast;
-  // Say exactly what's wrong with the dates and what to do, rather than
-  // silently pricing (or filtering by) dates nobody can book.
-  const dateProblem: string | null =
-    !(checkInParam || checkOutParam) || datesUsable
-      ? null
-      : checkInParam && !checkOutParam
-        ? "Add a check-out date to see prices for your stay. Showing all stays for now."
-        : !checkInParam && checkOutParam
-          ? "Add a check-in date to see prices for your stay. Showing all stays for now."
-          : !datesReadable
-            ? "We couldn't read those dates - please pick them again. Showing all stays for now."
-            : datesInPast
-              ? "Those dates have passed - pick new ones to see prices. Showing all stays for now."
-              : "Check your dates - check-out needs to be after check-in. Showing all stays for now.";
-  const checkIn = datesUsable ? parsedCheckIn : null;
-  const checkOut = datesUsable ? parsedCheckOut : null;
+  const checkIn = request?.ok ? request.checkIn : null;
+  const checkOut = request?.ok ? request.checkOut : null;
+  const checkInParam = request?.ok ? request.checkInParam : "";
   const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : undefined;
   // Carried onto each card's link so the listing's booking widget opens
   // with the dates and guests already searched for.
-  const stayQuery = buildStayQuery(
-    datesUsable ? searchParams : { ...searchParams, checkIn: undefined, checkOut: undefined },
-  );
+  const stayQuery = buildStayQuery(searchParams);
 
   // A hotel with one fully-booked room type and another still free is still
   // bookable - hiding it because *some* room type overlaps would be wrong,
@@ -210,9 +175,10 @@ export async function ListingsGrid({
   // aggregate maxGuests filter above only rules out a hotel where *every*
   // room type is too small, not one where the only room type that fits is
   // the one that's sold out.
+  const inArea = location ? listings.filter((listing) => matchesLocation(location, listing)) : listings;
   const dateFiltered =
     checkIn && checkOut
-      ? listings.filter((listing) =>
+      ? inArea.filter((listing) =>
           listing.propertyType === "HOTEL"
             ? listing.roomTypes.some(
                 (roomType) =>
@@ -232,7 +198,7 @@ export async function ListingsGrid({
                 blockingRanges(listing.bookings, listing.availabilityBlocks),
               ),
         )
-      : listings;
+      : inArea;
 
   const petFiltered = pets > 0
     ? dateFiltered.filter((listing) => isPetFriendly(listing.amenities))
@@ -297,11 +263,6 @@ export async function ListingsGrid({
     <div
       className={cn("flex flex-col gap-5", showResultsView && "animate-search-reveal-in")}
     >
-      {dateProblem && (
-        <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {dateProblem}
-        </p>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm font-medium text-stone-500">
@@ -334,7 +295,7 @@ export async function ListingsGrid({
         <NoResults
           city={city}
           guestsNeeded={guestsNeeded}
-          datesFiltered={Boolean(checkIn && checkOut) && listings.length > 0 && dateFiltered.length === 0}
+          datesFiltered={inArea.length > 0 && dateFiltered.length === 0}
           searchParams={searchParams}
         />
       ) : view === "map" ? (
@@ -469,6 +430,35 @@ async function NoResults({
         <Link href={clearedHref} className="mt-1 text-sm font-medium text-brand-700 underline underline-offset-2">
           Clear all filters
         </Link>
+      )}
+    </div>
+  );
+}
+
+const FIELD_LABEL: Record<SearchField, string> = { where: "Where", checkIn: "Check-in", checkOut: "Check-out" };
+
+/** What the results page shows instead of results when the search isn't complete or valid. */
+function SearchPrompt({ errors, empty }: { errors: Partial<Record<SearchField, string>>; empty: boolean }) {
+  return (
+    <div className="mt-8 flex flex-col items-center gap-3 text-center" role={empty ? undefined : "alert"}>
+      <Search className="h-8 w-8 text-stone-300" aria-hidden />
+      <p className="font-medium text-foreground">
+        {empty ? "Where and when are you going?" : "Finish your search to see stays"}
+      </p>
+      {empty ? (
+        <p className="max-w-sm text-sm text-stone-500">
+          Choose a place from the suggestions and pick your check-in and check-out dates above.
+        </p>
+      ) : (
+        <ul className="flex max-w-sm flex-col gap-1 text-sm text-stone-600" data-testid="search-validation">
+          {(Object.keys(FIELD_LABEL) as SearchField[])
+            .filter((field) => errors[field])
+            .map((field) => (
+              <li key={field}>
+                <span className="font-medium text-foreground">{FIELD_LABEL[field]}:</span> {errors[field]}
+              </li>
+            ))}
+        </ul>
       )}
     </div>
   );

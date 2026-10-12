@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { stayParams } from "./support/search";
 
 const isoInDays = (days: number) => {
   const date = new Date();
@@ -23,7 +24,7 @@ test("Last Minute Deals shows a real last-minute deal, and the quoted price incl
   await expect(card.locator("s")).toContainText("£75");
   await expect(card.getByText("£60", { exact: true })).toBeVisible();
 
-  const listings = (await (await page.request.get("/api/listings?city=Blackpool")).json()).listings as {
+  const listings = (await (await page.request.get(`/api/listings?city=Blackpool&${stayParams(200)}`)).json()).listings as {
     id: string;
     title: string;
   }[];

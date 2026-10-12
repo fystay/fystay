@@ -15,11 +15,26 @@ const SUGGEST_DEBOUNCE_MS = 200;
 const RECENT_SEARCHES_KEY = "fystay:recent-destination-searches";
 const MAX_RECENT_SEARCHES = 5;
 
+export type PickedPlace = {
+  placeId: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+  bounds: { south: number; west: number; north: number; east: number } | null;
+};
+
 type SelectPayload =
   | { type: "destination"; city: string }
   | { type: "landmark"; name: string; town: string }
-  | { type: "place"; placeId: string; label: string }
+  | ({ type: "place" } & PickedPlace)
   | { type: "hotel"; listingId: string; title: string };
+
+/** A Google Places session token: one per search, from first keystroke to the picked place. */
+function newSessionToken(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}-session`;
+}
 
 type FlatItem =
   | { kind: "recent"; city: string }
@@ -58,7 +73,12 @@ export function DestinationAutocomplete({
   className,
   triggerClassName,
   variant = "default",
+  invalid = false,
+  describedBy,
 }: {
+  /** Marks the field as needing attention (typed text not picked from the list). */
+  invalid?: boolean;
+  describedBy?: string;
   id: string;
   value: string;
   onChange: (value: string) => void;
@@ -79,6 +99,10 @@ export function DestinationAutocomplete({
   const [hotels, setHotels] = useState<HotelSuggestion[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => readRecentSearches());
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  // Looking up the picked Google place's coordinates and area.
+  const [resolving, setResolving] = useState(false);
+  const [placeError, setPlaceError] = useState<string | null>(null);
+  const sessionTokenRef = useRef<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -125,7 +149,9 @@ export function DestinationAutocomplete({
         setLoading(true);
         setErrored(false);
 
-        fetch(`/api/search/suggestions?q=${encodeURIComponent(query)}`, {
+        if (query && !sessionTokenRef.current) sessionTokenRef.current = newSessionToken();
+        const session = query && sessionTokenRef.current ? `&session=${sessionTokenRef.current}` : "";
+        fetch(`/api/search/suggestions?q=${encodeURIComponent(query)}${session}`, {
           signal: controller.signal,
         })
           .then((res) => {
@@ -175,6 +201,7 @@ export function DestinationAutocomplete({
   }
 
   function handleChange(next: string) {
+    setPlaceError(null);
     onChange(next);
     setOpen(true);
     setHighlightedIndex(-1);
@@ -210,14 +237,47 @@ export function DestinationAutocomplete({
       onSelect({ type: "landmark", name: item.suggestion.name, town: item.suggestion.town });
       saveRecentSearch(item.suggestion.name);
     } else if (item.kind === "place") {
-      onChange(item.suggestion.label);
-      onSelect({ type: "place", placeId: item.suggestion.placeId, label: item.suggestion.label });
+      void selectPlace(item.suggestion);
+      return;
     } else {
       onChange(item.suggestion.label);
       onSelect({ type: "hotel", listingId: item.suggestion.id, title: item.suggestion.label });
     }
     setOpen(false);
     setHighlightedIndex(-1);
+  }
+
+  // A Google suggestion is only a name until its details arrive: the
+  // coordinates and area are fetched (with the session token, which closes
+  // Google's billing session) before the place counts as picked.
+  async function selectPlace(suggestion: PlaceSuggestion) {
+    onChange(suggestion.label);
+    setResolving(true);
+    setPlaceError(null);
+    const session = sessionTokenRef.current ? `&session=${sessionTokenRef.current}` : "";
+    sessionTokenRef.current = null;
+    try {
+      const res = await fetch(`/api/search/place?id=${encodeURIComponent(suggestion.placeId)}${session}`);
+      const data = await res.json().catch(() => null);
+      const place = data?.place;
+      if (!res.ok || !place || typeof place.latitude !== "number" || typeof place.longitude !== "number") {
+        throw new Error(data?.error ?? "place lookup failed");
+      }
+      onSelect({
+        type: "place",
+        placeId: suggestion.placeId,
+        label: suggestion.label,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        bounds: place.bounds ?? null,
+      });
+      setOpen(false);
+      setHighlightedIndex(-1);
+    } catch {
+      setPlaceError("We couldn't load that place. Try again or pick another.");
+    } finally {
+      setResolving(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -256,7 +316,7 @@ export function DestinationAutocomplete({
       : undefined;
 
   const showNoResults = open && !popular && !loading && !errored && flatItems.length === 0;
-  const hasNothingToShow = !loading && !errored && !showNoResults && flatItems.length === 0;
+  const hasNothingToShow = !loading && !errored && !resolving && !placeError && !showNoResults && flatItems.length === 0;
 
   let itemIndex = -1;
 
@@ -296,6 +356,9 @@ export function DestinationAutocomplete({
             aria-controls={`${id}-listbox`}
             aria-autocomplete="list"
             aria-activedescendant={activeId}
+            aria-invalid={invalid || Boolean(placeError) || undefined}
+            aria-describedby={describedBy}
+            aria-busy={resolving || undefined}
             autoComplete="off"
             value={value}
             onChange={(e) => handleChange(e.target.value)}
@@ -333,6 +396,19 @@ export function DestinationAutocomplete({
           style={{ top: position.top + 8, left: position.left, width: position.width }}
           className="animate-dropdown-in absolute z-[60] max-h-[70vh] min-w-[280px] overflow-y-auto rounded-2xl border border-border-subtle bg-surface p-2 shadow-[var(--shadow-popover)]"
         >
+          {resolving && (
+            <div role="status" className="flex items-center gap-2 px-3 py-3 text-sm text-stone-500">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Finding that place…
+            </div>
+          )}
+
+          {placeError && !resolving && (
+            <div role="alert" className="px-3 py-3 text-sm text-red-700">
+              {placeError}
+            </div>
+          )}
+
           {loading && (
             <div className="flex items-center gap-2 px-3 py-3 text-sm text-stone-500">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -342,8 +418,7 @@ export function DestinationAutocomplete({
 
           {!loading && errored && (
             <div className="px-3 py-3 text-sm text-stone-500">
-              Something went wrong loading suggestions. You can still type a destination and press
-              Search.
+              Something went wrong loading suggestions. Please try typing again in a moment.
             </div>
           )}
 

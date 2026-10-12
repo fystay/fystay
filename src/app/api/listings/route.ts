@@ -12,7 +12,8 @@ import {
 import { geocodeListing } from "@/lib/geocoding";
 import { paginateListings, parsePageParam } from "@/lib/listingSearch";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
-import { parseStayDate } from "@/lib/stayDates";
+import { locationWhere, matchesLocation, parseSearchRequest } from "@/lib/searchRequest";
+import { isKnownTown } from "@/lib/searchTown";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { resolveLastMinuteDeal } from "@/lib/dealValidation";
 import { createListingSchema } from "@/lib/listingInput";
@@ -20,14 +21,32 @@ import { weekendRateError } from "@/lib/pricing";
 
 const LISTINGS_API_PAGE_SIZE = 24;
 
+const WHOLE_NUMBER = /^\d{1,7}$/;
+const INCOMPLETE = "Choose where, check-in and check-out to search.";
+
 async function getHandler(request: Request) {
   const { searchParams } = new URL(request.url);
-  const city = searchParams.get("city")?.trim();
-  const guests = searchParams.get("guests");
-  const minPrice = searchParams.get("minPrice");
-  const maxPrice = searchParams.get("maxPrice");
-  const checkInParam = searchParams.get("checkIn");
-  const checkOutParam = searchParams.get("checkOut");
+  // The same rules as the /search page: where (picked from the
+  // suggestions), check-in and check-out are all required and validated.
+  const search = parseSearchRequest(searchParams);
+  if (!search.ok) {
+    return NextResponse.json({ error: INCOMPLETE, fields: search.errors }, { status: 400 });
+  }
+  const { location, checkIn, checkOut } = search;
+  if (location.kind === "town" && !(await isKnownTown(location.city))) {
+    return NextResponse.json({ error: INCOMPLETE, fields: { where: "Choose a place from the suggestions." } }, { status: 400 });
+  }
+  const optional = (key: string) => {
+    const value = searchParams.get(key);
+    if (value === null || value === "") return undefined;
+    return WHOLE_NUMBER.test(value) ? Number(value) : NaN;
+  };
+  const guests = optional("guests");
+  const minPrice = optional("minPrice");
+  const maxPrice = optional("maxPrice");
+  if ([guests, minPrice, maxPrice].some((n) => Number.isNaN(n)) || guests === 0) {
+    return NextResponse.json({ error: "guests, minPrice and maxPrice must be whole numbers (guests at least 1)." }, { status: 400 });
+  }
   const page = parsePageParam(searchParams.get("page") ?? undefined);
 
   const listings = await prisma.listing.findMany({
@@ -39,17 +58,11 @@ async function getHandler(request: Request) {
       // directly by id (see the listing detail page), just not find it here.
       suspendedAt: null,
       ...bookableHostWhere(),
-      ...(city
-        ? {
-            OR: [
-              { city: { contains: city, mode: "insensitive" } },
-              { country: { contains: city, mode: "insensitive" } },
-            ],
-          }
+      ...locationWhere(location),
+      ...(guests !== undefined ? { maxGuests: { gte: guests } } : {}),
+      ...(minPrice !== undefined || maxPrice !== undefined
+        ? { pricePerNightCents: { ...(minPrice !== undefined && { gte: minPrice }), ...(maxPrice !== undefined && { lte: maxPrice }) } }
         : {}),
-      ...(guests ? { maxGuests: { gte: Number(guests) } } : {}),
-      ...(minPrice ? { pricePerNightCents: { gte: Number(minPrice) } } : {}),
-      ...(maxPrice ? { pricePerNightCents: { lte: Number(maxPrice) } } : {}),
     },
     // Public search: never return arrival details, feed tokens or addresses.
     omit: PRIVATE_LISTING_FIELDS,
@@ -83,38 +96,35 @@ async function getHandler(request: Request) {
     take: 500,
   });
 
-  const checkIn = checkInParam ? parseStayDate(checkInParam) : null;
-  const checkOut = checkOutParam ? parseStayDate(checkOutParam) : null;
-  const guestsNeeded = guests ? Number(guests) : 0;
+  const guestsNeeded = guests ?? 0;
 
   // A hotel with one fully-booked room type and another still free is still
   // bookable - see ListingsGrid.tsx's own copy of this same logic for the
   // guest-facing search page (a separate query, kept in sync by hand). The
   // room type also has to actually sleep the requested party (maxGuests),
   // not just have a free room - see that same file's comment for why.
-  const filtered =
-    checkIn && checkOut
-      ? listings.filter((listing) =>
-          listing.propertyType === "HOTEL"
-            ? listing.roomTypes.some(
-                (roomType) =>
-                  roomType.maxGuests >= guestsNeeded &&
-                  isRoomTypeRangeAvailable(
-                    checkIn,
-                    checkOut,
-                    1,
-                    roomType.totalRooms,
-                    roomType.bookings,
-                    blocksForRoomType(roomType.availabilityBlocks, listing.availabilityBlocks),
-                  ),
-              )
-            : isRangeAvailable(
+  const filtered = listings
+    .filter((listing) => matchesLocation(location, listing))
+    .filter((listing) =>
+      listing.propertyType === "HOTEL"
+        ? listing.roomTypes.some(
+            (roomType) =>
+              roomType.maxGuests >= guestsNeeded &&
+              isRoomTypeRangeAvailable(
                 checkIn,
                 checkOut,
-                blockingRanges(listing.bookings, listing.availabilityBlocks),
+                1,
+                roomType.totalRooms,
+                roomType.bookings,
+                blocksForRoomType(roomType.availabilityBlocks, listing.availabilityBlocks),
               ),
-        )
-      : listings;
+          )
+        : isRangeAvailable(
+            checkIn,
+            checkOut,
+            blockingRanges(listing.bookings, listing.availabilityBlocks),
+          ),
+    );
 
   const paginated = paginateListings(filtered, page, LISTINGS_API_PAGE_SIZE);
   return NextResponse.json({

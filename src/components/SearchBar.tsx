@@ -9,7 +9,8 @@ import { cn } from "@/lib/cn";
 import { parseGuestParam, type GuestCounts } from "@/lib/search";
 import { GuestCategoryPicker } from "@/components/GuestCategoryPicker";
 import { SearchDateRangeField } from "@/components/SearchDateRangeField";
-import { DestinationAutocomplete } from "@/components/DestinationAutocomplete";
+import { DestinationAutocomplete, type PickedPlace } from "@/components/DestinationAutocomplete";
+import { parseBounds, parseLatitude, parseLongitude, parseSearchRequest, type SearchField } from "@/lib/searchRequest";
 
 // How long to wait after the last change before auto-searching, so typing
 // a city or clicking +/- on guests a few times in a row doesn't fire a
@@ -36,6 +37,9 @@ const SEARCHBAR_OWNED_PARAMS = [
   "near",
   "place",
   "placeLabel",
+  "lat",
+  "lng",
+  "bbox",
   "checkIn",
   "checkOut",
   "adults",
@@ -49,7 +53,7 @@ function buildSearchQuery(
   range: DateRange | undefined,
   guestCounts: GuestCounts,
   nearLandmark?: string | null,
-  place?: { placeId: string; label: string } | null,
+  place?: PickedPlace | null,
 ): string {
   const params = new URLSearchParams();
   // A Google place isn't one of FYStay's towns, so it replaces the city
@@ -59,6 +63,12 @@ function buildSearchQuery(
   if (place) {
     params.set("place", place.placeId);
     params.set("placeLabel", place.label);
+    params.set("lat", String(place.latitude));
+    params.set("lng", String(place.longitude));
+    if (place.bounds) {
+      const { south, west, north, east } = place.bounds;
+      params.set("bbox", [south, west, north, east].join(","));
+    }
   } else if (city) params.set("city", city);
   if (nearLandmark) params.set("near", nearLandmark);
   if (range?.from) params.set("checkIn", format(range.from, "yyyy-MM-dd"));
@@ -106,11 +116,18 @@ export function SearchBar({
   // Set only when the selection was a Google Places location (any UK place
   // or postcode outside FYStay's own towns and landmarks) - see
   // buildSearchQuery. Cleared by further typing like the two above.
-  const [place, setPlace] = useState<{ placeId: string; label: string } | null>(() => {
+  const [place, setPlace] = useState<PickedPlace | null>(() => {
     const placeId = searchParams.get("place");
-    return placeId ? { placeId, label: searchParams.get("placeLabel") ?? "" } : null;
+    const latitude = parseLatitude(searchParams.get("lat") ?? "");
+    const longitude = parseLongitude(searchParams.get("lng") ?? "");
+    if (!placeId || latitude === null || longitude === null) return null;
+    const bounds = parseBounds(searchParams.get("bbox") ?? "");
+    return { placeId, label: searchParams.get("placeLabel") ?? "", latitude, longitude, bounds };
   });
-  const [range, setRange] = useState<DateRange | undefined>(() => {
+  // A town picked from the suggestions (or carried in from a results URL,
+  // which the server checks). Typing clears it: typed text is never a place.
+  const [townPicked, setTownPicked] = useState(() => Boolean(searchParams.get("city")));
+  const [range, setRangeState] = useState<DateRange | undefined>(() => {
     const from = parseDateParam(searchParams.get("checkIn"));
     const to = parseDateParam(searchParams.get("checkOut"));
     return from || to ? { from, to } : undefined;
@@ -122,6 +139,30 @@ export function SearchBar({
     pets: parseGuestParam(searchParams.get("pets") ?? undefined, 0),
   });
 
+  // Moving check-in on or past check-out drops check-out rather than keep
+  // a range that can't be booked.
+  function setRange(next: DateRange | undefined) {
+    if (next?.from && next.to && next.to <= next.from) setRangeState({ from: next.from, to: undefined });
+    else setRangeState(next);
+  }
+
+  // Where, check-in and check-out are all required, by the same rules the
+  // results page and API apply (parseSearchRequest). A hotel picked from
+  // the list goes straight to that stay, but still needs the dates.
+  const whereSelected = Boolean(selectedListingId || nearLandmark || place || (townPicked && city));
+  const issues: Partial<Record<SearchField, string>> = (() => {
+    const query = new URLSearchParams(buildSearchQuery(city, range, guestCounts, nearLandmark, place));
+    const result = parseSearchRequest(query);
+    const errors = result.ok ? {} : { ...result.errors };
+    if (selectedListingId) delete errors.where;
+    if (!whereSelected) errors.where = city.trim() ? "Pick a place from the suggestions." : "Choose where you're going.";
+    if (range?.from && !range.to) errors.checkOut = "Add a check-out date after check-in.";
+    return errors;
+  })();
+  const searchValid = Object.keys(issues).length === 0;
+  const nothingEntered = !city.trim() && !range?.from;
+  const statusId = variant === "hero" ? "search-status-hero" : "search-status";
+
   // On the results page, search live as fields change, debounced, so
   // results update without waiting for an explicit "Search" click - the
   // results grid's own Suspense fallback (a skeleton) is what shows the
@@ -132,7 +173,7 @@ export function SearchBar({
   // rather than a real city, so a city-filtered auto-search would find
   // nothing - Search instead routes straight to that listing.
   useEffect(() => {
-    if (!liveUpdate || selectedListingId) return;
+    if (!liveUpdate || selectedListingId || !searchValid) return;
 
     // Merge into the *current* URL's params rather than building a fresh
     // one from just SearchBar's own fields - the results page also carries
@@ -165,16 +206,17 @@ export function SearchBar({
 
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- router/searchParams/startTransition are stable
-  }, [city, range, guestCounts, selectedListingId, nearLandmark, place, liveUpdate]);
+  }, [city, range, guestCounts, selectedListingId, nearLandmark, place, liveUpdate, searchValid]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     // Guards against Enter-key resubmission in browsers that don't already
     // block implicit submission via a disabled submit button.
-    if (isSearching) return;
+    if (isSearching || !searchValid) return;
     startTransition(() => {
       if (selectedListingId) {
-        router.push(`/listings/${selectedListingId}`);
+        const stay = new URLSearchParams(buildSearchQuery("", range, guestCounts));
+        router.push(`/listings/${selectedListingId}${stay.size ? `?${stay}` : ""}`);
       } else {
         router.push(`${SEARCH_RESULTS_PATH}?${buildSearchQuery(city, range, guestCounts, nearLandmark, place)}`);
       }
@@ -186,6 +228,7 @@ export function SearchBar({
     setSelectedListingId(null);
     setNearLandmark(null);
     setPlace(null);
+    setTownPicked(false);
   }
 
   const isHero = variant === "hero";
@@ -211,7 +254,7 @@ export function SearchBar({
         // actual layout or fields.
         // relative: the search-in-progress sweep below is absolutely
         // positioned against this form, not any one field inside it.
-        "relative mx-auto flex w-full flex-col gap-1 rounded-2xl border shadow-[var(--shadow-card)] transition-shadow duration-200 hover:shadow-[var(--shadow-popover)] focus-within:shadow-[var(--shadow-popover)] focus-within:ring-2 focus-within:ring-brand-600/25 sm:flex-row sm:items-stretch sm:gap-0",
+        "relative mx-auto flex w-full flex-col gap-1 rounded-2xl border shadow-[var(--shadow-card)] sm:flex-wrap transition-shadow duration-200 hover:shadow-[var(--shadow-popover)] focus-within:shadow-[var(--shadow-popover)] focus-within:ring-2 focus-within:ring-brand-600/25 sm:flex-row sm:items-stretch sm:gap-0",
         isHero
           ? // Frosted glass rather than the solid card below: this is the
             // one instance of SearchBar that floats directly over the hero
@@ -301,26 +344,38 @@ export function SearchBar({
               setSelectedListingId(null);
               setNearLandmark(null);
               setPlace(null);
+              setTownPicked(true);
             } else if (payload.type === "landmark") {
               setCity(payload.town);
               setSelectedListingId(null);
               setNearLandmark(payload.name);
               setPlace(null);
+              setTownPicked(true);
             } else if (payload.type === "place") {
               setCity(payload.label);
               setSelectedListingId(null);
               setNearLandmark(null);
-              setPlace({ placeId: payload.placeId, label: payload.label });
+              setPlace({
+                placeId: payload.placeId,
+                label: payload.label,
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+                bounds: payload.bounds,
+              });
+              setTownPicked(false);
             } else {
               setCity(payload.title);
               setSelectedListingId(payload.listingId);
               setNearLandmark(null);
               setPlace(null);
+              setTownPicked(false);
             }
           }}
           className="sm:flex-[1.15]"
           triggerClassName={isHero ? "px-3 py-2.5 sm:px-2 sm:py-1" : undefined}
           variant={isHero ? "hero" : "default"}
+          invalid={Boolean(city.trim()) && !whereSelected}
+          describedBy={statusId}
         />
 
         {/* Wider than the other segments: it holds two labelled sub-fields
@@ -362,8 +417,9 @@ export function SearchBar({
 
       <button
         type="submit"
-        disabled={isSearching}
+        disabled={isSearching || !searchValid}
         aria-busy={isSearching}
+        aria-describedby={statusId}
         aria-label={isHero ? (isSearching ? "Searching…" : "Search") : undefined}
         className={cn(
           // rounded-xl (the same radius every other button on the site
@@ -374,7 +430,8 @@ export function SearchBar({
           // button, it should actually be circular, not a rounded square.
           // relative z-10: stays above the search-in-progress sweep above,
           // same reason as the field row.
-          "relative z-10 flex w-full items-center justify-center gap-2 rounded-xl font-semibold text-white shadow-sm transition-all duration-150 hover:bg-brand-800 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-90 disabled:active:scale-100 sm:w-auto sm:shrink-0 focus-ring",
+          "relative z-10 flex w-full items-center justify-center gap-2 rounded-xl font-semibold text-white shadow-sm transition-all duration-150 hover:bg-brand-800 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 sm:w-auto sm:shrink-0 focus-ring",
+          !searchValid && !isSearching && "disabled:hover:bg-inherit disabled:hover:shadow-sm",
           isHero
             ? // At lg: this collapses from the pill-with-label below into a
               // circular icon-only button (the mockup's arrow button) - the
@@ -401,6 +458,36 @@ export function SearchBar({
           {isSearching ? "Searching…" : "Search"}
         </span>
       </button>
+
+      {/* What still needs doing before Search works - one line per field,
+          read out as it changes, and kept to a quiet hint until something
+          has been entered. */}
+      <div
+        id={statusId}
+        role="status"
+        className={cn(
+          "relative z-10 basis-full px-3 pb-1 text-xs sm:order-last",
+          isHero ? "text-white/85" : "text-stone-600",
+          searchValid && "sr-only",
+        )}
+      >
+        {searchValid ? (
+          "Ready to search."
+        ) : nothingEntered ? (
+          "Choose where from the suggestions and pick your dates to search."
+        ) : (
+          <ul className="flex flex-wrap gap-x-4 gap-y-0.5" data-testid="search-bar-issues">
+            {(["where", "checkIn", "checkOut"] as const)
+              .filter((field) => issues[field])
+              .map((field) => (
+                <li key={field}>
+                  <span className="font-semibold">{{ where: "Where", checkIn: "Check-in", checkOut: "Check-out" }[field]}:</span>{" "}
+                  {issues[field]}
+                </li>
+              ))}
+          </ul>
+        )}
+      </div>
     </form>
   );
 }

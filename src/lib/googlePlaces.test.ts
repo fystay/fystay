@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getPlaceLocation, isGooglePlacesConfigured, suggestPlaces } from "./googlePlaces";
+import { getPlaceDetails, isGooglePlacesConfigured, suggestPlaces, validSessionToken } from "./googlePlaces";
 
 const json = (body: object, ok = true) => vi.fn(async () => ({ ok, json: async () => body }) as Response);
 
@@ -55,20 +55,56 @@ describe("suggestPlaces", () => {
   });
 });
 
-describe("getPlaceLocation", () => {
-  it("returns the server-looked-up name and coordinates", async () => {
-    const fetchImpl = json({ id: "ChIJ_place_one", displayName: { text: "Stanley Park" }, location: { latitude: 53.81, longitude: -3.03 } });
-    expect(await getPlaceLocation("ChIJ_place_one", fetchImpl)).toEqual({
+describe("getPlaceDetails", () => {
+  it("returns the name, address, coordinates and viewport, sending the session token", async () => {
+    const fetchImpl = json({
+      id: "ChIJ_place_one",
+      displayName: { text: "Stanley Park" },
+      formattedAddress: "Stanley Park, Blackpool, UK",
+      location: { latitude: 53.81, longitude: -3.03 },
+      viewport: { low: { latitude: 53.80, longitude: -3.04 }, high: { latitude: 53.82, longitude: -3.02 } },
+    });
+    expect(await getPlaceDetails("ChIJ_place_one", { sessionToken: "a1b2c3d4-e5f6-7890-abcd-ef0123456789", fetchImpl })).toEqual({
       placeId: "ChIJ_place_one",
       name: "Stanley Park",
+      formattedAddress: "Stanley Park, Blackpool, UK",
       latitude: 53.81,
       longitude: -3.03,
+      bounds: { south: 53.8, west: -3.04, north: 53.82, east: -3.02 },
     });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("sessionToken=a1b2c3d4-e5f6-7890-abcd-ef0123456789");
+    expect((init.headers as Record<string, string>)["X-Goog-FieldMask"]).toContain("viewport");
   });
 
-  it("refuses malformed ids and incomplete answers", async () => {
-    const fetchImpl = json({ displayName: { text: "No location" } });
-    expect(await getPlaceLocation("../../etc", fetchImpl)).toBeNull();
-    expect(await getPlaceLocation("ChIJ_place_two", fetchImpl)).toBeNull();
+  it("keeps the place but drops an inverted viewport", async () => {
+    const fetchImpl = json({
+      displayName: { text: "Somewhere" },
+      location: { latitude: 53.81, longitude: -3.03 },
+      viewport: { low: { latitude: 53.9, longitude: -3.0 }, high: { latitude: 53.8, longitude: -3.1 } },
+    });
+    expect((await getPlaceDetails("ChIJ_place_one", { fetchImpl }))?.bounds).toBeNull();
+  });
+
+  it("refuses malformed ids, out-of-range or incomplete answers, failures, and no key", async () => {
+    expect(await getPlaceDetails("../../etc", { fetchImpl: json({}) })).toBeNull();
+    expect(await getPlaceDetails("ChIJ_place_two", { fetchImpl: json({ displayName: { text: "No location" } }) })).toBeNull();
+    expect(await getPlaceDetails("ChIJ_place_two", { fetchImpl: json({ displayName: { text: "X" }, location: { latitude: 123, longitude: 0 } }) })).toBeNull();
+    expect(await getPlaceDetails("ChIJ_place_two", { fetchImpl: json({}, false) })).toBeNull();
+    expect(await getPlaceDetails("ChIJ_place_two", { fetchImpl: vi.fn(async () => { throw new Error("down"); }) })).toBeNull();
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "");
+    expect(await getPlaceDetails("ChIJ_place_two", { fetchImpl: json({}) })).toBeNull();
+  });
+});
+
+describe("session tokens", () => {
+  it("accepts a UUID and passes it to autocomplete; ignores anything else", async () => {
+    expect(validSessionToken("a1b2c3d4-e5f6-7890-abcd-ef0123456789")).toBeTruthy();
+    expect(validSessionToken("bad token!")).toBeUndefined();
+    expect(validSessionToken(null)).toBeUndefined();
+    const fetchImpl = json({ suggestions: [] });
+    await suggestPlaces("Stanley Park", { sessionToken: "a1b2c3d4-e5f6-7890-abcd-ef0123456789", fetchImpl });
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string).sessionToken).toBe("a1b2c3d4-e5f6-7890-abcd-ef0123456789");
   });
 });

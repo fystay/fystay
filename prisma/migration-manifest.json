@@ -338,6 +338,12 @@
       "files": {
         "migration.sql": "ae1b2f68e3555970e616992a548733a4dc8e009ca4645e62ff66fe58faaab5e7"
       }
+    },
+    {
+      "name": "20261012170000_listing_location_index",
+      "files": {
+        "migration.sql": "1e6baa260cb421aa15bc8686952cbc5cb9a2a983966f14e4d8063a2f6bab16a5"
+      }
     }
   ],
   "retired": [
