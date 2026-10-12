@@ -103,8 +103,8 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
           </Badge>
         </div>
 
-        {/* Account actions only: the four sections are the tab row under
-            the header on every page (see SectionPillsBar), so they aren't
+        {/* Account actions only: the four sections are the bottom tab
+            bar on phones and in the header on desktop (see SiteBottomNav), so they aren't
             repeated here. */}
 
         <div className="flex flex-col py-1">
