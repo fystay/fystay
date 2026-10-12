@@ -1,4 +1,4 @@
-import { Accessibility, ParkingCircle, PawPrint, Snowflake, UtensilsCrossed, Waves, Wifi } from "lucide-react";
+import { Accessibility, ParkingCircle, PawPrint, Snowflake, UtensilsCrossed, WashingMachine, Waves, Wifi } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { isPetFriendly } from "@/lib/search";
 
@@ -12,6 +12,8 @@ import { isPetFriendly } from "@/lib/search";
  * listing actually matches it (see listingsWithAmenityCategories below) -
  * never a checkbox with nothing behind it.
  */
+const PAID = /\bpaid\b|\bcharge|\bfee\b|£|extra cost/i;
+
 export type AmenityCategory = {
   key: string;
   label: string;
@@ -27,18 +29,27 @@ export type AmenityCategory = {
 export type AmenityCategorySummary = { key: string; label: string };
 
 export const AMENITY_CATEGORIES: AmenityCategory[] = [
-  { key: "wifi", label: "Wi-Fi", icon: Wifi, test: (a) => a.some((x) => /wi-?fi/i.test(x)) },
+  // Wi-Fi and parking count unless the host says they cost extra - "Wifi"
+  // or "Parking" on its own is read as included, the way guests read it.
+  { key: "wifi", label: "Wi-Fi", icon: Wifi, test: (a) => a.some((x) => /wi-?fi/i.test(x) && !PAID.test(x)) },
   {
     key: "parking",
     label: "Parking",
     icon: ParkingCircle,
-    test: (a) => a.some((x) => /parking/i.test(x)),
+    test: (a) => a.some((x) => /parking/i.test(x) && !PAID.test(x)),
   },
   {
     key: "kitchen",
     label: "Kitchen",
     icon: UtensilsCrossed,
     test: (a) => a.some((x) => /kitchen/i.test(x)),
+  },
+  {
+    key: "washer",
+    label: "Washer",
+    icon: WashingMachine,
+    // \b keeps "Dishwasher" out.
+    test: (a) => a.some((x) => /\bwasher\b|washing machine|laundry/i.test(x)),
   },
   {
     key: "air_conditioning",
@@ -117,3 +128,13 @@ export function availableAmenityCategories(
     listings.some((listing) => category.test(listing.amenities)),
   );
 }
+
+/** The amenities the search Filters panel offers, in order, with the wording guests see there. */
+export const FILTER_AMENITIES: AmenityCategorySummary[] = [
+  { key: "wifi", label: "Free WiFi" },
+  { key: "parking", label: "Free parking" },
+  { key: "kitchen", label: "Kitchen" },
+  { key: "pet_friendly", label: "Pet-friendly" },
+  { key: "washer", label: "Washer" },
+  { key: "air_conditioning", label: "Air conditioning" },
+];
