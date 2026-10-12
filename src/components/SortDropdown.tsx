@@ -18,6 +18,8 @@ export function SortDropdown() {
     const params = new URLSearchParams(searchParams.toString());
     if (value === "recommended") params.delete("sort");
     else params.set("sort", value);
+    // A new order starts from the top, not page N of the re-sorted list.
+    params.delete("page");
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 

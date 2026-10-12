@@ -202,3 +202,14 @@ test("list/map view toggle switches the results presentation without losing filt
 test.afterAll(async () => {
   await prisma.$disconnect();
 });
+
+test("changing the sort or applying filters goes back to page 1", async ({ page }) => {
+  await page.goto("/search?page=2");
+  await page.getByLabel("Sort results").selectOption("price_asc");
+  await expect(page).toHaveURL((url) => url.searchParams.get("sort") === "price_asc" && !url.searchParams.has("page"));
+
+  await page.goto("/search?page=2");
+  await page.getByRole("button", { name: "Filters" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/search" && !url.searchParams.has("page"));
+});

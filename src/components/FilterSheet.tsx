@@ -143,6 +143,9 @@ export function FilterSheet({
     if (minRating > 0) params.set("minRating", String(minRating));
     else params.delete("minRating");
 
+    // New filters mean a new result set - start it from page 1.
+    params.delete("page");
+
     setOpen(false);
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
