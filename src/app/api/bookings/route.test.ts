@@ -23,6 +23,8 @@ vi.mock("@/lib/rateLimit", () => ({
   rateLimitedResponse: vi.fn(),
 }));
 vi.mock("@/lib/notificationEmails", () => ({ sendBookingRequestReceivedEmail: vi.fn() }));
+// The calendar refresh before booking is covered in icalSync.test.ts.
+vi.mock("@/lib/icalSync", () => ({ refreshStaleIcalImport: vi.fn(async () => {}) }));
 vi.mock("@/lib/stripeConnect", () => ({
   HOST_NOT_PAYMENT_READY_MESSAGE: "host not ready",
   hostAcceptsPaidBookings: () => true,
