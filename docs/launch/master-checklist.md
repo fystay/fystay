@@ -19,8 +19,8 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | Area | State | Evidence |
 |---|---|---|
 | Code | Working branch `claude/airbnb-competitor-1fjjpk` at `d5ba58c` (merge of #16) | GitHub, 12 Oct ~17:00 |
-| Production deploy | Branch `claude/guest-verification-fixes` (#28) at `23213b7`, deployed by the owner 15:06 UTC 12 Oct, on `www.fystay.co.uk` (apex redirects to www). It contains the working branch plus #28 only | Vercel deployment `dpl_BBPfKwZ96HCjRk7L8AdHktwisKTb` |
-| Production health | `/api/health`: database ok, config ok | Fetched 12 Oct 15:50 UTC |
+| Production deploy | Branch `claude/places-search-validation` (#30) at `76b2a30`, deployed by the owner ~16:52 UTC 12 Oct (after #29's branch at 16:41 and #28's at 15:06). It is the working branch plus #30's first two commits only: **#28's verification fixes and #29's filters are not live**, and #30's location index migration hasn't run (search works without it, just without the index) | Vercel deployment `dpl_64zsx6KH7y8nBHs6uLzK4qT6VkkJ` |
+| Production health | `/api/health`: database ok, config ok; search suggestions answer (landmarks only: town suggestions come from towns with live stays, and there are none) | Fetched 12 Oct 16:57 UTC |
 | Production settings | Database, Auth, base URL and `NEXTAUTH_URL` (www domain), cron, 2FA key, Supabase, Sentry, Google sign-in, Resend key, `EMAIL_FROM` on own domain, dispute inbox, live Stripe key, both live webhook secrets: all present | Vercel variable names (values never read); health check confirms the Stripe key is live |
 | Stripe live account | Charges and payouts enabled, identity verified, bank account linked, statement descriptor `FYSTAY`; account type: individual | Stripe API, read-only |
 | Live webhooks | Account-events and connected-accounts endpoints enabled on `https://www.fystay.co.uk/api/webhooks/stripe` | Stripe API, read-only; no live event delivered yet |
@@ -68,7 +68,7 @@ Merge in this order. The stacked PRs (#17 → #25 → #27 → #29 → #30) each 
 | Order | PR | What | Base | Migration | Needs |
 |---|---|---|---|---|---|
 | any | [#26](https://github.com/fystay/fystay/pull/26) | Phone bottom menu (Stays, Explore, Travel, Services); middot before "Apartments" | working branch | none | approval |
-| any | [#28](https://github.com/fystay/fystay/pull/28) | Guest identity and phone verification fixed; holds this checklist | working branch | none | approval. Already running on Production (owner deployed this branch 15:06, health ok). Phone needs `TWILIO_*`; ID checks need Stripe Identity activated |
+| any | [#28](https://github.com/fystay/fystay/pull/28) | Guest identity and phone verification fixed; holds this checklist | working branch | none | approval. Was live 15:06-16:41 (owner deployed the branch); not live now. Phone needs `TWILIO_*`; ID checks need Stripe Identity activated |
 | any | [#31](https://github.com/fystay/fystay/pull/31) | Hotel deep links keep the guest's dates on UK summer time (the "fails outside UTC" test item) | working branch | none | approval |
 | 1 | [#17](https://github.com/fystay/fystay/pull/17) | Admin listing creation for hosts + AI listing drafts | working branch | `20261012130000` | migration run 38244398792 (waiting for owner approval; covers #17 and #25), then approval. AI drafts need `ANTHROPIC_API_KEY` |
 | 2 | [#25](https://github.com/fystay/fystay/pull/25) | Admin property management: listing import, host transfer, account controls | #17 | `20261012140000` | same run as #17; approval |
