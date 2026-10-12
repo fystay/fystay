@@ -1,16 +1,27 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
-import { isPhoneVerificationConfigured, isValidE164Phone, sendVerificationCode } from "@/lib/phoneVerification";
+import { prisma } from "@/lib/prisma";
+import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
+import {
+  CODE_TTL_SECONDS,
+  PhoneVerificationError,
+  RESEND_COOLDOWN_SECONDS,
+  isPhoneVerificationConfigured,
+  normalizePhoneInput,
+  phoneRateLimitKey,
+  sendVerificationCode,
+} from "@/lib/phoneVerification";
 import { withApiErrorHandling } from "@/lib/apiError";
 
-const sendCodeSchema = z.object({ phone: z.string().min(1) });
+const sendCodeSchema = z.object({ phone: z.string().min(1).max(32) });
 
 /**
- * Rate-limited per account, not per IP - unlike a login/password endpoint,
- * the abuse this guards against is one signed-in user racking up real
- * Twilio SMS charges against FYStay's account, not credential stuffing.
+ * Sends a Twilio Verify code by SMS. The limits guard against one account
+ * (or several, from one place, or aimed at one number) running up SMS
+ * charges or spamming someone's phone: a short resend cooldown, then hourly
+ * caps per account, per number and per IP. Twilio adds its own per-number
+ * limit and fraud checks on top.
  */
 async function postHandler(request: Request) {
   const session = await auth();
@@ -19,38 +30,56 @@ async function postHandler(request: Request) {
   }
 
   if (!isPhoneVerificationConfigured()) {
-    return NextResponse.json({ error: "Phone verification is not available right now" }, { status: 501 });
+    return NextResponse.json({ error: "Phone verification isn't switched on yet." }, { status: 501 });
   }
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
   const parsed = sendCodeSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    return NextResponse.json({ error: "Enter your mobile number." }, { status: 400 });
   }
-  const phone = parsed.data.phone.trim();
-  if (!isValidE164Phone(phone)) {
+  const phone = normalizePhoneInput(parsed.data.phone);
+  if (!phone) {
     return NextResponse.json(
-      { error: "Enter your phone number in international format, e.g. +447911123456" },
+      { error: "Enter a mobile number like 07911 123456, or with its country code, e.g. +33 6 12 34 56 78." },
       { status: 400 },
     );
   }
 
-  const limit = await checkRateLimit({
-    key: `phone-verify-send:${session.user.id}`,
-    limit: 5,
-    windowMs: 60 * 60 * 1000,
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: { phone: true, phoneVerifiedAt: true },
   });
-  if (!limit.allowed) {
-    return rateLimitedResponse(limit);
+  if (user.phoneVerifiedAt && user.phone === phone) {
+    return NextResponse.json({ error: "That number is already verified on your account." }, { status: 409 });
+  }
+
+  const limits = [
+    { key: `phone-verify-cooldown:${session.user.id}`, limit: 1, windowMs: RESEND_COOLDOWN_SECONDS * 1000 },
+    { key: `phone-verify-send:${session.user.id}`, limit: 5, windowMs: 60 * 60 * 1000 },
+    { key: `phone-verify-number:${phoneRateLimitKey(phone)}`, limit: 5, windowMs: 60 * 60 * 1000 },
+    { key: `phone-verify-ip:${clientIp(request)}`, limit: 15, windowMs: 60 * 60 * 1000 },
+  ];
+  for (const params of limits) {
+    const limit = await checkRateLimit(params);
+    if (!limit.allowed) return rateLimitedResponse(limit);
   }
 
   try {
     await sendVerificationCode(phone);
-  } catch {
-    return NextResponse.json({ error: "Could not send a verification code to that number" }, { status: 502 });
+  } catch (error) {
+    if (error instanceof PhoneVerificationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
   }
 
-  return NextResponse.json({ sent: true });
+  return NextResponse.json({
+    sent: true,
+    phone,
+    expiresInSeconds: CODE_TTL_SECONDS,
+    resendInSeconds: RESEND_COOLDOWN_SECONDS,
+  });
 }
 
 export const POST = withApiErrorHandling(postHandler);

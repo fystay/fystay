@@ -118,7 +118,7 @@ vi.mock("@/lib/prisma", async () => {
           return { count: 1 };
         },
       },
-      user: { update: vi.fn() },
+      user: { update: vi.fn(), updateMany: vi.fn(async () => ({ count: 1 })) },
       listingPromotion: { findUnique: async () => (state.promotion ? { ...state.promotion } : null) },
       paymentAlertSent: {
         delete: async ({ where }: { where: { key: string } }) => {
@@ -450,4 +450,35 @@ describe("Spotlight payments", () => {
     await POST(signedRequest(event("checkout.session.completed", spotlightSession())));
     expect(mocks.refundsCreate).not.toHaveBeenCalled();
   });
+});
+
+describe("Stripe Identity events", () => {
+  const userUpdateMany = async () => {
+    const { prisma } = await import("@/lib/prisma");
+    return (prisma as unknown as { user: { updateMany: ReturnType<typeof vi.fn> } }).user.updateMany;
+  };
+  const vsEvent = (type: string) =>
+    event(type, { id: "vs_1", object: "identity.verification_session", status: "x", metadata: { userId: "user_1" } });
+
+  it("marks the account verified on Stripe's verified event, for that session only", async () => {
+    const updateMany = await userUpdateMany();
+    updateMany.mockClear();
+    expect((await POST(signedRequest(vsEvent("identity.verification_session.verified")))).status).toBe(200);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "user_1", stripeIdentitySessionId: "vs_1" },
+      data: { identityVerificationStatus: "VERIFIED", identityVerifiedAt: expect.any(Date) },
+    });
+  });
+
+  for (const type of ["identity.verification_session.requires_input", "identity.verification_session.canceled"]) {
+    it(`marks ${type.split(".").pop()} as FAILED without ever downgrading a verified account`, async () => {
+      const updateMany = await userUpdateMany();
+      updateMany.mockClear();
+      await POST(signedRequest(vsEvent(type)));
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { id: "user_1", stripeIdentitySessionId: "vs_1", identityVerificationStatus: { not: "VERIFIED" } },
+        data: { identityVerificationStatus: "FAILED" },
+      });
+    });
+  }
 });
