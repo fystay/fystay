@@ -30,6 +30,7 @@ import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { parseStayDate, todayStayDate } from "@/lib/stayDates";
 import { BASE_URL } from "@/lib/baseUrl";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
+import { refreshStaleIcalImport } from "@/lib/icalSync";
 
 // Exactly one of listingId (every non-hotel booking, unchanged) or
 // roomTypeId (a HOTEL listing's room type, with roomsBooked defaulting to
@@ -171,6 +172,10 @@ async function postHandler(request: Request) {
   if (!lockListingId) {
     return NextResponse.json({ error: "Room type not found" }, { status: 404 });
   }
+
+  // Pick up dates booked on another site since the last calendar sync
+  // before checking availability (see refreshStaleIcalImport).
+  await refreshStaleIcalImport(prisma, lockListingId);
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {

@@ -12,6 +12,7 @@ import { Logo } from "@/components/Logo";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldHint, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 import { AuthErrorBanner, SocialSignInButtons, useOAuthErrorMessage } from "@/components/SocialSignInButtons";
 import { cn } from "@/lib/cn";
@@ -189,9 +190,8 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
             </Field>
             <Field>
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"

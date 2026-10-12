@@ -40,6 +40,12 @@ export function configReadiness(env: Env = process.env): ConfigCheck[] {
       severity: "blocker",
       why: "Resend's test sender only delivers to your own inbox; guests and hosts would get nothing.",
     },
+    {
+      key: "EMAIL_FROM is hello@fystay.co.uk",
+      ok: /(^|<)hello@fystay\.co\.uk>?$/i.test(emailFrom.trim()),
+      severity: "warning",
+      why: 'Emails go out from a different address than FYStay\'s customer address. Set EMAIL_FROM to "FYStay <hello@fystay.co.uk>" once fystay.co.uk is verified in Resend.',
+    },
     { key: "NEXT_PUBLIC_BASE_URL", ok: set(env, "NEXT_PUBLIC_BASE_URL"), severity: "blocker", why: "Links in emails and Stripe return pages point to the wrong site." },
     { key: "CRON_SECRET", ok: set(env, "CRON_SECRET"), severity: "blocker", why: "Daily jobs (deposit holds and releases, unpaid request expiry, reminder emails) never run." },
     { key: "TWO_FACTOR_ENCRYPTION_KEY", ok: set(env, "TWO_FACTOR_ENCRYPTION_KEY"), severity: "blocker", why: "Two-factor sign-in can't be set up or checked." },

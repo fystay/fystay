@@ -144,7 +144,9 @@ export async function spotlightAvailability(
  * Marks a placement paid and gives it its dates, from the moment payment
  * lands. Only ever moves a PENDING_PAYMENT placement, so a redelivered
  * webhook (or a webhook racing the dev-mode path) is a no-op. Returns the
- * activated placement, or null when there was nothing to activate.
+ * activated placement, or null when there was nothing to activate - or when
+ * the Spotlight row filled up while the host was paying, in which case the
+ * placement is CANCELLED and its payment must be refunded.
  */
 export async function activatePaidPromotion(
   db: PrismaClient,
@@ -156,17 +158,30 @@ export async function activatePaidPromotion(
     const promotion = await tx.listingPromotion.findUnique({ where: { id: promotionId } });
     if (!promotion || promotion.status !== "PENDING_PAYMENT") return null;
 
-    // Two payments for one listing landing together (a double tap, or two
-    // webhooks a moment apart) would otherwise each read the same paid
-    // placements and both take the same days. One at a time per listing:
-    // the second waits, then sees the first and starts where it ends.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`promotion:${promotion.listingId}`}::text, 0))`;
+    // Payments landing together (a double tap, two webhooks a moment apart,
+    // or two hosts buying the last slot) would otherwise each read the same
+    // paid placements and both take the same days or the same slot. One
+    // activation at a time across Spotlight: the second waits, then sees the
+    // first - starting where it ends, or finding the row full.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"promotion:spotlight"}::text, 0))`;
 
     const existing = await tx.listingPromotion.findMany({
       where: { listingId: promotion.listingId, status: "PAID" },
       select: { endsAt: true },
     });
     const { startsAt, endsAt } = promotionWindow(now, promotion.days, existing.map((p) => p.endsAt));
+
+    // The row was checked when the host opened the payment page, but other
+    // hosts may have paid for the last slots since. A placement that no
+    // longer fits is never activated: it's cancelled, and the caller refunds
+    // the payment (see the Stripe webhook's activateListingPromotion).
+    if (!(await spotlightAvailability(tx, { startsAt, endsAt }, promotion.listingId)).available) {
+      await tx.listingPromotion.updateMany({
+        where: { id: promotionId, status: "PENDING_PAYMENT" },
+        data: { status: "CANCELLED" },
+      });
+      return null;
+    }
 
     const { count } = await tx.listingPromotion.updateMany({
       where: { id: promotionId, status: "PENDING_PAYMENT" },

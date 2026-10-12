@@ -2251,7 +2251,9 @@ enum ListingPromotionStatus {
   // scheduled before that, finished after - derived from the dates, so
   // nothing has to run to expire a placement.
   PAID
-  // The checkout was abandoned (its session expired) - never charged.
+  // Never live: the checkout was abandoned (its session expired, never
+  // charged), or it was paid after the Spotlight row filled up and the
+  // payment was refunded in full.
   CANCELLED
 }
 

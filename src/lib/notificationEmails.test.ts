@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const send = vi.fn();
 vi.mock("@/lib/email", () => ({
   EMAIL_FROM: "FYStay <test@fystay.dev>",
+  EMAIL_REPLY_TO: "hello@fystay.co.uk",
   getResendClient: () => ({ emails: { send } }),
 }));
 
@@ -63,6 +64,9 @@ describe("notification emails", () => {
       expect(message.html).toContain(">FY</span>");
       expect(message.html).toMatch(/<h1[^>]*>/);
       expect(message.html.match(/<a href="[^"]+" style="display:inline-block/g)).toHaveLength(1);
+      // Every email tells people where to write: FYStay's one customer address.
+      expect(message.html).toContain("mailto:hello@fystay.co.uk");
+      expect(message.html).not.toContain("support@fystay.co.uk");
     }
   });
 
