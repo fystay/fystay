@@ -23,8 +23,13 @@ export const metadata: Metadata = { title: "Account", robots: { index: false } }
 
 export default async function AccountPage({ searchParams }: PageProps<"/account">) {
   const session = await auth();
+  const { emailVerified } = await searchParams;
   if (!session?.user) {
-    redirect("/login?callbackUrl=/account");
+    // Opening the "Confirm your email" link while signed out (often on a
+    // phone) still confirms the address - keep the outcome through login so
+    // the login page and then this page can say how it went.
+    const back = typeof emailVerified === "string" ? `/account?emailVerified=${encodeURIComponent(emailVerified)}` : "/account";
+    redirect(`/login?callbackUrl=${encodeURIComponent(back)}`);
   }
 
   const user = await prisma.user.findUniqueOrThrow({
@@ -53,7 +58,6 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
   // Google accounts - a separate, real gap, not silently worked around
   // here).
   const hasPassword = Boolean(user.passwordHash);
-  const { emailVerified } = await searchParams;
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">

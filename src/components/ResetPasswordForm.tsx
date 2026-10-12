@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldError, FieldHint, Label } from "@/components/ui/Label";
-import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 
 function ResetPasswordFormInner() {
@@ -72,9 +72,8 @@ function ResetPasswordFormInner() {
             <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
               <Field>
                 <Label htmlFor="password">New password</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   required
                   minLength={8}
                   autoComplete="new-password"
@@ -86,9 +85,8 @@ function ResetPasswordFormInner() {
               </Field>
               <Field>
                 <Label htmlFor="confirmPassword">Confirm new password</Label>
-                <Input
+                <PasswordInput
                   id="confirmPassword"
-                  type="password"
                   required
                   minLength={8}
                   autoComplete="new-password"

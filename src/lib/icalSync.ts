@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { parseIcsEvents } from "@/lib/icalParse";
 import { safeFetchText } from "@/lib/safeFetch";
+import { reportError } from "@/lib/observability";
 
 export type ExistingImportedBlock = { externalUid: string; startDate: Date; endDate: Date };
 export type FetchedIcsEvent = { uid: string; start: Date; end: Date };
@@ -54,6 +55,7 @@ export function diffIcalImport(
 export async function syncListingIcalImport(
   prisma: PrismaClient,
   listingId: string,
+  { timeoutMs }: { timeoutMs?: number } = {},
 ): Promise<{ synced: number; removed: number } | null> {
   const listing = await prisma.listing.findUnique({ where: { id: listingId }, select: { id: true, icalImportUrl: true } });
   if (!listing?.icalImportUrl) return null;
@@ -62,6 +64,7 @@ export async function syncListingIcalImport(
   // (public addresses only, time and size limits), never a bare fetch().
   const response = await safeFetchText(listing.icalImportUrl, {
     accept: "text/calendar, text/plain, */*",
+    timeoutMs,
   });
   if (!response.ok) {
     throw new Error(`Import feed returned ${response.status}`);
@@ -105,4 +108,33 @@ export async function syncListingIcalImport(
   await prisma.listing.update({ where: { id: listingId }, data: { icalSyncedAt: new Date() } });
 
   return { synced: plan.toUpsert.length, removed: plan.toDeleteUids.length };
+}
+
+/** How old an imported calendar may be before a new booking re-syncs it first. */
+export const ICAL_IMPORT_MAX_AGE_MS = 30 * 60 * 1000;
+
+/**
+ * Called just before a booking takes dates: re-syncs the listing's imported
+ * calendar if it's older than ICAL_IMPORT_MAX_AGE_MS, so dates booked on
+ * Airbnb or another site since the daily sweep (vercel.json) aren't sold
+ * twice. Short timeout and never throws - if the other site is slow or
+ * down, the booking goes ahead on the last synced calendar, as it did
+ * before, and the failure is reported.
+ */
+export async function refreshStaleIcalImport(
+  prisma: PrismaClient,
+  listingId: string,
+  { now = new Date(), sync = syncListingIcalImport }: { now?: Date; sync?: typeof syncListingIcalImport } = {},
+): Promise<void> {
+  const listing = await prisma.listing.findUnique({
+    where: { id: listingId },
+    select: { icalImportUrl: true, icalSyncedAt: true },
+  });
+  if (!listing?.icalImportUrl) return;
+  if (listing.icalSyncedAt && now.getTime() - listing.icalSyncedAt.getTime() < ICAL_IMPORT_MAX_AGE_MS) return;
+  try {
+    await sync(prisma, listingId, { timeoutMs: 4000 });
+  } catch (error) {
+    reportError(error, { area: "sync", message: `iCal refresh before booking failed for listing ${listingId}` });
+  }
 }

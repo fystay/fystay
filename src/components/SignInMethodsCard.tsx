@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Field, FieldError, Label } from "@/components/ui/Label";
-import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import {
   AppleIcon,
   AuthErrorBanner,
@@ -227,9 +227,8 @@ export function SignInMethodsCard({
             {hasPassword ? (
               <Field className="mt-4">
                 <Label htmlFor="sign-in-methods-password">Your password</Label>
-                <Input
+                <PasswordInput
                   id="sign-in-methods-password"
-                  type="password"
                   autoComplete="current-password"
                   autoFocus
                   value={password}

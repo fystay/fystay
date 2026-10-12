@@ -12,12 +12,14 @@ export function SortDropdown() {
   // sort yet is actually rendered nearest-first, so the dropdown should
   // say that too rather than showing "Recommended" over a list that isn't.
   const rawSort = searchParams.get("sort");
-  const currentSort = parseSortParam(rawSort ?? (searchParams.get("near") ? "distance_asc" : undefined));
+  const currentSort = parseSortParam(rawSort ?? (searchParams.get("near") || searchParams.get("place") ? "distance_asc" : undefined));
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (value === "recommended") params.delete("sort");
     else params.set("sort", value);
+    // A new order starts from the top, not page N of the re-sorted list.
+    params.delete("page");
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { diffIcalImport } from "./icalSync";
+import { describe, expect, it, vi } from "vitest";
+import type { PrismaClient } from "@prisma/client";
+import { diffIcalImport, refreshStaleIcalImport } from "./icalSync";
 
 const d = (s: string) => new Date(s);
 
@@ -59,5 +60,41 @@ describe("diffIcalImport", () => {
 
   it("is a no-op both ways for two empty lists", () => {
     expect(diffIcalImport([], [])).toEqual({ toUpsert: [], toDeleteUids: [] });
+  });
+});
+
+describe("refreshStaleIcalImport", () => {
+  const now = new Date("2026-10-12T12:00:00Z");
+  const db = (listing: { icalImportUrl: string | null; icalSyncedAt: Date | null } | null) =>
+    ({ listing: { findUnique: vi.fn(async () => listing) } }) as unknown as PrismaClient;
+
+  it("re-syncs a calendar last synced more than 30 minutes ago", async () => {
+    const sync = vi.fn(async () => ({ synced: 1, removed: 0 }));
+    await refreshStaleIcalImport(db({ icalImportUrl: "https://x/cal.ics", icalSyncedAt: new Date("2026-10-12T11:00:00Z") }), "l1", { now, sync });
+    expect(sync).toHaveBeenCalledWith(expect.anything(), "l1", { timeoutMs: 4000 });
+  });
+
+  it("re-syncs a calendar that has never synced", async () => {
+    const sync = vi.fn(async () => null);
+    await refreshStaleIcalImport(db({ icalImportUrl: "https://x/cal.ics", icalSyncedAt: null }), "l1", { now, sync });
+    expect(sync).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a fresh calendar, or a listing without one, alone", async () => {
+    const sync = vi.fn(async () => null);
+    await refreshStaleIcalImport(db({ icalImportUrl: "https://x/cal.ics", icalSyncedAt: new Date("2026-10-12T11:45:00Z") }), "l1", { now, sync });
+    await refreshStaleIcalImport(db({ icalImportUrl: null, icalSyncedAt: null }), "l1", { now, sync });
+    expect(sync).not.toHaveBeenCalled();
+  });
+
+  it("lets the booking go ahead when the other site is down", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const sync = vi.fn(async () => {
+      throw new Error("timeout");
+    });
+    await expect(
+      refreshStaleIcalImport(db({ icalImportUrl: "https://x/cal.ics", icalSyncedAt: null }), "l1", { now, sync }),
+    ).resolves.toBeUndefined();
+    error.mockRestore();
   });
 });
