@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
+import { SUPPORT_EMAIL } from "@/lib/seo";
 
 /**
  * The Resend client every email in the app goes through, or null when no
@@ -12,6 +13,10 @@ import { Resend } from "resend";
  * trace. Every refusal is logged and reported to Sentry here, once, for
  * all of them. The return value is unchanged, so callers that check
  * `error` themselves still can, and no send site starts throwing.
+ *
+ * Replies go to the support inbox unless a send sets its own reply-to:
+ * the sending address (EMAIL_FROM) is for sending, and a guest or host
+ * replying to a booking email should reach a person.
  */
 export function getResendClient(): Resend | null {
   const key = process.env.RESEND_API_KEY;
@@ -19,7 +24,7 @@ export function getResendClient(): Resend | null {
   const client = new Resend(key);
   const send = client.emails.send.bind(client.emails);
   client.emails.send = async (payload, options) => {
-    const result = await send(payload, options);
+    const result = await send({ replyTo: SUPPORT_EMAIL, ...payload }, options);
     if (result.error) reportEmailRefused(payload.subject ?? "(no subject)", result.error);
     return result;
   };

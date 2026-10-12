@@ -43,4 +43,13 @@ describe("getResendClient", () => {
     await getResendClient()!.emails.send({ from: "a@b.c", to: "x@y.z", subject: "Hi", html: "x" });
     expect(captureMessage).not.toHaveBeenCalled();
   });
+
+  it("sends replies to the support inbox unless the email sets its own reply-to", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    send.mockResolvedValue({ data: { id: "e1" }, error: null });
+    await getResendClient()!.emails.send({ from: "a@b.c", to: "x@y.z", subject: "Hi", html: "x" });
+    expect(send.mock.calls[0][0]).toMatchObject({ replyTo: "support@fystay.co.uk" });
+    await getResendClient()!.emails.send({ from: "a@b.c", to: "x@y.z", subject: "Hi", html: "x", replyTo: "host@example.com" });
+    expect(send.mock.calls[1][0]).toMatchObject({ replyTo: "host@example.com" });
+  });
 });
