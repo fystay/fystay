@@ -21,6 +21,11 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = safeRedirectPath(searchParams.get("callbackUrl"));
+  // Set when the "Confirm your email" link was opened while signed out
+  // (see the account page's redirect).
+  const emailVerifiedOutcome = callbackUrl.startsWith("/account?")
+    ? new URLSearchParams(callbackUrl.slice("/account?".length)).get("emailVerified")
+    : null;
   const { message: oauthError, showHandOffError } = useOAuthErrorMessage(searchParams, rememberedProvider);
 
   const [email, setEmail] = useState("");
@@ -111,7 +116,11 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
           {/* Arriving from "Log in to book": say the stay is waiting for them. */}
           {callbackUrl.startsWith("/listings/")
             ? "Log in to book your stay - your dates are saved."
-            : `Log in to continue to ${SITE_NAME}`}
+            : emailVerifiedOutcome === "verified" || emailVerifiedOutcome === "already_verified"
+              ? "Your email is confirmed. Log in to continue."
+              : emailVerifiedOutcome === "invalid"
+                ? "That email link has expired or was already used. Log in to send a new one."
+                : `Log in to continue to ${SITE_NAME}`}
         </p>
       </div>
 
