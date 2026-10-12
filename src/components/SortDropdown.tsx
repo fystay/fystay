@@ -12,7 +12,7 @@ export function SortDropdown() {
   // sort yet is actually rendered nearest-first, so the dropdown should
   // say that too rather than showing "Recommended" over a list that isn't.
   const rawSort = searchParams.get("sort");
-  const currentSort = parseSortParam(rawSort ?? (searchParams.get("near") ? "distance_asc" : undefined));
+  const currentSort = parseSortParam(rawSort ?? (searchParams.get("near") || searchParams.get("place") ? "distance_asc" : undefined));
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());

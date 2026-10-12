@@ -13,6 +13,7 @@ import {
 } from "@/lib/availability";
 import { isPetFriendly, parseGuestParam, totalOccupants } from "@/lib/search";
 import { findLandmarkByName } from "@/lib/landmarks";
+import { getPlaceLocation } from "@/lib/googlePlaces";
 import { auth } from "@/auth";
 import { ListingsCarousel } from "@/components/ListingsCarousel";
 import { ListingCard } from "@/components/ListingCard";
@@ -86,14 +87,20 @@ export async function ListingsGrid({
   searchParams: SearchParams;
   showResultsView: boolean;
 }) {
-  const city = typeof searchParams.city === "string" ? searchParams.city : "";
+  // A Google Places location (?place=<id>) is resolved to coordinates on
+  // the server; when it resolves it replaces the city filter, so every stay
+  // shows, nearest to it first. Null when the key isn't set or the id is
+  // unknown, and then the search behaves as if no place was chosen.
+  const placeId = typeof searchParams.place === "string" ? searchParams.place : "";
+  const place = placeId ? await getPlaceLocation(placeId) : null;
+  const city = !place && typeof searchParams.city === "string" ? searchParams.city : "";
   // A specific named place within that city (e.g. "Blackpool Pleasure
   // Beach"), selected from the destination autocomplete's landmark
   // suggestions - undefined for any value that isn't one of the app's own
   // curated places, so an arbitrary/stale ?near= in the URL never trusts
   // unverified coordinates.
   const nearParam = typeof searchParams.near === "string" ? searchParams.near : "";
-  const landmark = nearParam ? findLandmarkByName(nearParam) : undefined;
+  const landmark = (nearParam ? findLandmarkByName(nearParam) : undefined) ?? place ?? undefined;
   const checkInParam = typeof searchParams.checkIn === "string" ? searchParams.checkIn : "";
   const checkOutParam = typeof searchParams.checkOut === "string" ? searchParams.checkOut : "";
   const adults = parseGuestParam(searchParams.adults, 1);

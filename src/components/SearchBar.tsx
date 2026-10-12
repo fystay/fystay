@@ -34,6 +34,8 @@ function parseDateParam(value: string | null): Date | undefined {
 const SEARCHBAR_OWNED_PARAMS = [
   "city",
   "near",
+  "place",
+  "placeLabel",
   "checkIn",
   "checkOut",
   "adults",
@@ -47,9 +49,17 @@ function buildSearchQuery(
   range: DateRange | undefined,
   guestCounts: GuestCounts,
   nearLandmark?: string | null,
+  place?: { placeId: string; label: string } | null,
 ): string {
   const params = new URLSearchParams();
-  if (city) params.set("city", city);
+  // A Google place isn't one of FYStay's towns, so it replaces the city
+  // filter: results are every stay, nearest to that place first. The label
+  // only refills the search box - the results page takes the place's name
+  // from Google, not from the URL.
+  if (place) {
+    params.set("place", place.placeId);
+    params.set("placeLabel", place.label);
+  } else if (city) params.set("city", city);
   if (nearLandmark) params.set("near", nearLandmark);
   if (range?.from) params.set("checkIn", format(range.from, "yyyy-MM-dd"));
   if (range?.to) params.set("checkOut", format(range.to, "yyyy-MM-dd"));
@@ -80,7 +90,7 @@ export function SearchBar({
   const searchParams = useSearchParams();
   const [isSearching, startTransition] = useTransition();
 
-  const [city, setCity] = useState(searchParams.get("city") ?? "");
+  const [city, setCity] = useState(searchParams.get("city") ?? searchParams.get("placeLabel") ?? "");
   // Set only when the "Where" field's selection was a specific hotel/property
   // from the autocomplete dropdown, so Search can route straight to that
   // listing instead of a city-filtered results page. Any further free typing
@@ -93,6 +103,13 @@ export function SearchBar({
   // and listingSearch.ts's "distance_asc"). Cleared by any further typing,
   // same as selectedListingId, since the field no longer reflects it.
   const [nearLandmark, setNearLandmark] = useState<string | null>(searchParams.get("near"));
+  // Set only when the selection was a Google Places location (any UK place
+  // or postcode outside FYStay's own towns and landmarks) - see
+  // buildSearchQuery. Cleared by further typing like the two above.
+  const [place, setPlace] = useState<{ placeId: string; label: string } | null>(() => {
+    const placeId = searchParams.get("place");
+    return placeId ? { placeId, label: searchParams.get("placeLabel") ?? "" } : null;
+  });
   const [range, setRange] = useState<DateRange | undefined>(() => {
     const from = parseDateParam(searchParams.get("checkIn"));
     const to = parseDateParam(searchParams.get("checkOut"));
@@ -128,7 +145,7 @@ export function SearchBar({
     // old result set the guest was on; sort/view/filters carry over
     // untouched either way.
     const params = new URLSearchParams(searchParams.toString());
-    const ownedQuery = new URLSearchParams(buildSearchQuery(city, range, guestCounts, nearLandmark));
+    const ownedQuery = new URLSearchParams(buildSearchQuery(city, range, guestCounts, nearLandmark, place));
     let ownedChanged = false;
     for (const key of SEARCHBAR_OWNED_PARAMS) {
       const nextValue = ownedQuery.get(key);
@@ -148,7 +165,7 @@ export function SearchBar({
 
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- router/searchParams/startTransition are stable
-  }, [city, range, guestCounts, selectedListingId, nearLandmark, liveUpdate]);
+  }, [city, range, guestCounts, selectedListingId, nearLandmark, place, liveUpdate]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -159,7 +176,7 @@ export function SearchBar({
       if (selectedListingId) {
         router.push(`/listings/${selectedListingId}`);
       } else {
-        router.push(`${SEARCH_RESULTS_PATH}?${buildSearchQuery(city, range, guestCounts, nearLandmark)}`);
+        router.push(`${SEARCH_RESULTS_PATH}?${buildSearchQuery(city, range, guestCounts, nearLandmark, place)}`);
       }
     });
   }
@@ -168,6 +185,7 @@ export function SearchBar({
     setCity(next);
     setSelectedListingId(null);
     setNearLandmark(null);
+    setPlace(null);
   }
 
   const isHero = variant === "hero";
@@ -282,14 +300,22 @@ export function SearchBar({
               setCity(payload.city);
               setSelectedListingId(null);
               setNearLandmark(null);
+              setPlace(null);
             } else if (payload.type === "landmark") {
               setCity(payload.town);
               setSelectedListingId(null);
               setNearLandmark(payload.name);
+              setPlace(null);
+            } else if (payload.type === "place") {
+              setCity(payload.label);
+              setSelectedListingId(null);
+              setNearLandmark(null);
+              setPlace({ placeId: payload.placeId, label: payload.label });
             } else {
               setCity(payload.title);
               setSelectedListingId(payload.listingId);
               setNearLandmark(null);
+              setPlace(null);
             }
           }}
           className="sm:flex-[1.15]"

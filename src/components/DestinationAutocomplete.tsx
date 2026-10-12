@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Building2, History, Landmark, Loader2, MapPin, SearchX, Sparkles } from "lucide-react";
+import { Building2, History, Landmark, Loader2, MapPin, Navigation, SearchX, Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { DestinationSuggestion, HotelSuggestion, LandmarkSuggestion } from "@/lib/searchSuggestions";
+import type { PlaceSuggestion } from "@/lib/googlePlaces";
 import { useAnchoredPortalPosition } from "@/lib/useAnchoredPortalPosition";
 
 // Deliberately shorter than the search-results debounce (350ms): suggestions
@@ -17,6 +18,7 @@ const MAX_RECENT_SEARCHES = 5;
 type SelectPayload =
   | { type: "destination"; city: string }
   | { type: "landmark"; name: string; town: string }
+  | { type: "place"; placeId: string; label: string }
   | { type: "hotel"; listingId: string; title: string };
 
 type FlatItem =
@@ -24,6 +26,7 @@ type FlatItem =
   | { kind: "popular"; suggestion: DestinationSuggestion }
   | { kind: "destination"; suggestion: DestinationSuggestion }
   | { kind: "landmark"; suggestion: LandmarkSuggestion }
+  | { kind: "place"; suggestion: PlaceSuggestion }
   | { kind: "hotel"; suggestion: HotelSuggestion };
 
 function readRecentSearches(): string[] {
@@ -72,6 +75,7 @@ export function DestinationAutocomplete({
   const [popular, setPopular] = useState(true);
   const [destinations, setDestinations] = useState<DestinationSuggestion[]>([]);
   const [landmarks, setLandmarks] = useState<LandmarkSuggestion[]>([]);
+  const [places, setPlaces] = useState<PlaceSuggestion[]>([]);
   const [hotels, setHotels] = useState<HotelSuggestion[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => readRecentSearches());
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -133,6 +137,7 @@ export function DestinationAutocomplete({
               popular: boolean;
               destinations: DestinationSuggestion[];
               landmarks: LandmarkSuggestion[];
+              places?: PlaceSuggestion[];
               hotels: HotelSuggestion[];
             }) => {
               // Guard against an older, slower request resolving after a
@@ -141,6 +146,7 @@ export function DestinationAutocomplete({
               setPopular(data.popular);
               setDestinations(data.destinations ?? []);
               setLandmarks(data.landmarks ?? []);
+              setPlaces(data.places ?? []);
               setHotels(data.hotels ?? []);
               setLoading(false);
             },
@@ -152,6 +158,7 @@ export function DestinationAutocomplete({
             setLoading(false);
             setDestinations([]);
             setLandmarks([]);
+            setPlaces([]);
             setHotels([]);
           });
       },
@@ -184,9 +191,10 @@ export function DestinationAutocomplete({
     return [
       ...destinations.map((suggestion): FlatItem => ({ kind: "destination", suggestion })),
       ...landmarks.map((suggestion): FlatItem => ({ kind: "landmark", suggestion })),
+      ...places.map((suggestion): FlatItem => ({ kind: "place", suggestion })),
       ...hotels.map((suggestion): FlatItem => ({ kind: "hotel", suggestion })),
     ];
-  }, [popular, recentSearches, destinations, landmarks, hotels]);
+  }, [popular, recentSearches, destinations, landmarks, places, hotels]);
 
   function select(item: FlatItem) {
     if (item.kind === "recent") {
@@ -201,6 +209,9 @@ export function DestinationAutocomplete({
       onChange(item.suggestion.name);
       onSelect({ type: "landmark", name: item.suggestion.name, town: item.suggestion.town });
       saveRecentSearch(item.suggestion.name);
+    } else if (item.kind === "place") {
+      onChange(item.suggestion.label);
+      onSelect({ type: "place", placeId: item.suggestion.placeId, label: item.suggestion.label });
     } else {
       onChange(item.suggestion.label);
       onSelect({ type: "hotel", listingId: item.suggestion.id, title: item.suggestion.label });
@@ -422,12 +433,33 @@ export function DestinationAutocomplete({
                     </FirstOfGroup>
                   );
                 }
+                if (item.kind === "place") {
+                  itemIndex++;
+                  const index = itemIndex;
+                  return (
+                    <FirstOfGroup
+                      key={`place-${item.suggestion.placeId}`}
+                      show={index === destinations.length + landmarks.length}
+                      label="Other locations"
+                    >
+                      <SuggestionRow
+                        id={`${id}-option-${index}`}
+                        active={highlightedIndex === index}
+                        icon={<Navigation className="h-4 w-4 text-brand-600" aria-hidden />}
+                        label={item.suggestion.label}
+                        sublabel={item.suggestion.sublabel}
+                        onSelect={() => select(item)}
+                        onHover={() => setHighlightedIndex(index)}
+                      />
+                    </FirstOfGroup>
+                  );
+                }
                 itemIndex++;
                 const index = itemIndex;
                 return (
                   <FirstOfGroup
                     key={`hotel-${item.suggestion.id}`}
-                    show={index === destinations.length + landmarks.length}
+                    show={index === destinations.length + landmarks.length + places.length}
                     label="Stays"
                   >
                     <SuggestionRow
