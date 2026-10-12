@@ -9,6 +9,7 @@ import { SITE_NAME } from "@/lib/seo";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldError, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 import { AuthErrorBanner, SocialSignInButtons, useOAuthErrorMessage } from "@/components/SocialSignInButtons";
 import { safeRedirectPath } from "@/lib/safeRedirect";
@@ -172,9 +173,8 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
                       Forgot password?
                     </Link>
                   </div>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     autoComplete="current-password"
                     required
                     invalid={Boolean(error)}

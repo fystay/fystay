@@ -6,6 +6,7 @@ import { MailCheck, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Field, FieldError, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 
 /**
@@ -100,9 +101,8 @@ export function EmailChangeCard({ currentEmail }: { currentEmail: string }) {
             </Field>
             <Field>
               <Label htmlFor="email-change-password">Current password</Label>
-              <Input
+              <PasswordInput
                 id="email-change-password"
-                type="password"
                 required
                 autoComplete="current-password"
                 value={currentPassword}
