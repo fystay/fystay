@@ -7,7 +7,7 @@ import { GuestMenu } from "@/components/GuestMenu";
 import { Logo } from "@/components/Logo";
 import { NavbarChrome } from "@/components/NavbarChrome";
 import { DesktopNavLinks } from "@/components/DesktopNavLinks";
-import { SectionPills, SectionPillsBar } from "@/components/SectionPills";
+import { SectionPills } from "@/components/SectionPills";
 
 export async function Navbar() {
   const session = await auth();
@@ -26,7 +26,8 @@ export async function Navbar() {
       {/* Below lg: the home button left, the logo centred against the whole
           header width (an absolutely positioned overlay, so it stays exactly
           centred however wide the account controls are), the menu right,
-          and the section tabs as the header's second row (SectionPillsBar).
+          and the sections in the bottom tab bar (SiteBottomNav, in the
+          root layout).
           From lg: logo left, the section control centred, secondary
           links and the menu right. pointer-events-none/auto so the overlays
           never block clicks on anything beside them. */}
@@ -52,7 +53,7 @@ export async function Navbar() {
 
         {/* lg: the Stays / Discover / Journeys / Services tabs sit inline,
             centred against the whole bar the same way the mobile logo is
-            above. Below lg they're the header's second row instead. */}
+            above. Below lg they're the bottom tab bar instead. */}
         <div className="pointer-events-none absolute inset-0 hidden items-center justify-center lg:flex">
           <SectionPills variant="header" className="pointer-events-auto" />
         </div>
@@ -72,7 +73,6 @@ export async function Navbar() {
           </nav>
         </div>
       </div>
-      <SectionPillsBar />
     </NavbarChrome>
   );
 }
