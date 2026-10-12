@@ -42,7 +42,7 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | 9 | Stripe business description still says "service fee per booking"; FYStay now charges hosts a 10% commission. | External (owner) | Edit in Stripe dashboard |
 | 10 | **Contact mailboxes unconfirmed.** The site shows `support@`, `privacy@` and `legal@fystay.co.uk` by default (`NEXT_PUBLIC_SUPPORT_EMAIL` / `_PRIVACY_EMAIL` / `_LEGAL_EMAIL` are not set in Production). Nothing confirms those inboxes receive mail. | External (owner test) | Send a test message to each, or set the variables to inboxes you read |
 
-## Open PRs (built 12 Oct, CI on each; none merged - each merge deploys to Production)
+## Open PRs (built 12 Oct; none merged - each merge deploys to Production)
 
 | PR | What | Status |
 |---|---|---|
@@ -50,12 +50,15 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | [#8](https://github.com/fystay/fystay/pull/8) | Hosts must confirm their email before connecting Stripe payouts | CI green; owner approval |
 | [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check the 8-slot capacity on payment; refund (and email the host) instead of overselling; 31-min payment pages | CI running; owner approval |
 | [#10](https://github.com/fystay/fystay/pull/10) | Date-change payment unavailable: say the booking is unchanged, not "dates are still held" | CI running; owner approval. Shares one import line with #7 (one-line merge for whichever lands second) |
+| [#12](https://github.com/fystay/fystay/pull/12) | Checkout + privacy policy say the host sees the guest's email and phone once confirmed (trust standard) | CI running; owner approval |
+| [#13](https://github.com/fystay/fystay/pull/13) | Host guide explains how and when hosts get paid (90% share, Stripe schedule, refunds) | CI running; owner approval |
 
 ## Checked 12 Oct, no change needed
 
 - Placeholder content: none visible to guests or hosts (only an admin-page example and "Photo coming soon" image fallbacks).
 - Trust signals: host badges ("Identity verified", ratings, review counts) come from real data; no hard-coded claims.
 - Guest promo codes already need a confirmed email; booking itself doesn't.
+- Fees: service-fee and cleaning-fee rows on receipts and summaries only appear for bookings made before the 11 Oct commission change; new bookings show no extra fees.
 
 **Not to be done before blockers 1-2:** enabling live payments, publishing
 legal details, or onboarding real hosts.
