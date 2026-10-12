@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { httpUrlSchema, listingFieldSchemas } from "@/lib/validation";
 import { isFetchableUrl } from "@/lib/safeFetch";
+import { isFystayCalendarExport } from "@/lib/icalSync";
 import { geocodeListing } from "@/lib/geocoding";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { withApiErrorHandling } from "@/lib/apiError";
@@ -52,7 +53,11 @@ const updateListingSchema = z
     quietHoursEnd: z.string().max(50).nullable().optional(),
     additionalRules: z.string().max(2000).nullable().optional(),
     icalImportUrl: httpUrlSchema
+      .max(2000)
       .refine(isFetchableUrl, { message: "Use the calendar's public web link (http or https)" })
+      .refine((url) => !isFystayCalendarExport(url), {
+        message: "That's a FYStay calendar link. Paste the export link from Airbnb, Vrbo or your other calendar instead.",
+      })
       .nullable()
       .optional(),
   })
@@ -221,10 +226,20 @@ async function patchHandler(
       ? priceChangeFields(listing, parsed.data.pricePerNightCents)
       : {};
 
+  // A new or removed import link starts its sync afresh. Removing it also
+  // removes the dates it imported (only those - bookings and the host's own
+  // blocks stay), so they stop blocking.
+  const importLinkChanged =
+    parsed.data.icalImportUrl !== undefined && parsed.data.icalImportUrl !== listing.icalImportUrl;
+  if (importLinkChanged && parsed.data.icalImportUrl === null) {
+    await prisma.availabilityBlock.deleteMany({ where: { listingId: id, source: "ICAL_IMPORT" } });
+  }
+
   const updated = await prisma.listing.update({
     where: { id },
     data: {
       ...parsed.data,
+      ...(importLinkChanged && { icalSyncedAt: null, icalSyncError: null, icalSyncFailedAt: null }),
       ...deal.fields,
       ...priceTracking,
       ...(coordinates !== undefined && {

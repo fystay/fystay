@@ -501,9 +501,13 @@ model Listing {
   // ICAL_IMPORT (see src/lib/icalSync.ts). One import URL, not many - most
   // hosts cross-list on a single other platform, and this keeps the sync
   // and its UI simple; multiple imports is a reasonable future extension.
-  icalExportToken String    @unique @default(cuid())
-  icalImportUrl   String?
-  icalSyncedAt    DateTime?
+  icalExportToken  String    @unique @default(cuid())
+  icalImportUrl    String?
+  icalSyncedAt     DateTime?
+  // The last failed import (reason shown to the host) - cleared by the next
+  // successful sync. Null while syncing works.
+  icalSyncError    String?
+  icalSyncFailedAt DateTime?
 
   // Set by an admin (PATCH /api/admin/listings/[id]/suspend) to pull a
   // fraudulent or problem listing out of search/booking without deleting

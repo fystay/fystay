@@ -338,6 +338,12 @@
       "files": {
         "migration.sql": "ae1b2f68e3555970e616992a548733a4dc8e009ca4645e62ff66fe58faaab5e7"
       }
+    },
+    {
+      "name": "20261012150000_ical_sync_error",
+      "files": {
+        "migration.sql": "b35b66cb10b585a169f82fa6b1ed5ba8d99417b80ba9ee4692a7666eb7e87e84"
+      }
     }
   ],
   "retired": [
