@@ -136,6 +136,10 @@ export function CheckoutForm({
             />
             <FieldError>{error}</FieldError>
           </Field>
+          <p className="text-xs text-stone-500">
+            Once your booking is confirmed, your host can see your name, email address and phone
+            number, so they can contact you about the stay.
+          </p>
           <div className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm">
             <span className="text-stone-600">Guests</span>
             <span className="font-medium text-foreground">
