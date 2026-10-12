@@ -20,11 +20,11 @@ const d = (s: string) => new Date(`${s}T00:00:00Z`);
 const today = d("2026-10-15");
 
 let n = 0;
-// A £100/night stay with a £20 cleaning fee and FYStay's 10% service fee on
-// top: the guest pays nights×100 + 20 + 10%, the host gets nights×100 + 20.
+// A £100/night stay under the commission model: the guest pays nights×£100
+// and nothing on top; FYStay keeps 10% of it, so the host gets nights×£90.
 function stay(checkIn: string, nights: number, over: Partial<InsightBooking> = {}): InsightBooking {
   const stayCents = nights * 10_000;
-  const service = Math.round(stayCents * 0.1);
+  const commission = Math.round(stayCents * 0.1);
   return {
     id: `b${++n}`,
     reference: `FY-${n}`,
@@ -42,8 +42,9 @@ function stay(checkIn: string, nights: number, over: Partial<InsightBooking> = {
     lengthOfStayDiscountCents: 0,
     roomsBooked: 1,
     createdAt: d("2026-09-01"),
-    totalPriceCents: stayCents + 2_000 + service,
-    serviceFeeCents: service,
+    totalPriceCents: stayCents,
+    serviceFeeCents: 0,
+    hostCommissionCents: commission,
     taxCents: 0,
     creditAppliedCents: 0,
     promoDiscountCents: 0,
@@ -73,19 +74,32 @@ describe("summarizePeriod", () => {
       end,
       today,
     );
-    expect(s.earnedCents).toBe(32_000 + 22_000);
-    expect(s.hostedCents).toBe(32_000);
-    expect(s.upcomingCents).toBe(22_000);
+    // 3 nights: £300 - £30 commission = £270; 2 nights: £200 - £20 = £180.
+    expect(s.earnedCents).toBe(27_000 + 18_000);
+    expect(s.hostedCents).toBe(27_000);
+    expect(s.upcomingCents).toBe(18_000);
     expect(s.bookings).toBe(2);
     expect(s.nights).toBe(5);
+    // The nightly rate the stays were booked at, before FYStay's commission.
     expect(s.averageNightlyCents).toBe(10_000);
-    expect(s.averageBookingCents).toBe(27_000);
+    expect(s.averageBookingCents).toBe(22_500);
   });
 
-  it("explains the money: guest paid = host share + FYStay fee + refunds", () => {
+  it("explains the money: guest paid = host share + FYStay commission + refunds", () => {
     const s = summarizePeriod([stay("2026-10-02", 3)], start, end, today);
-    expect(s.guestPaidCents).toBe(35_000);
+    expect(s.guestPaidCents).toBe(30_000);
     expect(s.fystayFeeCents).toBe(3_000);
+    expect(s.earnedCents).toBe(27_000);
+    expect(s.guestPaidCents - s.fystayFeeCents - s.refundedCents).toBe(s.earnedCents);
+  });
+
+  it("still explains an older service-fee booking: the host keeps the stay and cleaning, FYStay the fee on top", () => {
+    // 3 nights at £100 + £20 cleaning + £30 guest service fee, no commission.
+    const legacy = stay("2026-10-02", 3, { totalPriceCents: 35_000, serviceFeeCents: 3_000, hostCommissionCents: 0 });
+    const s = summarizePeriod([legacy, stay("2026-10-05", 3)], start, end, today);
+    expect(s.earnedCents).toBe(32_000 + 27_000);
+    expect(s.guestPaidCents).toBe(35_000 + 30_000);
+    expect(s.fystayFeeCents).toBe(3_000 + 3_000);
     expect(s.guestPaidCents - s.fystayFeeCents - s.refundedCents).toBe(s.earnedCents);
   });
 
@@ -93,10 +107,11 @@ describe("summarizePeriod", () => {
     const cancelled = stay("2026-10-20", 3, {
       status: "CANCELLED",
       paymentStatus: "PARTIALLY_REFUNDED",
-      refundedAmountCents: 17_500,
+      refundedAmountCents: 15_000,
     });
     const s = summarizePeriod([stay("2026-10-02", 3), cancelled], start, end, today);
-    expect(s.earnedCents).toBe(32_000 + 16_000);
+    // Half of the cancelled £300 was refunded, so the host keeps half its £270 share.
+    expect(s.earnedCents).toBe(27_000 + 13_500);
     expect(s.bookings).toBe(1);
     expect(s.cancellationRate).toBe(50);
     expect(s.guestPaidCents - s.fystayFeeCents - s.refundedCents).toBe(s.earnedCents);
@@ -109,7 +124,7 @@ describe("summarizePeriod", () => {
     const neverConfirmed = stay("2026-10-20", 3, {
       status: "CANCELLED",
       paymentStatus: "REFUNDED",
-      refundedAmountCents: 35_000,
+      refundedAmountCents: 30_000,
       paidAt,
       refundedAt: new Date(paidAt.getTime() + 5),
     });
@@ -117,7 +132,7 @@ describe("summarizePeriod", () => {
     const cancelledLater = stay("2026-10-24", 3, {
       status: "CANCELLED",
       paymentStatus: "REFUNDED",
-      refundedAmountCents: 35_000,
+      refundedAmountCents: 30_000,
       paidAt,
       refundedAt: new Date("2026-09-08T10:00:00Z"),
     });
@@ -182,9 +197,10 @@ describe("best month and highlights", () => {
   const history = [stay("2026-08-03", 5), stay("2026-09-03", 2), stay("2026-10-03", 4)];
 
   it("finds the best past month and a 12-month series", () => {
-    expect(bestPastMonth(history, today)).toEqual({ start: d("2026-08-01"), earnedCents: 52_000 });
+    // nights × £90 to the host: 5 → £450, 2 → £180, 4 → £360.
+    expect(bestPastMonth(history, today)).toEqual({ start: d("2026-08-01"), earnedCents: 45_000 });
     const series = monthlyEarnings(history, today, 3);
-    expect(series.map((p) => p.earnedCents)).toEqual([52_000, 22_000, 42_000]);
+    expect(series.map((p) => p.earnedCents)).toEqual([45_000, 18_000, 36_000]);
   });
 
   it("only says true, positive things", () => {
@@ -192,7 +208,7 @@ describe("best month and highlights", () => {
     const thisMonth = summarizePeriod(history, start, end, today);
     const h = highlights({
       thisMonth,
-      lastMonthCents: 22_000,
+      lastMonthCents: 18_000,
       best: bestPastMonth(history, today),
       occupancyNow: 13,
       occupancyLastMonth: 7,
@@ -202,8 +218,8 @@ describe("best month and highlights", () => {
       formatMoney: (c) => `£${c / 100}`,
     });
     expect(h.map((x) => x.text)).toEqual([
-      "You're £100 away from your best month.",
-      "Earnings are up 91% on last month.",
+      "You're £90 away from your best month.",
+      "Earnings are up 100% on last month.",
       "Guests rate you 4.9★ across 12 reviews.",
     ]);
   });
@@ -238,7 +254,6 @@ describe("listingHealth", () => {
       quietHoursStart: null,
       additionalRules: null,
       weeklyDiscountPercent: null,
-      cleaningFeeCents: 0,
     };
     // The basics are done the moment a listing exists; everything else isn't.
     expect(listingHealth(bare).score).toBe(13);

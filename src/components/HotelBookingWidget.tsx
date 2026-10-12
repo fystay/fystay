@@ -15,7 +15,7 @@ import { usePromoCode } from "@/hooks/usePromoCode";
 import { formatPrice } from "@/lib/format";
 import { nightsBetween, stayLengthError } from "@/lib/availability";
 import type { CancellationPolicy } from "@/lib/cancellationPolicy";
-import { computeBookingPricing, stayDiscountName, guestNightlyPriceCents } from "@/lib/pricing";
+import { computeBookingPricing, stayDiscountName } from "@/lib/pricing";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { isOptimizableImage } from "@/lib/image";
 import { cn } from "@/lib/cn";
@@ -39,7 +39,6 @@ export type HotelRoomTypeSummary = {
 type Props = {
   listingId: string;
   roomTypes: HotelRoomTypeSummary[];
-  cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
   lastMinuteDiscountPercent?: number | null;
@@ -109,7 +108,6 @@ function Stepper({
 export function HotelBookingWidget({
   listingId,
   roomTypes,
-  cleaningFeeCents,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
   lastMinuteDiscountPercent = null,
@@ -194,7 +192,6 @@ export function HotelBookingWidget({
               listingId={listingId}
               roomType={roomType}
               range={nights > 0 && !lengthError ? range : undefined}
-              cleaningFeeCents={cleaningFeeCents}
               weeklyDiscountPercent={weeklyDiscountPercent}
               monthlyDiscountPercent={monthlyDiscountPercent}
               lastMinuteDiscountPercent={lastMinuteDiscountPercent}
@@ -236,7 +233,6 @@ function RoomTypeBookingCard({
   listingId,
   roomType,
   range,
-  cleaningFeeCents,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
   lastMinuteDiscountPercent = null,
@@ -250,7 +246,6 @@ function RoomTypeBookingCard({
   listingId: string;
   roomType: HotelRoomTypeSummary;
   range: DateRange | undefined;
-  cleaningFeeCents: number;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
   lastMinuteDiscountPercent?: number | null;
@@ -278,7 +273,6 @@ function RoomTypeBookingCard({
       ? computeBookingPricing({
           nights,
           pricePerNightCents: roomType.pricePerNightCents * roomsBooked,
-          cleaningFeeCents,
           weeklyDiscountPercent,
           monthlyDiscountPercent,
           lastMinuteDiscountPercent: lastMinuteDiscountFor(
@@ -400,8 +394,8 @@ function RoomTypeBookingCard({
             </span>
           </p>
           <p className="mt-1 text-sm font-semibold text-brand-800">
-            {formatPrice(guestNightlyPriceCents(roomType.pricePerNightCents))}
-            <span className="font-normal text-stone-500"> / night incl. service fee</span>
+            {formatPrice(roomType.pricePerNightCents)}
+            <span className="font-normal text-stone-500"> / night</span>
           </p>
         </div>
       </div>
@@ -440,16 +434,6 @@ function RoomTypeBookingCard({
               <span>&minus;{formatPrice(pricing.lengthOfStayDiscountCents)}</span>
             </div>
           )}
-          {pricing.cleaningFeeCents > 0 && (
-            <div className="flex justify-between">
-              <span>Cleaning fee</span>
-              <span>{formatPrice(pricing.cleaningFeeCents)}</span>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <span>Service fee</span>
-            <span>{formatPrice(pricing.serviceFeeCents)}</span>
-          </div>
           {promoActive && (
             <div className="flex justify-between text-brand-700">
               <span>Promo code ({appliedPromoCode})</span>

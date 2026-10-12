@@ -26,11 +26,6 @@ export const listingFieldSchemas = {
     .int()
     .positive("Price per night must be more than £0")
     .max(1_000_000, "Price per night can't be more than £10,000"),
-  cleaningFeeCents: z
-    .number()
-    .int()
-    .min(0, "Cleaning fee can't be negative")
-    .max(100_000, "Cleaning fee can't be more than £1,000"),
   securityDepositCents: z
     .number()
     .int()

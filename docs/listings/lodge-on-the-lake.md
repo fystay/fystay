@@ -37,7 +37,7 @@ It goes through admin-assisted onboarding
 ([../admin-assisted-onboarding.md](../admin-assisted-onboarding.md)):
 FYStay prepares it, the owner checks and explicitly approves it, and it is
 published only when every check passes. Production also needs the
-`20261011120000_admin_assisted_listing_onboarding` migration first.
+`20261012130000_admin_assisted_listing_onboarding` migration first.
 
 1. **Owner account.** Either the owner registers and chooses **Become a
    host**, then step 2 imports the listing for them; or, if they haven't

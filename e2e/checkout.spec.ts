@@ -92,6 +92,14 @@ test.describe("checkout and payment", () => {
       await expect(page.getByText("£294").first()).toBeVisible();
       await expect(page.getByText("2 guests").first()).toBeVisible();
       await expect(page.getByRole("button", { name: /Pay securely/ }).first()).toBeVisible();
+      // Before Stripe's page offers another currency, the guest is told what
+      // that costs and that GBP costs nothing extra.
+      await expect(
+        page.getByText(
+          "Prices are in GBP. If you choose to pay in another currency, Stripe converts it and adds a conversion fee (up to 4%). Paying in GBP has no extra charge.",
+          { exact: true },
+        ),
+      ).toBeVisible();
     } finally {
       await prisma.booking.delete({ where: { id: booking.id } });
     }

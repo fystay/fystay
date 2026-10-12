@@ -119,6 +119,7 @@ beforeEach(() => {
     guests: 2,
     totalPriceCents: 33_000,
     serviceFeeCents: 3_000,
+    hostCommissionCents: 0,
     cleaningFeeCents: 0,
     taxCents: 0,
     creditAppliedCents: 0,
@@ -235,5 +236,85 @@ describe("declining", () => {
     state.afterRead = () => Object.assign(state.request, { status: "APPROVED" });
     expect((await respond("decline")).status).toBe(409);
     expect(state.request.status).toBe("APPROVED");
+  });
+});
+
+describe("discounted bookings: no shorter or cheaper stay (launch rule)", () => {
+  // A commission-model booking: 3 nights at £100, £30 commission, a £20
+  // promo (FYStay's cost) - the guest paid £280. Shortened to 2 nights.
+  const discounted = (discounts: { promoDiscountCents?: number; creditAppliedCents?: number }) => {
+    const promo = discounts.promoDiscountCents ?? 0;
+    const credit = discounts.creditAppliedCents ?? 0;
+    Object.assign(state.booking, {
+      totalPriceCents: 30_000 - promo - credit,
+      serviceFeeCents: 0,
+      hostCommissionCents: 3_000,
+      promoDiscountCents: promo,
+      creditAppliedCents: credit,
+    });
+    Object.assign(state.request, { priceDeltaCents: -10_000, originalTotalPriceCents: 30_000 - promo - credit });
+  };
+
+  it("won't approve a shorter stay on a promo booking: nothing claimed, moved or refunded", async () => {
+    discounted({ promoDiscountCents: 2_000 });
+    const response = await respond("approve");
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toMatch(/Decline this request/);
+    expect(state.log).toEqual(["lock:listing_1", "unlock:listing_1"]);
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+    expect(state.request.status).toBe("PENDING");
+    expect(state.booking).toMatchObject({ nights: 3, totalPriceCents: 28_000, hostCommissionCents: 3_000 });
+  });
+
+  it("won't approve one on a referral-credit booking either", async () => {
+    discounted({ creditAppliedCents: 1_500 });
+    expect((await respond("approve")).status).toBe(409);
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+    expect(state.request.status).toBe("PENDING");
+  });
+
+  it("refuses repeated approvals the same way, never refunding across the booking's several payments", async () => {
+    // bookingPayments (mocked above) returns the original payment and an
+    // earlier paid change - the refund would have spread across both.
+    discounted({ promoDiscountCents: 2_000, creditAppliedCents: 500 });
+    for (let i = 0; i < 3; i++) expect((await respond("approve")).status).toBe(409);
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+    expect(state.log.filter((e) => e === "booking-update" || e.startsWith("request:"))).toEqual([]);
+  });
+
+  it("still lets the host decline it, so the guest can cancel and rebook", async () => {
+    discounted({ promoDiscountCents: 2_000 });
+    expect((await respond("decline")).status).toBe(200);
+    expect(state.request.status).toBe("DECLINED");
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+  });
+
+  it("approves a longer stay on a promo booking, leaving the dates until the guest pays the extra", async () => {
+    discounted({ promoDiscountCents: 2_000 });
+    Object.assign(state.request, { requestedCheckOut: new Date("2026-12-05"), priceDeltaCents: 10_000 });
+    expect((await respond("approve")).status).toBe(200);
+    expect(state.request.status).toBe("APPROVED");
+    expect(state.log).not.toContain("booking-update");
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+  });
+
+  it("approves a shorter stay without a discount, refunding once and moving FYStay's 10% with it", async () => {
+    discounted({});
+    expect((await respond("approve")).status).toBe(200);
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledTimes(1);
+    expect(mocks.refundAcrossPayments.mock.calls[0][2]).toBe(10_000);
+    // £200 stay left: commission £20, the host's 90% is £180.
+    expect(state.booking).toMatchObject({ nights: 2, totalPriceCents: 20_000, hostCommissionCents: 2_000 });
+    // A second approval finds it already answered and refunds nothing more.
+    expect((await respond("approve")).status).toBe(409);
+    expect(mocks.refundAcrossPayments).toHaveBeenCalledTimes(1);
+  });
+
+  it("rounds the commission to the penny on an odd refund", async () => {
+    discounted({});
+    Object.assign(state.request, { priceDeltaCents: -3_333 });
+    expect((await respond("approve")).status).toBe(200);
+    // £266.67 stay left: 10% is 2,666.7p, rounded to £26.67.
+    expect(state.booking).toMatchObject({ totalPriceCents: 26_667, hostCommissionCents: 2_667 });
   });
 });

@@ -472,6 +472,8 @@ export default async function BookingDetailPage({
                       nightlyPriceCents: booking.nightlyPriceCents,
                       weekendNightlyPriceCents: booking.weekendNightlyPriceCents,
                       cleaningFeeCents: booking.cleaningFeeCents,
+                      serviceFeeCents: booking.serviceFeeCents,
+                      hostCommissionCents: booking.hostCommissionCents,
                       lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent,
                       totalPriceCents: booking.totalPriceCents,
                       creditAppliedCents: booking.creditAppliedCents,

@@ -4,8 +4,12 @@ import {
   discountedAccommodationCents,
   computeBookingPricing,
   stayDiscountName,
-  GUEST_SERVICE_FEE_RATE,
-  guestNightlyPriceCents,
+  HOST_COMMISSION_RATE,
+  hostCommissionFor,
+  legacyGuestServiceFeeFor,
+  fyStayFeeCents,
+  maxFyStayDiscountCents,
+  isLegacyServiceFeeBooking,
   resolveLengthOfStayDiscount,
   splitBookingChange,
   isWeekendNight,
@@ -17,37 +21,34 @@ import {
 } from "./pricing";
 
 describe("computeBookingPricing", () => {
-  it("computes the nightly subtotal and service fee for a stay with no cleaning fee", () => {
+  it("charges the guest the host's price and nothing on top - no service fee, no cleaning fee", () => {
     const result = computeBookingPricing({ nights: 3, pricePerNightCents: 10000 });
 
     expect(result.nightlySubtotalCents).toBe(30000);
     expect(result.cleaningFeeCents).toBe(0);
-    expect(result.serviceFeeCents).toBe(3000);
+    expect(result.serviceFeeCents).toBe(0);
     expect(result.taxCents).toBe(0);
-    expect(result.totalPriceCents).toBe(33000);
+    expect(result.totalPriceCents).toBe(30000);
   });
 
-  it("includes the cleaning fee in the total but not in the service-fee base", () => {
-    const result = computeBookingPricing({
-      nights: 2,
-      pricePerNightCents: 5000,
-      cleaningFeeCents: 2500,
-    });
-
-    expect(result.nightlySubtotalCents).toBe(10000);
-    expect(result.cleaningFeeCents).toBe(2500);
-    expect(result.serviceFeeCents).toBe(1000);
-    expect(result.totalPriceCents).toBe(13500);
+  it("works out FYStay's 10% commission on the stay without adding it to the guest's total", () => {
+    const result = computeBookingPricing({ nights: 3, pricePerNightCents: 10000 });
+    expect(result.hostCommissionCents).toBe(3000);
+    // The host's payout before any discounts FYStay funds.
+    expect(result.totalPriceCents - result.hostCommissionCents).toBe(27000);
   });
 
   it("returns all zeroes for a zero-night stay", () => {
     const result = computeBookingPricing({ nights: 0, pricePerNightCents: 12345 });
     expect(result.totalPriceCents).toBe(0);
+    expect(result.hostCommissionCents).toBe(0);
   });
 
-  it("rounds the service fee to the nearest whole cent/penny", () => {
+  it("rounds the commission to the nearest whole cent/penny", () => {
+    // 10% of £9.99 is 99.9p.
     const result = computeBookingPricing({ nights: 1, pricePerNightCents: 999 });
-    expect(result.serviceFeeCents).toBe(Math.round(999 * GUEST_SERVICE_FEE_RATE));
+    expect(result.totalPriceCents).toBe(999);
+    expect(result.hostCommissionCents).toBe(100);
   });
 
   it("applies no discount below the weekly threshold, even if one is set", () => {
@@ -58,22 +59,37 @@ describe("computeBookingPricing", () => {
     });
     expect(result.lengthOfStayDiscountCents).toBe(0);
     expect(result.lengthOfStayDiscountLabel).toBeNull();
-    expect(result.totalPriceCents).toBe(66000);
+    expect(result.totalPriceCents).toBe(60000);
+    expect(result.hostCommissionCents).toBe(6000);
   });
 
-  it("applies the weekly discount to the nightly subtotal at 7+ nights", () => {
+  it("applies the weekly discount to the nightly subtotal at 7+ nights, with the commission on the discounted stay", () => {
     const result = computeBookingPricing({
       nights: 7,
       pricePerNightCents: 10000,
       weeklyDiscountPercent: 10,
     });
-    // 70000 gross - 10% = 63000, service fee on the discounted amount.
+    // 70000 gross - 10% = 63000; commission is 10% of what the guest pays.
     expect(result.nightlySubtotalCents).toBe(70000);
     expect(result.lengthOfStayDiscountPercent).toBe(10);
     expect(result.lengthOfStayDiscountCents).toBe(7000);
     expect(result.lengthOfStayDiscountLabel).toBe("weekly");
-    expect(result.serviceFeeCents).toBe(6300);
-    expect(result.totalPriceCents).toBe(69300);
+    expect(result.serviceFeeCents).toBe(0);
+    expect(result.totalPriceCents).toBe(63000);
+    expect(result.hostCommissionCents).toBe(6300);
+  });
+
+  it("rounds both the discount and the commission on an awkward discounted stay", () => {
+    const result = computeBookingPricing({
+      nights: 7,
+      pricePerNightCents: 9999,
+      weeklyDiscountPercent: 15,
+    });
+    // 7 x 9999 = 69993; 15% = 10498.95 -> 10499 off; 59494 to pay; 10% = 5949.4 -> 5949.
+    expect(result.nightlySubtotalCents).toBe(69993);
+    expect(result.lengthOfStayDiscountCents).toBe(10499);
+    expect(result.totalPriceCents).toBe(59494);
+    expect(result.hostCommissionCents).toBe(5949);
   });
 
   it("applies the monthly discount instead of the weekly one at 28+ nights", () => {
@@ -85,6 +101,9 @@ describe("computeBookingPricing", () => {
     });
     expect(result.lengthOfStayDiscountPercent).toBe(20);
     expect(result.lengthOfStayDiscountLabel).toBe("monthly");
+    // 280000 less 20% = 224000.
+    expect(result.totalPriceCents).toBe(224000);
+    expect(result.hostCommissionCents).toBe(22400);
   });
 
   it("falls back to the weekly discount at 28+ nights if no monthly rate is set", () => {
@@ -96,15 +115,78 @@ describe("computeBookingPricing", () => {
     expect(result.lengthOfStayDiscountPercent).toBe(10);
     expect(result.lengthOfStayDiscountLabel).toBe("weekly");
   });
+});
 
-  it("includes the cleaning fee in the total after the discount, not before", () => {
-    const result = computeBookingPricing({
-      nights: 7,
-      pricePerNightCents: 10000,
-      cleaningFeeCents: 5000,
-      weeklyDiscountPercent: 10,
-    });
-    expect(result.totalPriceCents).toBe(63000 + 6300 + 5000);
+describe("hostCommissionFor", () => {
+  it("is 10% of what the guest pays for the stay", () => {
+    expect(HOST_COMMISSION_RATE).toBe(0.1);
+    expect(hostCommissionFor(30000)).toBe(3000);
+    expect(hostCommissionFor(0)).toBe(0);
+  });
+
+  it("rounds to the nearest penny, halves up", () => {
+    expect(hostCommissionFor(999)).toBe(100); // 99.9
+    expect(hostCommissionFor(4)).toBe(0); // 0.4
+    expect(hostCommissionFor(5)).toBe(1); // 0.5
+    expect(hostCommissionFor(15)).toBe(2); // 1.5
+    expect(hostCommissionFor(12345)).toBe(1235); // 1234.5
+    expect(hostCommissionFor(12344)).toBe(1234); // 1234.4
+  });
+
+  it("is never negative", () => {
+    expect(hostCommissionFor(-500)).toBe(0);
+  });
+
+  it("is what computeBookingPricing reports for the same stay", () => {
+    for (const price of [1, 999, 4999, 12345, 25500]) {
+      const pricing = computeBookingPricing({ nights: 3, pricePerNightCents: price });
+      expect(pricing.hostCommissionCents).toBe(hostCommissionFor(pricing.totalPriceCents));
+    }
+  });
+});
+
+describe("legacyGuestServiceFeeFor", () => {
+  it("is the 10% guest service fee older bookings carried on top of the stay", () => {
+    expect(legacyGuestServiceFeeFor(30000)).toBe(3000);
+    expect(legacyGuestServiceFeeFor(999)).toBe(100);
+  });
+});
+
+describe("isLegacyServiceFeeBooking", () => {
+  it("is true only for a booking with a service fee and no commission", () => {
+    expect(isLegacyServiceFeeBooking({ serviceFeeCents: 3000, hostCommissionCents: 0 })).toBe(true);
+    expect(isLegacyServiceFeeBooking({ serviceFeeCents: 0, hostCommissionCents: 3000 })).toBe(false);
+    // A free (or fully fee-less) booking is priced the new way.
+    expect(isLegacyServiceFeeBooking({ serviceFeeCents: 0, hostCommissionCents: 0 })).toBe(false);
+  });
+});
+
+describe("fyStayFeeCents and maxFyStayDiscountCents", () => {
+  it("is FYStay's commission on a commission booking", () => {
+    const pricing = computeBookingPricing({ nights: 3, pricePerNightCents: 10000 });
+    expect(fyStayFeeCents(pricing)).toBe(3000);
+    expect(maxFyStayDiscountCents(pricing)).toBe(3000);
+  });
+
+  it("is the guest service fee on an older booking", () => {
+    const legacy = { serviceFeeCents: 3000, taxCents: 0, hostCommissionCents: 0 };
+    expect(fyStayFeeCents(legacy)).toBe(3000);
+    expect(maxFyStayDiscountCents(legacy)).toBe(3000);
+  });
+
+  it("adds tax to FYStay's fee", () => {
+    const withTax = { serviceFeeCents: 0, taxCents: 250, hostCommissionCents: 3000 };
+    expect(fyStayFeeCents(withTax)).toBe(3250);
+    expect(maxFyStayDiscountCents(withTax)).toBe(3250);
+  });
+
+  it("caps the discounts on a discounted stay at the commission on the discounted price", () => {
+    const pricing = computeBookingPricing({ nights: 7, pricePerNightCents: 10000, weeklyDiscountPercent: 10 });
+    expect(maxFyStayDiscountCents(pricing)).toBe(6300);
+  });
+
+  it("is 0 for a zero-night stay", () => {
+    expect(maxFyStayDiscountCents(computeBookingPricing({ nights: 0, pricePerNightCents: 10000 }))).toBe(0);
   });
 });
 
@@ -119,12 +201,84 @@ describe("resolveLengthOfStayDiscount", () => {
   });
 });
 
-describe("splitBookingChange", () => {
-  // A 3-night stay at £100/night: £300 accommodation + £30 FYStay fee.
+describe("splitBookingChange on a commission booking", () => {
+  // A 3-night stay at £100/night: the guest pays £300, FYStay's commission
+  // is £30 of it and the host's payout £270.
+  const threeNights = {
+    totalPriceCents: 30000,
+    cleaningFeeCents: 0,
+    serviceFeeCents: 0,
+    hostCommissionCents: 3000,
+    taxCents: 0,
+    creditAppliedCents: 0,
+    promoDiscountCents: 0,
+  };
+
+  it("gives the host 90% and FYStay 10% when a 3-night stay gains a night", () => {
+    // 4 nights: £400, so the guest owes £100 more.
+    const extra = computeBookingPricing({ nights: 4, pricePerNightCents: 10000 }).totalPriceCents - 30000;
+    expect(extra).toBe(10000);
+    expect(splitBookingChange(extra, threeNights)).toEqual({ hostShareCents: 9000, platformShareCents: 1000 });
+  });
+
+  it("splits a refund for a shortened stay the same way, as negative shares", () => {
+    const refund = computeBookingPricing({ nights: 2, pricePerNightCents: 10000 }).totalPriceCents - 30000;
+    expect(refund).toBe(-10000);
+    expect(splitBookingChange(refund, threeNights)).toEqual({ hostShareCents: -9000, platformShareCents: -1000 });
+  });
+
+  it("moves FYStay's share by how much its rounded commission moves", () => {
+    // New stay £423.45: commission 4234.5 -> 4235, up 1235 from 3000.
+    expect(splitBookingChange(12345, threeNights)).toEqual({ hostShareCents: 11110, platformShareCents: 1235 });
+  });
+
+  it("ignores FYStay-funded discounts when working out the accommodation amount", () => {
+    // £300 stay, the guest paid £270 after a £20 promo and £10 credit.
+    const discounted = { ...threeNights, promoDiscountCents: 2000, creditAppliedCents: 1000, totalPriceCents: 27000 };
+    expect(splitBookingChange(10000, discounted)).toEqual({ hostShareCents: 9000, platformShareCents: 1000 });
+    expect(splitBookingChange(-10000, discounted)).toEqual({ hostShareCents: -9000, platformShareCents: -1000 });
+  });
+
+  it("reads the current accommodation from the totals, so a second change after a first is still right", () => {
+    // After gaining a night: total £400, commission £40.
+    const afterFirstChange = { ...threeNights, totalPriceCents: 40000, hostCommissionCents: 4000 };
+    expect(splitBookingChange(10000, afterFirstChange)).toEqual({ hostShareCents: 9000, platformShareCents: 1000 });
+  });
+
+  it("takes the commission on the discounted price of a stay with a weekly discount", () => {
+    // 7 nights at £100 less 10% = £630, commission £63. 8 nights = £720, so
+    // £90 more; the commission becomes £72.
+    const weekly = { ...threeNights, totalPriceCents: 63000, hostCommissionCents: 6300 };
+    const delta = computeBookingPricing({ nights: 8, pricePerNightCents: 10000, weeklyDiscountPercent: 10 }).totalPriceCents - 63000;
+    expect(delta).toBe(9000);
+    expect(splitBookingChange(delta, weekly)).toEqual({ hostShareCents: 8100, platformShareCents: 900 });
+  });
+
+  it("gives FYStay nothing on a change too small to move its rounded commission", () => {
+    const tiny = { ...threeNights, totalPriceCents: 999, hostCommissionCents: 100 };
+    // 1000 -> commission still 100.
+    expect(splitBookingChange(1, tiny)).toEqual({ hostShareCents: 1, platformShareCents: 0 });
+    // Refunding the whole stay returns the whole commission.
+    expect(splitBookingChange(-999, tiny)).toEqual({ hostShareCents: -899, platformShareCents: -100 });
+  });
+
+  it("always sums back to the difference and never gives FYStay more than it", () => {
+    for (const delta of [1, 7, 101, 999, 12345, -1, -101, -12345, -30000]) {
+      const { hostShareCents, platformShareCents } = splitBookingChange(delta, threeNights);
+      expect(hostShareCents + platformShareCents).toBe(delta);
+      expect(Math.abs(platformShareCents)).toBeLessThanOrEqual(Math.abs(delta));
+      expect(Math.sign(platformShareCents) * Math.sign(delta)).not.toBe(-1);
+    }
+  });
+});
+
+describe("splitBookingChange on an older service-fee booking", () => {
+  // A 3-night stay at £100/night: £300 accommodation + £30 guest service fee, no commission.
   const threeNights = {
     totalPriceCents: 33000,
     cleaningFeeCents: 0,
     serviceFeeCents: 3000,
+    hostCommissionCents: 0,
     taxCents: 0,
     creditAppliedCents: 0,
     promoDiscountCents: 0,
@@ -132,7 +286,8 @@ describe("splitBookingChange", () => {
 
   it("gives the host the accommodation and FYStay the fee when a 3-night stay gains a night", () => {
     // 4 nights: £400 + £40 = £440, so the guest owes £110 more.
-    const extra = computeBookingPricing({ nights: 4, pricePerNightCents: 10000 }).totalPriceCents - 33000;
+    const extra = 40000 + legacyGuestServiceFeeFor(40000) - 33000;
+    expect(extra).toBe(11000);
     expect(splitBookingChange(extra, threeNights)).toEqual({ hostShareCents: 10000, platformShareCents: 1000 });
   });
 
@@ -202,10 +357,12 @@ describe("discountedAccommodationCents", () => {
       lengthOfStayDiscountCents: pricing.lengthOfStayDiscountCents,
     });
     expect(accommodation).toBe(63000);
-    // Checkout's line items (accommodation + cleaning + fee + tax) add up to the booking's total.
+    // Checkout's line items (accommodation + cleaning + fee + tax) add up to the booking's total -
+    // and with no fees on top, the accommodation is the whole total.
     expect(accommodation + pricing.cleaningFeeCents + pricing.serviceFeeCents + pricing.taxCents).toBe(
       pricing.totalPriceCents,
     );
+    expect(accommodation).toBe(pricing.totalPriceCents);
   });
 
   it("is simply nights x nightly rate when no discount applies", () => {
@@ -214,15 +371,16 @@ describe("discountedAccommodationCents", () => {
 });
 
 describe("computeBookingPricing with a last-minute deal", () => {
-  it("charges the last-minute discount, with the service fee on the discounted stay", () => {
+  it("charges the last-minute discount, with the commission on the discounted stay", () => {
     const pricing = computeBookingPricing({ nights: 3, pricePerNightCents: 10000, lastMinuteDiscountPercent: 20 });
     expect(pricing).toMatchObject({
       nightlySubtotalCents: 30000,
       lengthOfStayDiscountPercent: 20,
       lengthOfStayDiscountCents: 6000,
       lengthOfStayDiscountLabel: "last_minute",
-      serviceFeeCents: 2400,
-      totalPriceCents: 26400,
+      serviceFeeCents: 0,
+      hostCommissionCents: 2400,
+      totalPriceCents: 24000,
     });
   });
 
@@ -251,16 +409,6 @@ describe("computeBookingPricing with a last-minute deal", () => {
   });
 });
 
-describe("guestNightlyPriceCents", () => {
-  it("is the host's nightly rate plus FYStay's service fee, rounded like a booking's fee", () => {
-    expect(guestNightlyPriceCents(8000)).toBe(8800);
-    expect(guestNightlyPriceCents(4999)).toBe(4999 + Math.round(4999 * GUEST_SERVICE_FEE_RATE));
-    // Matches a one-night booking's accommodation + service fee exactly.
-    const oneNight = computeBookingPricing({ nights: 1, pricePerNightCents: 12345 });
-    expect(guestNightlyPriceCents(12345)).toBe(oneNight.nightlySubtotalCents + oneNight.serviceFeeCents);
-  });
-});
-
 describe("weekend rates", () => {
   const d = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
@@ -275,7 +423,7 @@ describe("weekend rates", () => {
   });
 
   it("charges weeknights and Fri/Sat nights at their own rates", () => {
-    // Thu-Sun: Thu at £255, Fri + Sat at £275 = £805, + 10% fee.
+    // Thu-Sun: Thu at £255, Fri + Sat at £275 = £805, nothing on top; FYStay keeps 10% of it.
     const pricing = computeBookingPricing({
       nights: 3,
       ...stayRates({ pricePerNightCents: 25_500, weekendPricePerNightCents: 27_500 }, d("2026-11-05"), d("2026-11-08")),
@@ -284,8 +432,9 @@ describe("weekend rates", () => {
       nightlySubtotalCents: 80_500,
       weekendNights: 2,
       weekendNightlyPriceCents: 27_500,
-      serviceFeeCents: 8_050,
-      totalPriceCents: 88_550,
+      serviceFeeCents: 0,
+      hostCommissionCents: 8_050,
+      totalPriceCents: 80_500,
     });
   });
 

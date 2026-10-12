@@ -7,7 +7,7 @@ publication checks.
 
 Code: rules in `src/lib/listingReview.ts`, database side in
 `src/lib/listingOnboarding.ts`. Migration:
-`20261011120000_admin_assisted_listing_onboarding`.
+`20261012130000_admin_assisted_listing_onboarding`.
 
 ## Lifecycle
 

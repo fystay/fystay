@@ -38,10 +38,26 @@ describe("configReadiness", () => {
     }
   });
 
-  it("treats monitoring gaps as warnings, not blockers", () => {
-    const summary = readinessSummary(configReadiness({ ...complete, SENTRY_DSN: " ", DISPUTE_ALERT_EMAIL: undefined }));
+  it("blocks production without Sentry, server or browser", () => {
+    for (const missing of ["SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"] as const) {
+      const summary = readinessSummary(configReadiness({ ...complete, [missing]: " " }));
+      expect(summary.ready).toBe(false);
+      expect(summary.blockers.map((b) => b.key)).toEqual([missing]);
+    }
+  });
+
+  it("only warns about missing Sentry on Preview", () => {
+    const summary = readinessSummary(
+      configReadiness({ ...complete, VERCEL_ENV: "preview", SENTRY_DSN: undefined, NEXT_PUBLIC_SENTRY_DSN: undefined }),
+    );
     expect(summary.ready).toBe(true);
-    expect(summary.warnings.map((w) => w.key)).toEqual(["SENTRY_DSN", "DISPUTE_ALERT_EMAIL"]);
+    expect(summary.warnings.map((w) => w.key)).toEqual(["SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"]);
+  });
+
+  it("still only warns about a missing dispute alert inbox in production", () => {
+    const summary = readinessSummary(configReadiness({ ...complete, DISPUTE_ALERT_EMAIL: undefined }));
+    expect(summary.ready).toBe(true);
+    expect(summary.warnings.map((w) => w.key)).toEqual(["DISPUTE_ALERT_EMAIL"]);
   });
 });
 

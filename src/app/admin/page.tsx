@@ -56,6 +56,7 @@ export default async function AdminOverviewPage() {
         paymentStatus: true,
         totalPriceCents: true,
         serviceFeeCents: true,
+        hostCommissionCents: true,
         taxCents: true,
         creditAppliedCents: true,
         promoDiscountCents: true,
@@ -113,7 +114,7 @@ export default async function AdminOverviewPage() {
           icon={PoundSterling}
           label="Platform revenue"
           value={formatPrice(financials.platformRevenueCents)}
-          sublabel="Service fees, net of credit/promo"
+          sublabel="Commission, net of credit/promo"
         />
         <StatCard
           icon={Ticket}

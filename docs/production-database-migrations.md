@@ -2,8 +2,17 @@
 
 Production schema changes happen in exactly one place: the manually approved
 GitHub Actions workflow `.github/workflows/db-migrate-production.yml`. Nothing
-else migrates production - not a Vercel build (the build is plain `next build`
-and never connects to a database), not a push, not a preview.
+else migrates production - not a Vercel build, not a push, not a preview.
+
+**Preview is the one exception, and it never touches production.** Vercel's
+build command (`npm run vercel-build`) first runs
+`scripts/db/preview-build-migrate.ts`, which does nothing unless the build is
+a Preview with `PREVIEW_DB_MIGRATE=1`. Then it migrates (and, with
+`PREVIEW_DB_SEED=1`, seeds) only the isolated `fystay_preview` schema in the
+Backup project, as the restricted `fystay_preview_app` login - refusing, and
+failing the build, if either connection string names any other project,
+schema or login (`src/lib/previewDatabase.ts`). `next build` itself still
+never connects to a database.
 
 ## Release order
 
@@ -101,7 +110,8 @@ they are **not** drift:
 
 - the `ensure_rls` event trigger and `public.rls_auto_enable()` - a
   project-level setup that enables RLS on every new public table (no
-  migration creates them);
+  migration creates them; `20261012120000_revoke_rls_auto_enable_from_api`
+  only revokes the API roles' EXECUTE on the function);
 - the RLS policies and the `fystay_pms_host_scoped` role from
   `20260914070000_add_pms_row_level_security`;
 - RLS enabled on every table;

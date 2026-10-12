@@ -328,7 +328,19 @@
       }
     },
     {
-      "name": "20261011120000_admin_assisted_listing_onboarding",
+      "name": "20261011120000_add_host_commission",
+      "files": {
+        "migration.sql": "8db3929ae66e398be7f295fd549620fd613977ef2947d86373f29198557bf267"
+      }
+    },
+    {
+      "name": "20261012120000_revoke_rls_auto_enable_from_api",
+      "files": {
+        "migration.sql": "ae1b2f68e3555970e616992a548733a4dc8e009ca4645e62ff66fe58faaab5e7"
+      }
+    },
+    {
+      "name": "20261012130000_admin_assisted_listing_onboarding",
       "files": {
         "migration.sql": "1f10ac32614738d05ba7ae7dabce107b63993f17d8ad03c5c63435272fa473c4"
       }

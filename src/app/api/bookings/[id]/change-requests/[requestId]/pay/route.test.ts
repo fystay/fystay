@@ -5,6 +5,8 @@ const { state, mocks } = vi.hoisted(() => ({
     request: {} as Record<string, unknown>,
     booking: {} as Record<string, unknown>,
     available: true,
+    // Off: a production deployment with no usable Stripe client.
+    stripeConfigured: true,
     log: [] as string[],
   },
   mocks: {
@@ -17,15 +19,19 @@ const { state, mocks } = vi.hoisted(() => ({
 
 vi.mock("@/auth", () => ({ auth: async () => ({ user: { id: "guest_1" } }) }));
 vi.mock("@/lib/stripe", () => ({
-  allowsUnpaidConfirmation: () => true,
-  PAYMENTS_UNAVAILABLE_MESSAGE: "unavailable",
-  getStripeClient: () => ({
-    checkout: {
-      sessions: { create: mocks.sessionsCreate, retrieve: mocks.sessionsRetrieve, expire: mocks.sessionsExpire },
-    },
-  }),
+  allowsUnpaidConfirmation: () => state.stripeConfigured,
+  getStripeClient: () =>
+    state.stripeConfigured
+      ? {
+          checkout: {
+            sessions: { create: mocks.sessionsCreate, retrieve: mocks.sessionsRetrieve, expire: mocks.sessionsExpire },
+          },
+        }
+      : null,
 }));
-vi.mock("@/lib/stripeConnect", () => ({
+vi.mock("@/lib/stripeConnect", async (importOriginal) => ({
+  // The real destination-charge shape; only the live readiness check is faked.
+  destinationChargeData: (await importOriginal<typeof import("@/lib/stripeConnect")>()).destinationChargeData,
   HOST_NOT_PAYMENT_READY_MESSAGE: "host not ready",
   verifyHostPaymentReady: async () => true,
 }));
@@ -92,6 +98,7 @@ beforeEach(() => {
   mocks.sessionsExpire.mockResolvedValue({});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   state.available = true;
+  state.stripeConfigured = true;
   state.log = [];
   state.booking = {
     id: "bk_1",
@@ -105,6 +112,7 @@ beforeEach(() => {
     nights: 3,
     totalPriceCents: 33_000,
     serviceFeeCents: 3_000,
+    hostCommissionCents: 0,
     cleaningFeeCents: 0,
     taxCents: 0,
     creditAppliedCents: 0,
@@ -143,6 +151,11 @@ describe("paying for a date change", () => {
     mocks.sessionsCreate.mockResolvedValue({ id: "cs_new", url: "https://pay/cs_new" });
     expect(await (await pay()).json()).toEqual({ url: "https://pay/cs_new" });
     expect(state.request.stripeSessionId).toBe("cs_new");
+    // An older service-fee booking: £110 more = £100 to the host, £10 FYStay's.
+    expect(mocks.sessionsCreate.mock.calls[0][0].payment_intent_data).toEqual({
+      application_fee_amount: 1_000,
+      transfer_data: { destination: "acct_1" },
+    });
   });
 
   it("closes the open payment page and declines when the new dates were taken", async () => {
@@ -163,6 +176,16 @@ describe("paying for a date change", () => {
       throw new Error("session already complete");
     });
     expect((await pay()).status).toBe(409);
+    expect(state.request.status).toBe("APPROVED");
+  });
+
+  it("explains that the booking is unchanged when payments aren't available on Production", async () => {
+    state.stripeConfigured = false;
+    const response = await pay();
+    expect(response.status).toBe(503);
+    const { error } = await response.json();
+    expect(error).toMatch(/date change can't be paid for yet\. Your booking is unchanged/);
+    expect(error).not.toMatch(/dates are still held/);
     expect(state.request.status).toBe("APPROVED");
   });
 

@@ -99,7 +99,7 @@ Refunds need no webhook: the app makes them directly when a guest cancels.
 2. **Connect**: turn it on and complete the platform profile as a **marketplace**. Match what the code creates:
    - hosts are UK **recipient** accounts with the **Express** dashboard;
    - **FYStay collects the fees and is responsible for losses** (refunds or disputes a host can't cover);
-   - payments are **destination charges**, so FYStay is the merchant of record and the host receives the stay plus cleaning fee, while FYStay keeps the 10% service fee.
+   - payments are **destination charges**, so FYStay is the merchant of record and the host receives the stay less FYStay's 10% commission, which FYStay keeps as the application fee. Guests pay no fee on top.
 3. **Connect branding**: name "FYStay", icon and colour. Hosts see these during payout setup.
 4. **Public details**: business name "FYStay", support email, website, and a **statement descriptor** such as `FYSTAY`, so guests recognise the charge on their bank statement. Today it shows as "Stripe", which invites chargebacks.
 5. **Checkout branding**: logo and brand colour. The test page currently says "FYStay sandbox" in Stripe's default blue.
@@ -111,8 +111,8 @@ Refunds need no webhook: the app makes them directly when a guest cancels.
 Make one real booking with your own card, then cancel it under a flexible
 policy. Check in Stripe that:
 - the charge equals the checkout total;
-- the host's connected account received the stay plus cleaning fee;
-- FYStay kept the service fee;
+- the host's connected account received 90% of the charge;
+- FYStay kept 10% as its application fee;
 - the refund went through;
 - the booking shows as confirmed, then cancelled with the refund, in My trips and on the host dashboard.
 

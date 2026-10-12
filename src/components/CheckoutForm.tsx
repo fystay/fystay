@@ -14,6 +14,9 @@ import { formatPrice } from "@/lib/format";
 import { useReserveBottomSpace } from "@/hooks/useReserveBottomSpace";
 import { StripeBadge } from "@/components/StripeBadge";
 
+const CURRENCY_CONVERSION_NOTE =
+  "Prices are in GBP. If you choose to pay in another currency, Stripe converts it and adds a conversion fee (up to 4%). Paying in GBP has no extra charge.";
+
 export function CheckoutForm({
   bookingId,
   defaultName,
@@ -133,6 +136,10 @@ export function CheckoutForm({
             />
             <FieldError>{error}</FieldError>
           </Field>
+          <p className="text-xs text-stone-500">
+            Once your booking is confirmed, your host can see your name, email address and phone
+            number, so they can contact you about the stay.
+          </p>
           <div className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm">
             <span className="text-stone-600">Guests</span>
             <span className="font-medium text-foreground">
@@ -145,6 +152,10 @@ export function CheckoutForm({
       <Button type="submit" loading={loading} size="lg" className="mt-6 hidden w-full lg:flex">
         Pay securely {formatPrice(totalPriceCents)}
       </Button>
+      {/* Stripe's page offers the guest's own currency (Adaptive Pricing), with
+          its conversion fee shown there; said here first so it's no surprise.
+          Shown on every screen size - on phones it sits above the pay bar. */}
+      <p className="mt-3 text-center text-xs text-stone-500">{CURRENCY_CONVERSION_NOTE}</p>
       <p className="mt-3 hidden items-center justify-center gap-1.5 text-center text-xs text-stone-500 lg:flex">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
         You&apos;ll pay on Stripe&apos;s secure checkout page. FYStay never sees or stores your

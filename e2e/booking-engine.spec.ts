@@ -97,7 +97,7 @@ test.describe("booking engine", () => {
     await prisma.$disconnect();
   });
 
-  test("shows the cleaning fee and service fee in the price breakdown, and carries them through to checkout", async ({
+  test("charges just the nightly price - no cleaning or service fee - through to checkout", async ({
     page,
   }) => {
     await login(page, "guest@fystay.dev", "guestpass123");
@@ -109,9 +109,11 @@ test.describe("booking engine", () => {
     const monthsAdvanced = await selectDay(page, start, 0);
     await selectDay(page, end, monthsAdvanced);
 
-    // 2 nights @ £100 + £25 cleaning fee + 10% service fee (£20) = £245.
-    await expect(page.getByText("Cleaning fee")).toBeVisible();
-    await expect(page.getByText("£245").first()).toBeVisible();
+    // 2 nights @ £100 = £200. The listing still has a cleaning fee stored from
+    // before cleaning moved into the nightly price; it must not be charged.
+    await expect(page.getByText("£200").first()).toBeVisible();
+    await expect(page.getByText("Cleaning fee", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Service fee", { exact: true })).toHaveCount(0);
 
     // One press from chosen dates to checkout - no separate check step.
     await expect(page.getByRole("button", { name: "Reserve your stay" })).toBeVisible({ timeout: 15_000 });
@@ -122,9 +124,9 @@ test.describe("booking engine", () => {
     // Reserving goes straight to checkout (no in-between transfer step).
     await page.waitForURL(/\/checkout\/[^/]+$/, { timeout: 15_000 });
 
-    await expect(page.getByText("Cleaning fee")).toBeVisible();
     await expect(page.getByText("Total (GBP)")).toBeVisible();
-    await expect(page.getByText("£245").first()).toBeVisible();
+    await expect(page.getByText("£200").first()).toBeVisible();
+    await expect(page.getByText("Cleaning fee", { exact: true })).toHaveCount(0);
   });
 
   test("the availability endpoint rejects dates that overlap an existing confirmed booking", async ({

@@ -54,7 +54,7 @@ function ResetPasswordFormInner() {
   return (
     <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
       <div className="mb-8 flex flex-col items-center text-center">
-        <Logo size="xl" className="mb-3" />
+        <Logo size="xl" withTagline className="mb-3" />
         <h1 className="text-2xl font-bold">Choose a new password</h1>
       </div>
 

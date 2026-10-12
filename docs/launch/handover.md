@@ -5,6 +5,59 @@ For whoever picks this up next, person or Claude session. **Read this first,
 then [master-checklist.md](master-checklist.md)**, the running list of every
 remaining item.
 
+## Status 12 Oct 2026: verified launch state
+
+The current state and the outstanding launch blockers are in
+[master-checklist.md](master-checklist.md) ("Verified state" and "Launch
+blockers"), checked against GitHub, Vercel, Stripe and Supabase on 12 Oct.
+Where this file disagrees, the checklist wins. In particular, "Where
+things stand" below is out of date: Production now runs `db4eda4` on
+`www.fystay.co.uk` with live Stripe and Resend configured. Trader
+identity and legal sign-off are external blockers (business structure not
+finalised); the payment safeguard for them waits on branch
+`claude/trader-identity-gate`, unmerged.
+
+## Stripe: sandbox tests passed, live webhooks set up (11 Oct 2026)
+
+Sandbox, on the `claude/host-commission` Preview (test mode only):
+
+- Demo host `host@fystay.dev` onboarded through Stripe's own pages (test account `acct_1UPNM3CyjWUOQkFI`, payouts enabled).
+- £435 booking (3 x £145): guest charged £435, host kept £391.50, FYStay's fee £43.50; Stripe's fee came off FYStay only. Confirmed by the signed webhook.
+- Promo (£20) + referral credit (£15) on £392: guest paid £357, fee £4.20, host £352.80 (exactly 90%).
+- Shortening that discounted booking: refused (409, Option C).
+- Strict cancellation: 50% refunded, host and fee reversed in proportion. Flexible cancellation of the discounted booking: full refund, transfer and fee fully reversed.
+- Repeat cancel and repeat checkout refused (409); webhook redelivery covered by route tests.
+- Stripe shows every event from these tests delivered (account-events endpoint secret proven). The connected-accounts endpoint's delivery is not yet proven: check its "Event deliveries" in the Stripe sandbox for the 14:23 UTC account.updated events.
+
+Live (account `acct_1UNcL1CgubLh6wuS`):
+
+- Endpoints `we_1UPO6rCgubLh6wuSvfaxQhCe` (account events, 11 events) and `we_1UPO7PCgubLh6wuSUMnK0HfM` (connected accounts, account.updated), both `https://www.fystay.co.uk/api/webhooks/stripe`, API version 2026-08-26.dahlia.
+- Their signing secrets are in Vercel Production as `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` (sensitive). They take effect on the next Production deploy.
+
+Owner decisions raised: Stripe Adaptive Pricing is on (foreign cards see their own currency plus a 4% conversion fee by default); referral credit isn't returned when a paid booking is refunded; the Lodge on the Lake app's tests use the same FYStay sandbox account.
+
+## Supabase projects (owner decision, 11 Oct 2026) - supersedes older notes below
+
+FYStay has exactly two Supabase projects, and no third is wanted:
+
+| Project | Role |
+|---|---|
+| `wzatjhyfwtmxdxfmurkm` | **FYStay Production** |
+| `sqkpixwvugrxllrxlexs`, renamed **"fystaybackup"** | **FYStay Backup**: disaster-recovery restore target only |
+
+- The backup project is **not** a Preview/test database and must never take
+  test or live traffic. Older notes below calling it Preview's database, or
+  "lsllodge", are out of date.
+- The separate lsllodge website (Vercel project `lsllodge`) is redundant; its
+  code is kept only as a reusable template. Nothing should depend on it.
+- Still to clean up before the project can serve as a backup (each needs the
+  owner's approval): the old `lodge` schema and FYStay demo tables in its
+  `public` schema; the lsllodge Vercel Preview `DATABASE_URL` that still
+  points at it; FYStay Preview's `NEXT_PUBLIC_SUPABASE_URL` that still points
+  at it. Then set up the backup and restore drill.
+- Stripe sandbox testing uses a temporary non-Supabase database for the
+  branch Preview (proposed: Neon via Vercel Marketplace), never this project.
+
 ## Where things stand
 
 - **The product is built.** Guests can search, book, pay (Stripe Checkout),
@@ -246,7 +299,7 @@ settings.
 | # | What | Who | Guide |
 |---|---|---|---|
 | 1 | Decide the trading entity; set `NEXT_PUBLIC_COMPANY_LEGAL_NAME`, `NEXT_PUBLIC_COMPANY_ADDRESS` (+ `NEXT_PUBLIC_COMPANY_NUMBER` if a company). UK law requires them on the site. | Owner | [environment-variables.md](environment-variables.md) |
-| 2 | Solicitor review: Terms, Privacy, Cookies, cancellation wording, **host terms (none exist yet)**. Accountant: VAT on the 10% service fee. | Owner | [legal-drafts.md](legal-drafts.md) |
+| 2 | Solicitor review: Terms, Privacy, Cookies, cancellation wording, **host terms (none exist yet)**. Accountant: VAT on the 10% host commission. | Owner | [legal-drafts.md](legal-drafts.md) |
 | 3 | Domain: add it in Vercel; then set `NEXT_PUBLIC_BASE_URL` and `NEXTAUTH_URL` to it. | Owner | [launch-runbook.md](launch-runbook.md) §2-3 |
 | 4 | **Email (Resend):** verify the sending domain; set `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_SUPPORT_EMAIL`. Without it there are no booking emails **and no password resets**. | Owner enters secrets | [stripe-and-email-setup.md](stripe-and-email-setup.md) §2 |
 | 5 | `TWO_FACTOR_ENCRYPTION_KEY` (`openssl rand -hex 32`, never change it). | Owner | [environment-variables.md](environment-variables.md) |

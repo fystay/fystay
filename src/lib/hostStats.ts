@@ -1,10 +1,11 @@
-import { applyDiscountsToApplicationFee } from "@/lib/pricing";
+import { applyDiscountsToApplicationFee, fyStayFeeCents } from "@/lib/pricing";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 export type RevenueBooking = {
   totalPriceCents: number;
   serviceFeeCents: number;
+  hostCommissionCents: number;
   taxCents: number;
   creditAppliedCents: number;
   promoDiscountCents: number;
@@ -15,10 +16,11 @@ export type RevenueBooking = {
 /**
  * What the host actually earns from one booking, in cents - exactly what
  * Stripe transfers to them at checkout: the amount the guest paid minus
- * FYStay's application fee (the guest service fee and tax, less any
- * referral credit or promo code FYStay absorbs - see /api/checkout and
- * applyDiscountsToApplicationFee). That's the whole stay (every night,
- * after any weekly/monthly/last-minute discount) plus the cleaning fee. A
+ * FYStay's application fee (its 10% commission - or an older booking's
+ * guest service fee - and tax, less any referral credit or promo code
+ * FYStay absorbs - see /api/checkout and applyDiscountsToApplicationFee).
+ * That's the whole stay (every night, after any weekly/monthly/last-minute
+ * discount, plus an older booking's cleaning fee) less the commission. A
  * refund reduces this proportionally, on the assumption a refund returns
  * the same percentage of every line in the price breakdown (how
  * cancellation refunds are computed throughout this app - see
@@ -35,7 +37,7 @@ export function hostRevenueCents(booking: RevenueBooking): number {
 /** The host's transfer for a booking before any refund - the same sum /api/checkout sends to Stripe. */
 export function hostPayoutCents(booking: Omit<RevenueBooking, "refundedAmountCents" | "paymentStatus">): number {
   const applicationFeeCents = applyDiscountsToApplicationFee(
-    booking.serviceFeeCents + booking.taxCents,
+    fyStayFeeCents(booking),
     booking.creditAppliedCents + booking.promoDiscountCents,
   );
   return Math.max(0, booking.totalPriceCents - applicationFeeCents);

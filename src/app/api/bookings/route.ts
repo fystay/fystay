@@ -426,7 +426,6 @@ async function createListingBooking(
   const pricing = computeBookingPricing({
     nights,
     ...stayRates(listing, checkIn, checkOut),
-    cleaningFeeCents: listing.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
     lastMinuteDiscountPercent,
@@ -467,6 +466,7 @@ async function createListingBooking(
       lastMinuteDiscountPercent,
       cleaningFeeCents: pricing.cleaningFeeCents,
       serviceFeeCents: pricing.serviceFeeCents,
+      hostCommissionCents: pricing.hostCommissionCents,
       taxCents: pricing.taxCents,
       creditAppliedCents,
       promoCodeId,
@@ -579,7 +579,6 @@ async function createRoomTypeBooking(
   const pricing = computeBookingPricing({
     nights,
     pricePerNightCents: nightlyPriceCents,
-    cleaningFeeCents: listing.cleaningFeeCents,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
     lastMinuteDiscountPercent,
@@ -613,6 +612,7 @@ async function createRoomTypeBooking(
       lastMinuteDiscountPercent,
       cleaningFeeCents: pricing.cleaningFeeCents,
       serviceFeeCents: pricing.serviceFeeCents,
+      hostCommissionCents: pricing.hostCommissionCents,
       taxCents: pricing.taxCents,
       creditAppliedCents,
       promoCodeId,

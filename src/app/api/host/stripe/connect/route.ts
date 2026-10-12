@@ -28,6 +28,14 @@ async function getHandler() {
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
 
+  // Booking notifications and payout correspondence go to this address, so
+  // a host only becomes payable once they've proved it's theirs - otherwise
+  // a mistyped (or someone else's) email takes real bookings nobody hears
+  // about. Google sign-in accounts arrive verified.
+  if (!user.emailVerifiedAt) {
+    return NextResponse.redirect(`${baseUrl}/host/payouts?error=email_not_verified`);
+  }
+
   let accountId = user.stripeConnectAccountId;
   if (!accountId) {
     const account = await stripe.v2.core.accounts.create(
