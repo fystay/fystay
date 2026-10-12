@@ -669,6 +669,43 @@ export async function sendPaymentOpsAlertEmail(details: {
  * src/lib/listingPromotions.ts) - sent once, when payment lands. Stripe
  * sends the payment receipt itself; this says what the money bought.
  */
+/**
+ * The Spotlight row filled up while this host was paying, so the placement
+ * was never activated and the payment was refunded in full (see
+ * activatePaidPromotion and the Stripe webhook).
+ */
+export async function sendListingPromotionRefundedEmail(ctx: {
+  hostName: string;
+  hostEmail: string;
+  listingTitle: string;
+  priceCents: number;
+  manageUrl: string;
+}): Promise<void> {
+  const resend = getResendClient();
+  if (!resend || !ctx.hostEmail) return;
+
+  await resend.emails.send({
+    from: EMAIL_FROM,
+    to: ctx.hostEmail,
+    subject: `Spotlight refunded: ${ctx.listingTitle}`,
+    html: renderEmail({
+      audience: "host",
+      preheader: "Spotlight filled up while you were paying",
+      heading: "We've refunded your Spotlight payment",
+      intro: `${greeting(ctx.hostName)} sorry - the last Spotlight spot was taken by another host while you were paying for <strong>${escapeHtml(ctx.listingTitle)}</strong>, so it wasn't booked.`,
+      details: [
+        { label: "Listing", value: ctx.listingTitle },
+        { label: "Refunded", value: formatPrice(ctx.priceCents) },
+      ],
+      paragraphs: [
+        "We've refunded the full amount to the card you paid with. Refunds usually reach your account within 5-10 working days.",
+        "You can book Spotlight again as soon as a spot frees up.",
+      ],
+      cta: { label: "See Spotlight availability", url: ctx.manageUrl },
+    }),
+  });
+}
+
 export async function sendListingPromotionConfirmedEmail(ctx: {
   hostName: string;
   hostEmail: string;

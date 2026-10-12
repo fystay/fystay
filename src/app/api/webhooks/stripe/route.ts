@@ -20,7 +20,7 @@ import { BASE_URL } from "@/lib/baseUrl";
 import { activatePaidPromotion } from "@/lib/listingPromotions";
 import { giveBackReservedDiscounts, releaseUnpaidBooking } from "@/lib/bookingLifecycle";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
-import { notifyListingPromotionActivated } from "@/lib/listingPromotionNotifications";
+import { notifyListingPromotionActivated, notifyListingPromotionRefunded } from "@/lib/listingPromotionNotifications";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -419,17 +419,30 @@ async function upsertPaymentDispute(dispute: Stripe.Dispute): Promise<void> {
 /**
  * Activates the Spotlight placement a paid Checkout Session was for, then
  * emails the host. activatePaidPromotion only moves an unpaid placement, so
- * a redelivered event activates (and emails) nothing the second time.
+ * a redelivered event activates (and emails) nothing the second time. A
+ * placement it cancelled because the row filled up while the host was paying
+ * has its payment refunded in full - keyed by placement, so a redelivery
+ * doesn't refund twice.
  */
 async function activateListingPromotion(checkoutSession: Stripe.Checkout.Session): Promise<void> {
   const promotionId = checkoutSession.metadata?.promotionId;
   if (!promotionId) return;
-  const activated = await activatePaidPromotion(
-    prisma,
-    promotionId,
-    typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null,
-  );
-  if (activated) await notifyListingPromotionActivated(promotionId);
+  const paymentIntentId = typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null;
+  const activated = await activatePaidPromotion(prisma, promotionId, paymentIntentId);
+  if (activated) {
+    await notifyListingPromotionActivated(promotionId);
+    return;
+  }
+  const promotion = await prisma.listingPromotion.findUnique({ where: { id: promotionId }, select: { status: true } });
+  const stripe = getStripeClient();
+  if (promotion?.status === "CANCELLED" && paymentIntentId && stripe) {
+    await stripe.refunds.create(
+      { payment_intent: paymentIntentId },
+      { idempotencyKey: `spotlight-full-refund:${promotionId}` },
+    );
+    console.warn("Spotlight payment refunded: the row filled up while the host was paying", { promotionId });
+    await sendPaymentAlertOnce(`spotlight-refunded:${promotionId}`, () => notifyListingPromotionRefunded(promotionId));
+  }
 }
 
 /**
