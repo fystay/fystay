@@ -48,12 +48,12 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 |---|---|---|
 | [#7](https://github.com/fystay/fystay/pull/7) | Refuse new live payments until trader name + address are set (blocker 3) | CI green; waits on blocker 1 + owner approval |
 | [#8](https://github.com/fystay/fystay/pull/8) | Hosts must confirm their email before connecting Stripe payouts | CI green; owner approval |
-| [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check the 8-slot capacity on payment; refund (and email the host) instead of overselling; 31-min payment pages | CI running; owner approval |
-| [#10](https://github.com/fystay/fystay/pull/10) | Date-change payment unavailable: say the booking is unchanged, not "dates are still held" | CI running; owner approval. Shares one import line with #7 (one-line merge for whichever lands second) |
-| [#12](https://github.com/fystay/fystay/pull/12) | Checkout + privacy policy say the host sees the guest's email and phone once confirmed (trust standard) | CI running; owner approval |
-| [#13](https://github.com/fystay/fystay/pull/13) | Host guide explains how and when hosts get paid (90% share, Stripe schedule, refunds) | CI running; owner approval |
-| [#14](https://github.com/fystay/fystay/pull/14) | Migration revoking API access to `rls_auto_enable()` (last Supabase security-advisor warning) | Owner approval + run via "Production database migration" workflow (either order) |
-| [#15](https://github.com/fystay/fystay/pull/15) | Admin nav landmark label (last of the known P2 accessibility item) | Owner approval |
+| [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check the 8-slot capacity on payment; refund (and email the host) instead of overselling; 31-min payment pages | CI green; owner approval |
+| [#10](https://github.com/fystay/fystay/pull/10) | Date-change payment unavailable: say the booking is unchanged, not "dates are still held" | CI green; owner approval. Shares one import line with #7 (one-line merge for whichever lands second) |
+| [#12](https://github.com/fystay/fystay/pull/12) | Checkout + privacy policy say the host sees the guest's email and phone once confirmed (trust standard) | CI green; owner approval |
+| [#13](https://github.com/fystay/fystay/pull/13) | Host guide explains how and when hosts get paid (90% share, Stripe schedule, refunds) | CI green; owner approval |
+| [#14](https://github.com/fystay/fystay/pull/14) | Migration revoking API access to `rls_auto_enable()` (last Supabase security-advisor warning) | CI green; owner approval + run via "Production database migration" workflow (either order) |
+| [#15](https://github.com/fystay/fystay/pull/15) | Admin nav landmark label (last of the known P2 accessibility item) | CI green; owner approval |
 
 ## Checked 12 Oct, no change needed
 
