@@ -52,6 +52,8 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | [#10](https://github.com/fystay/fystay/pull/10) | Date-change payment unavailable: say the booking is unchanged, not "dates are still held" | CI running; owner approval. Shares one import line with #7 (one-line merge for whichever lands second) |
 | [#12](https://github.com/fystay/fystay/pull/12) | Checkout + privacy policy say the host sees the guest's email and phone once confirmed (trust standard) | CI running; owner approval |
 | [#13](https://github.com/fystay/fystay/pull/13) | Host guide explains how and when hosts get paid (90% share, Stripe schedule, refunds) | CI running; owner approval |
+| [#14](https://github.com/fystay/fystay/pull/14) | Migration revoking API access to `rls_auto_enable()` (last Supabase security-advisor warning) | Owner approval + run via "Production database migration" workflow (either order) |
+| [#15](https://github.com/fystay/fystay/pull/15) | Admin nav landmark label (last of the known P2 accessibility item) | Owner approval |
 
 ## Checked 12 Oct, no change needed
 
