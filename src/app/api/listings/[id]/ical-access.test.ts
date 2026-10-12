@@ -13,8 +13,10 @@ vi.mock("@/lib/icalSync", async (original) => ({
   ...(await original<typeof import("@/lib/icalSync")>()),
   syncListingIcalImport: sync,
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const prisma = {
+    // The update runs in a transaction (host review records) - same client here.
+    $transaction: async (fn: (tx: unknown) => unknown) => fn(prisma),
     listing: {
       findUnique: async () => ({
         id: "listing_1",
@@ -29,11 +31,12 @@ vi.mock("@/lib/prisma", () => ({
         lastMinuteDiscountPercent: null,
         lastMinuteWindowDays: null,
       }),
-      update: async (args: { data: Record<string, unknown> }) => (listingUpdate(args), { icalExportToken: "new" }),
+      update: async (args: { data: Record<string, unknown> }) => (listingUpdate(args), { icalExportToken: "new", published: true }),
     },
     availabilityBlock: { deleteMany: blocksDeleteMany },
-  },
-}));
+  };
+  return { prisma };
+});
 
 import { POST as syncNow } from "./ical-sync/route";
 import { POST as resetToken } from "./calendar-token/route";

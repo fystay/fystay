@@ -25,7 +25,7 @@ async function findOriginListing(listingId: string | undefined) {
   if (!listingId) return null;
   const listing = await prisma.listing
     .findUnique({
-      where: { id: listingId, published: true },
+      where: { id: listingId, published: true, suspendedAt: null },
       select: { title: true, latitude: true, longitude: true },
     })
     .catch(() => null);

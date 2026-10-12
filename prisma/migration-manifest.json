@@ -340,6 +340,18 @@
       }
     },
     {
+      "name": "20261012130000_admin_assisted_listing_onboarding",
+      "files": {
+        "migration.sql": "1f10ac32614738d05ba7ae7dabce107b63993f17d8ad03c5c63435272fa473c4"
+      }
+    },
+    {
+      "name": "20261012140000_admin_audit_events",
+      "files": {
+        "migration.sql": "4dd9b23d53f98fbd3de67f7e281d9984cc9dcf404b52c4e01c024bca621c3a5b"
+      }
+    },
+    {
       "name": "20261012150000_ical_sync_error",
       "files": {
         "migration.sql": "b35b66cb10b585a169f82fa6b1ed5ba8d99417b80ba9ee4692a7666eb7e87e84"

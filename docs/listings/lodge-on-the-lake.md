@@ -33,30 +33,43 @@ migration (see `docs/launch/handover.md`). The new columns are nullable or
 have defaults, so the current live code keeps working once the migration
 is applied.
 
-1. The owner creates a FYStay account and chooses **Become a host**.
-2. Someone with production access applies the
-   `20261010120000_add_weekend_rates_and_non_refundable_policy` migration
-   (the usual "Production database migration" workflow), then runs:
+It goes through admin-assisted onboarding
+([../admin-assisted-onboarding.md](../admin-assisted-onboarding.md)):
+FYStay prepares it, the owner checks and explicitly approves it, and it is
+published only when every check passes. Production also needs the
+`20261012130000_admin_assisted_listing_onboarding` migration first.
+
+1. **Owner account.** Either the owner registers and chooses **Become a
+   host**, then step 2 imports the listing for them; or, if they haven't
+   registered, an admin uses **Add a property** (`/admin/properties/new`)
+   with "invite them", uploads the 17 photos from
+   `scripts/listings/lodge-on-the-lake/photos/` and enters the terms below,
+   then sends the invitation. The owner must sign in with the invited,
+   confirmed email address to take it over.
+2. **Import (owner already a host).** Someone with production access runs:
 
    ```sh
    DATABASE_URL="<production direct URL>" \
    NEXT_PUBLIC_SUPABASE_URL="..." SUPABASE_SERVICE_ROLE_KEY="..." \
-   npm run listing:import-lodge -- --host-email <owner's email>
+   npm run listing:import-lodge -- --host-email <owner's email> --prepared-by <admin email>
    ```
 
    Without `--confirm` it is a dry run that prints the target database host
    and the terms it will use. Add `--confirm` to write. A second run for the
-   same host is refused.
-3. The listing is created **Hidden** and **request-to-book**: every request
-   waits for the owner's approval before the guest is charged, so dates the
-   owner hasn't confirmed can't be booked.
-4. The owner opens `/host/listings`, checks everything, then:
+   same host is refused. It creates a private **Draft**, request-to-book.
+3. **Review.** The admin checks `/admin/properties/<id>` and presses **Send
+   for review**. The owner opens **Review** on `/host/listings`, previews
+   the page, corrects anything, and approves (or asks for changes). While
+   reviewing, the owner:
    - pastes the **Airbnb export calendar link** under Calendar sync, so
      Airbnb bookings block FYStay dates (the lodge is still on Airbnb);
    - adds the lodge's street address (shown to guests only after booking);
-   - connects payouts (Stripe Connect). Search hides listings whose host
-     can't be paid once Stripe is live;
-   - switches the listing to **Live**.
+   - connects payouts (Stripe Connect) - publishing is refused until they
+     can be paid wherever Stripe is live.
+4. **Publish.** When `/admin/properties/<id>` shows **Ready to publish**,
+   the admin (or the owner, with the Live switch) publishes it. Only then
+   does it appear in search, destinations and the sitemap, and only then
+   can the owner buy a Spotlight placement for it.
 
 ## Owner's terms (given 10 October 2026)
 
