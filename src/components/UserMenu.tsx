@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, UserCircle } from "lucide-react";
+import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
@@ -99,7 +99,7 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
         <div className="border-b border-border-subtle px-3 py-2">
           <p className="truncate text-sm font-medium text-foreground">{name}</p>
           <Badge variant="brand" className="mt-1">
-            {role === "HOST" ? "Host" : "Guest"}
+            {role === "ADMIN" ? "Admin" : role === "HOST" ? "Host" : "Guest"}
           </Badge>
         </div>
 
@@ -108,6 +108,15 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
             repeated here. */}
 
         <div className="flex flex-col py-1">
+          {role === "ADMIN" && (
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-surface-muted"
+            >
+              <ShieldCheck className="h-4 w-4" /> Admin
+            </Link>
+          )}
           {role === "HOST" && (
             <Link
               href="/host/dashboard"
@@ -157,7 +166,7 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
           >
             <UserCircle className="h-4 w-4" /> Account
           </Link>
-          {role !== "HOST" && (
+          {role === "GUEST" && (
             <Link
               href="/host"
               onClick={() => setOpen(false)}
