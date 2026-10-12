@@ -105,7 +105,6 @@ legal details, or onboarding real hosts.
 - Booking.com hotel affiliate. Credentials alone never switch it on: the code must also list it in `LIVE_HOTEL_PROVIDER_CODES`.
 - PMS integrations: Cloudbeds is built, SiteMinder and SuperControl are stubs.
 - Uptime monitoring on `/` and `/api/listings`; check the Supabase backup / point-in-time-recovery plan.
-- A test-timezone tidy-up: one hotel-affiliate unit test fails only when the suite runs outside UTC (CI and Vercel run in UTC).
 
 ---
 

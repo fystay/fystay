@@ -98,8 +98,9 @@ describe("mockHotelProviderAdapter.createDeepLink", () => {
   it("builds a URL under the reserved .invalid TLD carrying every required param", () => {
     const url = mockHotelProviderAdapter.createDeepLink({
       externalId: "mock:blackpool:0",
-      checkIn: new Date("2027-06-01"),
-      checkOut: new Date("2027-06-04"),
+      // Local midnight, as hotelSearchParams.ts produces them.
+      checkIn: new Date(2027, 5, 1),
+      checkOut: new Date(2027, 5, 4),
       adults: 2,
       children: 1,
       rooms: 1,
