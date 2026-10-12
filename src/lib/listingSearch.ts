@@ -2,12 +2,14 @@ import { averageRating } from "@/lib/reviews";
 import { matchesAmenityCategories } from "@/lib/amenityCategories";
 import { distanceMiles } from "@/lib/geo";
 import { hasLongStayDiscount, isTopRated } from "@/lib/marketplace";
-import type { PropertyType } from "@/lib/propertyType";
+import { matchesPropertyType, type PropertyType } from "@/lib/propertyType";
 
 export type SearchableListing = {
   id: string;
   pricePerNightCents: number;
   propertyType: PropertyType;
+  /** Lets a listing typed before B&B/Lodge existed still match them - see matchesPropertyType. */
+  title?: string | null;
   bedrooms: number;
   bathrooms: number;
   amenities: string[];
@@ -43,7 +45,11 @@ export function applyListingFilters<T extends SearchableListing>(
   filters: ListingFilters,
 ): T[] {
   return listings.filter((listing) => {
-    if (filters.propertyTypes?.length && !filters.propertyTypes.includes(listing.propertyType)) {
+    // Several selected types widen the search (OR); the other filters narrow it (AND).
+    if (
+      filters.propertyTypes?.length &&
+      !filters.propertyTypes.some((type) => matchesPropertyType(listing, type))
+    ) {
       return false;
     }
     if (filters.minPriceCents !== undefined && listing.pricePerNightCents < filters.minPriceCents) {

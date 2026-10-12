@@ -7,6 +7,7 @@ import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { PreviewSiteBanner } from "@/components/PreviewSiteBanner";
 import { CurrencyProvider } from "@/components/CurrencyProvider";
 import { SupportWidget } from "@/components/SupportWidget";
+import { SiteBottomNav } from "@/components/SectionPills";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
@@ -73,6 +74,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#bc522f",
+  // Lets env(safe-area-inset-*) report the iPhone home indicator's area, so
+  // fixed bottom bars sit clear of it.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -96,6 +100,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             {children}
           </main>
           <Footer />
+          <SiteBottomNav />
           <SupportWidget />
           <Toaster position="top-center" richColors closeButton />
         </CurrencyProvider>

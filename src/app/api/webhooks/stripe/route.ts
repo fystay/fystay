@@ -734,11 +734,13 @@ async function postHandler(request: Request) {
     }
   } else if (
     event.type === "identity.verification_session.verified" ||
-    event.type === "identity.verification_session.requires_input"
+    event.type === "identity.verification_session.requires_input" ||
+    event.type === "identity.verification_session.canceled"
   ) {
-    // The only place a user's identityVerificationStatus is ever set to
-    // VERIFIED or FAILED - see createIdentityVerificationSession's own
-    // comment for why this app never marks itself verified. Scoped to the
+    // Stripe's decision, relayed - VERIFIED comes only from here or from
+    // the same session read back from Stripe (syncIdentityVerification).
+    // requires_input is sent when a submitted check fails; canceled when
+    // the session is closed, so the person can start again. Scoped to the
     // session id, not just the userId in metadata, so a stale/superseded
     // session's event can never overwrite the outcome of a newer one.
     const verificationSession = event.data.object;
@@ -746,7 +748,14 @@ async function postHandler(request: Request) {
     if (userId) {
       await prisma.user
         .updateMany({
-          where: { id: userId, stripeIdentitySessionId: verificationSession.id },
+          where: {
+            id: userId,
+            stripeIdentitySessionId: verificationSession.id,
+            // An out-of-order event never takes a verified person back.
+            ...(event.type !== "identity.verification_session.verified" && {
+              identityVerificationStatus: { not: "VERIFIED" as const },
+            }),
+          },
           data: {
             identityVerificationStatus:
               event.type === "identity.verification_session.verified" ? "VERIFIED" : "FAILED",

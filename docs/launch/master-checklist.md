@@ -18,14 +18,14 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 
 | Area | State | Evidence |
 |---|---|---|
-| Code | Working branch `claude/airbnb-competitor-1fjjpk` at `db4eda4`; CI green | GitHub Actions CI run #226 |
-| Production deploy | `db4eda4` live on `www.fystay.co.uk` (apex redirects to www); `fystay.vercel.app` still attached | Vercel deployment `dpl_CEPwm2QeZUuzeNniSWJQrRHfE4YM`, domains verified |
-| Production health | `/api/health`: database ok, config ok | Fetched 12 Oct |
+| Code | Working branch `claude/airbnb-competitor-1fjjpk` at `d5ba58c` (merge of #16) | GitHub, 12 Oct ~17:00 |
+| Production deploy | Branch `claude/places-search-validation` (#30) at `76b2a30`, deployed by the owner ~16:52 UTC 12 Oct (after #29's branch at 16:41 and #28's at 15:06). It is the working branch plus #30's first two commits only: **#28's verification fixes and #29's filters are not live**, and #30's location index migration hasn't run (search works without it, just without the index) | Vercel deployment `dpl_64zsx6KH7y8nBHs6uLzK4qT6VkkJ` |
+| Production health | `/api/health`: database ok, config ok; search suggestions answer (landmarks only: town suggestions come from towns with live stays, and there are none) | Fetched 12 Oct 16:57 UTC |
 | Production settings | Database, Auth, base URL and `NEXTAUTH_URL` (www domain), cron, 2FA key, Supabase, Sentry, Google sign-in, Resend key, `EMAIL_FROM` on own domain, dispute inbox, live Stripe key, both live webhook secrets: all present | Vercel variable names (values never read); health check confirms the Stripe key is live |
 | Stripe live account | Charges and payouts enabled, identity verified, bank account linked, statement descriptor `FYSTAY`; account type: individual | Stripe API, read-only |
 | Live webhooks | Account-events and connected-accounts endpoints enabled on `https://www.fystay.co.uk/api/webhooks/stripe` | Stripe API, read-only; no live event delivered yet |
-| Production database | All migrations applied (run #23, 11 Oct); deny-all row-level security on every table; only advisor warning is the known P2 `rls_auto_enable()` | GitHub Actions, Supabase advisors |
-| Catalogue | 0 listings live | `/api/listings` |
+| Production database | Migrations up to 11 Oct applied (run #23); #14's `20261012120000` and the pending run 38244398792 (#17/#25) not yet applied; deny-all row-level security on every table; only advisor warning is the known P2 `rls_auto_enable()` | GitHub Actions, Supabase advisors |
+| Catalogue | 0 listings live | `/api/listings` (12 Oct, before #30) |
 
 ## LAUNCH BLOCKERS (outstanding)
 
@@ -59,20 +59,30 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | [#7](https://github.com/fystay/fystay/pull/7) | Refuse new live payments until trader name + address are set (blocker 3) | Blocker 1 (legal entity) + approval. Merging closes live checkout until the two settings exist. |
 | [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check capacity on payment; refund + email the host instead of overselling; 31-min payment pages | Approval: changes the live Stripe webhook and Spotlight payments |
 
-**Opened 12 Oct (owner's 12 Oct list), CI green, waiting on merge approval:**
+**Release 12 Oct (prepared, awaiting owner approval; not live).** Branch `claude/release-2026-10-12` combines #17, #25, #26, #27, #28, #29, #30 and #31 on the working branch, with every PR's current head included and no conflicts left. Full checks pass on the combined branch: 1,677 unit tests (UTC and UK time), typecheck, lint, migration manifest, production build, 130 browser tests on a production build (1 skipped by design). Plan:
+1. Production migration workflow, dispatched from the release branch at its head: applies `20261012120000` (#14, already merged) → `130000` → `140000` → `150000` → `160000` → `170000`, all additive. Production was verified at `20261011120000` (56 applied, no failed rows; the retired `190352` row is known).
+2. Merge the release PR into `claude/airbnb-competitor-1fjjpk`: one Production deploy containing everything; GitHub marks #17, #25-#31 merged.
+3. After deploy: confirm the deployed commit, `/api/health`, header (bottom tab bar on phones, "· Apartments · B&Bs · Lodges"), search (town/landmark + dates), filters, calendar sync page, admin property pages.
+The pending run 38244398792 (#25's old head) is superseded by step 1: reject it.
 
-| PR | What | Note |
-|---|---|---|
-| [#16](https://github.com/fystay/fystay/pull/16) | CLAUDE.md working rules; this PR record | Docs only |
-| [#17](https://github.com/fystay/fystay/pull/17) | Admin listing creation for hosts + AI listing drafts | Has a migration: run the Production migration workflow with/before merge. AI drafts need `ANTHROPIC_API_KEY` |
-| [#18](https://github.com/fystay/fystay/pull/18) | Show/hide toggle on every password field | |
-| [#19](https://github.com/fystay/fystay/pull/19) | Google Places location search, results nearest-first | Off until `GOOGLE_MAPS_API_KEY` is set |
-| [#20](https://github.com/fystay/fystay/pull/20) | Email confirm link opened while signed out says it worked | |
-| [#21](https://github.com/fystay/fystay/pull/21) | Sort/filter changes go back to page 1 | |
-| [#22](https://github.com/fystay/fystay/pull/22) | Re-sync an imported calendar (Airbnb etc.) before taking a booking if over 30 min old | Double-booking safeguard |
-| [#23](https://github.com/fystay/fystay/pull/23) | hello@fystay.co.uk as sender and reply-to on every email | First commit already live (deployed from the branch 12 Oct 10:53). Owner: verify `fystay.co.uk` in Resend, make hello@ a real mailbox, then set `EMAIL_FROM` to `FYStay <hello@fystay.co.uk>` |
-| [#24](https://github.com/fystay/fystay/pull/24) | Admin badge and Admin link in the account menu | |
-| [#25](https://github.com/fystay/fystay/pull/25) | Admin property management: import a listing from pasted text or a public link (AI, flagged gaps, editable preview, saved as draft); admin-only host transfer; suspend/reinstate/delete accounts with confirmation and an admin record | Stacked on #17 (merge #17 first). New migration: run the Production migration workflow with #17's. Import needs `ANTHROPIC_API_KEY` |
+**Merged 12 Oct (later):** #16, #18 (password show/hide), #19 (Google Places search), #20, #21, #22 (calendar re-sync before booking), #23 (hello@ sender), #24. Working branch now `d5ba58c`.
+
+**Open, verified 12 Oct ~17:00.** Every PR below is open, has no review comments, and passed the full local checks (unit tests, typecheck, lint, build, 124-128 browser tests on a production build) on the head shown. CI re-runs on each push; check the PR for its current result before approving.
+
+Merge in this order. The stacked PRs (#17 → #25 → #27 → #29 → #30) each already contain their predecessors, so each merges cleanly once the one before it is in; GitHub retargets the next PR when its base merges. Their migrations must reach Production in the same order, each with or before its PR's merge.
+
+| Order | PR | What | Base | Migration | Needs |
+|---|---|---|---|---|---|
+| any | [#26](https://github.com/fystay/fystay/pull/26) | Phone bottom menu (Stays, Explore, Travel, Services); middot before "Apartments" | working branch | none | approval |
+| any | [#28](https://github.com/fystay/fystay/pull/28) | Guest identity and phone verification fixed; holds this checklist | working branch | none | approval. Was live 15:06-16:41 (owner deployed the branch); not live now. Phone needs `TWILIO_*`; ID checks need Stripe Identity activated |
+| any | [#31](https://github.com/fystay/fystay/pull/31) | Hotel deep links keep the guest's dates on UK summer time (the "fails outside UTC" test item) | working branch | none | approval |
+| 1 | [#17](https://github.com/fystay/fystay/pull/17) | Admin listing creation for hosts + AI listing drafts | working branch | `20261012130000` | migration run 38244398792 (waiting for owner approval; covers #17 and #25), then approval. AI drafts need `ANTHROPIC_API_KEY` |
+| 2 | [#25](https://github.com/fystay/fystay/pull/25) | Admin property management: listing import, host transfer, account controls | #17 | `20261012140000` | same run as #17; approval |
+| 3 | [#27](https://github.com/fystay/fystay/pull/27) | Airbnb calendar sync hardening | #25 | `20261012150000` | a new migration run after #25's; approval |
+| 4 | [#29](https://github.com/fystay/fystay/pull/29) | Filters: property type (incl. new B&B, Lodge), core amenities, guests | #27 | `20261012160000` (enum values) | migration run before merge (hosts choosing B&B/Lodge fail until it runs); approval |
+| 5 | [#30](https://github.com/fystay/fystay/pull/30) | Location search: Where picked from suggestions, area filtering, Where/check-in/check-out required (bar, /search, `GET /api/listings`) | #29 | `20261012170000` (index) | migration run with merge; approval. Google places need `GOOGLE_MAPS_API_KEY` (see below) |
+
+**Location search without a Google key (verified locally, no key set):** FYStay's own suggestions work: towns with stays or a destination page, curated landmarks, and stay names. Town and landmark searches return results by name and by a 5-mile area. **Unavailable until `GOOGLE_MAPS_API_KEY` is set** (server-side key, Places API (New) enabled, billing on, no referrer restriction): suggestions for any other place, postcode or address, and the place-details lookup (`/api/search/place` answers 503). A guest can't type a postcode and search; they pick a town or landmark instead.
 
 ## Checked 12 Oct, no change needed
 
@@ -100,12 +110,12 @@ legal details, or onboarding real hosts.
 - Host terms page: add `/legal/host-terms` and require acceptance before
   publishing, once the draft in legal-drafts.md is approved.
 
-- Twilio phone verification (`TWILIO_*`).
+- Twilio phone verification (`TWILIO_*`): code flow built and tested (#28, deployed); off in Production until the three settings are added.
 - Ticketmaster events on destination pages (`TICKETMASTER_API_KEY`).
 - Booking.com hotel affiliate. Credentials alone never switch it on: the code must also list it in `LIVE_HOTEL_PROVIDER_CODES`.
 - PMS integrations: Cloudbeds is built, SiteMinder and SuperControl are stubs.
-- Uptime monitoring on `/` and `/api/listings`; check the Supabase backup / point-in-time-recovery plan.
-- A test-timezone tidy-up: one hotel-affiliate unit test fails only when the suite runs outside UTC (CI and Vercel run in UTC).
+- Uptime monitoring on `/` and `/api/health` (once #30 is in, `/api/listings` needs a full search and answers 400 without one); check the Supabase backup / point-in-time-recovery plan.
+- A test-timezone tidy-up: the hotel deep link used the wrong day on UK summer time; fixed in [#31](https://github.com/fystay/fystay/pull/31) (open).
 
 ---
 

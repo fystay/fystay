@@ -50,18 +50,47 @@ test("on desktop the sections sit in the header, each offered once", async ({ pa
   }
 });
 
-test("on phones the sections sit under the header as four equal tabs", async ({ page }) => {
+test("on phones the sections are a bottom tab bar: four equal, thumb-sized tabs that cover nothing", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const path of ["/", "/search"]) {
     await page.goto(path);
-    const links = sectionNav(page).getByRole("link");
+    const nav = sectionNav(page);
+    const box = await nav.boundingBox();
+    expect(box).not.toBeNull();
+    // Pinned to the bottom edge, full width.
+    expect(Math.round(box!.y + box!.height)).toBe(844);
+    expect(Math.round(box!.width)).toBe(390);
+
+    const links = nav.getByRole("link");
     await expect(links).toHaveCount(4);
-    const widths = await links.evaluateAll((all) => all.map((link) => Math.round(link.getBoundingClientRect().width)));
-    expect(new Set(widths).size).toBe(1);
+    const sizes = await links.evaluateAll((all) =>
+      all.map((link) => {
+        const rect = link.getBoundingClientRect();
+        return { width: Math.round(rect.width), height: Math.round(rect.height) };
+      }),
+    );
+    expect(new Set(sizes.map((size) => size.width)).size).toBe(1);
+    for (const size of sizes) expect(size.height).toBeGreaterThanOrEqual(44);
+
+    // The page reserves the bar's height, so the end of the page (the footer)
+    // scrolls clear of it.
+    const padding = await page.evaluate(() => parseFloat(getComputedStyle(document.body).paddingBottom));
+    expect(padding).toBeGreaterThanOrEqual(Math.floor(box!.height));
+    // Not repeated at the top: the header has no section links on phones.
+    await expect(page.locator("header").getByRole("link", { name: "Stays", exact: true })).toHaveCount(0);
   }
 });
 
-test("on phones the tabs are on every page, and the account menu holds only account actions", async ({ page }) => {
+test("on desktop there's no bottom bar and nothing reserved for one", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/search");
+  await expect(page.getByRole("navigation", { name: "Sections" })).toHaveCount(1);
+  await expect(page.locator("header").getByRole("navigation", { name: "Sections" })).toBeVisible();
+  const padding = await page.evaluate(() => getComputedStyle(document.body).paddingBottom);
+  expect(padding).toBe("0px");
+});
+
+test("on phones the bottom bar is on every page, and the account menu holds only account actions", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/about");
   // Outside the four sections: the same tabs, none selected.
@@ -89,4 +118,13 @@ test("selecting a pill does not change the size of the row (no layout shift)", a
   const onStays = await widths();
   await page.goto("/services");
   expect(await widths()).toEqual(onStays);
+});
+
+test("on a listing the booking bar has the bottom edge to itself", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/search");
+  const firstListing = page.locator('a[href^="/listings/"]').first();
+  test.skip((await firstListing.count()) === 0, "No listings in this database.");
+  await page.goto((await firstListing.getAttribute("href"))!);
+  await expect(page.getByRole("navigation", { name: "Sections" })).toHaveCount(0);
 });

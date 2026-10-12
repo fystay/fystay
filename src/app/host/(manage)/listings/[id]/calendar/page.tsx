@@ -138,6 +138,8 @@ export default async function ListingCalendarPage({
             exportUrl={`${SITE_URL}/api/listings/${listing.id}/calendar.ics?token=${listing.icalExportToken}`}
             initialImportUrl={listing.icalImportUrl}
             syncedAt={listing.icalSyncedAt}
+            syncError={listing.icalSyncError}
+            syncFailedAt={listing.icalSyncFailedAt}
           />
         </div>
       )}

@@ -8,6 +8,7 @@ import type {
   HotelSearchResult,
 } from "@/lib/hotelProviders/types";
 import { HotelProviderAdapterError } from "@/lib/hotelProviders/types";
+import { formatDateParam } from "@/lib/hotelSearchParams";
 
 /**
  * A fully offline, deterministic stand-in for a real hotel-affiliate
@@ -221,8 +222,11 @@ export const mockHotelProviderAdapter: HotelProviderAdapter = {
     // outside a test, that failure is loud and obvious rather than
     // quietly looking like a real destination.
     const url = new URL(`https://mock-hotel-provider.invalid/deeplink/${encodeURIComponent(params.externalId)}`);
-    url.searchParams.set("checkin", params.checkIn.toISOString().slice(0, 10));
-    url.searchParams.set("checkout", params.checkOut.toISOString().slice(0, 10));
+    // The stay dates are local-midnight Dates (hotelSearchParams.ts), so
+    // they're written from their local parts: toISOString() would give the
+    // day before on a server running on UK summer time.
+    url.searchParams.set("checkin", formatDateParam(params.checkIn));
+    url.searchParams.set("checkout", formatDateParam(params.checkOut));
     url.searchParams.set("adults", String(params.adults));
     url.searchParams.set("children", String(params.children));
     url.searchParams.set("rooms", String(params.rooms));

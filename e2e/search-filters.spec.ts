@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { PrismaClient, type Listing } from "@prisma/client";
+import { fyldeCoastSearchUrl, searchUrl } from "./support/search";
 
 // Playwright's test process doesn't load .env the way `next dev` does.
 // CI sets these vars directly instead of via a .env file, so don't fail
@@ -63,7 +64,7 @@ test("Blackpool + under £150 + parking genuinely narrows results to matching li
   });
 
   try {
-    await page.goto("/search?city=Blackpool&adults=2&maxPrice=150&amenities=parking");
+    await page.goto(searchUrl("city=Blackpool&adults=2&maxPrice=150&amenities=parking"));
 
     await expect(page.getByRole("heading", { name: "Stays in Blackpool" })).toBeVisible();
     // The real seeded Blackpool listing (£75/night, parking) genuinely matches.
@@ -86,40 +87,72 @@ test("Blackpool + under £150 + parking genuinely narrows results to matching li
   }
 });
 
-test("property type filter, applied through the filter sheet, narrows real results", async ({
+test("property type, amenities and guests combine, stay set while open, and Clear all resets them", async ({
   page,
 }) => {
-  const hotel = await fixtureListing({
-    title: "E2E fixture: Blackpool hotel room",
-    city: "Blackpool",
-    propertyType: "HOTEL",
-    pricePerNightCents: 9000,
-  });
+  // A town only this test uses, so the four fixtures are the whole result set.
+  const city = `E2E Filter Town ${Date.now()}`;
+  const bnb = await fixtureListing({ title: "E2E fixture: harbour B&B with washer", city, propertyType: "BED_AND_BREAKFAST", amenities: ["Wifi", "Washer"], maxGuests: 4 });
+  // Listed before B&B was a type: stored as OTHER, but its title says B&B.
+  const legacyBnb = await fixtureListing({ title: "E2E fixture: Promenade B&B (older listing)", city, propertyType: "OTHER", amenities: ["Wifi", "Washing machine"], maxGuests: 4 });
+  const lodgeNoWasher = await fixtureListing({ title: "E2E fixture: pine lodge", city, propertyType: "LODGE", amenities: ["Wifi"], maxGuests: 6 });
+  const smallBnb = await fixtureListing({ title: "E2E fixture: tiny B&B for two", city, propertyType: "BED_AND_BREAKFAST", amenities: ["Washer"], maxGuests: 2 });
+  const all = [bnb, legacyBnb, lodgeNoWasher, smallBnb];
 
   try {
-    await page.goto("/search?city=Blackpool");
-    await expect(page.getByText(hotel.title)).toBeVisible();
-    await expect(
-      page.getByText("Seafront apartment overlooking Blackpool promenade"),
-    ).toBeVisible();
+    await page.goto(searchUrl(`city=${encodeURIComponent(city)}`));
+    for (const l of all) await expect(page.getByText(l.title)).toBeVisible();
 
     await page.getByRole("button", { name: /Filters/ }).click();
-    await expect(page.getByRole("dialog", { name: "Filters" })).toBeVisible();
-    await page.getByRole("button", { name: "Hotel", exact: true }).click();
-    await page.getByRole("button", { name: "Show results" }).click();
+    const dialog = page.getByRole("dialog", { name: "Filters" });
+    await dialog.getByRole("button", { name: "B&B", exact: true }).click();
+    await dialog.getByRole("button", { name: "Lodge", exact: true }).click();
+    await dialog.getByRole("button", { name: "Washer", exact: true }).click();
+    await dialog.getByRole("button", { name: "Increase adults" }).click();
+    await dialog.getByRole("button", { name: "Increase adults" }).click();
+    // Choices stay put while the panel is open.
+    await expect(dialog.getByRole("button", { name: "B&B", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(dialog.getByRole("button", { name: "Washer", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await dialog.getByRole("button", { name: "Show results" }).click();
 
-    await page.waitForURL(/propertyType=HOTEL/);
-    await expect(page.getByText(hotel.title)).toBeVisible();
-    await expect(
-      page.getByText("Seafront apartment overlooking Blackpool promenade"),
-    ).toHaveCount(0);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get("propertyType") === "BED_AND_BREAKFAST,LODGE" &&
+        url.searchParams.get("amenities") === "washer" &&
+        url.searchParams.get("adults") === "3",
+    );
+    // B&B or Lodge, AND washer, AND sleeps 3.
+    await expect(page.getByText(bnb.title)).toBeVisible();
+    await expect(page.getByText(legacyBnb.title)).toBeVisible();
+    await expect(page.getByText(lodgeNoWasher.title)).toHaveCount(0);
+    await expect(page.getByText(smallBnb.title)).toHaveCount(0);
+    // The search bar shows the same guest count.
+    await expect(page.getByRole("button", { name: /3 guests/ })).toBeVisible();
+
+    await page.getByRole("button", { name: /Filters/ }).click();
+    await expect(dialog.getByRole("button", { name: "Lodge", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await dialog.getByRole("button", { name: "Clear all" }).click();
+    await expect(dialog.getByRole("button", { name: "B&B", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await expect(dialog.getByRole("button", { name: "Washer", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await expect(dialog.getByRole("button", { name: "Decrease adults" })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Show results" }).click();
+
+    await expect(page).toHaveURL(
+      (url) =>
+        !url.searchParams.has("propertyType") &&
+        !url.searchParams.has("amenities") &&
+        !url.searchParams.has("adults") &&
+        url.searchParams.has("checkIn"),
+    );
+    for (const l of all) await expect(page.getByText(l.title)).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("city")).toBe(city);
   } finally {
-    await prisma.listing.delete({ where: { id: hotel.id } });
+    await prisma.listing.deleteMany({ where: { id: { in: all.map((l) => l.id) } } });
   }
 });
 
 test("minimum rating filter excludes listings with no qualifying reviews", async ({ page }) => {
-  await page.goto("/search?minRating=4");
+  await page.goto(fyldeCoastSearchUrl("minRating=4"));
 
   // Only the seeded listing with a genuine 5-star review qualifies.
   await expect(
@@ -146,13 +179,13 @@ test("sorting by price low to high genuinely reorders results", async ({ page })
     expect(indices).toEqual([...indices].sort((a, b) => a - b));
   }
 
-  await assertPriceOrder("/search?sort=price_asc", [
+  await assertPriceOrder(fyldeCoastSearchUrl("sort=price_asc"), [
     "Cosy cottage near Fleetwood Marina",
     "Seafront apartment overlooking Blackpool promenade",
     "Elegant Victorian townhouse in Lytham",
   ]);
 
-  await assertPriceOrder("/search?sort=price_desc", [
+  await assertPriceOrder(fyldeCoastSearchUrl("sort=price_desc"), [
     "Elegant Victorian townhouse in Lytham",
     "Seafront apartment overlooking Blackpool promenade",
     "Cosy cottage near Fleetwood Marina",
@@ -173,7 +206,7 @@ test("list/map view toggle switches the results presentation without losing filt
   });
 
   try {
-    await page.goto(`/search?city=${encodeURIComponent(city)}`);
+    await page.goto(searchUrl(`city=${encodeURIComponent(city)}`));
     await expect(page.getByRole("button", { name: "Map" })).toBeVisible();
 
     await page.getByRole("button", { name: "Map" }).click();
@@ -204,12 +237,12 @@ test.afterAll(async () => {
 });
 
 test("changing the sort or applying filters goes back to page 1", async ({ page }) => {
-  await page.goto("/search?page=2");
+  await page.goto(fyldeCoastSearchUrl("page=2"));
   await page.getByLabel("Sort results").selectOption("price_asc");
   await expect(page).toHaveURL((url) => url.searchParams.get("sort") === "price_asc" && !url.searchParams.has("page"));
 
-  await page.goto("/search?page=2");
+  await page.goto(fyldeCoastSearchUrl("page=2"));
   await page.getByRole("button", { name: "Filters" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Show results" }).click();
-  await expect(page).toHaveURL((url) => url.pathname === "/search" && !url.searchParams.has("page"));
+  await expect(page).toHaveURL((url) => url.pathname === "/search" && !url.searchParams.has("page") && url.searchParams.has("checkIn"));
 });

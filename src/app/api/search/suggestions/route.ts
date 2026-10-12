@@ -4,7 +4,7 @@ import { bookableHostWhere } from "@/lib/stripeConnect";
 import { LANDMARKS } from "@/lib/landmarks";
 import { popularDestinations, rankDestinations, rankHotels, rankLandmarks } from "@/lib/searchSuggestions";
 import { withApiErrorHandling } from "@/lib/apiError";
-import { suggestPlaces } from "@/lib/googlePlaces";
+import { suggestPlaces, validSessionToken } from "@/lib/googlePlaces";
 
 // Small, fixed limits keep this fast: the client debounces keystrokes and
 // aborts stale requests, but the query itself should stay cheap regardless.
@@ -52,7 +52,7 @@ async function getHandler(request: Request) {
         take: 20,
       }),
       // Empty unless GOOGLE_MAPS_API_KEY is set; never throws.
-      suggestPlaces(query, { limit: MAX_PLACE_RESULTS }),
+      suggestPlaces(query, { limit: MAX_PLACE_RESULTS, sessionToken: validSessionToken(searchParams.get("session")) }),
     ]);
 
     const landmarks = rankLandmarks(LANDMARKS, query, MAX_LANDMARK_RESULTS);

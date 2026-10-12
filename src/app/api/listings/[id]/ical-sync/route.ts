@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { syncListingIcalImport } from "@/lib/icalSync";
+import { IcalSyncError, syncListingIcalImport } from "@/lib/icalSync";
 import { withApiErrorHandling } from "@/lib/apiError";
 
 /** Host-triggered "Sync now" for a listing's configured icalImportUrl - see the nightly cron sweep in /api/cron/sync-ical-imports for the background counterpart. */
@@ -26,9 +26,9 @@ async function postHandler(_request: Request, { params }: { params: Promise<{ id
   try {
     const result = await syncListingIcalImport(prisma, id);
     return NextResponse.json({ result });
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { error: "Could not fetch that calendar - check the URL and try again" },
+      { error: error instanceof IcalSyncError ? error.message : "Could not sync that calendar - check the link and try again." },
       { status: 502 },
     );
   }

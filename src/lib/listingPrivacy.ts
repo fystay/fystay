@@ -14,5 +14,7 @@ export const PRIVATE_LISTING_FIELDS = {
   icalExportToken: true,
   icalImportUrl: true,
   icalSyncedAt: true,
+  icalSyncError: true,
+  icalSyncFailedAt: true,
   suspendedReason: true,
 } as const;

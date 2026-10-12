@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { searchUrl } from "./support/search";
 import AxeBuilder from "@axe-core/playwright";
 import { PrismaClient } from "@prisma/client";
 import { FYLDE_COAST_DESTINATIONS } from "../src/lib/destinations";
@@ -64,8 +65,10 @@ test.describe("accessibility", () => {
   });
 
   test("search results page has no serious a11y violations", async ({ page }) => {
-    await page.goto("/search");
+    await page.goto(searchUrl("city=Blackpool"));
     await expectNoSeriousViolations(page, "Search results");
+    await page.goto("/search");
+    await expectNoSeriousViolations(page, "Search prompt");
   });
 
   test("listing detail page has no serious a11y violations", async ({ page }) => {

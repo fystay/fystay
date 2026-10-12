@@ -84,7 +84,7 @@ the version the app's Stripe library speaks.
 - `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`: delayed payment methods (harmless today, since checkout is card-only)
 - `checkout.session.expired`: abandoned payment page, so the dates are freed and credit or promo returned
 - `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`: chargebacks, alerting `DISPUTE_ALERT_EMAIL`
-- `identity.verification_session.verified`, `identity.verification_session.requires_input`: host ID checks (only if you turn on Stripe Identity)
+- `identity.verification_session.verified`, `identity.verification_session.requires_input`, `identity.verification_session.canceled`: guest and host ID checks (only once Stripe Identity is activated on the account; /account also reads the result back from Stripe if an event is missed)
 - `charge.refunded`: a refund made by hand in the Stripe Dashboard (not through FYStay) emails `DISPUTE_ALERT_EMAIL`, because FYStay's booking record doesn't know about it
 - `refund.failed`: a refund Stripe couldn't put back on the guest's card emails `DISPUTE_ALERT_EMAIL`, so someone can pay the guest another way
 

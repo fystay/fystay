@@ -98,6 +98,8 @@ enum PropertyType {
   COTTAGE
   VILLA
   STUDIO
+  BED_AND_BREAKFAST
+  LODGE
   OTHER
 }
 
@@ -306,6 +308,16 @@ model User {
   // Spotlight placements this host has bought (see ListingPromotion).
   listingPromotions ListingPromotion[]
 
+  // Admin-assisted onboarding (see src/lib/listingReview.ts): listings an
+  // admin prepared, listing revisions this host approved, invitations an
+  // admin sent and the one this account accepted, and review history.
+  preparedListings     Listing[]            @relation("PreparedListings")
+  approvedListings     Listing[]            @relation("ApprovedListings")
+  hostInvitationsSent  HostInvitation[]     @relation("HostInvitationsSent")
+  hostInvitationsTaken HostInvitation[]     @relation("HostInvitationsAccepted")
+  adminAuditEvents     AdminAuditEvent[]    @relation("AdminAuditActor")
+  listingReviewEvents  ListingReviewEvent[]
+
   emailVerificationTokens EmailVerificationToken[]
 }
 
@@ -501,9 +513,13 @@ model Listing {
   // ICAL_IMPORT (see src/lib/icalSync.ts). One import URL, not many - most
   // hosts cross-list on a single other platform, and this keeps the sync
   // and its UI simple; multiple imports is a reasonable future extension.
-  icalExportToken String    @unique @default(cuid())
-  icalImportUrl   String?
-  icalSyncedAt    DateTime?
+  icalExportToken  String    @unique @default(cuid())
+  icalImportUrl    String?
+  icalSyncedAt     DateTime?
+  // The last failed import (reason shown to the host) - cleared by the next
+  // successful sync. Null while syncing works.
+  icalSyncError    String?
+  icalSyncFailedAt DateTime?
 
   // Set by an admin (PATCH /api/admin/listings/[id]/suspend) to pull a
   // fraudulent or problem listing out of search/booking without deleting
@@ -527,8 +543,38 @@ model Listing {
   pmsRoomMappings    PmsRoomMapping[]
   promotions         ListingPromotion[]
 
+  // Admin-assisted onboarding: FYStay prepares a listing, the host reviews
+  // and explicitly approves it, then it can be published (see
+  // src/lib/listingReview.ts). preparedById null = the host created the
+  // listing themselves, which needs no review (reviewStatus stays null).
+  // Live and Suspended aren't stored here: they are `published` and
+  // `suspendedAt`, which every public query already checks.
+  preparedById     String?
+  preparedBy       User?                @relation("PreparedListings", fields: [preparedById], references: [id], onDelete: SetNull)
+  reviewStatus     ListingReviewStatus?
+  // Bumped whenever a save changes something a guest decides or books on
+  // (MATERIAL_FIELDS in src/lib/listingReview.ts), so an approval names the
+  // exact revision approved.
+  materialRevision Int                  @default(1)
+  approvedRevision Int?
+  approvedAt       DateTime?
+  approvedById     String?
+  approvedBy       User?                @relation("ApprovedListings", fields: [approvedById], references: [id], onDelete: SetNull)
+  // The material facts as approved, so later changes can be compared
+  // against what the host actually agreed to.
+  approvedSnapshot Json?
+  // Set while the owner hasn't accepted their invitation yet: the draft is
+  // held by the admin who prepared it (hostId) and can't be reviewed or
+  // published until the invited owner takes it over.
+  hostInvitationId String?
+  hostInvitation   HostInvitation?      @relation(fields: [hostInvitationId], references: [id], onDelete: SetNull)
+  reviewEvents     ListingReviewEvent[]
+
   @@index([city])
   @@index([hostId])
+  @@index([preparedById])
+  // The search's area query (src/lib/searchRequest.ts locationWhere).
+  @@index([latitude, longitude])
 }
 
 // A distinct category of room within a HOTEL-type Listing (e.g. "Standard
@@ -2280,4 +2326,93 @@ model ListingPromotionStat {
 model PaymentAlertSent {
   key       String   @id
   createdAt DateTime @default(now())
+}
+
+// Where an admin-prepared listing is in host review. Null on a listing the
+// host created themselves.
+enum ListingReviewStatus {
+  DRAFT
+  AWAITING_HOST_REVIEW
+  CHANGES_REQUESTED
+  HOST_APPROVED
+}
+
+// An invitation for a property owner who has no FYStay host account yet.
+// Only the token's SHA-256 is stored. Accepting needs a signed-in account
+// whose verified email matches `email` - the link alone grants nothing.
+model HostInvitation {
+  id           String    @id @default(cuid())
+  email        String
+  name         String
+  phone        String?
+  // How the owner agreed to be contacted about listing with FYStay
+  // (e.g. "Phone call with owner, 9 Oct"). Required: no consent, no invite.
+  consentNote  String
+  tokenHash    String?   @unique
+  expiresAt    DateTime?
+  sentAt       DateTime?
+  invitedById  String
+  invitedBy    User      @relation("HostInvitationsSent", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedAt   DateTime?
+  acceptedById String?
+  acceptedBy   User?     @relation("HostInvitationsAccepted", fields: [acceptedById], references: [id], onDelete: SetNull)
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  listings     Listing[]
+
+  @@index([email])
+}
+
+enum ListingReviewEventType {
+  PREPARED
+  INVITATION_SENT
+  HOST_ACCESS_GRANTED
+  SENT_FOR_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  APPROVAL_INVALIDATED
+  PUBLISHED
+  UNPUBLISHED
+}
+
+// The audit trail for an admin-prepared listing: who did what, to which
+// revision, and any note (e.g. the host's requested changes).
+model ListingReviewEvent {
+  id        String                 @id @default(cuid())
+  listingId String
+  listing   Listing                @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?                  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorRole Role?
+  type      ListingReviewEventType
+  revision  Int
+  note      String?
+  createdAt DateTime               @default(now())
+
+  @@index([listingId, createdAt])
+}
+
+enum AdminAuditAction {
+  USER_SUSPENDED
+  USER_REINSTATED
+  USER_DELETED
+  LISTING_ASSIGNED
+}
+
+// A record of each admin action on an account or listing, for support and
+// legal questions later ("who suspended this account, and why?"). Targets
+// are plain ids, not relations, so the record outlives the listing or the
+// account's personal details.
+model AdminAuditEvent {
+  id              String           @id @default(cuid())
+  actorId         String?
+  actor           User?            @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action          AdminAuditAction
+  targetUserId    String?
+  targetListingId String?
+  note            String?
+  createdAt       DateTime         @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([targetListingId, createdAt])
 }

@@ -107,8 +107,8 @@ export function GuestMenu() {
           aria-hidden
         />
         <div className="max-h-[70vh] overflow-y-auto p-1.5">
-          {/* Account actions only: the four sections are the tab row under the
-              header on every page (see SectionPillsBar), so they aren't
+          {/* Account actions only: the four sections are the bottom tab bar
+              on phones and in the header on desktop (see SiteBottomNav), so they aren't
               repeated here. */}
           <Link
             href={authHref("/register")}
