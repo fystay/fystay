@@ -110,7 +110,8 @@ they are **not** drift:
 
 - the `ensure_rls` event trigger and `public.rls_auto_enable()` - a
   project-level setup that enables RLS on every new public table (no
-  migration creates them);
+  migration creates them; `20261012120000_revoke_rls_auto_enable_from_api`
+  only revokes the API roles' EXECUTE on the function);
 - the RLS policies and the `fystay_pms_host_scoped` role from
   `20260914070000_add_pms_row_level_security`;
 - RLS enabled on every table;
