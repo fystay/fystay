@@ -63,6 +63,19 @@ export default async function HostPayoutsPage({
         </Card>
       )}
 
+      {error === "email_not_verified" && (
+        <Card className="mt-6 border-amber-200 bg-amber-50">
+          <CardContent className="pt-5 text-sm text-amber-900">
+            Please confirm your email address before connecting payouts - booking notifications go
+            there. Use the link we emailed you, or{" "}
+            <Link href="/account" className="font-medium underline">
+              send a new one from your account
+            </Link>
+            .
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="mt-6">
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div className="flex flex-col gap-1.5">
