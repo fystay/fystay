@@ -26,17 +26,22 @@ const STEPS = [
       "Pick Flexible, Moderate, Strict, Non-refundable (a full refund only within 24 hours of paying), or set your own Custom refund percentage and cutoff. This is shown to guests before they book, and drives every refund calculation automatically.",
   },
   {
-    title: "4. Publish and manage availability",
+    title: "4. Connect payouts and get paid",
+    description:
+      "Connect a Stripe account from Payouts in your host dashboard - guests can't pay for a stay until it's set up. When a guest pays, your share - 90% of the stay price after any weekly or monthly discount you offer (FYStay's 10% commission comes off; a FYStay promo code or credit the guest uses is paid for by FYStay, not you) - goes to your Stripe account straight away. Stripe then pays it into your bank on your Stripe payout schedule, which you can see in your Stripe dashboard - a new account's first payout can take a little longer while Stripe checks it. If a booking is cancelled and the guest gets a refund under your cancellation policy, the same proportion of your share is taken back.",
+  },
+  {
+    title: "5. Publish and manage availability",
     description:
       "Publish your listing to make it bookable, and block off any dates it isn't available (maintenance, personal use) from its calendar.",
   },
   {
-    title: "5. Manage bookings",
+    title: "6. Manage bookings",
     description:
       "Confirmed bookings, date-change requests, and cancellations all appear on your host dashboard. Respond to date-change requests and reviews from there too.",
   },
   {
-    title: "6. Meet your legal and safety responsibilities",
+    title: "7. Meet your legal and safety responsibilities",
     description:
       "As the host, you're responsible for your property meeting UK safety law, not FYStay: a valid gas safety (CP12) certificate if it has any gas appliances, working smoke alarms on every floor and a carbon monoxide alarm in any room with a solid fuel appliance, an up-to-date Energy Performance Certificate, and furniture that meets fire safety regulations. Public liability insurance covering paying guests is strongly recommended - a standard home insurance policy usually doesn't cover this. Check current requirements with gov.uk and your local council before you publish your first listing.",
   },
