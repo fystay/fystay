@@ -344,6 +344,12 @@
       "files": {
         "migration.sql": "1f10ac32614738d05ba7ae7dabce107b63993f17d8ad03c5c63435272fa473c4"
       }
+    },
+    {
+      "name": "20261012140000_admin_audit_events",
+      "files": {
+        "migration.sql": "4dd9b23d53f98fbd3de67f7e281d9984cc9dcf404b52c4e01c024bca621c3a5b"
+      }
     }
   ],
   "retired": [

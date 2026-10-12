@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AddPropertyForm } from "@/components/onboarding/AddPropertyForm";
+import { isListingAiDraftConfigured } from "@/lib/listingAiDraft";
 
 export const metadata: Metadata = { title: "Add a property", robots: { index: false } };
 
@@ -72,6 +73,7 @@ export default async function AddPropertyPage({
 
       <AddPropertyForm
         searched={Boolean(q)}
+        importEnabled={isListingAiDraftConfigured()}
         hosts={hosts.map((host) => ({ id: host.id, name: host.name, email: host.email, suspended: Boolean(host.suspendedAt) }))}
       />
     </div>

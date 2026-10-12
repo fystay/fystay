@@ -77,4 +77,26 @@ describe("POST /api/admin/properties", () => {
     expect(res.status).toBe(400);
     expect(invitationCreate).not.toHaveBeenCalled();
   });
+
+  it("saves the details an admin checked in an import preview, still as a private draft", async () => {
+    const details = {
+      description: "A bright two-bedroom flat a short walk from the promenade.",
+      address: "1 Sea View Road",
+      bedrooms: 2,
+      bathrooms: 1,
+      maxGuests: 4,
+      amenities: ["Wifi"],
+      additionalRules: "No smoking",
+      pricePerNightCents: 9500,
+    };
+    expect((await create({ ...property, details, host: { kind: "existing", userId: "host_1" } })).status).toBe(201);
+    expect(listingCreate.mock.calls[0][0].data).toMatchObject({ ...details, published: false, reviewStatus: "DRAFT" });
+  });
+
+  it("refuses imported amenities FYStay doesn't list, and silly prices", async () => {
+    const host = { kind: "existing", userId: "host_1" };
+    expect((await create({ ...property, details: { amenities: ["Helipad"] }, host })).status).toBe(400);
+    expect((await create({ ...property, details: { pricePerNightCents: 50_000_000 }, host })).status).toBe(400);
+    expect(listingCreate).not.toHaveBeenCalled();
+  });
 });

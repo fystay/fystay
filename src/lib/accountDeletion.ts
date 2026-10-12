@@ -7,6 +7,13 @@ export type AccountDeletionBlock =
   | "listings_still_exist"
   | "stripe_connect_active";
 
+/** Each block as an admin reads it (the account page has its own wording for the person themselves). */
+export const ADMIN_DELETION_BLOCK_MESSAGES: Record<AccountDeletionBlock, string> = {
+  upcoming_bookings_as_guest: "They have an upcoming or in-progress booking as a guest - cancel it first.",
+  listings_still_exist: "They still have listings - transfer or remove them first.",
+  stripe_connect_active: "They have a Stripe payouts account - close it in Stripe and wind down payouts first.",
+};
+
 /**
  * Real, structural reasons an account can't just be anonymized on the
  * spot - each one means real money or a real future stay is still in

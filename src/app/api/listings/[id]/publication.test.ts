@@ -125,6 +125,13 @@ beforeEach(() => {
 });
 
 describe("who may edit", () => {
+  it("ignores a hostId in the request - a host can't hand their listing to anyone, or take one", async () => {
+    expect((await patch({ title: "Lodge on the Lake, renamed", hostId: "host_2", preparedById: null })).status).toBe(200);
+    const data = listingUpdate.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty("hostId");
+    expect(data).not.toHaveProperty("preparedById");
+  });
+
   it("refuses another host - one host never touches another's listing", async () => {
     state.session = { user: { id: "host_2", role: "HOST" } };
     expect((await patch({ title: "Mine now" })).status).toBe(403);

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ListingSuspendActions } from "@/components/admin/ListingSuspendActions";
+import { ListingTransferAction } from "@/components/admin/ListingTransferAction";
 import { formatDate, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -175,7 +176,8 @@ export default async function AdminListingsPage({
                       </p>
                     )}
                   </div>
-                  <div className="shrink-0">
+                  <div className="flex shrink-0 gap-2">
+                    <ListingTransferAction listingId={listing.id} listingTitle={listing.title} />
                     <ListingSuspendActions listingId={listing.id} suspended={Boolean(listing.suspendedAt)} />
                   </div>
                 </CardContent>

@@ -72,6 +72,13 @@ describe("POST /api/listings (host self-service)", () => {
     expect((await res.json()).notice).toMatch(/payout setup/);
   });
 
+  it("always makes the signed-in host the owner, whatever hostId the request sends", async () => {
+    const res = await POST(new Request("http://x", { method: "POST", body: JSON.stringify({ ...body, hostId: "host_2", preparedById: "admin_1" }) }));
+    expect(res.status).toBe(201);
+    expect(listingCreate.mock.calls[0][0].data).toMatchObject({ hostId: "host_1" });
+    expect(listingCreate.mock.calls[0][0].data.preparedById).toBeUndefined();
+  });
+
   it("is still host-only", async () => {
     state.role = "GUEST";
     expect((await create()).status).toBe(403);

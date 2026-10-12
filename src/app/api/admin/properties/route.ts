@@ -4,12 +4,28 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { normalizeEmail, recordReviewEvent } from "@/lib/listingOnboarding";
+import { listingFieldSchemas } from "@/lib/validation";
+import { AMENITY_OPTIONS } from "@/lib/amenityOptions";
 
 const createPropertySchema = z.object({
   title: z.string().trim().min(3, "Give the property a working title").max(120),
   city: z.string().trim().min(1, "Add the town").max(100),
   country: z.string().trim().min(1).max(100).default("United Kingdom"),
   propertyType: z.enum(["APARTMENT", "HOUSE", "HOTEL", "COTTAGE", "VILLA", "STUDIO", "OTHER"]),
+  // Optional details from an import (POST /api/admin/properties/import),
+  // checked by the admin in the preview. Anything left out starts blank.
+  details: z
+    .object({
+      description: z.union([listingFieldSchemas.description, z.literal("")]).optional(),
+      address: z.string().trim().max(200).optional(),
+      bedrooms: z.number().int().min(0).max(50).optional(),
+      bathrooms: z.number().int().min(0).max(50).optional(),
+      maxGuests: z.number().int().min(1).max(50).optional(),
+      amenities: z.array(z.enum(AMENITY_OPTIONS as [string, ...string[]])).max(AMENITY_OPTIONS.length).optional(),
+      additionalRules: z.string().trim().max(2000).optional(),
+      pricePerNightCents: listingFieldSchemas.pricePerNightCents.optional(),
+    })
+    .optional(),
   host: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("existing"), userId: z.string().min(1) }),
     z.object({
@@ -32,7 +48,8 @@ const createPropertySchema = z.object({
  * open it, but it isn't public). For an owner without a host account it is
  * held by FYStay against a HostInvitation until they sign in with that
  * email and accept - no account is created for them. Either way it starts
- * unpublished in DRAFT, with blank details for the admin to fill in.
+ * unpublished in DRAFT, with blank details for the admin to fill in, or the
+ * details the admin checked in an import preview.
  */
 async function postHandler(request: Request) {
   const session = await auth();
@@ -43,7 +60,7 @@ async function postHandler(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const { host, ...property } = parsed.data;
+  const { host, details, ...property } = parsed.data;
   const admin = { id: session.user.id, role: session.user.role };
 
   let hostId: string;
@@ -80,10 +97,15 @@ async function postHandler(request: Request) {
     const created = await tx.listing.create({
       data: {
         ...property,
-        description: "",
-        pricePerNightCents: 0,
+        description: details?.description ?? "",
+        address: details?.address || null,
+        pricePerNightCents: details?.pricePerNightCents ?? 0,
+        ...(details?.bedrooms !== undefined && { bedrooms: details.bedrooms }),
+        ...(details?.bathrooms !== undefined && { bathrooms: details.bathrooms }),
+        ...(details?.maxGuests !== undefined && { maxGuests: details.maxGuests }),
+        additionalRules: details?.additionalRules || null,
         photos: [],
-        amenities: [],
+        amenities: details?.amenities ?? [],
         published: false,
         hostId,
         hostInvitationId,

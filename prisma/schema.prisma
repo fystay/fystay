@@ -313,6 +313,7 @@ model User {
   approvedListings     Listing[]            @relation("ApprovedListings")
   hostInvitationsSent  HostInvitation[]     @relation("HostInvitationsSent")
   hostInvitationsTaken HostInvitation[]     @relation("HostInvitationsAccepted")
+  adminAuditEvents     AdminAuditEvent[]    @relation("AdminAuditActor")
   listingReviewEvents  ListingReviewEvent[]
 
   emailVerificationTokens EmailVerificationToken[]
@@ -2379,4 +2380,29 @@ model ListingReviewEvent {
   createdAt DateTime               @default(now())
 
   @@index([listingId, createdAt])
+}
+
+enum AdminAuditAction {
+  USER_SUSPENDED
+  USER_REINSTATED
+  USER_DELETED
+  LISTING_ASSIGNED
+}
+
+// A record of each admin action on an account or listing, for support and
+// legal questions later ("who suspended this account, and why?"). Targets
+// are plain ids, not relations, so the record outlives the listing or the
+// account's personal details.
+model AdminAuditEvent {
+  id              String           @id @default(cuid())
+  actorId         String?
+  actor           User?            @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action          AdminAuditAction
+  targetUserId    String?
+  targetListingId String?
+  note            String?
+  createdAt       DateTime         @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([targetListingId, createdAt])
 }

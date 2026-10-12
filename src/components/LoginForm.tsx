@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { AuthErrorBanner, SocialSignInButtons, useOAuthErrorMessage } from "@/components/SocialSignInButtons";
 import { safeRedirectPath } from "@/lib/safeRedirect";
+import { PRIVACY_EMAIL } from "@/lib/seo";
 
 type SocialProviders = { google: boolean; apple: boolean };
 
@@ -31,6 +32,10 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const oauthTwoFactor = searchParams.get("twoFactor");
   const [needsCode, setNeedsCode] = useState(Boolean(oauthTwoFactor));
   const [error, setError] = useState<string | null>(null);
+  // Set when the credentials were right but an admin has suspended the
+  // account: they can't sign in, but can still reach support and ask for
+  // their data.
+  const [suspended, setSuspended] = useState(false);
   const [loading, setLoading] = useState(false);
   // Set once the password (and code) are accepted: the button stays busy and
   // says where it's going until the next page is on screen, rather than
@@ -40,6 +45,7 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuspended(false);
     setLoading(true);
 
     let result: Awaited<ReturnType<typeof signIn>>;
@@ -72,7 +78,7 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
     // See auth.ts's AccountSuspendedError - the credentials (and 2FA code,
     // if enabled) were correct, but an admin has suspended this account.
     if (result?.code === "AccountSuspended") {
-      setError("Your account has been suspended. Contact support.");
+      setSuspended(true);
       return;
     }
 
@@ -184,6 +190,20 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
                   <FieldError>{error}</FieldError>
                 </Field>
               </>
+            )}
+
+            {suspended && (
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <p className="font-medium">Your account has been suspended.</p>
+                <p className="mt-1">
+                  To ask why or appeal, <Link href="/contact" className="font-medium underline">contact support</Link>.
+                  For a copy of your account data, email{" "}
+                  <a href={`mailto:${PRIVACY_EMAIL}`} className="font-medium underline">
+                    {PRIVACY_EMAIL}
+                  </a>
+                  .
+                </p>
+              </div>
             )}
 
             <Button type="submit" loading={loading} className="w-full">
