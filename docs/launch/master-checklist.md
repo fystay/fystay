@@ -59,6 +59,12 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | [#7](https://github.com/fystay/fystay/pull/7) | Refuse new live payments until trader name + address are set (blocker 3) | Blocker 1 (legal entity) + approval. Merging closes live checkout until the two settings exist. |
 | [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check capacity on payment; refund + email the host instead of overselling; 31-min payment pages | Approval: changes the live Stripe webhook and Spotlight payments |
 
+**Release 12 Oct (prepared, awaiting owner approval; not live).** Branch `claude/release-2026-10-12` combines #17, #25, #26, #27, #28, #29, #30 and #31 on the working branch, with every PR's current head included and no conflicts left. Full checks pass on the combined branch: 1,677 unit tests (UTC and UK time), typecheck, lint, migration manifest, production build, 130 browser tests on a production build (1 skipped by design). Plan:
+1. Production migration workflow, dispatched from the release branch at its head: applies `20261012120000` (#14, already merged) → `130000` → `140000` → `150000` → `160000` → `170000`, all additive. Production was verified at `20261011120000` (56 applied, no failed rows; the retired `190352` row is known).
+2. Merge the release PR into `claude/airbnb-competitor-1fjjpk`: one Production deploy containing everything; GitHub marks #17, #25-#31 merged.
+3. After deploy: confirm the deployed commit, `/api/health`, header (bottom tab bar on phones, "· Apartments · B&Bs · Lodges"), search (town/landmark + dates), filters, calendar sync page, admin property pages.
+The pending run 38244398792 (#25's old head) is superseded by step 1: reject it.
+
 **Merged 12 Oct (later):** #16, #18 (password show/hide), #19 (Google Places search), #20, #21, #22 (calendar re-sync before booking), #23 (hello@ sender), #24. Working branch now `d5ba58c`.
 
 **Open, verified 12 Oct ~17:00.** Every PR below is open, has no review comments, and passed the full local checks (unit tests, typecheck, lint, build, 124-128 browser tests on a production build) on the head shown. CI re-runs on each push; check the PR for its current result before approving.
