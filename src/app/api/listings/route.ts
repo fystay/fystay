@@ -14,6 +14,8 @@ import { paginateListings, parsePageParam } from "@/lib/listingSearch";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { parseStayDate } from "@/lib/stayDates";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { publicationBlockers } from "@/lib/listingReview";
+import { payoutReadinessRequired } from "@/lib/stripeConnect";
 import { resolveLastMinuteDeal } from "@/lib/dealValidation";
 import { createListingSchema } from "@/lib/listingInput";
 import { weekendRateError } from "@/lib/pricing";
@@ -157,6 +159,38 @@ async function postHandler(request: Request) {
     parsed.data;
   const isHotel = rest.propertyType === "HOTEL";
 
+  // A new listing goes live straight away only if it passes the same
+  // publication checks as every other listing (src/lib/listingReview.ts);
+  // otherwise it's saved hidden and the host is told what's left.
+  const host = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: {
+      name: true,
+      emailVerifiedAt: true,
+      suspendedAt: true,
+      deletedAt: true,
+      stripeConnectChargesEnabled: true,
+      stripeConnectPayoutsEnabled: true,
+    },
+  });
+  const blockers = publicationBlockers({
+    listing: {
+      title: rest.title,
+      description: rest.description,
+      city: rest.city,
+      photos: rest.photos,
+      pricePerNightCents: isHotel ? 1 : (pricePerNightCents ?? 0),
+      propertyType: rest.propertyType ?? "OTHER",
+      suspendedAt: null,
+      suspendedReason: null,
+      preparedById: null,
+      reviewStatus: null,
+      hostInvitationId: null,
+    },
+    host,
+    payoutsRequired: payoutReadinessRequired(),
+  });
+
   // For a HOTEL listing, roomTypes (validated non-empty above) are the
   // source of truth for price/capacity - Listing's own columns become a
   // denormalized "from £X / up to N guests" summary derived from them (see
@@ -170,6 +204,7 @@ async function postHandler(request: Request) {
         ...rest,
         ...deal.fields,
         hostId: session.user.id,
+        published: blockers.length === 0,
         pricePerNightCents: isHotel
           ? Math.min(...roomTypes!.map((r) => r.pricePerNightCents))
           : pricePerNightCents!,
@@ -197,7 +232,15 @@ async function postHandler(request: Request) {
     ? await prisma.listing.update({ where: { id: listing.id }, data: coordinates })
     : listing;
 
-  return NextResponse.json({ listing: withCoordinates }, { status: 201 });
+  return NextResponse.json(
+    {
+      listing: withCoordinates,
+      ...(blockers.length > 0 && {
+        notice: `Saved, but hidden from guests for now. ${blockers.map((b) => b.message).join(" ")} Then switch it to Live.`,
+      }),
+    },
+    { status: 201 },
+  );
 }
 
 export const GET = withApiErrorHandling(getHandler);

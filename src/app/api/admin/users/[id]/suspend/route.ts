@@ -70,6 +70,15 @@ async function patchHandler(request: Request, { params }: { params: Promise<{ id
       : { suspendedAt: null, suspendedReason: null },
   });
 
+  await prisma.adminAuditEvent.create({
+    data: {
+      actorId: session.user.id,
+      action: parsed.data.suspended ? "USER_SUSPENDED" : "USER_REINSTATED",
+      targetUserId: id,
+      note: parsed.data.suspended ? parsed.data.reason || null : null,
+    },
+  });
+
   return NextResponse.json({
     user: { id: updated.id, suspendedAt: updated.suspendedAt, suspendedReason: updated.suspendedReason },
   });

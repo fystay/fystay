@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AMENITY_OPTIONS } from "@/lib/amenityOptions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Camera, ClipboardList, Home, MapPin, ShieldCheck, Wallet, Zap } from "lucide-react";
@@ -133,37 +134,6 @@ const emptyValues: ListingFormValues = {
   roomTypes: [],
 };
 
-// A curated checklist covering the amenities guests actually filter by
-// (worded to match the regex categories in amenityCategories.ts, so ticking
-// one here is guaranteed to be found by that filter) plus other common
-// short-stay amenities. Anything a host has that isn't on this list still
-// has a home in the free-text "Other amenities" field below it.
-const AMENITY_OPTIONS = [
-  "Wifi",
-  "Free parking",
-  "Kitchen",
-  "Washer",
-  "Dryer",
-  "Air conditioning",
-  "Heating",
-  "TV",
-  "Pool",
-  "Hot tub",
-  "Gym",
-  "Pet friendly",
-  "Step-free entrance",
-  "Wide doorways",
-  "Accessible bathroom",
-  "Elevator access",
-  "Accessible parking",
-  "Sea view",
-  "Garden",
-  "Balcony",
-  "BBQ grill",
-  "Fireplace",
-  "Dedicated workspace",
-  "EV charger",
-];
 
 function splitAmenities(amenities: string[]): { selected: string[]; custom: string } {
   const selected: string[] = [];
@@ -186,9 +156,17 @@ const POLICY_PREVIEWS: Record<Exclude<CancellationPolicyKind, "CUSTOM">, string>
 type Props = {
   listingId?: string;
   initialValues?: ListingFormValues;
+  /** Where to go after saving - the admin property page when FYStay is preparing a listing. */
+  afterSaveHref?: string;
+  /**
+   * A private draft FYStay is preparing: save whatever is filled in so far
+   * (no photo, description or price needed yet). The publication checks
+   * still require them before it can go live.
+   */
+  allowIncomplete?: boolean;
 };
 
-export function ListingForm({ listingId, initialValues }: Props) {
+export function ListingForm({ listingId, initialValues, afterSaveHref = "/host/listings", allowIncomplete = false }: Props) {
   const router = useRouter();
   const [values, setValues] = useState<ListingFormValues>(initialValues ?? emptyValues);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
@@ -224,7 +202,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
     e.preventDefault();
     setError(null);
 
-    if (values.photos.length === 0) {
+    if (values.photos.length === 0 && !allowIncomplete) {
       setError("Add at least one photo.");
       toast.error("Add at least one photo.");
       return;
@@ -309,7 +287,7 @@ export function ListingForm({ listingId, initialValues }: Props) {
     };
 
     let res: Response;
-    let data: { error?: string };
+    let data: { error?: string; notice?: string };
     try {
       res = await fetch(listingId ? `/api/listings/${listingId}` : "/api/listings", {
         method: listingId ? "PATCH" : "POST",
@@ -334,8 +312,11 @@ export function ListingForm({ listingId, initialValues }: Props) {
       return;
     }
 
-    toast.success(listingId ? "Listing updated" : "Listing created");
-    router.push("/host/listings");
+    // The server's own explanation when the save changed what guests can
+    // see (saved hidden, or sent back to the host for approval).
+    if (data.notice) toast.info(data.notice, { duration: 10000 });
+    else toast.success(listingId ? "Listing updated" : "Listing created");
+    router.push(afterSaveHref);
     router.refresh();
   }
 
@@ -362,8 +343,8 @@ export function ListingForm({ listingId, initialValues }: Props) {
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              required
-              minLength={10}
+              required={!allowIncomplete}
+              minLength={allowIncomplete ? undefined : 10}
               maxLength={5000}
               rows={5}
               value={values.description}
@@ -448,9 +429,9 @@ export function ListingForm({ listingId, initialValues }: Props) {
                 <Label htmlFor="price">Price / night (£)</Label>
                 <Input
                   id="price"
-                  required
+                  required={!allowIncomplete}
                   type="number"
-                  min={1}
+                  min={allowIncomplete ? 0 : 1}
                   max={10000}
                   step="0.01"
                   value={values.pricePerNight}
