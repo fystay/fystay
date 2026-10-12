@@ -165,6 +165,10 @@ async function postHandler(request: Request) {
       },
     ],
     metadata: { purpose: "listing_promotion", promotionId: promotion.id },
+    // Like every other checkout: a short-lived page, so the Spotlight row
+    // checked above can't change much before it's paid (a placement that no
+    // longer fits is refunded on payment - see activatePaidPromotion).
+    expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
     success_url: `${BASE_URL}/host/promote?success=1`,
     cancel_url: `${BASE_URL}/host/promote?cancelled=1`,
   });

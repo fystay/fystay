@@ -92,14 +92,22 @@ describe("spotlightAvailability", () => {
 });
 
 describe("activatePaidPromotion", () => {
-  function fakeDb(promotion: { status: string } | null, existingEnds: (Date | null)[], updated = 1) {
+  function fakeDb(
+    promotion: { status: string } | null,
+    existingEnds: (Date | null)[],
+    updated = 1,
+    otherListingsLive: { listingId: string; endsAt: Date }[] = [],
+  ) {
     const updateMany = vi.fn(async () => ({ count: updated }));
     const executeRaw = vi.fn(async () => 0);
     const tx = {
       $executeRaw: executeRaw,
       listingPromotion: {
         findUnique: async () => (promotion ? { id: "p1", listingId: "l1", hostId: "h1", days: 7, ...promotion } : null),
-        findMany: async () => existingEnds.map((endsAt) => ({ endsAt })),
+        // The listing's own paid placements, or (with listingId: { not })
+        // the other listings' overlapping ones for the capacity check.
+        findMany: async ({ where }: { where: { listingId: unknown } }) =>
+          typeof where.listingId === "string" ? existingEnds.map((endsAt) => ({ endsAt })) : otherListingsLive,
         updateMany,
       },
     };
@@ -117,11 +125,25 @@ describe("activatePaidPromotion", () => {
     });
   });
 
-  it("works out the dates under a per-listing lock, so two payments landing together can't take the same days", async () => {
+  it("works out the dates under one Spotlight-wide lock, so payments landing together can't take the same days or slot", async () => {
     const { db, executeRaw } = fakeDb({ status: "PENDING_PAYMENT" }, []);
     await activatePaidPromotion(db, "p1", null, now);
     expect(executeRaw).toHaveBeenCalledTimes(1);
-    expect(executeRaw.mock.calls[0].slice(1)).toEqual(["promotion:l1"]);
+    expect(executeRaw.mock.calls[0].slice(1)).toEqual(["promotion:spotlight"]);
+  });
+
+  it("cancels instead of activating when other hosts filled the row while this one was paying", async () => {
+    const full = Array.from({ length: SPOTLIGHT_SLOTS }, (_, i) => ({ listingId: `other_${i}`, endsAt: days(5) }));
+    const { db, updateMany } = fakeDb({ status: "PENDING_PAYMENT" }, [], 1, full);
+    await expect(activatePaidPromotion(db, "p1", "pi_1", now)).resolves.toBeNull();
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: "p1", status: "PENDING_PAYMENT" }, data: { status: "CANCELLED" } });
+  });
+
+  it("still activates while one slot is free", async () => {
+    const almost = Array.from({ length: SPOTLIGHT_SLOTS - 1 }, (_, i) => ({ listingId: `other_${i}`, endsAt: days(5) }));
+    const { db } = fakeDb({ status: "PENDING_PAYMENT" }, [], 1, almost);
+    await expect(activatePaidPromotion(db, "p1", "pi_1", now)).resolves.toMatchObject({ id: "p1" });
   });
 
   it("does nothing for a placement that's already paid (a redelivered webhook)", async () => {
