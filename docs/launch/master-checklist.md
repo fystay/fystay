@@ -3,16 +3,9 @@
 **The single remaining-work list.** Update this file instead of re-auditing.
 When an item is done, move it to COMPLETE with the commit or date.
 
-Last full audit: 6 October 2026 (Stage 3 launch audit). **Start with
-[handover.md](handover.md)**: current state, launch blockers in order, and
-the tests still to run.
-
-**Production now (6 October 2026):** commit `e665a30`, `fystay.vercel.app`.
-Newer fixes are on Preview only until a fresh Production build.
-
-**Production database:** up to date (all 49 migrations, applied by workflow
-run #17 on 6 Oct, no drift; rechecked 6 Oct 20:00 UTC). 0 listings, 0 bookings,
-no admin yet.
+Last verified: **12 October 2026** (launch-control mini-audit, read-only
+checks of GitHub, Vercel, Stripe and Supabase). Earlier audits are kept
+below as history. [handover.md](handover.md) has the background.
 
 Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-setup.md) ·
 [launch runbook](launch-runbook.md) ·
@@ -21,64 +14,67 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 
 ---
 
-## FIX NOW (code)
+## Verified state (12 Oct 2026)
 
-Nothing outstanding. Every code item found in the 1 October audit is fixed
-and deployed (see COMPLETE).
-
-## CONFIGURE LATER (Vercel Production variables, no domain needed)
-
-**RED (found 6 Oct):** Production `NEXTAUTH_URL` is the placeholder `https://fystay-xxxxx.vercel.app`. Sign-out redirects to that dead address. Change it to `https://fystay.vercel.app`, then make a fresh Production build.
-
-| Item | Why it matters | Blocks launch? |
+| Area | State | Evidence |
 |---|---|---|
-| `TWO_FACTOR_ENCRYPTION_KEY` | 2FA shows "not available" without it. Generate once with `openssl rand -hex 32`; never change it afterwards. | Yes |
-| **Sentry: live in Production since 2 Oct** (`c12c250`, `dpl_7MkzK9UhuX582sogSSNigb9MsvDw`). Project `fystay/fystay-web` (EU). DSN, org, project and auth token are set for Production + Preview. Source maps upload at build; the release is the commit SHA, with Vercel deploys recorded in Sentry. No personal data is sent. The CSP allows the ingest host. | Done | Done |
-| ~~Delete `SEED_ADMIN_SECRET` from Vercel Production~~ | Done: Preview only, checked 6 Oct. | Done |
-| ~~Delete `PROD_DIRECT_URL` from Vercel Production~~ | Done: not in Vercel Production, checked 6 Oct. Keep the GitHub secret. | Done |
-| `PMS_ENCRYPTION_KEY` | Only if hosts may connect a property-management system at launch. | No |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`; `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | "Continue with Google / Apple". Hidden until set. Run migration `20261006220000_add_auth_identities` first. Setup: [social-sign-in.md](social-sign-in.md) | No |
+| Code | Working branch `claude/airbnb-competitor-1fjjpk` at `db4eda4`; CI green | GitHub Actions CI run #226 |
+| Production deploy | `db4eda4` live on `www.fystay.co.uk` (apex redirects to www); `fystay.vercel.app` still attached | Vercel deployment `dpl_CEPwm2QeZUuzeNniSWJQrRHfE4YM`, domains verified |
+| Production health | `/api/health`: database ok, config ok | Fetched 12 Oct |
+| Production settings | Database, Auth, base URL and `NEXTAUTH_URL` (www domain), cron, 2FA key, Supabase, Sentry, Google sign-in, Resend key, `EMAIL_FROM` on own domain, dispute inbox, live Stripe key, both live webhook secrets: all present | Vercel variable names (values never read); health check confirms the Stripe key is live |
+| Stripe live account | Charges and payouts enabled, identity verified, bank account linked, statement descriptor `FYSTAY`; account type: individual | Stripe API, read-only |
+| Live webhooks | Account-events and connected-accounts endpoints enabled on `https://www.fystay.co.uk/api/webhooks/stripe` | Stripe API, read-only; no live event delivered yet |
+| Production database | All migrations applied (run #23, 11 Oct); deny-all row-level security on every table; only advisor warning is the known P2 `rls_auto_enable()` | GitHub Actions, Supabase advisors |
+| Catalogue | 0 listings live | `/api/listings` |
 
-## REQUIRES DOMAIN
+## LAUNCH BLOCKERS (outstanding)
 
-| Item | Notes |
-|---|---|
-| Buy/confirm the domain | Nothing in the repo proves `fystay.co.uk` is yours; the site currently shows `support@`, `privacy@` and `legal@fystay.co.uk`. |
-| Point the domain at Vercel, then set `NEXT_PUBLIC_BASE_URL` (and `NEXTAUTH_URL`) to it | A trailing slash is now harmless (fixed in `65bf640`). Rebuild after changing. |
-| Resend: verify the domain (SPF, DKIM, DMARC), create a sending-only API key, set `RESEND_API_KEY` + `EMAIL_FROM` | **Blocks launch**: without it there are no booking emails and no password reset. |
-| Set `NEXT_PUBLIC_SUPPORT_EMAIL` / `_PRIVACY_EMAIL` / `_LEGAL_EMAIL` to mailboxes you actually read | Defaults are the `@fystay.co.uk` addresses. |
-| `DISPUTE_ALERT_EMAIL`, `EV_EXEC_NOTIFICATION_EMAIL` | Ops inboxes for chargebacks and trip-extra orders. |
-| Google OAuth redirect URI, Stripe webhook URLs | Must use the final domain. |
+| # | Blocker | Type | Next step |
+|---|---|---|---|
+| 1 | **Trader identity.** The business structure is not finalised, so the site can't name the trader. Set `NEXT_PUBLIC_COMPANY_LEGAL_NAME` and `NEXT_PUBLIC_COMPANY_ADDRESS` (+ `NEXT_PUBLIC_COMPANY_NUMBER` only for a company) once decided. **Never publish placeholder details.** | External (owner) | Decide the entity and the address to publish |
+| 2 | **Legal sign-off.** Solicitor review of Terms, Privacy, Cookies and cancellation wording; host terms don't exist yet (draft in [legal-drafts.md](legal-drafts.md)); ICO registration; VAT on the 10% commission and invoicing (accountant); whether hosts must be told about HMRC digital-platform reporting; chargeback liability under destination charges. | External (owner) | Instruct solicitor/accountant |
+| 3 | **Payment safeguard, ready for review, not merged.** Branch `claude/trader-identity-gate` (`b2b3988`): on Production, refuses new payments (booking, date change, extras, Spotlight) and marks readiness incomplete until blocker 1 is set. Refunds, webhooks, payouts and deposits are unaffected. Merging deploys to Production and closes live checkout until blocker 1 is done. | Code, awaiting approval | Owner approves merge |
+| 4 | **Hosts can self-publish.** New listings go live immediately (`Listing.published` defaults to true); admins can only suspend afterwards. With live Stripe on, a stranger could list and take payments before host terms exist. | Owner decision | Keep hosts invite-only until blocker 2, or accept the risk |
+| 5 | **Credential rotation unconfirmed.** Production database password was shared in chat on 7 Oct; Vercel `DATABASE_URL` was last changed before that note. The Stripe sandbox key pasted in chat also needs rolling. | External (owner) | Reset database password; update Vercel `DATABASE_URL`/`DIRECT_URL` and GitHub `PROD_DIRECT_URL`; redeploy; roll the sandbox key |
+| 6 | **Email delivery unproven.** Settings pass the health check, but no real email has been seen to arrive. | External (owner test) | Password reset to a real inbox; check it isn't in spam |
+| 7 | **Backups unverified.** Production backup / point-in-time-recovery setting not visible to Claude; the backup project still holds old data awaiting clean-up approval. | External (owner) | Confirm backups in Supabase; restore drill can follow launch |
+| 8 | **No real-money test yet.** Only sandbox tests (11 Oct) have passed. | External (owner), after 1-3 | One real booking and refund ([handover.md](handover.md) Step 4) |
+| 9 | Stripe business description still says "service fee per booking"; FYStay now charges hosts a 10% commission. | External (owner) | Edit in Stripe dashboard |
+| 10 | **Contact mailboxes unconfirmed.** The site shows `support@`, `privacy@` and `legal@fystay.co.uk` by default (`NEXT_PUBLIC_SUPPORT_EMAIL` / `_PRIVACY_EMAIL` / `_LEGAL_EMAIL` are not set in Production). Nothing confirms those inboxes receive mail. | External (owner test) | Send a test message to each, or set the variables to inboxes you read |
 
-## REQUIRES BUSINESS REGISTRATION
+## PRs (12 Oct)
 
-| Item | Notes |
-|---|---|
-| `NEXT_PUBLIC_COMPANY_LEGAL_NAME`, `NEXT_PUBLIC_COMPANY_ADDRESS` (+ `NEXT_PUBLIC_COMPANY_NUMBER` if a company) | Shown on Terms and Privacy. A sole trader leaves the number empty (supported since `c546f0a`). **Blocks launch.** |
-| ICO data-protection fee registration | Most UK businesses processing personal data must pay it. Confirm with your adviser. |
-| Business bank account for Stripe payouts | Needed before live Stripe. |
+**Merged 12 Oct** (into `claude/airbnb-competitor-1fjjpk`, CI green):
+[#8](https://github.com/fystay/fystay/pull/8) hosts confirm their email before connecting payouts ·
+[#10](https://github.com/fystay/fystay/pull/10) date-change "payment unavailable" message ·
+[#12](https://github.com/fystay/fystay/pull/12) checkout + privacy say the host sees the guest's email and phone once confirmed ·
+[#13](https://github.com/fystay/fystay/pull/13) host guide explains how and when hosts get paid ·
+[#14](https://github.com/fystay/fystay/pull/14) migration revoking API access to `rls_auto_enable()` (**still to run on Production via the "Production database migration" workflow**) ·
+[#15](https://github.com/fystay/fystay/pull/15) admin nav landmark label.
 
-## REQUIRES LIVE STRIPE (architecture decision parked)
+**Open, waiting on the owner:**
 
-| Item | Notes |
-|---|---|
-| The Stripe architecture decision | Destination charges and the 10% guest fee are unchanged; direct charges and Managed Risk remain parked. |
-| Live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET` (no publishable key needed) | Production has no Stripe variables, so checkout correctly says payments are unavailable. Exact steps: [stripe-and-email-setup.md](stripe-and-email-setup.md). |
-| Live webhook endpoints (`/api/webhooks/stripe` for account and Connect events) | Register on the final domain. |
-| A live end-to-end test booking and refund with a real card | Repeat the sandbox test plan in Production. |
-| Hosts onboard Stripe Connect | Paid bookings are refused until the host's account can receive payouts. |
+| PR | What | Waiting on |
+|---|---|---|
+| [#7](https://github.com/fystay/fystay/pull/7) | Refuse new live payments until trader name + address are set (blocker 3) | Blocker 1 (legal entity) + approval. Merging closes live checkout until the two settings exist. |
+| [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check capacity on payment; refund + email the host instead of overselling; 31-min payment pages | Approval: changes the live Stripe webhook and Spotlight payments |
 
-## SOLICITOR / ACCOUNTANT REVIEW
+## Checked 12 Oct, no change needed
 
-| Item | Who |
-|---|---|
-| Terms and Conditions, including the intermediary wording ("contract is between guest and host") | Solicitor |
-| Privacy Policy (processor list updated `2d4ea9c`), Cookie Policy | Solicitor |
-| Host terms: none exist yet. A draft is in [legal-drafts.md](legal-drafts.md). | Solicitor |
-| Cancellation-policy wording and consumer-law refund rights | Solicitor |
-| VAT treatment of the 10% guest service fee; invoicing/receipts | Accountant |
-| Whether hosts must be told about tax reporting (e.g. HMRC digital-platform reporting rules) | Accountant/solicitor |
-| Chargeback liability under the final Stripe structure | Solicitor, once the Stripe decision is made |
+- Placeholder content: none visible to guests or hosts (only an admin-page example and "Photo coming soon" image fallbacks).
+- Trust signals: host badges ("Identity verified", ratings, review counts) come from real data; no hard-coded claims.
+- Guest promo codes already need a confirmed email; booking itself doesn't.
+- Fees: service-fee and cleaning-fee rows on receipts and summaries only appear for bookings made before the 11 Oct commission change; new bookings show no extra fees.
+
+**Not to be done before blockers 1-2:** enabling live payments, publishing
+legal details, or onboarding real hosts.
+
+## Owner decisions still open
+
+- Hosts can't cancel a confirmed booking themselves; support does it from `/admin/bookings`.
+- Spotlight prices £15 / £25 / £45 (`src/lib/listingPromotions.ts`).
+- Optional settings, only if wanted at launch: `PMS_ENCRYPTION_KEY` (property-management connections), Apple sign-in (`APPLE_*`), `EV_EXEC_NOTIFICATION_EMAIL` (trip-extra orders inbox).
+- Branch `claude/admin-assisted-onboarding` (listing approval, unmerged, large): not a launch blocker unless chosen as the answer to blocker 4.
 
 ## OPTIONAL / POST-LAUNCH
 
