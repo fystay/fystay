@@ -73,6 +73,9 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | [#23](https://github.com/fystay/fystay/pull/23) | hello@fystay.co.uk as sender and reply-to on every email | First commit already live (deployed from the branch 12 Oct 10:53). Owner: verify `fystay.co.uk` in Resend, make hello@ a real mailbox, then set `EMAIL_FROM` to `FYStay <hello@fystay.co.uk>` |
 | [#24](https://github.com/fystay/fystay/pull/24) | Admin badge and Admin link in the account menu | |
 | [#25](https://github.com/fystay/fystay/pull/25) | Admin property management: import a listing from pasted text or a public link (AI, flagged gaps, editable preview, saved as draft); admin-only host transfer; suspend/reinstate/delete accounts with confirmation and an admin record | Stacked on #17 (merge #17 first). New migration: run the Production migration workflow with #17's. Import needs `ANTHROPIC_API_KEY` |
+| [#26](https://github.com/fystay/fystay/pull/26) | Phone bottom menu (Stays, Explore, Travel, Services); middot before "Apartments" | |
+| [#27](https://github.com/fystay/fystay/pull/27) | Airbnb calendar sync hardening: time zones, all-day and recurring events, sync errors shown, reset link | New migration: run after #17's and #25's |
+| [#28](https://github.com/fystay/fystay/pull/28) | Guest identity and phone verification fixed: real Stripe status on /account, no lost results, full phone code flow with resend/expiry/limits | Phone needs `TWILIO_*` in Production; ID checks need Stripe Identity activated + webhook subscribed to `identity.verification_session.*` |
 
 ## Checked 12 Oct, no change needed
 
@@ -100,7 +103,7 @@ legal details, or onboarding real hosts.
 - Host terms page: add `/legal/host-terms` and require acceptance before
   publishing, once the draft in legal-drafts.md is approved.
 
-- Twilio phone verification (`TWILIO_*`).
+- Twilio phone verification (`TWILIO_*`): code flow built and tested (#28); off in Production until the three settings are added.
 - Ticketmaster events on destination pages (`TICKETMASTER_API_KEY`).
 - Booking.com hotel affiliate. Credentials alone never switch it on: the code must also list it in `LIVE_HOTEL_PROVIDER_CODES`.
 - PMS integrations: Cloudbeds is built, SiteMinder and SuperControl are stubs.
