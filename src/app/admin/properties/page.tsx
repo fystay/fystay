@@ -7,7 +7,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Card } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { StageBadge } from "@/components/onboarding/StageBadge";
-import { PUBLICATION_LISTING_SELECT, publicationState } from "@/lib/listingOnboarding";
+import { PUBLICATION_LISTING_SELECT, fystayListingReviewRequired, publicationState } from "@/lib/listingOnboarding";
 import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Add a property", robots: { index: false } };
@@ -15,7 +15,9 @@ export const metadata: Metadata = { title: "Add a property", robots: { index: fa
 /**
  * Listings FYStay is preparing for property owners (admin-assisted
  * onboarding - see src/lib/listingReview.ts), each with who owns it, where
- * it is in review and the next thing stopping it going live.
+ * it is in review and the next thing stopping it going live - plus, where
+ * FYStay review is on, listings hosts created themselves that are waiting
+ * for FYStay's approval.
  */
 export default async function AdminPropertiesPage() {
   const session = await auth();
@@ -23,7 +25,12 @@ export default async function AdminPropertiesPage() {
   if (session.user.role !== "ADMIN") redirect("/");
 
   const listings = await prisma.listing.findMany({
-    where: { preparedById: { not: null } },
+    where: {
+      OR: [
+        { preparedById: { not: null } },
+        ...(fystayListingReviewRequired() ? [{ preparedById: null, approvedRevision: null, published: false, suspendedAt: null }] : []),
+      ],
+    },
     select: { ...PUBLICATION_LISTING_SELECT, updatedAt: true },
     orderBy: { updatedAt: "desc" },
     take: 100,
@@ -36,7 +43,7 @@ export default async function AdminPropertiesPage() {
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Properties FYStay is preparing</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
             Draft a listing for an owner, send it to them to check and approve, then publish it once every check passes.
-            Drafts stay private until then.
+            Drafts stay private until then. New listings hosts create themselves also appear here until FYStay approves them.
           </p>
         </div>
         <Link href="/admin/properties/new" className={buttonVariants()}>

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { state, listingCreate } = vi.hoisted(() => ({
   state: { host: {} as Record<string, unknown>, stripe: false, role: "HOST" },
@@ -54,6 +54,7 @@ beforeEach(() => {
   };
   listingCreate.mockReset();
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe("POST /api/listings (host self-service)", () => {
   it("still lets a host create their own listing, live when every check passes", async () => {
@@ -70,6 +71,16 @@ describe("POST /api/listings (host self-service)", () => {
     expect(res.status).toBe(201);
     expect(listingCreate.mock.calls[0][0].data.published).toBe(false);
     expect((await res.json()).notice).toMatch(/payout setup/);
+  });
+
+  it("holds it for FYStay's review where review is required, without asking the host to switch it on", async () => {
+    vi.stubEnv("HOST_LISTING_REVIEW", "required");
+    const res = await create();
+    expect(res.status).toBe(201);
+    expect(listingCreate.mock.calls[0][0].data.published).toBe(false);
+    const { notice } = await res.json();
+    expect(notice).toMatch(/FYStay checks every new host's listing/);
+    expect(notice).not.toMatch(/switch it to Live/);
   });
 
   it("always makes the signed-in host the owner, whatever hostId the request sends", async () => {

@@ -154,10 +154,12 @@ const publication = (overrides: Partial<PublicationInput["listing"]> = {}, host 
     preparedById: null,
     reviewStatus: null,
     hostInvitationId: null,
+    approvedRevision: null,
     ...overrides,
   },
   host,
   payoutsRequired,
+  fystayReviewRequired: false,
 });
 const codes = (input: PublicationInput) => publicationBlockers(input).map((b) => b.code);
 
@@ -201,6 +203,31 @@ describe("publication blockers", () => {
       "missing_price",
       "missing_location",
     ]);
+  });
+});
+
+describe("FYStay review of a host's own listing", () => {
+  const reviewed = (overrides: Partial<PublicationInput["listing"]> = {}) => ({ ...publication(overrides), fystayReviewRequired: true });
+
+  it("holds a host's own listing until FYStay approves it, where review is required", () => {
+    expect(codes(reviewed())).toEqual(["awaiting_fystay_review"]);
+    expect(publicationBlockers(reviewed())[0].owner).toBe("fystay");
+    expect(codes(reviewed({ approvedRevision: 1 }))).toEqual([]);
+  });
+
+  it("doesn't ask it of a listing FYStay prepared (the host approves that one) or where review is off", () => {
+    expect(codes(reviewed({ preparedById: "admin_1", reviewStatus: "HOST_APPROVED", approvedRevision: 1 }))).toEqual([]);
+    expect(codes(publication())).toEqual([]);
+  });
+
+  it("still applies every other check after approval", () => {
+    expect(codes(reviewed({ approvedRevision: 1, photos: [] }))).toEqual(["missing_photos"]);
+  });
+
+  it("shows the waiting listing as awaiting FYStay review", () => {
+    const listing = { published: false, suspendedAt: null, preparedById: null, reviewStatus: null, approvedRevision: null };
+    expect(lifecycleStage({ listing, blockers: publicationBlockers(reviewed()) })).toBe("awaiting_fystay_review");
+    expect(lifecycleStage({ listing: { ...listing, approvedRevision: 1 }, blockers: [] })).toBe("ready_to_publish");
   });
 });
 

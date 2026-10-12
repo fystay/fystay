@@ -4,6 +4,7 @@ import { EMAIL_FROM, getResendClient } from "@/lib/email";
 import { escapeHtml, renderEmail } from "@/lib/emailLayout";
 import { generateResetToken, hashResetToken } from "@/lib/passwordReset";
 import { payoutReadinessRequired } from "@/lib/stripeConnect";
+import { type EnvSource, isProductionDeployment } from "@/lib/deploymentEnvironment";
 import {
   lifecycleStage,
   materialSnapshot,
@@ -98,6 +99,19 @@ export const PUBLICATION_LISTING_SELECT = {
   hostInvitation: { select: { id: true, name: true, email: true, sentAt: true, acceptedAt: true } },
 } satisfies Prisma.ListingSelect;
 
+/**
+ * Whether a listing a host creates themselves waits for FYStay's approval
+ * before going live. HOST_LISTING_REVIEW=required or =off decides it;
+ * unset, it's on for Production only, so no stranger's listing takes live
+ * payments unchecked while preview, local and tests keep self-publishing.
+ */
+export function fystayListingReviewRequired(env: EnvSource = process.env): boolean {
+  const setting = env.HOST_LISTING_REVIEW?.trim().toLowerCase();
+  if (setting === "required") return true;
+  if (setting === "off") return false;
+  return isProductionDeployment(env);
+}
+
 export type PublicationListing = Prisma.ListingGetPayload<{ select: typeof PUBLICATION_LISTING_SELECT }>;
 
 /** Blockers and stage for a listing loaded with PUBLICATION_LISTING_SELECT. */
@@ -110,6 +124,7 @@ export function publicationState(listing: PublicationListing): {
     host: listing.host,
     invitation: listing.hostInvitation,
     payoutsRequired: payoutReadinessRequired(),
+    fystayReviewRequired: fystayListingReviewRequired(),
   });
   return { blockers, stage: lifecycleStage({ listing, blockers }) };
 }

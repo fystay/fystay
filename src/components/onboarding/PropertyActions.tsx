@@ -29,12 +29,14 @@ export function PropertyActions({
   canSendInvitation,
   invitationSent,
   canSendForReview,
+  canApprove,
 }: {
   listingId: string;
   stage: LifecycleStage;
   canSendInvitation: boolean;
   invitationSent: boolean;
   canSendForReview: boolean;
+  canApprove: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -103,6 +105,23 @@ export function PropertyActions({
             }
           >
             {busy === "review" ? "Sending…" : "Send for review"}
+          </Button>
+        </div>
+      )}
+
+      {canApprove && (
+        <div>
+          <h3 className="font-semibold text-foreground">Approve this host&apos;s listing</h3>
+          <p className="mt-1 text-sm text-stone-600">
+            Check the host, the photos, the description and the price look genuine. Approving publishes it straight away if every other
+            check passes, and emails the host either way.
+          </p>
+          <Button
+            className="mt-3"
+            disabled={busy !== null}
+            onClick={() => run("approve", () => post(`/api/admin/properties/${listingId}/approve`, {}), "Approved")}
+          >
+            {busy === "approve" ? "Approving…" : "Approve listing"}
           </Button>
         </div>
       )}

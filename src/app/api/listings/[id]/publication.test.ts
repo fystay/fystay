@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * PATCH /api/listings/[id] as the publication gate and host-review hook:
@@ -240,5 +240,24 @@ describe("approval after material changes", () => {
     expect(data.reviewStatus).toBeUndefined();
     expect(data.published).toBeUndefined();
     expect(data.materialRevision).toBe(2);
+  });
+});
+
+describe("FYStay review of a host's own listing", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("won't let the host publish it until FYStay approves it, where review is required", async () => {
+    vi.stubEnv("HOST_LISTING_REVIEW", "required");
+    const res = await patch({ published: true });
+    expect(res.status).toBe(409);
+    expect((await res.json()).blockers.map((b: { code: string }) => b.code)).toEqual(["awaiting_fystay_review"]);
+    expect(listingUpdate).not.toHaveBeenCalled();
+  });
+
+  it("lets it go live once approved", async () => {
+    vi.stubEnv("HOST_LISTING_REVIEW", "required");
+    state.listing = listing({ approvedRevision: 1 });
+    expect((await patch({ published: true })).status).toBe(200);
+    expect(listingUpdate.mock.calls[0][0].data.published).toBe(true);
   });
 });
