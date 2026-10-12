@@ -42,18 +42,22 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | 9 | Stripe business description still says "service fee per booking"; FYStay now charges hosts a 10% commission. | External (owner) | Edit in Stripe dashboard |
 | 10 | **Contact mailboxes unconfirmed.** The site shows `support@`, `privacy@` and `legal@fystay.co.uk` by default (`NEXT_PUBLIC_SUPPORT_EMAIL` / `_PRIVACY_EMAIL` / `_LEGAL_EMAIL` are not set in Production). Nothing confirms those inboxes receive mail. | External (owner test) | Send a test message to each, or set the variables to inboxes you read |
 
-## Open PRs (built 12 Oct; none merged - each merge deploys to Production)
+## PRs (12 Oct)
 
-| PR | What | Status |
+**Merged 12 Oct** (into `claude/airbnb-competitor-1fjjpk`, CI green):
+[#8](https://github.com/fystay/fystay/pull/8) hosts confirm their email before connecting payouts ·
+[#10](https://github.com/fystay/fystay/pull/10) date-change "payment unavailable" message ·
+[#12](https://github.com/fystay/fystay/pull/12) checkout + privacy say the host sees the guest's email and phone once confirmed ·
+[#13](https://github.com/fystay/fystay/pull/13) host guide explains how and when hosts get paid ·
+[#14](https://github.com/fystay/fystay/pull/14) migration revoking API access to `rls_auto_enable()` (**still to run on Production via the "Production database migration" workflow**) ·
+[#15](https://github.com/fystay/fystay/pull/15) admin nav landmark label.
+
+**Open, waiting on the owner:**
+
+| PR | What | Waiting on |
 |---|---|---|
-| [#7](https://github.com/fystay/fystay/pull/7) | Refuse new live payments until trader name + address are set (blocker 3) | CI green; waits on blocker 1 + owner approval |
-| [#8](https://github.com/fystay/fystay/pull/8) | Hosts must confirm their email before connecting Stripe payouts | CI green; owner approval |
-| [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check the 8-slot capacity on payment; refund (and email the host) instead of overselling; 31-min payment pages | CI green; owner approval |
-| [#10](https://github.com/fystay/fystay/pull/10) | Date-change payment unavailable: say the booking is unchanged, not "dates are still held" | CI green; owner approval. Shares one import line with #7 (one-line merge for whichever lands second) |
-| [#12](https://github.com/fystay/fystay/pull/12) | Checkout + privacy policy say the host sees the guest's email and phone once confirmed (trust standard) | CI green; owner approval |
-| [#13](https://github.com/fystay/fystay/pull/13) | Host guide explains how and when hosts get paid (90% share, Stripe schedule, refunds) | CI green; owner approval |
-| [#14](https://github.com/fystay/fystay/pull/14) | Migration revoking API access to `rls_auto_enable()` (last Supabase security-advisor warning) | CI green; owner approval + run via "Production database migration" workflow (either order) |
-| [#15](https://github.com/fystay/fystay/pull/15) | Admin nav landmark label (last of the known P2 accessibility item) | CI green; owner approval |
+| [#7](https://github.com/fystay/fystay/pull/7) | Refuse new live payments until trader name + address are set (blocker 3) | Blocker 1 (legal entity) + approval. Merging closes live checkout until the two settings exist. |
+| [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check capacity on payment; refund + email the host instead of overselling; 31-min payment pages | Approval: changes the live Stripe webhook and Spotlight payments |
 
 ## Checked 12 Oct, no change needed
 
