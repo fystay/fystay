@@ -57,6 +57,7 @@ Stripe's hosted page); it's harmless on Preview and not needed on Production.
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | Phone verification | Unset |
 | `PMS_ENCRYPTION_KEY` | Storing PMS credentials; `openssl rand -hex 32`, never change | Unset |
 | `CLOUDBEDS_CLIENT_ID`, `CLOUDBEDS_CLIENT_SECRET`, `CLOUDBEDS_WEBHOOK_SECRET`, `SITEMINDER_WEBHOOK_SECRET`, `SUPERCONTROL_WEBHOOK_SECRET` | PMS integrations | Unset |
+| `GOOGLE_MAPS_API_KEY` (secret) | Search box: Google Places suggestions for any UK place or postcode, results sorted nearest to it. Server-side only; restrict the key to Places API (New) | Unset (FYStay towns and landmarks only) |
 | `TICKETMASTER_API_KEY` | Events on destination pages | Unset |
 | `BOOKING_COM_API_KEY`, `BOOKING_COM_AFFILIATE_ID`, `BOOKING_COM_API_BASE_URL` | Hotel affiliate; also needs a code change to activate | Unset |
 | `HOTEL_PROVIDER_*`, `HOTEL_*_CACHE_TTL_MS` | Hotel affiliate tuning | Unset (defaults) |

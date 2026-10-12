@@ -4,6 +4,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { ListingsGrid } from "@/components/search/ListingsGrid";
 import { SearchResultsLoader } from "@/components/search/SearchResultsLoader";
 import { findLandmarkByName } from "@/lib/landmarks";
+import { getPlaceLocation } from "@/lib/googlePlaces";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -23,7 +24,12 @@ export default async function SearchPage({
   const resolvedSearchParams = await searchParams;
   const nearParam = typeof resolvedSearchParams.near === "string" ? resolvedSearchParams.near : "";
   const landmark = nearParam ? findLandmarkByName(nearParam) : undefined;
-  const city = typeof resolvedSearchParams.city === "string" ? resolvedSearchParams.city.trim() : "";
+  const placeId = typeof resolvedSearchParams.place === "string" ? resolvedSearchParams.place : "";
+  // Same per-request cached lookup ListingsGrid makes - the name shown here
+  // is Google's, never the ?placeLabel= text from the URL.
+  const place = placeId ? await getPlaceLocation(placeId) : null;
+  const city =
+    !place && typeof resolvedSearchParams.city === "string" ? resolvedSearchParams.city.trim() : "";
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
@@ -33,8 +39,13 @@ export default async function SearchPage({
 
       <div className="mt-8">
         <h1 className="text-xl font-bold text-foreground sm:text-2xl">
-          {landmark ? `Stays near ${landmark.name}` : city ? `Stays in ${city}` : "Stays from local hosts"}
+          {landmark ? `Stays near ${landmark.name}` : place ? `Stays near ${place.name}` : city ? `Stays in ${city}` : "Stays from local hosts"}
         </h1>
+        {!landmark && place && (
+          <p className="mt-1 text-sm text-stone-500">
+            Sorted by distance from {place.name} - use Sort to change that.
+          </p>
+        )}
         {landmark && (
           <p className="mt-1 text-sm text-stone-500">
             Sorted by distance from {landmark.name}, {landmark.town} - use Sort to change that.
