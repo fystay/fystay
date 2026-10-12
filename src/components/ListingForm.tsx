@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AMENITY_OPTIONS } from "@/lib/amenityOptions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Camera, ClipboardList, Home, MapPin, ShieldCheck, Wallet, Zap } from "lucide-react";
@@ -133,37 +134,6 @@ const emptyValues: ListingFormValues = {
   roomTypes: [],
 };
 
-// A curated checklist covering the amenities guests actually filter by
-// (worded to match the regex categories in amenityCategories.ts, so ticking
-// one here is guaranteed to be found by that filter) plus other common
-// short-stay amenities. Anything a host has that isn't on this list still
-// has a home in the free-text "Other amenities" field below it.
-const AMENITY_OPTIONS = [
-  "Wifi",
-  "Free parking",
-  "Kitchen",
-  "Washer",
-  "Dryer",
-  "Air conditioning",
-  "Heating",
-  "TV",
-  "Pool",
-  "Hot tub",
-  "Gym",
-  "Pet friendly",
-  "Step-free entrance",
-  "Wide doorways",
-  "Accessible bathroom",
-  "Elevator access",
-  "Accessible parking",
-  "Sea view",
-  "Garden",
-  "Balcony",
-  "BBQ grill",
-  "Fireplace",
-  "Dedicated workspace",
-  "EV charger",
-];
 
 function splitAmenities(amenities: string[]): { selected: string[]; custom: string } {
   const selected: string[] = [];

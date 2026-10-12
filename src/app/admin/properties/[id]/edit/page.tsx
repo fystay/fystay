@@ -5,6 +5,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ListingForm } from "@/components/ListingForm";
 import { listingFormValues } from "@/lib/listingFormValues";
+import { AiDraftPanel } from "@/components/onboarding/AiDraftPanel";
+import { isListingAiDraftConfigured } from "@/lib/listingAiDraft";
 
 export const metadata: Metadata = { title: "Prepare listing", robots: { index: false } };
 
@@ -36,7 +38,10 @@ export default async function AdminEditPropertyPage({ params }: { params: Promis
         {listing.reviewStatus === "HOST_APPROVED" &&
           " The host has approved it: changing a material detail (price, photos, rules, capacity and so on) sends it back to them for approval, and takes it offline if it's live."}
       </p>
+      {isListingAiDraftConfigured() && <AiDraftPanel listingId={listing.id} />}
       <ListingForm
+        // Remounts after an AI draft is saved, so the form shows the new values.
+        key={listing.updatedAt.toISOString()}
         listingId={listing.id}
         initialValues={listingFormValues(listing)}
         afterSaveHref={`/admin/properties/${id}`}
