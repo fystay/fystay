@@ -12,6 +12,9 @@ import { Resend } from "resend";
  * trace. Every refusal is logged and reported to Sentry here, once, for
  * all of them. The return value is unchanged, so callers that check
  * `error` themselves still can, and no send site starts throwing.
+ *
+ * Replies go to EMAIL_REPLY_TO (hello@fystay.co.uk) unless a send sets its
+ * own reply-to, so a guest or host replying to any email reaches a person.
  */
 export function getResendClient(): Resend | null {
   const key = process.env.RESEND_API_KEY;
@@ -19,7 +22,7 @@ export function getResendClient(): Resend | null {
   const client = new Resend(key);
   const send = client.emails.send.bind(client.emails);
   client.emails.send = async (payload, options) => {
-    const result = await send(payload, options);
+    const result = await send({ replyTo: EMAIL_REPLY_TO, ...payload }, options);
     if (result.error) reportEmailRefused(payload.subject ?? "(no subject)", result.error);
     return result;
   };
@@ -48,9 +51,19 @@ export function reportUnsentOpsAlert(subject: string): void {
 }
 
 /**
- * The address transactional email is sent from once Resend is configured.
- * Resend's onboarding address only delivers to the Resend account's own
- * inbox, so production needs EMAIL_FROM on a verified domain (see
- * /api/health/config).
+ * FYStay's one customer-facing email address: every transactional email -
+ * booking confirmations and cancellations, email verification, password
+ * resets, host notifications, support replies - comes from it, and replies
+ * go back to it. Change it here, not in individual emails.
  */
-export const EMAIL_FROM = process.env.EMAIL_FROM ?? "FYStay <onboarding@resend.dev>";
+export const CUSTOMER_EMAIL_ADDRESS = "hello@fystay.co.uk";
+
+/**
+ * The sender on every email. EMAIL_FROM overrides it per environment (set
+ * it to "FYStay <hello@fystay.co.uk>" in production); the domain must be
+ * verified in Resend or nothing is delivered (see /api/health/config).
+ */
+export const EMAIL_FROM = process.env.EMAIL_FROM?.trim() || `FYStay <${CUSTOMER_EMAIL_ADDRESS}>`;
+
+/** Where replies go, and the address emails tell people to write to. EMAIL_REPLY_TO overrides it. */
+export const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO?.trim() || CUSTOMER_EMAIL_ADDRESS;

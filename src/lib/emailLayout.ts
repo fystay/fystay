@@ -1,4 +1,4 @@
-import { SUPPORT_EMAIL } from "@/lib/seo";
+import { EMAIL_REPLY_TO } from "@/lib/email";
 
 /**
  * FYStay's one email design, shared by every message in notificationEmails.ts
@@ -122,7 +122,7 @@ export function renderEmail(content: EmailContent): string {
             </tr>
             <tr>
               <td style="padding:18px 4px 0;font-family:${SANS};font-size:12px;line-height:1.6;color:${COLORS.muted};">
-                Questions? Write to <a href="mailto:${SUPPORT_EMAIL}" style="color:${COLORS.button};">${SUPPORT_EMAIL}</a>.<br>
+                Questions? Reply to this email or write to <a href="mailto:${EMAIL_REPLY_TO}" style="color:${COLORS.button};">${EMAIL_REPLY_TO}</a>.<br>
                 ${footerLine} FYStay: for your stay.
               </td>
             </tr>
