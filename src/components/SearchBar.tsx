@@ -122,6 +122,22 @@ export function SearchBar({
     pets: parseGuestParam(searchParams.get("pets") ?? undefined, 0),
   });
 
+  // The Filters panel can change the guest count in the URL too; follow it
+  // (during render, React's pattern for state derived from a changed prop),
+  // so this bar shows the real count and its next live search doesn't put
+  // the old one back.
+  const urlGuests = ["adults", "children", "infants", "pets"].map((key) => searchParams.get(key) ?? "").join(",");
+  const [syncedUrlGuests, setSyncedUrlGuests] = useState(urlGuests);
+  if (syncedUrlGuests !== urlGuests) {
+    setSyncedUrlGuests(urlGuests);
+    setGuestCounts({
+      adults: parseGuestParam(searchParams.get("adults") ?? undefined, 1) || 1,
+      children: parseGuestParam(searchParams.get("children") ?? undefined, 0),
+      infants: parseGuestParam(searchParams.get("infants") ?? undefined, 0),
+      pets: parseGuestParam(searchParams.get("pets") ?? undefined, 0),
+    });
+  }
+
   // On the results page, search live as fields change, debounced, so
   // results update without waiting for an explicit "Search" click - the
   // results grid's own Suspense fallback (a skeleton) is what shows the

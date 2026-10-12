@@ -13,8 +13,13 @@ export function totalOccupants({
   return adults + children;
 }
 
+// "Pet friendly", "Pets allowed", "Dogs welcome" - but not "Carpets" or
+// "No pets", which a bare /pet/ used to count as pet-friendly.
+const PETS_WELCOME = /\bpets?\b|pet[- ]?friendly|\bdogs?\b/i;
+const PETS_REFUSED = /\bno (pets?|dogs?)\b|\b(pets?|dogs?) (are )?not (allowed|permitted|accepted)/i;
+
 export function isPetFriendly(amenities: string[]): boolean {
-  return amenities.some((amenity) => /pet/i.test(amenity));
+  return amenities.some((amenity) => PETS_WELCOME.test(amenity) && !PETS_REFUSED.test(amenity));
 }
 
 export function hasParking(amenities: string[]): boolean {

@@ -33,7 +33,6 @@ import {
   parseViewParam,
   sortListings,
 } from "@/lib/listingSearch";
-import { availableAmenityCategories } from "@/lib/amenityCategories";
 import { PROPERTY_TYPES } from "@/lib/propertyType";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { todayStayDate } from "@/lib/stayDates";
@@ -266,14 +265,6 @@ export async function ListingsGrid({
     );
   }
 
-  const availablePropertyTypes = PROPERTY_TYPES.filter((type) =>
-    petFiltered.some((listing) => listing.propertyType === type),
-  );
-  const amenityCategories = availableAmenityCategories(petFiltered).map(({ key, label }) => ({
-    key,
-    label,
-  }));
-
   const filters = parseListingFiltersFromParams(searchParams, PROPERTY_TYPES);
   // A landmark search with no explicit sort chosen yet defaults to nearest
   // first, since that's the entire point of searching a specific place
@@ -320,10 +311,7 @@ export async function ListingsGrid({
                 <X className="h-3.5 w-3.5" aria-hidden />
               </Link>
             ))}
-            <FilterSheet
-              availablePropertyTypes={availablePropertyTypes}
-              availableAmenityCategories={amenityCategories}
-            />
+            <FilterSheet />
             <SortDropdown />
           </div>
         </div>

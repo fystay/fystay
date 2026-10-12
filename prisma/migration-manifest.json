@@ -338,6 +338,12 @@
       "files": {
         "migration.sql": "ae1b2f68e3555970e616992a548733a4dc8e009ca4645e62ff66fe58faaab5e7"
       }
+    },
+    {
+      "name": "20261012160000_property_type_bnb_lodge",
+      "files": {
+        "migration.sql": "381c68a2b844c1ec32b33b57a6534948ca4bb1920cfd4e598408d51614bd150b"
+      }
     }
   ],
   "retired": [

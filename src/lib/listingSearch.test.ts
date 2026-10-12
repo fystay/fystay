@@ -228,3 +228,33 @@ describe("parseSortParam / parseViewParam", () => {
 // parsePageParam/paginateListings are just this module's re-export of the
 // generic helpers in src/lib/pagination.ts (also used outside listings
 // now) - see pagination.test.ts for their own tests.
+
+describe("the Filters panel's combined filters", () => {
+  const stays = [
+    listing({ id: "bnb", propertyType: "BED_AND_BREAKFAST", bedrooms: 2, amenities: ["Wifi", "Washer"] }),
+    listing({ id: "legacy-bnb", propertyType: "OTHER", title: "Harbour B&B", bedrooms: 2, amenities: ["wi-fi", "Washing machine"] }),
+    listing({ id: "lodge", propertyType: "LODGE", bedrooms: 3, amenities: ["Wifi"] }),
+    listing({ id: "flat", propertyType: "APARTMENT", bedrooms: 2, amenities: ["Wifi", "Washer", "Paid parking"] }),
+  ];
+  const ids = (filters: Parameters<typeof applyListingFilters>[1]) => applyListingFilters(stays, filters).map((l) => l.id);
+
+  it("ORs property types together and ANDs everything else", () => {
+    expect(ids({ propertyTypes: ["BED_AND_BREAKFAST", "LODGE"] })).toEqual(["bnb", "legacy-bnb", "lodge"]);
+    expect(ids({ propertyTypes: ["BED_AND_BREAKFAST", "LODGE"], amenityCategories: ["washer"] })).toEqual(["bnb", "legacy-bnb"]);
+    expect(ids({ propertyTypes: ["BED_AND_BREAKFAST", "LODGE"], amenityCategories: ["washer", "wifi"], minBedrooms: 2 })).toEqual(["bnb", "legacy-bnb"]);
+    expect(ids({ propertyTypes: ["LODGE"], amenityCategories: ["washer"] })).toEqual([]);
+  });
+
+  it("treats Free parking as not explicitly paid", () => {
+    expect(ids({ amenityCategories: ["parking"] })).toEqual([]);
+  });
+
+  it("round-trips the panel's URL params, keeping only known types", () => {
+    const filters = parseListingFiltersFromParams(
+      { propertyType: "BED_AND_BREAKFAST,LODGE,CASTLE", amenities: "wifi,washer" },
+      PROPERTY_TYPES,
+    );
+    expect(filters.propertyTypes).toEqual(["BED_AND_BREAKFAST", "LODGE"]);
+    expect(filters.amenityCategories).toEqual(["wifi", "washer"]);
+  });
+});

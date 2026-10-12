@@ -98,6 +98,8 @@ enum PropertyType {
   COTTAGE
   VILLA
   STUDIO
+  BED_AND_BREAKFAST
+  LODGE
   OTHER
 }
 
