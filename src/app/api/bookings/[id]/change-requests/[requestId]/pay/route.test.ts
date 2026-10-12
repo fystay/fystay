@@ -5,6 +5,8 @@ const { state, mocks } = vi.hoisted(() => ({
     request: {} as Record<string, unknown>,
     booking: {} as Record<string, unknown>,
     available: true,
+    // Off: a production deployment with no usable Stripe client.
+    stripeConfigured: true,
     log: [] as string[],
     // Route the new-charge gate and the unpaid fallback through the real
     // @/lib/stripe, to prove a live date-change payment is refused on
@@ -22,14 +24,16 @@ const { state, mocks } = vi.hoisted(() => ({
 vi.mock("@/auth", () => ({ auth: async () => ({ user: { id: "guest_1" } }) }));
 vi.mock("@/lib/stripe", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/stripe")>();
-  const client = () => ({
-    checkout: {
-      sessions: { create: mocks.sessionsCreate, retrieve: mocks.sessionsRetrieve, expire: mocks.sessionsExpire },
-    },
-  });
+  const client = () =>
+    state.stripeConfigured
+      ? {
+          checkout: {
+            sessions: { create: mocks.sessionsCreate, retrieve: mocks.sessionsRetrieve, expire: mocks.sessionsExpire },
+          },
+        }
+      : null;
   return {
-    allowsUnpaidConfirmation: () => (state.realStripeGate ? actual.allowsUnpaidConfirmation() : true),
-    PAYMENTS_UNAVAILABLE_MESSAGE: "unavailable",
+    allowsUnpaidConfirmation: () => (state.realStripeGate ? actual.allowsUnpaidConfirmation() : state.stripeConfigured),
     getStripeClient: client,
     getStripeClientForNewCharge: () => (state.realStripeGate ? actual.getStripeClientForNewCharge() : client()),
   };
@@ -103,6 +107,7 @@ beforeEach(() => {
   mocks.sessionsExpire.mockResolvedValue({});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   state.available = true;
+  state.stripeConfigured = true;
   state.log = [];
   state.realStripeGate = false;
   state.booking = {
@@ -195,11 +200,21 @@ describe("paying for a date change", () => {
     vi.stubEnv("NEXT_PUBLIC_COMPANY_ADDRESS", "");
     const response = await pay();
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable" });
+    expect((await response.json()).error).toMatch(/date change can't be paid for yet/);
     expect(mocks.sessionsCreate).not.toHaveBeenCalled();
     // Neither charged nor applied for free: the approved change still waits.
     expect(state.request.status).toBe("APPROVED");
     expect(state.request.paidAt).toBeNull();
+  });
+
+  it("explains that the booking is unchanged when payments aren't available on Production", async () => {
+    state.stripeConfigured = false;
+    const response = await pay();
+    expect(response.status).toBe(503);
+    const { error } = await response.json();
+    expect(error).toMatch(/date change can't be paid for yet\. Your booking is unchanged/);
+    expect(error).not.toMatch(/dates are still held/);
+    expect(state.request.status).toBe("APPROVED");
   });
 
   it("refuses once the booking has been cancelled", async () => {

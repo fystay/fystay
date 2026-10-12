@@ -24,7 +24,7 @@ const ADMIN_LINKS = [
  */
 export function AdminNav({ active }: { active: (typeof ADMIN_LINKS)[number]["href"] }) {
   return (
-    <nav className="flex flex-wrap gap-2 border-b border-border-subtle pb-4">
+    <nav aria-label="Admin" className="flex flex-wrap gap-2 border-b border-border-subtle pb-4">
       {ADMIN_LINKS.map((link) => (
         <Link
           key={link.href}

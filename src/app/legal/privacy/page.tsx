@@ -132,7 +132,8 @@ export default function PrivacyPolicyPage() {
           <li>
             <span className="font-medium text-foreground">The other party to a booking</span> -
             a host and guest can see each other&apos;s name and the booking details needed to
-            complete the stay.
+            complete the stay. Once a booking is confirmed, the host can also see the email
+            address and phone number the guest gave at checkout, to contact them about the stay.
           </li>
         </ul>
         <p>

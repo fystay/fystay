@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { allowsUnpaidConfirmation, getStripeClient, getStripeClientForNewCharge, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
+import { allowsUnpaidConfirmation, getStripeClient, getStripeClientForNewCharge } from "@/lib/stripe";
 import { formatPrice } from "@/lib/format";
 import { splitBookingChange } from "@/lib/pricing";
 import type { Prisma } from "@prisma/client";
@@ -19,6 +19,15 @@ import { refundAcrossPayments } from "@/lib/connectRefunds";
 import { BASE_URL } from "@/lib/baseUrl";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
+
+/**
+ * The booking checkout's "payments unavailable" message talks about
+ * confirming a booking and holding its dates, neither of which applies
+ * here: the stay is already booked, and an approved change doesn't hold the
+ * new dates. Says what's actually true for a date change.
+ */
+const DATE_CHANGE_PAYMENTS_UNAVAILABLE_MESSAGE =
+  "Online payment isn't available right now, so this date change can't be paid for yet. Your booking is unchanged - please try again later.";
 
 async function postHandler(
   _request: Request,
@@ -90,7 +99,7 @@ async function postHandler(
 
   if (!stripe) {
     if (!allowsUnpaidConfirmation()) {
-      return NextResponse.json({ error: PAYMENTS_UNAVAILABLE_MESSAGE }, { status: 503 });
+      return NextResponse.json({ error: DATE_CHANGE_PAYMENTS_UNAVAILABLE_MESSAGE }, { status: 503 });
     }
     await applyApprovedChange(requestId);
     return NextResponse.json({
