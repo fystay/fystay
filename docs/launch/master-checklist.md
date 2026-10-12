@@ -59,6 +59,20 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | [#7](https://github.com/fystay/fystay/pull/7) | Refuse new live payments until trader name + address are set (blocker 3) | Blocker 1 (legal entity) + approval. Merging closes live checkout until the two settings exist. |
 | [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check capacity on payment; refund + email the host instead of overselling; 31-min payment pages | Approval: changes the live Stripe webhook and Spotlight payments |
 
+**Opened 12 Oct (owner's 12 Oct list), CI green, waiting on merge approval:**
+
+| PR | What | Note |
+|---|---|---|
+| [#16](https://github.com/fystay/fystay/pull/16) | CLAUDE.md working rules; this PR record | Docs only |
+| [#17](https://github.com/fystay/fystay/pull/17) | Admin listing creation for hosts + AI listing drafts | Has a migration: run the Production migration workflow with/before merge. AI drafts need `ANTHROPIC_API_KEY` |
+| [#18](https://github.com/fystay/fystay/pull/18) | Show/hide toggle on every password field | |
+| [#19](https://github.com/fystay/fystay/pull/19) | Google Places location search, results nearest-first | Off until `GOOGLE_MAPS_API_KEY` is set |
+| [#20](https://github.com/fystay/fystay/pull/20) | Email confirm link opened while signed out says it worked | |
+| [#21](https://github.com/fystay/fystay/pull/21) | Sort/filter changes go back to page 1 | |
+| [#22](https://github.com/fystay/fystay/pull/22) | Re-sync an imported calendar (Airbnb etc.) before taking a booking if over 30 min old | Double-booking safeguard |
+| [#23](https://github.com/fystay/fystay/pull/23) | Email replies go to the support inbox | Confirm `support@` receives mail (blocker 10) |
+| [#24](https://github.com/fystay/fystay/pull/24) | Admin badge and Admin link in the account menu | |
+
 ## Checked 12 Oct, no change needed
 
 - Placeholder content: none visible to guests or hosts (only an admin-page example and "Photo coming soon" image fallbacks).
