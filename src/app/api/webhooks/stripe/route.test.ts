@@ -19,6 +19,7 @@ const { mocks, state } = vi.hoisted(() => ({
     giveBack: vi.fn(),
     activatePromotion: vi.fn(),
     notifyPromotion: vi.fn(),
+    notifyPromotionRefunded: vi.fn(),
   },
   state: {
     booking: null as null | Record<string, unknown>,
@@ -70,6 +71,7 @@ vi.mock("@/lib/stripeConnect", () => ({ refreshConnectAccountStatus: vi.fn() }))
 vi.mock("@/lib/listingPromotions", () => ({ activatePaidPromotion: (...a: unknown[]) => mocks.activatePromotion(...a) }));
 vi.mock("@/lib/listingPromotionNotifications", () => ({
   notifyListingPromotionActivated: (...a: unknown[]) => mocks.notifyPromotion(...a),
+  notifyListingPromotionRefunded: (...a: unknown[]) => mocks.notifyPromotionRefunded(...a),
 }));
 vi.mock("@/lib/bookingLifecycle", () => ({
   releaseUnpaidBooking: vi.fn(),
@@ -427,14 +429,18 @@ describe("Spotlight payments", () => {
     expect(mocks.refundsCreate).not.toHaveBeenCalled();
   });
 
-  it("refunds in full, once per placement, when the row filled up while the host was paying", async () => {
+  it("refunds in full and tells the host once, when the row filled up while the host was paying", async () => {
     mocks.activatePromotion.mockResolvedValue(null);
     state.promotion = { status: "CANCELLED" };
-    expect((await POST(signedRequest(event("checkout.session.completed", spotlightSession())))).status).toBe(200);
+    const delivered = event("checkout.session.completed", spotlightSession(), "evt_spot");
+    expect((await POST(signedRequest(delivered))).status).toBe(200);
+    expect((await POST(signedRequest(delivered))).status).toBe(200);
+    // Stripe's idempotency key makes the repeated refund call a no-op.
     expect(mocks.refundsCreate).toHaveBeenCalledWith(
       { payment_intent: "pi_spot" },
       { idempotencyKey: "spotlight-full-refund:promo_1" },
     );
+    expect(mocks.notifyPromotionRefunded).toHaveBeenCalledTimes(1);
     expect(mocks.notifyPromotion).not.toHaveBeenCalled();
   });
 

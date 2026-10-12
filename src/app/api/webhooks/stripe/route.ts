@@ -20,7 +20,7 @@ import { BASE_URL } from "@/lib/baseUrl";
 import { activatePaidPromotion } from "@/lib/listingPromotions";
 import { giveBackReservedDiscounts, releaseUnpaidBooking } from "@/lib/bookingLifecycle";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
-import { notifyListingPromotionActivated } from "@/lib/listingPromotionNotifications";
+import { notifyListingPromotionActivated, notifyListingPromotionRefunded } from "@/lib/listingPromotionNotifications";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -441,6 +441,7 @@ async function activateListingPromotion(checkoutSession: Stripe.Checkout.Session
       { idempotencyKey: `spotlight-full-refund:${promotionId}` },
     );
     console.warn("Spotlight payment refunded: the row filled up while the host was paying", { promotionId });
+    await sendPaymentAlertOnce(`spotlight-refunded:${promotionId}`, () => notifyListingPromotionRefunded(promotionId));
   }
 }
 
