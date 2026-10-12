@@ -73,6 +73,8 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | [#23](https://github.com/fystay/fystay/pull/23) | hello@fystay.co.uk as sender and reply-to on every email | First commit already live (deployed from the branch 12 Oct 10:53). Owner: verify `fystay.co.uk` in Resend, make hello@ a real mailbox, then set `EMAIL_FROM` to `FYStay <hello@fystay.co.uk>` |
 | [#24](https://github.com/fystay/fystay/pull/24) | Admin badge and Admin link in the account menu | |
 | [#25](https://github.com/fystay/fystay/pull/25) | Admin property management: import a listing from pasted text or a public link (AI, flagged gaps, editable preview, saved as draft); admin-only host transfer; suspend/reinstate/delete accounts with confirmation and an admin record | Stacked on #17 (merge #17 first). New migration: run the Production migration workflow with #17's. Import needs `ANTHROPIC_API_KEY` |
+| [#29](https://github.com/fystay/fystay/pull/29) | Filters panel: property type (Apartment, B&B, Lodge, House, Studio), core amenities, guests | New migration (B&B, Lodge types): run before merge |
+| [#30](https://github.com/fystay/fystay/pull/30) | Location search: Where must be picked from suggestions (Google Places with session tokens, viewport + 5-mile area filtering), Where/check-in/check-out required on the search bar, `/search` and `GET /api/listings` | New migration (location index). Needs `GOOGLE_MAPS_API_KEY` (Places API (New), billing on) for Google places; towns/landmarks work without it |
 
 ## Checked 12 Oct, no change needed
 
@@ -104,7 +106,7 @@ legal details, or onboarding real hosts.
 - Ticketmaster events on destination pages (`TICKETMASTER_API_KEY`).
 - Booking.com hotel affiliate. Credentials alone never switch it on: the code must also list it in `LIVE_HOTEL_PROVIDER_CODES`.
 - PMS integrations: Cloudbeds is built, SiteMinder and SuperControl are stubs.
-- Uptime monitoring on `/` and `/api/listings`; check the Supabase backup / point-in-time-recovery plan.
+- Uptime monitoring on `/` and `/api/health` (`/api/listings` needs a full search since #30, so it answers 400 without one); check the Supabase backup / point-in-time-recovery plan.
 - A test-timezone tidy-up: one hotel-affiliate unit test fails only when the suite runs outside UTC (CI and Vercel run in UTC).
 
 ---
