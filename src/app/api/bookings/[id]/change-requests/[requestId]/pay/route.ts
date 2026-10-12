@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
+import { allowsUnpaidConfirmation, getStripeClient, getStripeClientForNewCharge, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { formatPrice } from "@/lib/format";
 import { splitBookingChange } from "@/lib/pricing";
 import type { Prisma } from "@prisma/client";
@@ -86,7 +86,7 @@ async function postHandler(
   }
 
   const baseUrl = BASE_URL;
-  const stripe = getStripeClient();
+  const stripe = getStripeClientForNewCharge();
 
   if (!stripe) {
     if (!allowsUnpaidConfirmation()) {

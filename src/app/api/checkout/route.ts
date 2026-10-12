@@ -4,7 +4,7 @@ import { isPlausiblePhone } from "@/lib/validation";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { allowsUnpaidConfirmation, getStripeClient, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
+import { allowsUnpaidConfirmation, getStripeClientForNewCharge, PAYMENTS_UNAVAILABLE_MESSAGE } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { destinationChargeData, HOST_NOT_PAYMENT_READY_MESSAGE, verifyHostPaymentReady } from "@/lib/stripeConnect";
 import { applyDiscountsToApplicationFee, discountedAccommodationCents, fyStayFeeCents } from "@/lib/pricing";
@@ -125,7 +125,7 @@ async function postHandler(request: Request) {
 
   const baseUrl = BASE_URL;
   const confirmationUrl = `${baseUrl}/bookings/${booking.id}/confirmation`;
-  const stripe = getStripeClient();
+  const stripe = getStripeClientForNewCharge();
 
   if (!stripe) {
     if (!allowsUnpaidConfirmation()) {

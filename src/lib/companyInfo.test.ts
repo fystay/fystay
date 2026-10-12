@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { describeOperator, getCompanyInfo } from "./companyInfo";
+import { describeOperator, getCompanyInfo, hasTraderIdentity } from "./companyInfo";
 
 const KEYS = ["NEXT_PUBLIC_COMPANY_LEGAL_NAME", "NEXT_PUBLIC_COMPANY_NUMBER", "NEXT_PUBLIC_COMPANY_ADDRESS"] as const;
 
@@ -38,5 +38,21 @@ describe("getCompanyInfo", () => {
     expect(describeOperator(getCompanyInfo()!)).toBe(
       "FYStay Ltd (company number 12345678), registered office at 1 Example Street, Blackpool, FY1 1AA",
     );
+  });
+});
+
+describe("hasTraderIdentity", () => {
+  const name = "FYStay Ltd";
+  const address = "1 Example Street, Blackpool, FY1 1AA";
+
+  it("needs both the legal name and the address, blank counting as missing", () => {
+    expect(hasTraderIdentity({ NEXT_PUBLIC_COMPANY_LEGAL_NAME: name, NEXT_PUBLIC_COMPANY_ADDRESS: address })).toBe(true);
+    expect(hasTraderIdentity({ NEXT_PUBLIC_COMPANY_ADDRESS: address })).toBe(false);
+    expect(hasTraderIdentity({ NEXT_PUBLIC_COMPANY_LEGAL_NAME: name })).toBe(false);
+    expect(hasTraderIdentity({ NEXT_PUBLIC_COMPANY_LEGAL_NAME: " ", NEXT_PUBLIC_COMPANY_ADDRESS: address })).toBe(false);
+  });
+
+  it("doesn't need a company number, which a sole trader doesn't have", () => {
+    expect(hasTraderIdentity({ NEXT_PUBLIC_COMPANY_LEGAL_NAME: name, NEXT_PUBLIC_COMPANY_ADDRESS: address, NEXT_PUBLIC_COMPANY_NUMBER: "" })).toBe(true);
   });
 });

@@ -18,6 +18,7 @@ const complete = {
   NEXT_PUBLIC_SENTRY_DSN: "x",
   DISPUTE_ALERT_EMAIL: "ops@fystay.co.uk",
   NEXT_PUBLIC_COMPANY_LEGAL_NAME: "FYStay Ltd",
+  NEXT_PUBLIC_COMPANY_ADDRESS: "1 High Street, Blackpool FY1 1AA",
 };
 
 describe("configReadiness", () => {
@@ -52,6 +53,26 @@ describe("configReadiness", () => {
     );
     expect(summary.ready).toBe(true);
     expect(summary.warnings.map((w) => w.key)).toEqual(["SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"]);
+  });
+
+  it("blocks production without the trader's legal name or address, blank counting as missing", () => {
+    for (const missing of ["NEXT_PUBLIC_COMPANY_LEGAL_NAME", "NEXT_PUBLIC_COMPANY_ADDRESS"] as const) {
+      for (const value of [undefined, "  "]) {
+        const summary = readinessSummary(configReadiness({ ...complete, [missing]: value }));
+        expect(summary.ready).toBe(false);
+        expect(summary.blockers.map((b) => b.key)).toEqual([missing]);
+      }
+    }
+  });
+
+  it("only warns about a missing trader identity on Preview and locally", () => {
+    for (const VERCEL_ENV of ["preview", undefined]) {
+      const summary = readinessSummary(
+        configReadiness({ ...complete, VERCEL_ENV, NEXT_PUBLIC_COMPANY_LEGAL_NAME: undefined, NEXT_PUBLIC_COMPANY_ADDRESS: undefined }),
+      );
+      expect(summary.ready).toBe(true);
+      expect(summary.warnings.map((w) => w.key)).toEqual(["NEXT_PUBLIC_COMPANY_LEGAL_NAME", "NEXT_PUBLIC_COMPANY_ADDRESS"]);
+    }
   });
 
   it("still only warns about a missing dispute alert inbox in production", () => {

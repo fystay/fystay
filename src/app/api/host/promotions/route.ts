@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { withApiErrorHandling } from "@/lib/apiError";
-import { allowsUnpaidConfirmation, getStripeClient } from "@/lib/stripe";
+import { allowsUnpaidConfirmation, getStripeClientForNewCharge } from "@/lib/stripe";
 import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { BASE_URL } from "@/lib/baseUrl";
@@ -74,7 +74,7 @@ async function postHandler(request: Request) {
     return NextResponse.json({ error: ineligible }, { status: 409 });
   }
 
-  const stripe = getStripeClient();
+  const stripe = getStripeClientForNewCharge();
   // Same rule as every other checkout: no Stripe key on a production
   // deployment means payments aren't available, never that it's free.
   if (!stripe && !allowsUnpaidConfirmation()) {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { allowsUnpaidConfirmation, getStripeClient } from "@/lib/stripe";
+import { allowsUnpaidConfirmation, getStripeClientForNewCharge } from "@/lib/stripe";
 import { decideExistingSessionAction } from "@/lib/checkoutSession";
 import { tripExtraPurchaseError } from "@/lib/tripExtras";
 import { sendTripExtraGuestConfirmationEmail } from "@/lib/notificationEmails";
@@ -112,7 +112,7 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "This extra doesn't exist" }, { status: 404 });
   }
 
-  const stripe = getStripeClient();
+  const stripe = getStripeClientForNewCharge();
   // Same rule as the main checkout: a missing STRIPE_SECRET_KEY on a
   // production deployment means payments aren't available, never that the
   // extra is free. Refused before anything is claimed, so nothing is marked

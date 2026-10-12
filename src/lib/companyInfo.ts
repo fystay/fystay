@@ -18,6 +18,8 @@
  * being unconfigured.
  */
 
+import type { EnvSource } from "@/lib/deploymentEnvironment";
+
 export type CompanyInfo = {
   legalName: string;
   /** Only a limited company or LLP has one - a sole trader or partnership leaves it unset. */
@@ -39,4 +41,14 @@ export function describeOperator(company: CompanyInfo): string {
   return company.companyNumber
     ? `${company.legalName} (company number ${company.companyNumber}), registered office at ${company.registeredAddress}`
     : `${company.legalName}, of ${company.registeredAddress}`;
+}
+
+/**
+ * Whether the trader's name and address - the two fields getCompanyInfo()
+ * needs - are both set, for server-side checks that take an env (readiness,
+ * the live-payment gate in src/lib/stripe.ts). getCompanyInfo() itself keeps
+ * reading process.env.NEXT_PUBLIC_* directly so Next can inline them.
+ */
+export function hasTraderIdentity(env: EnvSource = process.env): boolean {
+  return Boolean(env.NEXT_PUBLIC_COMPANY_LEGAL_NAME?.trim() && env.NEXT_PUBLIC_COMPANY_ADDRESS?.trim());
 }
