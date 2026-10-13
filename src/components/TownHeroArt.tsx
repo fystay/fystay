@@ -4,7 +4,7 @@ import { DESTINATION_PHOTOS } from "@/lib/destinationPhotos";
 /**
  * A generated, on-brand scene per town, used as the hero backdrop for any
  * town FYStay hasn't been supplied real photography of yet - the same
- * reasoning as HeroBanner.tsx (this codebase's homepage hero): never a
+ * reasoning as the rest of this codebase's photography: never a
  * hotlinked or unlicensed stock photo standing in for a real place. Each
  * town gets a distinct, recognisable silhouette (Blackpool Tower and
  * illuminations, Lytham's windmill, St Annes' pier, Fleetwood's lighthouse,

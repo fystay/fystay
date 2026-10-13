@@ -521,3 +521,15 @@ html .rdp-root {
   --rdp-today-color: var(--color-brand-700);
   font-size: 0.875rem;
 }
+
+/* The homepage hero's words settling in as each place comes round (HeroSlides). */
+@keyframes hero-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

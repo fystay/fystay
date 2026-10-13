@@ -80,15 +80,21 @@ test("a failed upload shows a plain message, not the server's error", async ({ p
     route.fulfill({ status: 413, contentType: "text/html", body: "<html>FUNCTION_PAYLOAD_TOO_LARGE</html>" }),
   );
 
-  await page.locator("input[type=file]").first().setInputFiles({
-    name: "beach.png",
-    mimeType: "image/png",
-    // A 1x1 PNG.
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-      "base64",
-    ),
-  });
-  await expect(page.getByText("We couldn't upload beach.png. Please try again.")).toBeVisible();
+  // Picking the file is the first thing done on the page, so it can land on
+  // the server-rendered input before React has attached its change handler -
+  // the same hydration race documented in search-bar-dates.spec.ts. Retrying
+  // the pick means a mistimed first one is simply repeated.
+  await expect(async () => {
+    await page.locator("input[type=file]").first().setInputFiles({
+      name: "beach.png",
+      mimeType: "image/png",
+      // A 1x1 PNG.
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "base64",
+      ),
+    });
+    await expect(page.getByText("We couldn't upload beach.png. Please try again.")).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   await expect(page.getByText("FUNCTION_PAYLOAD_TOO_LARGE")).toHaveCount(0);
 });
