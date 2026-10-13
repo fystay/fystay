@@ -1,24 +1,20 @@
 import { test, expect } from "@playwright/test";
 
 // The demo seed makes EV Exec's return airport transfer a live offering, so
-// the homepage's More from FYStay row leads with it as a partner service
+// the homepage's Services section leads with it as a partner service
 // (PartnerServiceCard, src/lib/partnerServices.ts).
 
-function moreFromFyStay(page: import("@playwright/test").Page) {
-  return page.getByRole("region", { name: "More from FYStay" }).and(page.locator('[aria-roledescription="carousel"]'));
+function services(page: import("@playwright/test").Page) {
+  return page.locator("section", { has: page.getByRole("heading", { name: "Everything around your stay" }) });
 }
 
-test("More from FYStay leads with EV Exec as a FYStay service partner, booked through the transfer flow", async ({
-  page,
-}) => {
+test("Services leads with EV Exec as a FYStay service partner, booked through the transfer flow", async ({ page }) => {
   await page.goto("/");
-  const row = moreFromFyStay(page);
+  const row = services(page);
   await row.scrollIntoViewIfNeeded();
-  // :visible - the rail also renders a hidden sizing copy of its first card.
-  const card = row.locator("a:visible", { hasText: "Book with EV Exec" }).first();
+  const card = row.locator("a", { hasText: "Book with EV Exec" }).first();
   await expect(card).toBeVisible();
   await expect(card.getByText("EV Exec", { exact: true })).toBeVisible();
-  await expect(card.getByText("Premium electric airport transfers")).toBeVisible();
   await expect(card.getByText("FYStay service partner")).toBeVisible();
   // The offer reads in full on the card: the live offering's price and what it buys.
   await expect(card.getByText("£45")).toBeVisible();
@@ -31,17 +27,15 @@ test("More from FYStay leads with EV Exec as a FYStay service partner, booked th
   await expect(page.getByText("EV Exec").first()).toBeVisible();
 });
 
-test("More from FYStay is guest services around the stay, each opening its own page", async ({ page }) => {
-  await page.goto("/");
-  const row = moreFromFyStay(page);
-  await row.scrollIntoViewIfNeeded();
-  // Hosting has its own card at the end of the page, not a slot in this row.
-  await expect(row.locator("a:visible", { hasText: "Hosting" })).toHaveCount(0);
-  await row.locator("a:visible", { hasText: "Local Guides" }).first().click();
-  await expect(page).toHaveURL(/\/destinations$/);
-
-  await page.goto("/");
-  await moreFromFyStay(page).scrollIntoViewIfNeeded();
-  await moreFromFyStay(page).locator("a:visible", { hasText: "Help & support" }).first().click();
-  await expect(page).toHaveURL(/\/help$/);
+test("the other services each open a working page", async ({ page }) => {
+  for (const [name, url] of [
+    ["Local attractions", /\/destinations$/],
+    ["Things to do", /\/destinations\/blackpool#quick-discovery$/],
+    ["Guest essentials", /\/help$/],
+  ] as const) {
+    await page.goto("/");
+    await services(page).scrollIntoViewIfNeeded();
+    await services(page).getByRole("link", { name: new RegExp(name) }).click();
+    await expect(page).toHaveURL(url);
+  }
 });

@@ -240,28 +240,6 @@ body {
   }
 }
 
-/* Homepage section entrances: each major section fades/slides in once as it
-   first enters the viewport (see useRevealOnScroll) - a single subtle beat,
-   not a per-scroll replay, and skipped entirely under reduced-motion by
-   never removing the .reveal-hidden class in the first place. */
-@keyframes reveal-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.reveal-hidden {
-  opacity: 0;
-  transform: translateY(14px);
-}
-.reveal-visible {
-  animation: reveal-in 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
 /* Hosting pages: content settles 4px into place when a page arrives, so
    moving between Today, Bookings and Earnings reads as one app rather than
    a hard cut. Movement only - no fade: content that starts transparent
@@ -495,60 +473,6 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-card-photo-fade {
-    animation: none;
-  }
-}
-
-/* Homepage Spotlight showcase (SpotlightShowcase.tsx).
-   - spotlight-progress fills the current stay's progress bar; the bar's own
-     animationend is what moves the showcase on, so pausing the animation
-     (animation-play-state) pauses the showcase with no separate timer to
-     keep in step. The duration is set inline from SPOTLIGHT_SLIDE_MS.
-   - spotlight-drift: the photo's slow push-in while its stay is showing.
-   - spotlight-rise: the stay's details easing in as it arrives.
-   Under reduced motion nothing drifts or rises, and the showcase never
-   moves on by itself (the component doesn't start the progress at all). */
-@keyframes spotlight-progress {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-.animate-spotlight-progress {
-  transform-origin: left;
-  animation-name: spotlight-progress;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-@keyframes spotlight-drift {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.07);
-  }
-}
-.animate-spotlight-drift {
-  animation: spotlight-drift 9s ease-out forwards;
-}
-@keyframes spotlight-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-spotlight-rise {
-  animation: spotlight-rise 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-spotlight-drift,
-  .animate-spotlight-rise {
     animation: none;
   }
 }

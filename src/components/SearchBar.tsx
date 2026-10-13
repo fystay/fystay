@@ -496,9 +496,11 @@ export function SearchBar({
         id={statusId}
         role="status"
         className={cn(
-          "relative z-10 basis-full px-3 pb-1 text-xs sm:order-last",
+          "basis-full px-3 pb-1 text-xs sm:order-last",
           isHero ? "text-white/85" : "text-stone-600",
-          (searchValid || (nothingEntered && !attempted)) && "sr-only",
+          // Hidden but still read out; positioned only when shown, since
+          // "relative" would override sr-only's absolute positioning.
+          searchValid || (nothingEntered && !attempted) ? "sr-only" : "relative z-10",
         )}
       >
         {searchValid ? (

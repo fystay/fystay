@@ -29,7 +29,7 @@ export function TravelAddonsSection({ offerings }: { offerings: TravelAddonOffer
  * One travel add-on as a partner service card (see src/lib/partnerServices.ts):
  * the provider - EV Exec, for airport transfers - presented as the
  * independent business providing it, booked through FYStay's own
- * /travel-extras flow. Also used in the homepage's More from FYStay row.
+ * /travel-extras flow. Also leads the homepage's Services section.
  */
 export function TravelAddonCard({ offering }: { offering: TravelAddonOffering }) {
   const price = useFormattedPrice(offering.priceCents);

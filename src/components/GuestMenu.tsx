@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, CircleUserRound, Home, Menu } from "lucide-react";
+import { CircleUserRound, Home, Menu } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useNavTone } from "@/components/NavTone";
 
@@ -15,9 +15,7 @@ import { useNavTone } from "@/components/NavTone";
 /** Pages that are themselves the login/sign-up flow - never sent back to. */
 const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
-/** placement "left": the phone header's menu button (menu icon and arrow); the account pill sits on the right. */
-export function GuestMenu({ placement = "right" }: { placement?: "left" | "right" } = {}) {
-  const left = placement === "left";
+export function GuestMenu() {
   const pathname = usePathname();
   const router = useRouter();
   const isHero = useNavTone() === "hero";
@@ -75,34 +73,27 @@ export function GuestMenu({ placement = "right" }: { placement?: "left" | "right
         ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-controls={left ? "guest-menu-panel-left" : "guest-menu-panel"}
+        aria-controls="guest-menu-panel"
         aria-label="Account menu"
         className={cn(
-          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-2 pl-3 text-white",
-          left ? "h-11 pr-3" : "pr-1.5",
-          "hover:bg-brand-700 active:bg-brand-800",
+          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-2 pl-1.5 pr-1.5 text-white lg:pl-3 hover:bg-brand-700 active:bg-brand-800",
           // Over the homepage video: the same quiet glass as the section
           // control, so the hero's one solid brand-coloured button is Search.
           isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
         )}
       >
-        <Menu className="h-4 w-4" />
-        {left ? (
-          <ChevronDown className="h-4 w-4" aria-hidden />
-        ) : (
-          <CircleUserRound className="h-7 w-7 text-white/90" strokeWidth={1.5} />
-        )}
+        <Menu className="hidden h-4 w-4 lg:block" aria-hidden />
+        <CircleUserRound className="h-7 w-7 text-white/90" strokeWidth={1.5} />
       </button>
 
       <div
         ref={menuRef}
-        id={left ? "guest-menu-panel-left" : "guest-menu-panel"}
+        id="guest-menu-panel"
         // Closed, it's only faded out (so it can animate open) - inert keeps its
         // links out of the tab order and away from screen readers until then.
         inert={!open}
         className={cn(
-          "absolute z-20 mt-2 w-52 overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-[var(--shadow-popover)]",
-          left ? "left-0 origin-top-left" : "right-0 origin-top-right",
+          "absolute right-0 z-20 mt-2 w-52 origin-top-right overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-[var(--shadow-popover)]",
           "transition-all duration-150",
           open ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0",
         )}
@@ -133,11 +124,12 @@ export function GuestMenu({ placement = "right" }: { placement?: "left" | "right
           >
             Log in
           </Link>
-          <div className="my-1 border-t border-border-subtle" />
+          {/* Phones have this in the site menu on the left (SiteMenu). */}
+          <div className="my-1 hidden border-t border-border-subtle lg:block" />
           <Link
             href="/host"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+            className="hidden items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 lg:flex"
           >
             <Home className="h-4 w-4" aria-hidden />
             List your property
