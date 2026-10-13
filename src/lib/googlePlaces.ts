@@ -44,6 +44,26 @@ type AutocompleteResponse = {
   }[];
 };
 
+/**
+ * Google answered but refused (wrong or restricted key, API not enabled,
+ * billing off, quota). Logged so the cause shows in the server logs - its
+ * status and reason only, never the key.
+ */
+async function logRefusal(call: string, res: Response) {
+  let reason: string | undefined;
+  let message: string | undefined;
+  try {
+    const body = (await res.json()) as {
+      error?: { status?: string; message?: string; details?: { reason?: string }[] };
+    };
+    reason = body.error?.details?.find((d) => d.reason)?.reason ?? body.error?.status;
+    message = body.error?.message?.slice(0, 200);
+  } catch {
+    // not JSON - the HTTP status is enough
+  }
+  console.warn("Google Places refused the request", { call, status: res.status, reason, message });
+}
+
 export async function suggestPlaces(
   input: string,
   { limit = 4, sessionToken, fetchImpl = fetch }: { limit?: number; sessionToken?: string; fetchImpl?: typeof fetch } = {},
@@ -63,7 +83,10 @@ export async function suggestPlaces(
       }),
       signal: AbortSignal.timeout(3000),
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      await logRefusal("autocomplete", res);
+      return [];
+    }
     data = (await res.json()) as AutocompleteResponse;
   } catch {
     // A slow or failing Google never breaks the search box - FYStay's own
@@ -111,7 +134,10 @@ export async function getPlaceDetails(
       headers: { "X-Goog-Api-Key": key, "X-Goog-FieldMask": "id,displayName,formattedAddress,location,viewport" },
       signal: AbortSignal.timeout(4000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      await logRefusal("details", res);
+      return null;
+    }
     const data = (await res.json()) as DetailsResponse;
     const { latitude, longitude } = data.location ?? {};
     const name = data.displayName?.text;
@@ -155,7 +181,10 @@ export async function findUkLocation(
       body: JSON.stringify({ textQuery, regionCode: "GB", languageCode: "en-GB", pageSize: 1 }),
       signal: AbortSignal.timeout(4000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      await logRefusal("searchText", res);
+      return null;
+    }
     const data = (await res.json()) as TextSearchResponse;
     const { latitude, longitude } = data.places?.[0]?.location ?? {};
     if (!isLat(latitude) || !isLng(longitude)) return null;

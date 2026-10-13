@@ -21,6 +21,31 @@ describe("suggestPlaces", () => {
     await expect(suggestPlaces("Stanley Park", { fetchImpl })).resolves.toEqual([]);
   });
 
+  it("logs why Google refused (status and reason, never the key)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = vi.fn(
+      async () =>
+        ({
+          ok: false,
+          status: 403,
+          json: async () => ({
+            error: {
+              status: "PERMISSION_DENIED",
+              message: "Places API (New) has not been used in project 123 before or it is disabled.",
+              details: [{ reason: "SERVICE_DISABLED" }],
+            },
+          }),
+        }) as Response,
+    );
+    await expect(suggestPlaces("Manchester", { fetchImpl })).resolves.toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      "Google Places refused the request",
+      expect.objectContaining({ call: "autocomplete", status: 403, reason: "SERVICE_DISABLED" }),
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("test-key");
+    warn.mockRestore();
+  });
+
 
   it("asks for UK places with the key in a header and maps the predictions", async () => {
     const fetchImpl = json({
