@@ -1,5 +1,6 @@
 import { getResendClient, EMAIL_FROM, EMAIL_REPLY_TO, reportUnsentOpsAlert } from "@/lib/email";
 import { formatPrice } from "@/lib/format";
+import { formatListingTime } from "@/lib/listingTimes";
 import { SUPPORT_EMAIL } from "@/lib/seo";
 import { BASE_URL } from "@/lib/baseUrl";
 import { escapeHtml, renderEmail, type EmailDetail } from "@/lib/emailLayout";
@@ -361,7 +362,7 @@ export async function sendArrivalReminderEmail(
 
   const arrival: EmailDetail[] = [
     ...(details.address ? [{ label: "Address", value: details.address }] : []),
-    ...(details.checkInTime ? [{ label: "Check-in from", value: details.checkInTime }] : []),
+    ...(details.checkInTime ? [{ label: "Check-in from", value: formatListingTime(details.checkInTime) }] : []),
     ...(details.wifiNetwork
       ? [{ label: "Wifi", value: `${details.wifiNetwork}${details.wifiPassword ? ` / ${details.wifiPassword}` : ""}` }]
       : []),

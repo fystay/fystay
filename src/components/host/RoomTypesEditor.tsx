@@ -7,10 +7,12 @@ import { PlusCircle, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldHint, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 import { PhotoUploader } from "@/components/PhotoUploader";
+import { countOptions, LISTING_COUNT_RANGES } from "@/lib/listingFormOptions";
 
 export type RoomTypeFormValues = {
   // Unset for a draft that hasn't been saved yet - in create mode, that's
@@ -195,47 +197,63 @@ export function RoomTypesEditor({
               </Field>
               <Field>
                 <Label htmlFor={`rt-guests-${index}`}>Max guests</Label>
-                <Input
+                <Select
                   id={`rt-guests-${index}`}
                   required
-                  type="number"
-                  min={1}
                   value={roomType.maxGuests}
                   onChange={(e) => updateAt(index, { maxGuests: e.target.value })}
-                />
+                >
+                  {countOptions(LISTING_COUNT_RANGES.maxGuests, roomType.maxGuests).map((count) => (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  ))}
+                </Select>
               </Field>
               <Field>
                 <Label htmlFor={`rt-bedrooms-${index}`}>Bedrooms</Label>
-                <Input
+                <Select
                   id={`rt-bedrooms-${index}`}
                   required
-                  type="number"
-                  min={0}
                   value={roomType.bedrooms}
                   onChange={(e) => updateAt(index, { bedrooms: e.target.value })}
-                />
+                >
+                  {countOptions(LISTING_COUNT_RANGES.bedrooms, roomType.bedrooms).map((count) => (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  ))}
+                </Select>
               </Field>
               <Field>
                 <Label htmlFor={`rt-beds-${index}`}>Beds</Label>
-                <Input
+                <Select
                   id={`rt-beds-${index}`}
                   required
-                  type="number"
-                  min={1}
                   value={roomType.beds}
                   onChange={(e) => updateAt(index, { beds: e.target.value })}
-                />
+                >
+                  {countOptions(LISTING_COUNT_RANGES.beds, roomType.beds).map((count) => (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  ))}
+                </Select>
               </Field>
               <Field>
                 <Label htmlFor={`rt-bathrooms-${index}`}>Bathrooms</Label>
-                <Input
+                <Select
                   id={`rt-bathrooms-${index}`}
                   required
-                  type="number"
-                  min={0}
                   value={roomType.bathrooms}
                   onChange={(e) => updateAt(index, { bathrooms: e.target.value })}
-                />
+                >
+                  {countOptions(LISTING_COUNT_RANGES.bathrooms, roomType.bathrooms).map((count) => (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  ))}
+                </Select>
               </Field>
             </div>
 

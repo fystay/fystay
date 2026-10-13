@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { formatListingTime } from "@/lib/listingTimes";
 import { hostPayoutCents, hostRevenueCents, ukToday } from "@/lib/hostInsights";
 import { hostBookingState } from "@/lib/hostBookingState";
 import { formatDateTime, formatPrice, formatStayDate } from "@/lib/format";
@@ -172,13 +173,13 @@ export default async function HostBookingPage({ params }: { params: Promise<{ id
                 <div>
                   <dt className="text-xs text-stone-500">Check-in</dt>
                   <dd className="font-medium text-foreground">{longDay.format(booking.checkIn)}</dd>
-                  {booking.listing.checkInTime && <dd className="text-xs text-stone-500">{booking.listing.checkInTime}</dd>}
+                  {booking.listing.checkInTime && <dd className="text-xs text-stone-500">{formatListingTime(booking.listing.checkInTime)}</dd>}
                 </div>
                 <div>
                   <dt className="text-xs text-stone-500">Check-out</dt>
                   <dd className="font-medium text-foreground">{longDay.format(booking.checkOut)}</dd>
                   {booking.listing.checkOutTime && (
-                    <dd className="text-xs text-stone-500">{booking.listing.checkOutTime}</dd>
+                    <dd className="text-xs text-stone-500">{formatListingTime(booking.listing.checkOutTime)}</dd>
                   )}
                 </div>
                 <div>

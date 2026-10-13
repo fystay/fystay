@@ -22,6 +22,28 @@ test("host can create, edit, and delete a listing", async ({ page }) => {
   await page.fill("#country", "England");
   await page.fill("#price", "99");
 
+  // Dropdowns rather than number boxes, with the same min/max-stay rule
+  // the server enforces shown inline.
+  await page.selectOption("#maxGuests", "4");
+  await page.selectOption("#minNights", "3");
+  await page.selectOption("#maxNights", "2");
+  await expect(page.getByText("Maximum stay can't be shorter than the minimum stay.")).toBeVisible();
+  await page.selectOption("#maxNights", "14");
+
+  // The weekly example is priced by the booking engine: 7 x £99 = £693,
+  // less 10% = £623.70.
+  await page.fill("#weeklyDiscountPercent", "10");
+  await expect(page.getByText("£623.70")).toBeVisible();
+
+  // Native time pickers: a new listing starts on 15:00 / 11:00, and
+  // quiet hours can run overnight but can't start and end together.
+  await expect(page.locator("#checkInTime")).toHaveValue("15:00");
+  await expect(page.locator("#checkOutTime")).toHaveValue("11:00");
+  await page.fill("#quietHoursStart", "22:00");
+  await page.fill("#quietHoursEnd", "22:00");
+  await expect(page.getByText("Quiet hours can't start and end at the same time.")).toBeVisible();
+  await page.fill("#quietHoursEnd", "07:00");
+
   await page.getByText("Or paste an image URL instead").click();
   await page.getByPlaceholder("https://example.com/photo.jpg").fill(
     "https://example.com/e2e-test-photo.jpg",
@@ -62,6 +84,14 @@ test("host can create, edit, and delete a listing", async ({ page }) => {
   await expect(page.getByPlaceholder("Sea view, Garden, EV charger")).toHaveValue(
     "Ping pong table",
   );
+
+  await expect(page.locator("#maxGuests")).toHaveValue("4");
+  await expect(page.locator("#minNights")).toHaveValue("3");
+  await expect(page.locator("#maxNights")).toHaveValue("14");
+  await expect(page.locator("#weeklyDiscountPercent")).toHaveValue("10");
+  await expect(page.locator("#checkInTime")).toHaveValue("15:00");
+  await expect(page.locator("#quietHoursStart")).toHaveValue("22:00");
+  await expect(page.locator("#quietHoursEnd")).toHaveValue("07:00");
 
   await page.fill("#title", updatedTitle);
   await page.getByRole("button", { name: "Save changes" }).click();
