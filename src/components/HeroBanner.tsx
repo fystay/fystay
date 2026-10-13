@@ -4,84 +4,130 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * The homepage's hero backdrop: real, licensed aerial footage of
- * Blackpool's beach, pier and Tower (self-hosted under public/videos/ - see
- * DESTINATION_PHOTOS.ts for the same "real, licensed media only" rule this
- * codebase already applies to every other photo), muted, looped and
- * autoplaying so it reads as ambient scenery behind the headline and
- * search, never the thing competing with them.
+ * The homepage hero: a slow crossfade through four places, each with its
+ * own label, headline and line underneath in the same layout. Photos are
+ * the owner's own (public/images/hero/), with a 960px file for phones.
  *
- * The clip is cut to open on the Tower (the original's own end-to-start
- * jump sits mid-clip under a 1s crossfade, so the loop point is seamless
- * footage) and slowed to 85% so it reads as calm scenery behind the text;
- * the poster is that opening frame. Exactly one encode is ever downloaded:
- * a ~1.4MB 854x480 file for screens up to 640px wide, a ~4.5MB 1280x720 one
- * above that. The choice is made here
- * with matchMedia rather than <source media="...">, which Chromium doesn't
- * reliably honour for video - phones were fetching the small file and then
- * playing (and downloading) the large one as well. Until a source is
- * chosen, and permanently under prefers-reduced-motion (which never loads
- * a video at all), the still poster frame shows instead.
- *
- * No play/pause control, by product decision: the footage plays and loops
- * continuously as ambient scenery. Visitors who've asked their device to
- * reduce motion get the still frame instead (above), which is the
- * accessibility safeguard that remains.
+ * It moves on every SLIDE_MS, pauses while the tab is hidden, and never
+ * moves under prefers-reduced-motion. The dots choose a slide by hand, and
+ * choosing one stops the rotation, so anyone who wants it still can have it
+ * still (WCAG 2.2.2).
  */
-// A light brightness/contrast/saturation lift on both the video and its
-// poster, so the footage reads as a bright seaside day rather than flat,
-// hazy drone-camera midday.
-const GRADE_FILTER = "brightness(1.06) contrast(1.05) saturate(1.14)";
+const SLIDES = [
+  {
+    key: "blackpool",
+    eyebrow: "The Fylde Coast",
+    lead: "Popular in",
+    place: "Blackpool",
+    line: "Holiday homes, apartments and guest houses from local hosts.",
+    // Keeps the Tower in frame on a narrow screen.
+    position: "object-[82%_center]",
+  },
+  {
+    key: "windermere",
+    eyebrow: "The Lake District",
+    lead: "Popular in",
+    place: "Windermere",
+    line: "Lakeside cottages, lodges and guest houses from local hosts.",
+    position: "object-[62%_center]",
+  },
+  {
+    key: "liverpool",
+    eyebrow: "Merseyside",
+    lead: "Popular in",
+    place: "Liverpool",
+    line: "Waterfront apartments and city townhouses from local hosts.",
+    position: "object-[58%_center]",
+  },
+  {
+    key: "manchester",
+    eyebrow: "Greater Manchester",
+    lead: "Popular in",
+    place: "Manchester",
+    line: "City-centre apartments and canal-side lofts from local hosts.",
+    position: "object-[72%_center]",
+  },
+] as const;
 
-const POSTER = "/videos/hero-blackpool-pier-poster.jpg";
-const SMALL_SCREEN = "(max-width: 640px)";
+const SLIDE_MS = 6500;
 
-export function HeroBanner({ className }: { className?: string }) {
-  const [src, setSrc] = useState<string | null>(null);
+export function HeroSlides() {
+  const [index, setIndex] = useState(0);
+  const [stopped, setStopped] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- picking a source from the viewport, only knowable after mount
-    setSrc(
-      window.matchMedia(SMALL_SCREEN).matches
-        ? "/videos/hero-blackpool-pier-mobile.mp4"
-        : "/videos/hero-blackpool-pier.mp4",
-    );
-  }, []);
+    if (stopped || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setIndex((i) => (i + 1) % SLIDES.length);
+    }, SLIDE_MS);
+    return () => window.clearInterval(timer);
+  }, [stopped]);
+
+  const slide = SLIDES[index];
 
   return (
-    <div className={cn("relative overflow-hidden bg-ink", className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={POSTER}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover object-[100%_center]"
-        style={{ filter: GRADE_FILTER }}
-        aria-hidden
-      />
-      {src && (
-        <video
-          src={src}
-          className="absolute inset-0 h-full w-full object-cover object-[100%_center]"
-          style={{ filter: GRADE_FILTER }}
-          poster={POSTER}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          aria-hidden
-        />
-      )}
-      {/* A light warm wash, blended into the footage's own tones (not laid
-          over them like coloured glass), so the scenery reads as this
-          brand's own rather than generic coastal stock. page.tsx layers the
-          legibility scrim over the whole panel on top of this. */}
-      <div
-        className="pointer-events-none absolute inset-0 bg-brand-600 mix-blend-soft-light"
-        style={{ opacity: 0.16 }}
-        aria-hidden
-      />
-    </div>
+    <>
+      <div className="absolute inset-0 overflow-hidden [mask-image:linear-gradient(to_top,transparent_0,#000_90px)] lg:[mask-image:linear-gradient(to_top,transparent_0,#000_180px)]">
+        <div className="absolute inset-0 bg-ink" aria-hidden>
+          {SLIDES.map((s, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={s.key}
+              src={`/images/hero/${s.key}.jpg`}
+              srcSet={`/images/hero/${s.key}-960.jpg 960w, /images/hero/${s.key}.jpg 1920w`}
+              sizes="100vw"
+              alt=""
+              fetchPriority={i === 0 ? "high" : "low"}
+              className={cn(
+                "absolute inset-0 h-full w-full object-cover transition-opacity duration-[1400ms] ease-in-out motion-reduce:transition-none",
+                s.position,
+                i === index ? "opacity-100" : "opacity-0",
+              )}
+            />
+          ))}
+        </div>
+        {/* A cream wash where the text sits keeps the dark headline readable
+            on every photo. */}
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(246,243,236,0.85)_0%,rgba(246,243,236,0.72)_40%,rgba(246,243,236,0.35)_62%,rgba(246,243,236,0)_78%)] sm:bg-[linear-gradient(90deg,rgba(246,243,236,0.86)_0%,rgba(246,243,236,0.55)_38%,rgba(246,243,236,0)_62%)]" />
+      </div>
+
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pt-7 sm:pt-12 lg:pt-20">
+        <div key={slide.key} className="max-w-[18rem] animate-[hero-copy-in_700ms_ease-out] motion-reduce:animate-none min-[400px]:max-w-[19.5rem] sm:max-w-md lg:max-w-xl">
+          <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
+            <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
+            {slide.eyebrow}
+          </p>
+          <h1 className="mt-2.5 text-[2.05rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground min-[400px]:text-[2.3rem] sm:mt-3 sm:text-[2.85rem] lg:text-[4.1rem]">
+            {slide.lead} <span className="block text-brand-600">{slide.place}</span>
+          </h1>
+          <p className="mt-2.5 max-w-[16.5rem] text-pretty text-[13.5px] font-medium leading-snug text-foreground/85 sm:mt-4 sm:max-w-sm sm:text-base">
+            {slide.line}
+          </p>
+        </div>
+        <div className="mt-3 flex gap-1.5 sm:mt-5" role="group" aria-label="Choose a place">
+          {SLIDES.map((s, i) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => {
+                setStopped(true);
+                setIndex(i);
+              }}
+              aria-label={s.place}
+              aria-pressed={i === index}
+              className="focus-ring -m-2 rounded-full p-2"
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "block h-1.5 rounded-full transition-all duration-300",
+                  i === index ? "w-5 bg-brand-600" : "w-1.5 bg-foreground/45",
+                )}
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
