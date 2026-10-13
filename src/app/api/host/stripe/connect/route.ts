@@ -90,7 +90,7 @@ export async function GET() {
       use_case: {
         type: "account_onboarding",
         account_onboarding: {
-          configurations: ["recipient"],
+          configurations: ["recipient", "merchant"],
           refresh_url: `${BASE_URL}/api/host/stripe/connect`,
           return_url: `${BASE_URL}/host/payouts?onboarding=return`,
         },
