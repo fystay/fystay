@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getPlaceDetails, isGooglePlacesConfigured, suggestPlaces, validSessionToken } from "./googlePlaces";
+import { findUkLocation, getPlaceDetails, isGooglePlacesConfigured, suggestPlaces, validSessionToken } from "./googlePlaces";
 
 const json = (body: object, ok = true) => vi.fn(async () => ({ ok, json: async () => body }) as Response);
 
@@ -106,5 +106,37 @@ describe("session tokens", () => {
     await suggestPlaces("Stanley Park", { sessionToken: "a1b2c3d4-e5f6-7890-abcd-ef0123456789", fetchImpl });
     const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(JSON.parse(init.body as string).sessionToken).toBe("a1b2c3d4-e5f6-7890-abcd-ef0123456789");
+  });
+});
+
+describe("findUkLocation", () => {
+  it("asks Places Text Search for the location only, in the UK, with the key in a header", async () => {
+    const fetchImpl = json({ places: [{ location: { latitude: 53.4794, longitude: -2.2453 } }] });
+    await expect(findUkLocation("1 Deansgate, Manchester, United Kingdom", { fetchImpl })).resolves.toEqual({
+      latitude: 53.4794,
+      longitude: -2.2453,
+    });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://places.googleapis.com/v1/places:searchText");
+    const headers = init.headers as Record<string, string>;
+    expect(headers["X-Goog-Api-Key"]).toBe("test-key");
+    expect(headers["X-Goog-FieldMask"]).toBe("places.location");
+    expect(JSON.parse(init.body as string)).toMatchObject({ regionCode: "GB", pageSize: 1 });
+  });
+
+  it("refuses a match outside the UK", async () => {
+    const fetchImpl = json({ places: [{ location: { latitude: 40.7, longitude: -74 } }] });
+    await expect(findUkLocation("Manchester", { fetchImpl })).resolves.toBeNull();
+  });
+
+  it("is null without a key, on an error answer, or when Google is unreachable - never a guess", async () => {
+    await expect(findUkLocation("Keswick", { fetchImpl: json({}, false) })).resolves.toBeNull();
+    await expect(
+      findUkLocation("Keswick", { fetchImpl: vi.fn(async () => { throw new Error("down"); }) }),
+    ).resolves.toBeNull();
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "");
+    const fetchImpl = json({ places: [{ location: { latitude: 54.6, longitude: -3.13 } }] });
+    await expect(findUkLocation("Keswick", { fetchImpl })).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

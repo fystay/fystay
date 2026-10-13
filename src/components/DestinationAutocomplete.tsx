@@ -371,7 +371,7 @@ export function DestinationAutocomplete({
             // field now uses (see the className below) - the longer
             // original wording used to fit at 14px but clipped once bumped
             // to 16px to stop iOS Safari's zoom-on-focus.
-            placeholder="Blackpool, Lytham, Fleetwood…"
+            placeholder="Town, city or postcode"
             // text-base below sm: see ui/Input.tsx - prevents iOS Safari's
             // auto-zoom-on-focus for any field with a computed font-size
             // under 16px. truncate: this field's own width varies a lot

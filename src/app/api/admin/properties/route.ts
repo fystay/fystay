@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { locateListing } from "@/lib/geocoding";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { normalizeEmail, recordReviewEvent } from "@/lib/listingOnboarding";
 import { listingFieldSchemas } from "@/lib/validation";
@@ -118,6 +119,16 @@ async function postHandler(request: Request) {
     await recordReviewEvent(tx, { listingId: created.id, type: "PREPARED", revision: created.materialRevision, actor: admin });
     return created;
   });
+
+  // Place it on the map and in area searches, as a host-created listing is
+  // (see locateListing). A lookup that fails leaves it findable by town.
+  const coordinates = await locateListing({
+    id: listing.id,
+    city: property.city,
+    country: property.country,
+    address: details?.address || null,
+  });
+  if (coordinates) await prisma.listing.update({ where: { id: listing.id }, data: coordinates });
 
   return NextResponse.json({ listing: { id: listing.id } }, { status: 201 });
 }

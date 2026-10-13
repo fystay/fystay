@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { httpUrlSchema, listingFieldSchemas } from "@/lib/validation";
 import { isFetchableUrl } from "@/lib/safeFetch";
 import { isFystayCalendarExport } from "@/lib/icalSync";
-import { geocodeListing } from "@/lib/geocoding";
+import { locateListing } from "@/lib/geocoding";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { priceChangeFields } from "@/lib/deals";
@@ -238,14 +238,22 @@ async function patchHandler(
     return NextResponse.json({ error: weekendError }, { status: 400 });
   }
 
-  // Re-geocode only when the city actually changed - an edit to the price
-  // or description shouldn't reroll the map pin's jitter for no reason.
-  // Falls back to null (not the stale old pin) if the new city isn't one
-  // of FYStay's towns, same as a brand-new listing in that city would.
-  const coordinates =
-    parsed.data.city && parsed.data.city !== listing.city
-      ? geocodeListing({ id: listing.id, city: parsed.data.city })
-      : undefined;
+  // Re-locate only when where the listing is actually changed - an edit to
+  // the price or description shouldn't move the map pin for no reason.
+  // Falls back to null (not the stale old pin) if the new place can't be
+  // found, same as a brand-new listing there would.
+  const moved =
+    (parsed.data.city !== undefined && parsed.data.city !== listing.city) ||
+    (parsed.data.address !== undefined && parsed.data.address !== listing.address) ||
+    (parsed.data.country !== undefined && parsed.data.country !== listing.country);
+  const coordinates = moved
+    ? await locateListing({
+        id: listing.id,
+        city: parsed.data.city ?? listing.city,
+        country: parsed.data.country ?? listing.country,
+        address: parsed.data.address !== undefined ? parsed.data.address : listing.address,
+      })
+    : undefined;
 
   const deal = resolveLastMinuteDeal(parsed.data, listing);
   if ("error" in deal) {

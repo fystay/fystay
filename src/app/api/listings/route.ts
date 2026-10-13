@@ -9,7 +9,7 @@ import {
   isRangeAvailable,
   isRoomTypeRangeAvailable,
 } from "@/lib/availability";
-import { geocodeListing } from "@/lib/geocoding";
+import { locateListing } from "@/lib/geocoding";
 import { paginateListings, parsePageParam } from "@/lib/listingSearch";
 import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
 import { locationWhere, matchesLocation, parseSearchRequest } from "@/lib/searchRequest";
@@ -238,9 +238,15 @@ async function postHandler(request: Request) {
   });
 
   // The jitter that keeps two listings in the same town from landing on
-  // the exact same pin is keyed on the listing's own id, which Prisma only
-  // assigns on insert - so this can't be folded into the create() above.
-  const coordinates = geocodeListing({ id: listing.id, city: listing.city });
+  // the exact same pin (and blurs a real address) is keyed on the
+  // listing's own id, which Prisma only assigns on insert - so this can't
+  // be folded into the create() above.
+  const coordinates = await locateListing({
+    id: listing.id,
+    city: listing.city,
+    country: listing.country,
+    address: listing.address,
+  });
   const withCoordinates = coordinates
     ? await prisma.listing.update({ where: { id: listing.id }, data: coordinates })
     : listing;
