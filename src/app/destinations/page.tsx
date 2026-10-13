@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Anchor, FerrisWheel, MapPin, TrainFront, Umbrella, Waves, Wind, type LucideIcon } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { pageMetadata } from "@/lib/seo";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { DESTINATION_PHOTOS } from "@/lib/destinationPhotos";
 import { cn } from "@/lib/cn";
+import { DESTINATION_ART, FALLBACK_ART } from "@/components/destinationArt";
 import { townsBeyondTheFyldeCoast } from "@/lib/destinationInventory";
 
 export const metadata = pageMetadata({
@@ -12,19 +13,6 @@ export const metadata = pageMetadata({
     "Where to stay with FYStay: Blackpool, Lytham, St Annes, Poulton-le-Fylde, Fleetwood and Thornton-Cleveleys on the Fylde Coast, each with its own page and Local Guide.",
   path: "/destinations",
 });
-
-/** Each town's icon and gradient, shown when it has no photo yet (see DESTINATION_PHOTOS). */
-const DESTINATION_ART: Record<string, { icon: LucideIcon; gradient: string }> = {
-  blackpool: { icon: FerrisWheel, gradient: "from-brand-600 via-brand-700 to-brand-900" },
-  lytham: { icon: Wind, gradient: "from-brand-500 to-ink" },
-  "st-annes": { icon: Umbrella, gradient: "from-brand-400 to-brand-900" },
-  "poulton-le-fylde": { icon: TrainFront, gradient: "from-amber-700 to-ink" },
-  fleetwood: { icon: Anchor, gradient: "from-ink to-brand-950" },
-  "thornton-cleveleys": { icon: Waves, gradient: "from-sky-500 to-brand-800" },
-};
-
-/** Fallback look for a town with no bespoke icon/gradient in DESTINATION_ART - none currently, since all six towns FYStay covers have their own, but kept so a future addition to destinations.ts fails gracefully rather than crashing this page. */
-const FALLBACK_ART = { icon: MapPin, gradient: "from-stone-500 to-ink" };
 
 // The "beyond the Fylde Coast" list below is read from live listings
 // (townsBeyondTheFyldeCoast), so it's never built at deploy time (see

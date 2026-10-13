@@ -98,7 +98,7 @@ test("on phones the bottom bar is on every page, and the account menu holds only
   await expect(sectionNav(page).locator("[aria-current]")).toHaveCount(0);
 
   const menuButton = page.getByRole("button", { name: "Account menu" });
-  const menu = page.locator("#guest-menu-panel");
+  const menu = page.locator("#guest-menu-panel-left");
   await expect(async () => {
     await menuButton.click();
     await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 1000 });

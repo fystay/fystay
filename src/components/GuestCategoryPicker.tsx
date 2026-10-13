@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Minus, Plus, Users } from "lucide-react";
+import { ChevronDown, Minus, Plus, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { summarizeGuests, type GuestCounts } from "@/lib/search";
 import { useAnchoredPortalPosition } from "@/lib/useAnchoredPortalPosition";
@@ -32,6 +32,7 @@ export function GuestCategoryPicker({
   className,
   triggerClassName,
   variant = "default",
+  chevron = false,
 }: {
   value: GuestCounts;
   onChange: (value: GuestCounts) => void;
@@ -49,6 +50,8 @@ export function GuestCategoryPicker({
   triggerClassName?: string;
   /** "hero" swaps the closed trigger's icon/label/value to white, at every breakpoint - see SearchBar's own variant, which this mirrors. The open picker panel is unaffected. */
   variant?: "default" | "hero";
+  /** A dropdown arrow at the end of the field on phones (the homepage search panel). */
+  chevron?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Only meaningful when requireDoneToConfirm - +/- clicks update this
@@ -155,6 +158,7 @@ export function GuestCategoryPicker({
             {summarizeGuests(displayValue)}
           </span>
         </span>
+        {chevron && <ChevronDown className="h-5 w-5 shrink-0 text-brand-700 sm:hidden" aria-hidden />}
       </button>
 
       {open &&

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Home } from "lucide-react";
+import { UserRound } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { UserMenu } from "@/components/UserMenu";
@@ -23,23 +24,28 @@ export async function Navbar() {
 
   return (
     <NavbarChrome>
-      {/* Below lg: the home button left, the logo centred against the whole
+      {/* Below lg: the menu left, the logo centred against the whole
           header width (an absolutely positioned overlay, so it stays exactly
-          centred however wide the account controls are), the menu right,
+          centred however wide the controls are), the account link right,
           and the sections in the bottom tab bar (SiteBottomNav, in the
           root layout).
           From lg: logo left, the section control centred, secondary
           links and the menu right. pointer-events-none/auto so the overlays
           never block clicks on anything beside them. */}
       <div className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link
-          href="/"
-          aria-label="FYStay home"
-          className="focus-ring relative z-10 flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-600 text-white hover:bg-brand-700 lg:hidden"
-        >
-          {/* Smaller and finer than the logo's weight, so the logo stays the header's focal point. */}
-          <Home className="h-[18px] w-[18px]" strokeWidth={2.25} />
-        </Link>
+        {/* Below lg: the menu (account links) on the left. */}
+        <nav aria-label="Menu" className="relative z-10 lg:hidden">
+          {session?.user ? (
+            <UserMenu
+              placement="left"
+              name={session.user.name ?? "Account"}
+              role={session.user.role}
+              unreadMessageCount={unreadMessageCount}
+            />
+          ) : (
+            <GuestMenu placement="left" />
+          )}
+        </nav>
 
         <Link href="/" className="relative z-10 hidden items-center gap-2 lg:flex">
           <Logo size="lg" withTagline />
@@ -60,7 +66,25 @@ export async function Navbar() {
 
         <div className="relative z-10 flex items-center gap-6">
           <DesktopNavLinks />
-          <nav aria-label="Account" className="flex items-center gap-3">
+          {/* Below lg: a direct link to the account (or log in), the menu
+              being on the left. From lg: the menu itself. */}
+          <Link
+            href={session?.user ? "/account" : "/login"}
+            aria-label={session?.user ? "Your account" : "Log in"}
+            className="focus-ring flex h-11 items-center gap-2 rounded-xl bg-brand-600 py-1.5 pl-1.5 pr-3 text-white hover:bg-brand-700 active:bg-brand-800 lg:hidden"
+          >
+            {session?.user ? (
+              <Avatar
+                name={session.user.name ?? "Account"}
+                size={32}
+                className="bg-white font-serif font-bold tracking-wide text-brand-700 shadow-sm ring-2 ring-white/40"
+              />
+            ) : (
+              <span className="w-1" aria-hidden />
+            )}
+            <UserRound className="h-5 w-5" aria-hidden />
+          </Link>
+          <nav aria-label="Account" className="hidden items-center gap-3 lg:flex">
             {session?.user ? (
               <UserMenu
                 name={session.user.name ?? "Account"}

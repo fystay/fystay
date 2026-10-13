@@ -10,7 +10,7 @@ import { join } from "node:path";
  */
 export const BRAND_COLORS = {
   terracotta: "#bc522f", // brand-600: the "FY" and the monogram tile
-  ink: "#301a13", // "Stay" and descriptor text
+  ink: "#2b1712", // "Stay" and descriptor text
   cream: "#f6f3ec", // page background, monogram letters
 } as const;
 
