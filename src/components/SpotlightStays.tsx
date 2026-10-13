@@ -12,6 +12,9 @@ import { ListingCard } from "@/components/ListingCard";
 import { SpotlightTracker } from "@/components/SpotlightTracker";
 import { ComingSoonStayCard } from "@/components/ComingSoonStayCard";
 
+/** The towns whose "Coming soon" cards hold the row before any stay is live (owner's choice). */
+const COMING_SOON_TOWNS = ["blackpool", "lytham", "thornton-cleveleys", "fleetwood"];
+
 /** How many stays the carousel holds at most. */
 const MAX_STAYS = 10;
 
@@ -118,7 +121,9 @@ export async function SpotlightStays() {
       />
       <LargeCardRail label="Spotlight stays">
         {empty
-          ? FYLDE_COAST_DESTINATIONS.slice(0, 4).map((destination) => (
+          ? FYLDE_COAST_DESTINATIONS.filter((destination) => COMING_SOON_TOWNS.includes(destination.slug))
+              .sort((a, b) => COMING_SOON_TOWNS.indexOf(a.slug) - COMING_SOON_TOWNS.indexOf(b.slug))
+              .map((destination) => (
               <ComingSoonStayCard key={destination.slug} destination={destination} />
             ))
           : [
