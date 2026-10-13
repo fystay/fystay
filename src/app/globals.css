@@ -456,6 +456,34 @@ body {
   }
 }
 
+/* Homepage "Now covering" pill row: a slow, continuous drift through every
+   town covered (the Fylde Coast and the Lake District) instead of a manual
+   swipe-to-see-more strip - the list is rendered twice back to back (see
+   NowCovering.tsx) and this translates the track exactly one copy's width
+   (-50%) so the loop point is invisible. Slow and linear, so it reads as
+   ambient movement rather than drawing attention from the search. Paused on
+   hover/focus so a pointer user can read and click a pill. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 60s linear infinite;
+}
+.animate-marquee:hover,
+.animate-marquee:focus-within {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+}
+
 /* Property-card photo crossfade (CrossfadeImages): the incoming photo fades
    in over the outgoing one, which stays fully visible underneath. An
    animation rather than a transition so it replays whichever photo becomes

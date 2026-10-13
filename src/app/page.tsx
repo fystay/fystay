@@ -8,6 +8,7 @@ import { HomeServices } from "@/components/HomeServices";
 import { BrandStatement } from "@/components/BrandStatement";
 import { SpotlightStays } from "@/components/SpotlightStays";
 import { LastMinuteDeals } from "@/components/LastMinuteDeals";
+import { NowCovering } from "@/components/NowCovering";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
 
@@ -135,6 +136,11 @@ export default function Home() {
 
       <div className="relative z-10 bg-background">
         <div className="mx-auto w-full max-w-6xl flex-1 px-6 pb-12">
+          {/* The towns covered, drifting slowly under the search. */}
+          <div className="mt-6 sm:mt-8">
+            <NowCovering />
+          </div>
+
           {/* The main attractions: Spotlight stays (paid placements, labelled,
               then guests' favourites) and genuine last-minute deals. */}
           <Suspense fallback={<RailSkeleton />}>
