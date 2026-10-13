@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { BedDouble, CarFront, Compass, LayoutGrid, type LucideIcon } from "lucide-react";
+import { BedDouble, Compass, ConciergeBell, Heart, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { activeSiteSection, SITE_SECTIONS, type SiteSectionKey } from "@/lib/siteSections";
 import { usePageBottomBarPresent, useReserveBottomSpace } from "@/hooks/useReserveBottomSpace";
@@ -43,7 +43,7 @@ const ITEM_STYLES: Record<
 };
 
 /**
- * The Stays / Discover / Journeys / Services navigation, with the current
+ * The Stays / Experiences / Services / Saved navigation, with the current
  * route's section marked (aria-current="page").
  *
  * The underline is one element that glides between tabs, and it moves the
@@ -162,9 +162,9 @@ export function SectionPills({ variant, className }: { variant: Variant; classNa
 
 const SECTION_ICONS: Record<SiteSectionKey, LucideIcon> = {
   stays: BedDouble,
-  explore: Compass,
-  travel: CarFront,
-  services: LayoutGrid,
+  experiences: Compass,
+  services: ConciergeBell,
+  saved: Heart,
 };
 
 // Pages whose own fixed bottom bar takes the bottom edge from the first

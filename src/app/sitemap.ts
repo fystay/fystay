@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 const STATIC_PAGES = [
   "/about",
   "/services",
+  "/deals",
   "/contact",
   "/host",
   "/help",

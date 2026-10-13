@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { ChevronDown, Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
+import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
@@ -11,15 +11,12 @@ import { cn } from "@/lib/cn";
 import { useNavTone } from "@/components/NavTone";
 
 type Props = {
-  /** "left": the phone header's menu button (menu icon and arrow, panel opening rightwards); the account pill sits on the right. */
-  placement?: "left" | "right";
   name: string;
   role: "GUEST" | "HOST" | "ADMIN";
   unreadMessageCount?: number;
 };
 
-export function UserMenu({ placement = "right", name, role, unreadMessageCount = 0 }: Props) {
-  const left = placement === "left";
+export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
   const [open, setOpen] = useState(false);
   const isHero = useNavTone() === "hero";
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,28 +55,17 @@ export function UserMenu({ placement = "right", name, role, unreadMessageCount =
         ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-controls={left ? "user-menu-panel-left" : "user-menu-panel"}
+        aria-controls="user-menu-panel"
         aria-label={`Account menu for ${name}`}
         // Same terracotta pill as the signed-out account button (GuestMenu),
         // with the person's initials in a white disc in the logo's serif
         // where the generic person icon would be.
         className={cn(
-          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-1.5 pl-3 text-white",
-          left ? "h-11 pr-3" : "pr-1.5",
-          "hover:bg-brand-700 active:bg-brand-800",
+          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-1.5 pl-1.5 pr-1.5 text-white lg:pl-3 hover:bg-brand-700 active:bg-brand-800",
           isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
         )}
       >
-        <Menu className="h-4 w-4" aria-hidden />
-        {left ? (
-          <span className="relative">
-            <ChevronDown className="h-4 w-4" aria-hidden />
-            {unreadMessageCount > 0 && (
-              <span aria-hidden className="absolute -right-1.5 -top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500" />
-            )}
-          </span>
-        ) : (
-          <>
+        <Menu className="hidden h-4 w-4 lg:block" aria-hidden />
         <span className="hidden max-w-[8rem] truncate text-sm font-medium sm:inline">{name.split(" ")[0]}</span>
         <span className="relative">
           <Avatar
@@ -94,19 +80,16 @@ export function UserMenu({ placement = "right", name, role, unreadMessageCount =
             />
           )}
         </span>
-          </>
-        )}
       </button>
 
       <div
         ref={menuRef}
-        id={left ? "user-menu-panel-left" : "user-menu-panel"}
+        id="user-menu-panel"
         // Closed, it's only faded out (so it can animate open) - inert keeps its
         // links out of the tab order and away from screen readers until then.
         inert={!open}
         className={cn(
-          "absolute z-20 mt-2 max-h-[70vh] w-56 overflow-y-auto rounded-xl border border-border-subtle bg-surface p-2 shadow-[var(--shadow-popover)]",
-          left ? "left-0 origin-top-left" : "right-0 origin-top-right",
+          "absolute right-0 z-20 mt-2 max-h-[70vh] w-56 origin-top-right overflow-y-auto rounded-xl border border-border-subtle bg-surface p-2 shadow-[var(--shadow-popover)]",
           "transition-all duration-150",
           open
             ? "scale-100 opacity-100"
@@ -187,7 +170,7 @@ export function UserMenu({ placement = "right", name, role, unreadMessageCount =
             <Link
               href="/host"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-700 hover:bg-surface-muted"
+              className="hidden items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-700 hover:bg-surface-muted lg:flex"
             >
               <Home className="h-4 w-4" /> List your property
             </Link>

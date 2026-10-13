@@ -1,114 +1,148 @@
 import { randomInt } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
-import { Sparkles } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { bookableHostWhere } from "@/lib/stripeConnect";
 import { liveSpotlightWhere, SPOTLIGHT_SLOTS } from "@/lib/listingPromotions";
-import { averageRating } from "@/lib/reviews";
-import { SpotlightShowcase, type SpotlightSlide } from "@/components/SpotlightShowcase";
-import { HomeSectionEmpty } from "@/components/HomeSectionEmpty";
+import { rankByPopularity } from "@/lib/marketplace";
+import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
+import { EditorialHeader } from "@/components/EditorialHeader";
+import { LargeCardRail } from "@/components/LargeCardRail";
+import { ListingCard } from "@/components/ListingCard";
+import { SpotlightTracker } from "@/components/SpotlightTracker";
+import { ComingSoonStayCard } from "@/components/ComingSoonStayCard";
 
-/** Which placement opens the showcase on this page view - at random, so every paying host gets turns at the front. */
-function spotlightStartIndex(count: number): number {
-  return count > 1 ? randomInt(count) : 0;
+/** How many stays the carousel holds at most. */
+const MAX_STAYS = 10;
+
+const LISTING_SELECT = {
+  id: true,
+  title: true,
+  city: true,
+  country: true,
+  propertyType: true,
+  pricePerNightCents: true,
+  weeklyDiscountPercent: true,
+  monthlyDiscountPercent: true,
+  photos: true,
+  amenities: true,
+  maxGuests: true,
+  bedrooms: true,
+  createdAt: true,
+  lastMinuteDiscountPercent: true,
+  lastMinuteWindowDays: true,
+  priceDropFromCents: true,
+  priceDroppedAt: true,
+  reviews: { where: { status: "PUBLISHED" as const }, select: { rating: true } },
+};
+
+/** Rotated so a random paid placement leads on each page view - every paying host gets turns at the front. */
+function rotate<T>(items: T[]): T[] {
+  if (items.length < 2) return items;
+  const start = randomInt(items.length);
+  return [...items.slice(start), ...items.slice(0, start)];
 }
 
 /**
- * The homepage's "Spotlight stays": listings whose hosts have paid for a
- * live Spotlight placement (see src/lib/listingPromotions.ts), longest-
- * running first, shown one at a time in SpotlightShowcase. Every stay is
- * labelled "Promoted" and the heading says the spots are paid for, so paid
- * placement is never passed off as FYStay's own pick. With no placement
- * live (or none readable), the heading still shows, with an invitation for
- * hosts to feature their stay in place of the showcase.
+ * The homepage's main carousel, directly under the search: live Spotlight
+ * placements first (paid - each card labelled "Promoted", as UK rules on
+ * paid placement require, with its views and clicks counted for the host),
+ * then the most popular real stays (see rankByPopularity). Only real,
+ * published, bookable stays with their real prices and verified reviews.
+ * Before any stay is live, clearly-labelled "Coming soon" town cards hold
+ * the row - never an invented property.
  */
 export async function SpotlightStays() {
   const now = new Date();
-  const [session, promotions] = await Promise.all([
+  const [session, promotions, listings] = await Promise.all([
     auth().catch(() => null),
-    // An optional row must never take the homepage down with it: if the
-    // placements can't be read (a database not yet migrated, an outage),
-    // the row is simply left out and the error reported.
     prisma.listingPromotion
       .findMany({
         where: { ...liveSpotlightWhere(now), AND: [{ listing: bookableHostWhere() }] },
         orderBy: { startsAt: "asc" },
         distinct: ["listingId"],
         take: SPOTLIGHT_SLOTS,
-        select: {
-          id: true,
-          listing: {
-            select: {
-              id: true,
-              title: true,
-              city: true,
-              pricePerNightCents: true,
-              photos: true,
-              maxGuests: true,
-              bedrooms: true,
-              reviews: { where: { status: "PUBLISHED" }, select: { rating: true } },
-            },
-          },
-        },
+        select: { id: true, listing: { select: LISTING_SELECT } },
       })
       .catch((error: unknown) => {
         console.error("Couldn't load Spotlight placements", error);
         Sentry.captureException(error);
         return [];
       }),
+    prisma.listing
+      .findMany({ where: { published: true, suspendedAt: null, ...bookableHostWhere() }, select: LISTING_SELECT })
+      .catch((error: unknown) => {
+        console.error("Couldn't load the homepage's stays", error);
+        Sentry.captureException(error);
+        return [];
+      }),
   ]);
-  if (promotions.length === 0) return <SpotlightStaysEmpty />;
 
-  const savedListingIds = session?.user
-    ? new Set(
-        (
-          await prisma.savedListing.findMany({
-            where: { userId: session.user.id, listingId: { in: promotions.map((p) => p.listing.id) } },
-            select: { listingId: true },
-          }).catch(() => [])
-        ).map((saved) => saved.listingId),
-      )
-    : new Set<string>();
+  const promoted = rotate(promotions);
+  const promotedIds = new Set(promoted.map((promotion) => promotion.listing.id));
+  const popular = rankByPopularity(listings)
+    .filter((listing) => !promotedIds.has(listing.id))
+    .slice(0, Math.max(0, MAX_STAYS - promoted.length));
+  const shownIds = [...promotedIds, ...popular.map((listing) => listing.id)];
 
-  const slides: SpotlightSlide[] = promotions.map(({ id, listing }) => ({
-    promotionId: id,
-    listingId: listing.id,
-    title: listing.title,
-    city: listing.city,
-    photo: listing.photos[0] ?? null,
-    pricePerNightCents: listing.pricePerNightCents,
-    rating: averageRating(listing.reviews),
-    reviewCount: listing.reviews.length,
-    bedrooms: listing.bedrooms,
-    maxGuests: listing.maxGuests,
-  }));
+  const savedListingIds =
+    session?.user && shownIds.length > 0
+      ? new Set(
+          (
+            await prisma.savedListing
+              .findMany({ where: { userId: session.user.id, listingId: { in: shownIds } }, select: { listingId: true } })
+              .catch(() => [])
+          ).map((saved) => saved.listingId),
+        )
+      : new Set<string>();
+  const isLoggedIn = Boolean(session?.user);
+  const empty = shownIds.length === 0;
 
-  return (
-    <SpotlightShowcase
-      slides={slides}
-      startIndex={spotlightStartIndex(slides.length)}
-      savedListingIds={[...savedListingIds]}
-      isLoggedIn={Boolean(session?.user)}
-    />
-  );
-}
-
-/** The Spotlight heading with no placement live: never a fake or unpaid stay in a paid slot. */
-function SpotlightStaysEmpty() {
   return (
     <section className="mt-10 sm:mt-14" aria-labelledby="spotlight-heading">
-      <div className="mb-5 sm:mb-6">
-        <h2 id="spotlight-heading" className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
-          <Sparkles className="h-5 w-5 text-brand-600" aria-hidden />
-          Spotlight stays
-        </h2>
-        <p className="mt-1 text-sm text-stone-500">Featured by local hosts.</p>
-      </div>
-      <HomeSectionEmpty
-        message="No stays in the Spotlight right now. Hosts can feature a stay here."
-        link={{ href: "/host/promote", label: "Feature your stay" }}
+      <EditorialHeader
+        id="spotlight-heading"
+        eyebrow="Spotlight stays"
+        title="Stays worth the trip"
+        subtitle={
+          empty
+            ? "The first stays from local hosts are on their way."
+            : promoted.length > 0
+              ? "Guests' favourites from local hosts. Stays marked Promoted are featured by their hosts."
+              : "Guests' favourites from local hosts across the Fylde Coast."
+        }
+        link={empty ? undefined : { href: "/search", label: "View all" }}
       />
+      <LargeCardRail label="Spotlight stays">
+        {empty
+          ? FYLDE_COAST_DESTINATIONS.slice(0, 4).map((destination) => (
+              <ComingSoonStayCard key={destination.slug} destination={destination} />
+            ))
+          : [
+              ...promoted.map(({ id, listing }) => (
+                <SpotlightTracker key={listing.id} promotionId={id}>
+                  <ListingCard
+                    listing={listing}
+                    isSaved={savedListingIds.has(listing.id)}
+                    isLoggedIn={isLoggedIn}
+                    size="large"
+                    promoted
+                    cta="View stay"
+                  />
+                </SpotlightTracker>
+              )),
+              ...popular.map((listing) => (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  isSaved={savedListingIds.has(listing.id)}
+                  isLoggedIn={isLoggedIn}
+                  size="large"
+                  cta="View stay"
+                />
+              )),
+            ]}
+      </LargeCardRail>
     </section>
   );
 }

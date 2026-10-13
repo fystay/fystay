@@ -1,4 +1,3 @@
-import { BadgePercent } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +8,7 @@ import { todayStayDate } from "@/lib/stayDates";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { ListingCard } from "@/components/ListingCard";
 import { HomeSectionEmpty } from "@/components/HomeSectionEmpty";
+import { EditorialHeader } from "@/components/EditorialHeader";
 
 const MAX_DEALS = 12;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -21,8 +21,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * anyone can take, so it doesn't count. With no deals (or on an error,
  * which never fails the page), the heading still shows, with a note in
  * place of the stays.
+ *
+ * loadLastMinuteDeals: every stay with a genuine deal right now, biggest
+ * saving first (at most `limit`), each as the card should show it - shared
+ * by the homepage row and the full /deals page.
  */
-export async function LastMinuteDeals() {
+export async function loadLastMinuteDeals(limit?: number) {
   const now = new Date();
   const today = todayStayDate(now);
 
@@ -79,7 +83,24 @@ export async function LastMinuteDeals() {
     })
     .filter((deal) => deal.saving > 0)
     .sort((a, b) => b.saving - a.saving)
-    .slice(0, MAX_DEALS);
+    .slice(0, limit);
+
+  const savedListingIds = session?.user && deals.length > 0
+    ? new Set(
+        (
+          await prisma.savedListing.findMany({
+            where: { userId: session.user.id, listingId: { in: deals.map((d) => d.card.id) } },
+            select: { listingId: true },
+          }).catch(() => [])
+        ).map((saved) => saved.listingId),
+      )
+    : new Set<string>();
+
+  return { deals: deals.map((deal) => deal.card), savedListingIds, isLoggedIn: Boolean(session?.user) };
+}
+
+export async function LastMinuteDeals() {
+  const { deals, savedListingIds, isLoggedIn } = await loadLastMinuteDeals(MAX_DEALS);
 
   if (deals.length === 0) {
     return (
@@ -92,28 +113,18 @@ export async function LastMinuteDeals() {
     );
   }
 
-  const savedListingIds = session?.user
-    ? new Set(
-        (
-          await prisma.savedListing.findMany({
-            where: { userId: session.user.id, listingId: { in: deals.map((d) => d.card.id) } },
-            select: { listingId: true },
-          }).catch(() => [])
-        ).map((saved) => saved.listingId),
-      )
-    : new Set<string>();
-
   return (
-    <LastMinuteDealsSection>
+    <LastMinuteDealsSection hasDeals>
       <LargeCardRail label="Last Minute Deals stays">
-        {deals.map(({ card }) => (
+        {deals.map((card) => (
           <ListingCard
             key={card.id}
             listing={card}
             isSaved={savedListingIds.has(card.id)}
-            isLoggedIn={Boolean(session?.user)}
+            isLoggedIn={isLoggedIn}
             size="large"
             showLastMinutePrice
+            cta="View deal"
           />
         ))}
       </LargeCardRail>
@@ -121,16 +132,16 @@ export async function LastMinuteDeals() {
   );
 }
 
-function LastMinuteDealsSection({ children }: { children: React.ReactNode }) {
+function LastMinuteDealsSection({ hasDeals = false, children }: { hasDeals?: boolean; children: React.ReactNode }) {
   return (
-    <section className="mt-10 sm:mt-14" aria-labelledby="last-minute-deals-heading">
-      <div className="mb-5 sm:mb-6">
-        <h2 id="last-minute-deals-heading" className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
-          <BadgePercent className="h-5 w-5 text-brand-600" aria-hidden />
-          Last Minute Deals
-        </h2>
-        <p className="mt-1 text-sm text-stone-500">Stays coming up soon for less, plus genuine price drops from local hosts.</p>
-      </div>
+    <section className="mt-12 sm:mt-16" aria-labelledby="last-minute-deals-heading">
+      <EditorialHeader
+        id="last-minute-deals-heading"
+        eyebrow="Last minute deals"
+        title="A little escape, closer than you think."
+        subtitle="Stays with nights free in the coming days, for less - only genuine offers from local hosts."
+        link={hasDeals ? { href: "/deals", label: "View all" } : undefined}
+      />
       {children}
     </section>
   );

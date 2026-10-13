@@ -11,10 +11,11 @@ describe("activeSiteSection", () => {
     ["/listings/abc123", "stays"],
     ["/hotels", "stays"],
     ["/hotels/blackpool/the-grand", "stays"],
-    ["/destinations", "explore"],
-    ["/destinations/lytham", "explore"],
-    ["/travel-extras", "travel"],
+    ["/destinations", "experiences"],
+    ["/destinations/lytham", "experiences"],
+    ["/travel-extras", "services"],
     ["/services", "services"],
+    ["/wishlist", "saved"],
   ])("maps %s to %s", (pathname, expected) => {
     expect(activeSiteSection(pathname)).toBe(expected);
   });
@@ -31,6 +32,6 @@ describe("activeSiteSection", () => {
   });
 
   it("has exactly the four agreed sections, in order", () => {
-    expect(SITE_SECTIONS.map((section) => section.label)).toEqual(["Stays", "Explore", "Travel", "Services"]);
+    expect(SITE_SECTIONS.map((section) => section.label)).toEqual(["Stays", "Experiences", "Services", "Saved"]);
   });
 });

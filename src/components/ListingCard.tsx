@@ -3,7 +3,8 @@
 import { useRef } from "react";
 import type { TouchEvent } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
+import { PROPERTY_TYPE_LABEL, type PropertyType } from "@/lib/propertyType";
 import { useFormattedPrice } from "@/components/CurrencyProvider";
 import { computeBookingPricing, stayRates } from "@/lib/pricing";
 import { SaveButton } from "@/components/SaveButton";
@@ -31,6 +32,8 @@ export type ListingCardData = {
   monthlyDiscountPercent?: number | null;
   photos: string[];
   amenities: string[];
+  /** Shown beside the town on large cards ("Apartment · Blackpool"), when selected. */
+  propertyType?: PropertyType | null;
   maxGuests: number;
   bedrooms: number;
   reviews: { rating: number }[];
@@ -58,6 +61,7 @@ export function ListingCard({
   promoted = false,
   checkIn,
   showLastMinutePrice = false,
+  cta,
 }: {
   listing: ListingCardData;
   isSaved?: boolean;
@@ -90,6 +94,8 @@ export function ListingCard({
    * Deals row, which only lists a deal when a night inside its window is free.
    */
   showLastMinutePrice?: boolean;
+  /** A closing action line on large cards ("View stay", "View deal"). */
+  cta?: string;
 }) {
   const isLarge = size === "large";
   const rating = computeAverageRating(listing.reviews);
@@ -363,7 +369,15 @@ export function ListingCard({
         <p className="flex items-center gap-1 text-sm text-stone-500">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-600" aria-hidden />
           <span className="truncate">
-            {listing.city}, {listing.country}
+            {isLarge && listing.propertyType ? (
+              <>
+                {PROPERTY_TYPE_LABEL[listing.propertyType]} · {listing.city}
+              </>
+            ) : (
+              <>
+                {listing.city}, {listing.country}
+              </>
+            )}
           </span>
         </p>
         {landmarkDistance && <EntryLocationMeta location={landmarkDistance} />}
@@ -441,6 +455,12 @@ export function ListingCard({
             </span>
           )}
         </div>
+        {isLarge && cta && (
+          <span className="mt-0.5 inline-flex items-center gap-1 text-sm font-medium text-brand-700 group-hover:text-brand-800">
+            {cta}
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </span>
+        )}
       </Link>
     </div>
   );

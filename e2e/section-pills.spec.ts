@@ -2,8 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 const SECTIONS = [
   { label: "Stays", path: "/search" },
-  { label: "Explore", path: "/destinations" },
-  { label: "Travel", path: "/travel-extras" },
+  { label: "Experiences", path: "/destinations" },
   { label: "Services", path: "/services" },
 ];
 
@@ -14,7 +13,7 @@ function sectionNav(page: Page) {
 test("the homepage shows the four section pills with Stays pressed", async ({ page }) => {
   await page.goto("/");
   const nav = sectionNav(page);
-  await expect(nav.getByRole("link")).toHaveText(["Stays", "Explore", "Travel", "Services"]);
+  await expect(nav.getByRole("link")).toHaveText(["Stays", "Experiences", "Services", "Saved"]);
   await expect(nav.getByRole("link", { name: "Stays" })).toHaveAttribute("aria-current", "page");
   await expect(nav.locator("[aria-current]")).toHaveCount(1);
 });
@@ -94,17 +93,17 @@ test("on phones the bottom bar is on every page, and the account menu holds only
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/about");
   // Outside the four sections: the same tabs, none selected.
-  await expect(sectionNav(page).getByRole("link")).toHaveText(["Stays", "Explore", "Travel", "Services"]);
+  await expect(sectionNav(page).getByRole("link")).toHaveText(["Stays", "Experiences", "Services", "Saved"]);
   await expect(sectionNav(page).locator("[aria-current]")).toHaveCount(0);
 
   const menuButton = page.getByRole("button", { name: "Account menu" });
-  const menu = page.locator("#guest-menu-panel-left");
+  const menu = page.locator("#guest-menu-panel");
   await expect(async () => {
     await menuButton.click();
     await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 1000 });
   }).toPass({ timeout: 10_000 });
   await expect(menu.getByRole("link", { name: "Log in" })).toBeVisible();
-  for (const label of ["Stays", "Explore", "Travel", "Services", "About"]) {
+  for (const label of ["Stays", "Experiences", "Services", "Saved", "About"]) {
     await expect(menu.getByRole("link", { name: label, exact: true })).toHaveCount(0);
   }
 });

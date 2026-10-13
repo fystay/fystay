@@ -23,11 +23,11 @@ export default async function DestinationsIndexPage() {
   const otherTowns = await townsBeyondTheFyldeCoast();
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
-      <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Where to stay with FYStay</h1>
+      <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Experiences on the Fylde Coast</h1>
       <p className="mt-2 max-w-2xl text-sm text-stone-500 sm:text-base">
-        FYStay started on the Fylde Coast and adds new towns as local hosts join. Each town below
-        has its own page with the stays local hosts have listed there and a Local Guide written
-        for that town - not a generic city page.
+        Things to do, attractions, places to eat and days out, town by town. Each town below has
+        its own Local Guide, written for that town - not a generic city page - and the stays local
+        hosts have listed there.
       </p>
 
       <h2 className="mt-10 text-lg font-bold text-foreground sm:text-xl">The Fylde Coast</h2>
