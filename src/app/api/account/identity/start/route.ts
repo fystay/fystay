@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
@@ -82,13 +83,23 @@ async function postHandler() {
     });
   } catch (error) {
     if (error instanceof Stripe.errors.StripeError) {
-      // Most often Stripe Identity isn't activated on the account yet. Log
-      // the error type only - never the request, which names the user.
-      console.error("Stripe Identity session could not be created", { type: error.type, code: error.code });
+      // A permission error means Stripe Identity isn't activated for
+      // FYStay's Stripe account (identity_api_invalid_application) - only
+      // the account owner can fix that, in the Stripe Dashboard. Logged with
+      // Stripe's request id so it can be found in Stripe's own logs - never
+      // the request itself, which names the user.
+      const notActivated = error.type === "StripePermissionError";
+      const details = { type: error.type, code: error.code, statusCode: error.statusCode, requestId: error.requestId };
+      console.error("Stripe Identity session could not be created", details);
+      Sentry.captureException(error, { tags: { area: "identity", identityNotActivated: String(notActivated) }, extra: details });
       // No session was created, so nothing was billed: don't count it.
       await releaseRateLimitHit(limitKey).catch(() => {});
       return NextResponse.json(
-        { error: "Identity verification isn't available right now. Please try again later." },
+        {
+          error: notActivated
+            ? "Identity checks aren't open on FYStay yet. Nothing was charged - please try again later."
+            : "Identity verification isn't available right now. Nothing was charged - please try again in a few minutes.",
+        },
         { status: 503 },
       );
     }

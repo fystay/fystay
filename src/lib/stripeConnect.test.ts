@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
-import { bookableHostWhere, connectFlagsFromV2Account, destinationChargeData, hostConnectAccountParams, isConnectReady } from "./stripeConnect";
+import {
+  bookableHostWhere,
+  connectFlagsFromV2Account,
+  connectRequirementsFromV2Account,
+  destinationChargeData,
+  hostConnectAccountParams,
+  isConnectReady,
+} from "./stripeConnect";
 
 type Status = "active" | "pending" | "restricted" | "unsupported";
 
@@ -58,11 +65,67 @@ describe("connectFlagsFromV2Account", () => {
 
 describe("hostConnectAccountParams", () => {
   it("creates a marketplace recipient: Express dashboard, platform owns fees and losses, transfers only", () => {
-    const params = hostConnectAccountParams({ email: "host@example.com", name: "Sam" });
+    const params = hostConnectAccountParams({ userId: "user_1", email: "host@example.com", name: "Sam" });
     expect(params.dashboard).toBe("express");
     expect(params.defaults?.responsibilities).toEqual({ fees_collector: "application", losses_collector: "application" });
     expect(params.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.requested).toBe(true);
     expect(params.configuration?.merchant).toBeUndefined();
+    expect(params.metadata).toEqual({ fystay_user_id: "user_1" });
+  });
+});
+
+describe("connectRequirementsFromV2Account", () => {
+  type Entry = NonNullable<NonNullable<Stripe.V2.Core.Account["requirements"]>["entries"]>[number];
+  const entry = (overrides: Partial<Entry>): Entry =>
+    ({
+      awaiting_action_from: "user",
+      description: "Provide your date of birth",
+      errors: [],
+      impact: {},
+      minimum_deadline: { status: "currently_due" },
+      requested_reasons: [],
+      ...overrides,
+    }) as Entry;
+  const account = (entries: Entry[]) => ({ requirements: { entries } }) as unknown as Stripe.V2.Core.Account;
+
+  it("lists what the host still has to give Stripe, once each", () => {
+    const result = connectRequirementsFromV2Account(
+      account([entry({}), entry({}), entry({ description: "Add a bank account" })]),
+    );
+    expect(result).toEqual({
+      due: ["Provide your date of birth", "Add a bank account"],
+      overdue: false,
+      reviewing: false,
+      rejected: false,
+    });
+  });
+
+  it("flags overdue and rejected details", () => {
+    const result = connectRequirementsFromV2Account(
+      account([
+        entry({ minimum_deadline: { status: "past_due" } }),
+        entry({
+          description: "Upload an ID document",
+          errors: [{ code: "verification_document_expired", description: "expired" }],
+        }),
+      ]),
+    );
+    expect(result.overdue).toBe(true);
+    expect(result.rejected).toBe(true);
+  });
+
+  it("says Stripe is reviewing when only Stripe has something to do", () => {
+    const result = connectRequirementsFromV2Account(account([entry({ awaiting_action_from: "stripe" })]));
+    expect(result).toEqual({ due: [], overdue: false, reviewing: true, rejected: false });
+  });
+
+  it("is empty when Stripe needs nothing", () => {
+    expect(connectRequirementsFromV2Account({} as Stripe.V2.Core.Account)).toEqual({
+      due: [],
+      overdue: false,
+      reviewing: false,
+      rejected: false,
+    });
   });
 });
 
