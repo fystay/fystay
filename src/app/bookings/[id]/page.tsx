@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarClock, CircleCheck, DoorOpen, Hourglass, ReceiptText, Wifi } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { formatListingTime } from "@/lib/listingTimes";
 import { blockingBookingWhere, PENDING_BOOKING_HOLD_MINUTES } from "@/lib/availability";
 import {
   completePastBookings,
@@ -394,13 +395,13 @@ export default async function BookingDetailPage({
                       {booking.listing.checkInTime && (
                         <span className="flex items-center gap-1.5">
                           <DoorOpen className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />
-                          Check-in: {booking.listing.checkInTime}
+                          Check-in: {formatListingTime(booking.listing.checkInTime)}
                         </span>
                       )}
                       {booking.listing.checkOutTime && (
                         <span className="flex items-center gap-1.5">
                           <DoorOpen className="h-4 w-4 shrink-0 rotate-180 text-brand-600" aria-hidden />
-                          Checkout: {booking.listing.checkOutTime}
+                          Checkout: {formatListingTime(booking.listing.checkOutTime)}
                         </span>
                       )}
                     </div>

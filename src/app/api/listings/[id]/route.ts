@@ -11,6 +11,7 @@ import { withApiErrorHandling } from "@/lib/apiError";
 import { priceChangeFields } from "@/lib/deals";
 import { weekendRateError } from "@/lib/pricing";
 import { lastMinuteDealInput, resolveLastMinuteDeal } from "@/lib/dealValidation";
+import { listingTimesError } from "@/lib/listingTimes";
 import { PROPERTY_TYPES, type PropertyType } from "@/lib/propertyType";
 import { materialChanges, materialSnapshot, reviewEffectsOfEdit } from "@/lib/listingReview";
 import {
@@ -213,6 +214,14 @@ async function patchHandler(
       { error: "Maximum stay can't be shorter than the minimum stay" },
       { status: 400 },
     );
+  }
+
+  // Times must come from the picker ("HH:MM"), except an older free-text
+  // value re-sent exactly as saved; quiet hours are checked as they'll end
+  // up after this save, against the persisted half when only one is sent.
+  const timesError = listingTimesError(parsed.data, listing);
+  if (timesError) {
+    return NextResponse.json({ error: timesError }, { status: 400 });
   }
 
   // Checked against the persisted values too: raising only the weekday

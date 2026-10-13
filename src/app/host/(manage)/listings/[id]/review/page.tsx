@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { formatListingTime, formatQuietHours } from "@/lib/listingTimes";
 import { Card } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { StageBadge } from "@/components/onboarding/StageBadge";
@@ -131,13 +132,13 @@ export default async function ReviewListingPage({ params }: { params: Promise<{ 
     ["Stay length", `${listing.minNights} night minimum${listing.maxNights ? `, ${listing.maxNights} maximum` : ""}`],
     ["Booking", listing.instantBook ? "Instant booking - guests book and pay straight away" : "Request to book - you approve each request"],
     ["Cancellation", `${policy.label}: ${policy.description}`],
-    ["Check-in / check-out", `${listing.checkInTime || "Not set"} / ${listing.checkOutTime || "Not set"}${listing.selfCheckIn ? " · self check-in" : ""}`],
+    ["Check-in / check-out", `${formatListingTime(listing.checkInTime) || "Not set"} / ${formatListingTime(listing.checkOutTime) || "Not set"}${listing.selfCheckIn ? " · self check-in" : ""}`],
     [
       "House rules",
       [
         listing.smokingAllowed ? "Smoking allowed" : "No smoking",
         listing.partiesAllowed ? "Parties allowed" : "No parties",
-        listing.quietHoursStart && listing.quietHoursEnd ? `Quiet hours ${listing.quietHoursStart}-${listing.quietHoursEnd}` : null,
+        listing.quietHoursStart && listing.quietHoursEnd ? `Quiet hours ${formatQuietHours(listing.quietHoursStart, listing.quietHoursEnd)}` : null,
         listing.additionalRules,
       ]
         .filter(Boolean)

@@ -261,3 +261,37 @@ describe("FYStay review of a host's own listing", () => {
     expect(listingUpdate.mock.calls[0][0].data.published).toBe(true);
   });
 });
+
+describe("house-rule times and stay length", () => {
+  it("saves a picker time", async () => {
+    expect((await patch({ checkInTime: "15:00", checkOutTime: "11:00" })).status).toBe(200);
+    expect(listingUpdate.mock.calls[0][0].data).toMatchObject({ checkInTime: "15:00", checkOutTime: "11:00" });
+  });
+
+  it("refuses new free text, with a message the host can act on", async () => {
+    const res = await patch({ checkInTime: "3pm" });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/like 15:00/);
+  });
+
+  it("accepts an older free-text time re-sent exactly as saved", async () => {
+    state.listing = listing({ checkInTime: "After 3pm" });
+    expect((await patch({ checkInTime: "After 3pm", title: "Lodge on the Lake, renamed" })).status).toBe(200);
+  });
+
+  it("accepts overnight quiet hours, but not the same start and end", async () => {
+    expect((await patch({ quietHoursStart: "22:00", quietHoursEnd: "07:00" })).status).toBe(200);
+    expect((await patch({ quietHoursStart: "22:00", quietHoursEnd: "22:00" })).status).toBe(400);
+  });
+
+  it("checks one quiet-hours end against the saved other end", async () => {
+    expect((await patch({ quietHoursStart: "22:00" })).status).toBe(400);
+    state.listing = listing({ quietHoursStart: "22:00" });
+    expect((await patch({ quietHoursEnd: "07:00" })).status).toBe(200);
+  });
+
+  it("refuses a maximum stay shorter than the saved minimum", async () => {
+    state.listing = listing({ minNights: 7 });
+    expect((await patch({ maxNights: 3 })).status).toBe(400);
+  });
+});
