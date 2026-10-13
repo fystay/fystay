@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
 
 // The homepage's moving "Now covering" strip: the Fylde Coast towns, then
-// popular Lake District towns, each opening search for that town.
+// popular Lake District towns, then Liverpool and Manchester, each opening
+// search for that town.
 
 function strip(page: import("@playwright/test").Page) {
   return page.locator("div", { has: page.getByText("Now covering", { exact: true }) }).last();
@@ -9,9 +10,9 @@ function strip(page: import("@playwright/test").Page) {
 const scroller = (page: import("@playwright/test").Page) => strip(page).locator("div.overflow-x-auto");
 const scrollLeft = (page: import("@playwright/test").Page) => scroller(page).evaluate((el) => el.scrollLeft);
 
-test("Now covering lists the Fylde Coast and Lake District towns, each opening its search", async ({ page }) => {
+test("Now covering lists the Fylde Coast, Lake District and city towns, each opening its search", async ({ page }) => {
   await page.goto("/");
-  for (const town of ["Blackpool", "Fleetwood", "Windermere", "Keswick", "Ambleside"]) {
+  for (const town of ["Blackpool", "Fleetwood", "Windermere", "Keswick", "Ambleside", "Liverpool", "Manchester"]) {
     // .first() - the list is drawn twice for the seamless loop (the copy is hidden from assistive tech).
     await expect(strip(page).getByRole("link", { name: town, exact: true }).first()).toBeAttached();
   }
