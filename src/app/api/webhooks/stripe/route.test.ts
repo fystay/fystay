@@ -481,4 +481,27 @@ describe("Stripe Identity events", () => {
       });
     });
   }
+
+  it("ignores a forged 'verified' event that isn't signed with FYStay's secret", async () => {
+    const updateMany = await userUpdateMany();
+    updateMany.mockClear();
+    const res = await POST(signedRequest(vsEvent("identity.verification_session.verified"), "whsec_attacker"));
+    expect(res.status).toBe(400);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("applies a redelivered 'verified' event harmlessly - the same single update again", async () => {
+    const updateMany = await userUpdateMany();
+    updateMany.mockClear();
+    const delivered = vsEvent("identity.verification_session.verified");
+    await POST(signedRequest(delivered));
+    await POST(signedRequest(delivered));
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    for (const [call] of updateMany.mock.calls) {
+      expect(call).toMatchObject({
+        where: { id: "user_1", stripeIdentitySessionId: "vs_1" },
+        data: { identityVerificationStatus: "VERIFIED" },
+      });
+    }
+  });
 });
