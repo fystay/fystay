@@ -18,14 +18,15 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 
 | Area | State | Evidence |
 |---|---|---|
-| Code | Working branch `claude/airbnb-competitor-1fjjpk` at `d5ba58c` (merge of #16) | GitHub, 12 Oct ~17:00 |
-| Production deploy | Branch `claude/places-search-validation` (#30) at `76b2a30`, deployed by the owner ~16:52 UTC 12 Oct (after #29's branch at 16:41 and #28's at 15:06). It is the working branch plus #30's first two commits only: **#28's verification fixes and #29's filters are not live**, and #30's location index migration hasn't run (search works without it, just without the index) | Vercel deployment `dpl_64zsx6KH7y8nBHs6uLzK4qT6VkkJ` |
-| Production health | `/api/health`: database ok, config ok; search suggestions answer (landmarks only: town suggestions come from towns with live stays, and there are none) | Fetched 12 Oct 16:57 UTC |
+| Code | Working branch `claude/airbnb-competitor-1fjjpk` at `1c0eb6f` (merge of release PR #32: #17, #25, #26, #27, #28, #29, #30, #31) | GitHub; every PR head is in the branch history (`git merge-base --is-ancestor`) |
+| Production deploy | `1c0eb6f`, Ready and serving `www.fystay.co.uk` / `fystay.co.uk` since ~17:32 UTC 12 Oct | Vercel deployment `dpl_6Um84ppqMAPApsVps8k2z7PWbyaA`; live pages carry Sentry release `1c0eb6f` |
+| Production health | `/api/health`: status ok, database ok, config ok | Fetched 12 Oct 17:33 UTC |
+| Live features (checked 17:33-17:36 UTC, signed out) | Header: "· Apartments · B&Bs · Lodges"; desktop tabs inline in the header (hidden below `lg`); phones/tablets get the fixed bottom tab bar (Stays, Explore, Travel, Services; hidden at `lg`). Search: suggestions answer (landmarks only, see Catalogue); `GET /api/listings` without dates gives 400 "Add a check-in date"; landmark + dates + `propertyType=LODGE` + price filter gives 200; `/search` with dates renders "No stays match your search". `/api/search/place` gives 503 (no Google key, expected). Hotels: "Hotel search is unavailable" (no live partner; test hotels are blocked on Production by design), so hotel booking links can't be exercised live. `/admin/properties` and `/host/calendar` send signed-out visitors to login; the calendar export answers 404 for an unknown listing/token | Fetched through Vercel; signed-in admin and calendar sync screens not exercised on Production (no Production test account; covered by the release's browser tests) |
 | Production settings | Database, Auth, base URL and `NEXTAUTH_URL` (www domain), cron, 2FA key, Supabase, Sentry, Google sign-in, Resend key, `EMAIL_FROM` on own domain, dispute inbox, live Stripe key, both live webhook secrets: all present | Vercel variable names (values never read); health check confirms the Stripe key is live |
 | Stripe live account | Charges and payouts enabled, identity verified, bank account linked, statement descriptor `FYSTAY`; account type: individual | Stripe API, read-only |
 | Live webhooks | Account-events and connected-accounts endpoints enabled on `https://www.fystay.co.uk/api/webhooks/stripe` | Stripe API, read-only; no live event delivered yet |
-| Production database | Migrations up to 11 Oct applied (run #23); #14's `20261012120000` and the pending run 38244398792 (#17/#25) not yet applied; deny-all row-level security on every table; only advisor warning is the known P2 `rls_auto_enable()` | GitHub Actions, Supabase advisors |
-| Catalogue | 0 listings live | `/api/listings` (12 Oct, before #30) |
+| Production database | 62 migrations applied, latest `20261012170000_listing_location_index`, none unfinished. PropertyType has BED_AND_BREAKFAST and LODGE; `Listing_latitude_longitude_idx` exists; HostInvitation, ListingReviewEvent and AdminAuditEvent have row-level security on; iCal sync error columns present | Migration run 38284206307 (owner-approved, success 12 Oct ~17:29); read-only SQL 17:31 UTC. Old run 38244398792 cancelled (superseded) |
+| Catalogue | 0 listings live, so town suggestions are empty (they come from towns with live stays) and search returns no stays | Live `/api/listings` and suggestions, 12 Oct 17:33 |
 
 ## LAUNCH BLOCKERS (outstanding)
 
@@ -34,7 +35,7 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | 1 | **Trader identity.** The business structure is not finalised, so the site can't name the trader. Set `NEXT_PUBLIC_COMPANY_LEGAL_NAME` and `NEXT_PUBLIC_COMPANY_ADDRESS` (+ `NEXT_PUBLIC_COMPANY_NUMBER` only for a company) once decided. **Never publish placeholder details.** | External (owner) | Decide the entity and the address to publish |
 | 2 | **Legal sign-off.** Solicitor review of Terms, Privacy, Cookies and cancellation wording; host terms don't exist yet (draft in [legal-drafts.md](legal-drafts.md)); ICO registration; VAT on the 10% commission and invoicing (accountant); whether hosts must be told about HMRC digital-platform reporting; chargeback liability under destination charges. | External (owner) | Instruct solicitor/accountant |
 | 3 | **Payment safeguard, ready for review, not merged.** Branch `claude/trader-identity-gate` (`b2b3988`): on Production, refuses new payments (booking, date change, extras, Spotlight) and marks readiness incomplete until blocker 1 is set. Refunds, webhooks, payouts and deposits are unaffected. Merging deploys to Production and closes live checkout until blocker 1 is done. | Code, awaiting approval | Owner approves merge |
-| 4 | **Hosts can self-publish.** New listings go live immediately (`Listing.published` defaults to true); admins can only suspend afterwards. With live Stripe on, a stranger could list and take payments before host terms exist. | Owner decision | Keep hosts invite-only until blocker 2, or accept the risk |
+| 4 | **Hosts can self-publish (verified 12 Oct, code).** Today, on `1c0eb6f`: any signed-in user can switch to hosting (`/api/account/become-host`), and a listing they create is published automatically once they've confirmed their email and Stripe reports charges and payouts enabled (`publicationBlockers`). Guests can then book and pay live. Already in place: email verification, Stripe Connect KYC, a live re-check of the host's Stripe account before every charge, admin suspension of listings and hosts. Missing: any FYStay review, host terms, and the trader identity gate (#7, unmerged). **Safeguard built:** [#34](https://github.com/fystay/fystay/pull/34) holds hosts' own listings until an admin approves them; on by default on Production, `HOST_LISTING_REVIEW=off` to open self-publishing later. No migration. | Code ready; release approval | Ship #34 with the next approved release; owner decides when to open self-publishing (recommended: after blocker 2) |
 | 5 | **Credential rotation unconfirmed.** Production database password was shared in chat on 7 Oct; Vercel `DATABASE_URL` was last changed before that note. The Stripe sandbox key pasted in chat also needs rolling. | External (owner) | Reset database password; update Vercel `DATABASE_URL`/`DIRECT_URL` and GitHub `PROD_DIRECT_URL`; redeploy; roll the sandbox key |
 | 6 | **Email delivery unproven.** Settings pass the health check, but no real email has been seen to arrive. | External (owner test) | Password reset to a real inbox; check it isn't in spam |
 | 7 | **Backups unverified.** Production backup / point-in-time-recovery setting not visible to Claude; the backup project still holds old data awaiting clean-up approval. | External (owner) | Confirm backups in Supabase; restore drill can follow launch |
@@ -49,7 +50,7 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 [#10](https://github.com/fystay/fystay/pull/10) date-change "payment unavailable" message ·
 [#12](https://github.com/fystay/fystay/pull/12) checkout + privacy say the host sees the guest's email and phone once confirmed ·
 [#13](https://github.com/fystay/fystay/pull/13) host guide explains how and when hosts get paid ·
-[#14](https://github.com/fystay/fystay/pull/14) migration revoking API access to `rls_auto_enable()` (**still to run on Production via the "Production database migration" workflow**) ·
+[#14](https://github.com/fystay/fystay/pull/14) migration revoking API access to `rls_auto_enable()` (applied on Production 12 Oct, run 38284206307) ·
 [#15](https://github.com/fystay/fystay/pull/15) admin nav landmark label.
 
 **Open, waiting on the owner:**
@@ -58,29 +59,11 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 |---|---|---|
 | [#7](https://github.com/fystay/fystay/pull/7) | Refuse new live payments until trader name + address are set (blocker 3) | Blocker 1 (legal entity) + approval. Merging closes live checkout until the two settings exist. |
 | [#9](https://github.com/fystay/fystay/pull/9) | Spotlight: re-check capacity on payment; refund + email the host instead of overselling; 31-min payment pages | Approval: changes the live Stripe webhook and Spotlight payments |
+| [#34](https://github.com/fystay/fystay/pull/34) | FYStay approves hosts' own listings before they go live (blocker 4) | Next approved release (deploys to Production). No migration, no settings change |
 
-**Release 12 Oct (prepared, awaiting owner approval; not live).** Branch `claude/release-2026-10-12` combines #17, #25, #26, #27, #28, #29, #30 and #31 on the working branch, with every PR's current head included and no conflicts left. Full checks pass on the combined branch: 1,677 unit tests (UTC and UK time), typecheck, lint, migration manifest, production build, 130 browser tests on a production build (1 skipped by design). Plan:
-1. Production migration workflow, dispatched from the release branch at its head: applies `20261012120000` (#14, already merged) → `130000` → `140000` → `150000` → `160000` → `170000`, all additive. Production was verified at `20261011120000` (56 applied, no failed rows; the retired `190352` row is known).
-2. Merge the release PR into `claude/airbnb-competitor-1fjjpk`: one Production deploy containing everything; GitHub marks #17, #25-#31 merged.
-3. After deploy: confirm the deployed commit, `/api/health`, header (bottom tab bar on phones, "· Apartments · B&Bs · Lodges"), search (town/landmark + dates), filters, calendar sync page, admin property pages.
-The pending run 38244398792 (#25's old head) is superseded by step 1: reject it.
+**Release 12 Oct: live.** Release PR [#32](https://github.com/fystay/fystay/pull/32) (branch `claude/release-2026-10-12` at `bd9d389`, CI green: unit/typecheck/lint/build and browser tests) merged as `1c0eb6f` at ~17:30 UTC after migration run 38284206307 applied `20261012120000`-`170000`. #17, #25, #26, #27, #28, #29, #30 and #31 are all in it (heads verified in history); GitHub marked them merged. Post-deploy checks: see "Verified state".
 
 **Merged 12 Oct (later):** #16, #18 (password show/hide), #19 (Google Places search), #20, #21, #22 (calendar re-sync before booking), #23 (hello@ sender), #24. Working branch now `d5ba58c`.
-
-**Open, verified 12 Oct ~17:00.** Every PR below is open, has no review comments, and passed the full local checks (unit tests, typecheck, lint, build, 124-128 browser tests on a production build) on the head shown. CI re-runs on each push; check the PR for its current result before approving.
-
-Merge in this order. The stacked PRs (#17 → #25 → #27 → #29 → #30) each already contain their predecessors, so each merges cleanly once the one before it is in; GitHub retargets the next PR when its base merges. Their migrations must reach Production in the same order, each with or before its PR's merge.
-
-| Order | PR | What | Base | Migration | Needs |
-|---|---|---|---|---|---|
-| any | [#26](https://github.com/fystay/fystay/pull/26) | Phone bottom menu (Stays, Explore, Travel, Services); middot before "Apartments" | working branch | none | approval |
-| any | [#28](https://github.com/fystay/fystay/pull/28) | Guest identity and phone verification fixed; holds this checklist | working branch | none | approval. Was live 15:06-16:41 (owner deployed the branch); not live now. Phone needs `TWILIO_*`; ID checks need Stripe Identity activated |
-| any | [#31](https://github.com/fystay/fystay/pull/31) | Hotel deep links keep the guest's dates on UK summer time (the "fails outside UTC" test item) | working branch | none | approval |
-| 1 | [#17](https://github.com/fystay/fystay/pull/17) | Admin listing creation for hosts + AI listing drafts | working branch | `20261012130000` | migration run 38244398792 (waiting for owner approval; covers #17 and #25), then approval. AI drafts need `ANTHROPIC_API_KEY` |
-| 2 | [#25](https://github.com/fystay/fystay/pull/25) | Admin property management: listing import, host transfer, account controls | #17 | `20261012140000` | same run as #17; approval |
-| 3 | [#27](https://github.com/fystay/fystay/pull/27) | Airbnb calendar sync hardening | #25 | `20261012150000` | a new migration run after #25's; approval |
-| 4 | [#29](https://github.com/fystay/fystay/pull/29) | Filters: property type (incl. new B&B, Lodge), core amenities, guests | #27 | `20261012160000` (enum values) | migration run before merge (hosts choosing B&B/Lodge fail until it runs); approval |
-| 5 | [#30](https://github.com/fystay/fystay/pull/30) | Location search: Where picked from suggestions, area filtering, Where/check-in/check-out required (bar, /search, `GET /api/listings`) | #29 | `20261012170000` (index) | migration run with merge; approval. Google places need `GOOGLE_MAPS_API_KEY` (see below) |
 
 **Location search without a Google key (verified locally, no key set):** FYStay's own suggestions work: towns with stays or a destination page, curated landmarks, and stay names. Town and landmark searches return results by name and by a 5-mile area. **Unavailable until `GOOGLE_MAPS_API_KEY` is set** (server-side key, Places API (New) enabled, billing on, no referrer restriction): suggestions for any other place, postcode or address, and the place-details lookup (`/api/search/place` answers 503). A guest can't type a postcode and search; they pick a town or landmark instead.
 
