@@ -1,4 +1,5 @@
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
+import { findUkLocation } from "@/lib/googlePlaces";
 
 /**
  * Approximate town-center coordinates for every town FYStay actually
@@ -33,7 +34,9 @@ function deterministicJitter(seed: string): { dx: number; dy: number } {
   }
   // Two independent-looking axes from one hash by mixing in a different
   // multiplier per axis, then folding into [-1, 1].
-  const axis = (mult: number) => (((hash * mult) % 2000) / 1000) - 1;
+  // Math.imul keeps the product an exact 32-bit integer, and the double
+  // modulo keeps a negative one in range, so each axis is within [-1, 1).
+  const axis = (mult: number) => ((((Math.imul(hash, mult) % 2000) + 2000) % 2000) / 1000) - 1;
   return { dx: axis(48271), dy: axis(16807) };
 }
 
@@ -66,4 +69,34 @@ export function fyldeCoastCenter(): { latitude: number; longitude: number } {
     latitude: towns.reduce((sum, t) => sum + t.latitude, 0) / towns.length,
     longitude: towns.reduce((sum, t) => sum + t.longitude, 0) / towns.length,
   };
+}
+
+// A listing's map pin is never its exact address: guests only learn that
+// once they've booked. Google's answer is moved by up to ~400m (keyed on
+// the listing id, so it stays put between visits) - close enough to show
+// the neighbourhood, never the door.
+const ADDRESS_BLUR_DEGREES = 0.0036;
+
+/**
+ * Where a listing goes on the map and in area searches, anywhere in the UK:
+ * Google's location for its address and town (blurred, above) when Google
+ * is configured, otherwise - or if Google can't place it - the town-centre
+ * table above for FYStay's original towns. Null when neither knows the
+ * place: a listing with no pin is still found by its town's name, which
+ * beats a pin in the wrong place.
+ */
+export async function locateListing(
+  params: { id: string; city: string; country?: string | null; address?: string | null },
+  { fetchImpl }: { fetchImpl?: typeof fetch } = {},
+): Promise<{ latitude: number; longitude: number } | null> {
+  const query = [params.address, params.city, params.country].map((part) => part?.trim()).filter(Boolean).join(", ");
+  const found = await findUkLocation(query, { fetchImpl });
+  if (found) {
+    const { dx, dy } = deterministicJitter(params.id);
+    return {
+      latitude: found.latitude + dy * ADDRESS_BLUR_DEGREES,
+      longitude: found.longitude + dx * ADDRESS_BLUR_DEGREES,
+    };
+  }
+  return geocodeListing({ id: params.id, city: params.city });
 }

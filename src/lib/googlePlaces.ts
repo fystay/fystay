@@ -128,3 +128,41 @@ export async function getPlaceDetails(
     return null;
   }
 }
+
+type TextSearchResponse = { places?: { location?: LatLng }[] };
+
+// Great Britain and Northern Ireland, with a little margin - a result
+// outside it is Google matching the wrong place, never a UK stay.
+const UK_BOUNDS = { south: 49.8, west: -8.7, north: 60.9, east: 1.8 };
+
+/**
+ * Where a free-text UK location is - a listing's "address, town" - from
+ * Places Text Search (New), asking only for the location field. One call
+ * per listing created or moved, never per search. Null when unconfigured,
+ * when Google fails, or when the best match lies outside the UK.
+ */
+export async function findUkLocation(
+  query: string,
+  { fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {},
+): Promise<{ latitude: number; longitude: number } | null> {
+  const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
+  const textQuery = query.trim().slice(0, 300);
+  if (!key || textQuery.length < 2) return null;
+  try {
+    const res = await fetchImpl(`${PLACES_BASE}/places:searchText`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": "places.location" },
+      body: JSON.stringify({ textQuery, regionCode: "GB", languageCode: "en-GB", pageSize: 1 }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as TextSearchResponse;
+    const { latitude, longitude } = data.places?.[0]?.location ?? {};
+    if (!isLat(latitude) || !isLng(longitude)) return null;
+    const inUk =
+      latitude >= UK_BOUNDS.south && latitude <= UK_BOUNDS.north && longitude >= UK_BOUNDS.west && longitude <= UK_BOUNDS.east;
+    return inUk ? { latitude, longitude } : null;
+  } catch {
+    return null;
+  }
+}

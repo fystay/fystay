@@ -23,6 +23,7 @@ import { SortDropdown } from "@/components/SortDropdown";
 import { ResultsViewToggle } from "@/components/ResultsViewToggle";
 import { MapViewPlaceholder } from "@/components/MapViewPlaceholder";
 import { ListingsMap } from "@/components/ListingsMap";
+import { TOWN_COORDINATES } from "@/lib/geocoding";
 import {
   applyListingFilters,
   LISTINGS_PAGE_SIZE,
@@ -288,16 +289,28 @@ export async function ListingsGrid({
         />
       ) : view === "map" ? (
         (() => {
-          // Every current town geocodes (see src/lib/geocoding.ts), so this
-          // is only ever empty for a result set entirely outside FYStay's
-          // actual coverage - the honest placeholder, not a broken-looking
-          // empty map, is the right fallback for that.
+          // Only stays with a map location get a pin (see locateListing);
+          // when none of the results has one, the honest placeholder - not
+          // a broken-looking empty map - says so.
           const mappable = results.filter(
             (l): l is typeof l & { latitude: number; longitude: number } =>
               l.latitude !== null && l.longitude !== null,
           );
+          // Opens on the place searched for: a picked place's point and
+          // extent, a landmark, or the town's centre when FYStay knows it.
+          const focus =
+            location && location.kind !== "town"
+              ? {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  bounds: location.kind === "place" ? location.bounds : null,
+                }
+              : location?.kind === "town"
+                ? (TOWN_COORDINATES[location.city.trim().toLowerCase()] ?? null)
+                : null;
           return mappable.length > 0 ? (
             <ListingsMap
+              focus={focus}
               listings={mappable.map((l) => ({
                 id: l.id,
                 title: l.title,

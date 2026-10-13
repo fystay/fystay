@@ -59,7 +59,9 @@ Stripe's hosted page); it's harmless on Preview and not needed on Production.
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | Phone verification | Unset |
 | `PMS_ENCRYPTION_KEY` | Storing PMS credentials; `openssl rand -hex 32`, never change | Unset |
 | `CLOUDBEDS_CLIENT_ID`, `CLOUDBEDS_CLIENT_SECRET`, `CLOUDBEDS_WEBHOOK_SECRET`, `SITEMINDER_WEBHOOK_SECRET`, `SUPERCONTROL_WEBHOOK_SECRET` | PMS integrations | Unset |
-| `GOOGLE_MAPS_API_KEY` (secret) | Search box: Google Places suggestions for any UK place or postcode, results sorted nearest to it. Server-side only; restrict the key to Places API (New) | Unset (FYStay towns and landmarks only) |
+| `GOOGLE_MAPS_API_KEY` (secret) | Search box: Google Places suggestions for any UK place or postcode, results sorted nearest to it; also places new or edited listings on the map (address looked up once, pin blurred about 400 m). Server-side only; restrict the key to Places API (New) | Unset (FYStay towns and landmarks only; only Fylde towns get map pins) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | Results map on Google Maps. Sent to browsers: restrict by website (www.fystay.co.uk, fystay.co.uk, preview domain) and to the Maps JavaScript API only. Must be a different key from `GOOGLE_MAPS_API_KEY`. Build-time: redeploy after setting | Unset (OpenStreetMap map) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | Google Map ID for the results map (vector, JavaScript). Build-time | `DEMO_MAP_ID` |
 | `TICKETMASTER_API_KEY` | Events on destination pages | Unset |
 | `BOOKING_COM_API_KEY`, `BOOKING_COM_AFFILIATE_ID`, `BOOKING_COM_API_BASE_URL` | Hotel affiliate; also needs a code change to activate | Unset |
 | `HOTEL_PROVIDER_*`, `HOTEL_*_CACHE_TTL_MS` | Hotel affiliate tuning | Unset (defaults) |
