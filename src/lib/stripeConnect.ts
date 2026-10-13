@@ -119,9 +119,13 @@ export async function loadConnectAccountStatus(accountId: string) {
   const account = await stripe.v2.core.accounts.retrieve(accountId, {
     include: ["configuration.recipient", "requirements"],
   });
+  const requirements = connectRequirementsFromV2Account(account);
   const flags = connectFlagsFromV2Account(account);
+  // Once Stripe has nothing left to ask the host, their details are in -
+  // even in the moments before Stripe switches the account on.
+  if (account.requirements && requirements.due.length === 0) flags.stripeConnectDetailsSubmitted = true;
   await prisma.user.update({ where: { stripeConnectAccountId: accountId }, data: flags });
-  return { flags, requirements: connectRequirementsFromV2Account(account) };
+  return { flags, requirements };
 }
 
 /**

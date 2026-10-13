@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { StripeBadge } from "@/components/StripeBadge";
 import { getStripeClient } from "@/lib/stripe";
+import { RefreshWhileStripeFinishes } from "@/components/RefreshWhileStripeFinishes";
 
 export const metadata: Metadata = { title: "Payouts", robots: { index: false } };
 
@@ -158,11 +159,16 @@ export default async function HostPayoutsPage({
                     </strong>{" "}
                   </>
                 )}
-                {started
+                {started && requirements?.due.length === 0
+                  ? "Almost there - Stripe is finishing setting up your account."
+                  : started
                   ? "Stripe still needs a few more details before you can be paid."
                   : "FYStay uses Stripe to pay hosts directly and securely - we never see or store your bank details."}
               </p>
               {requirements && <RequirementsNotice requirements={requirements} />}
+              {/* Nothing left for the host to do: Stripe is just switching the
+                  account on, usually within seconds of their return. */}
+              {requirements && requirements.due.length === 0 && <RefreshWhileStripeFinishes />}
               <ul className="flex flex-col gap-1.5 text-sm text-stone-600">
                 <ChecklistItem label="Details submitted" done={host.stripeConnectDetailsSubmitted} />
                 <ChecklistItem label="Can receive booking payouts" done={host.stripeConnectChargesEnabled} />
@@ -228,13 +234,12 @@ function RequirementsNotice({ requirements }: { requirements: ConnectRequirement
       </div>
     );
   }
-  if (reviewing) {
-    return (
-      <p className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700">
-        You&apos;ve sent Stripe everything it asked for. Stripe is checking your details - this
-        usually takes a few minutes but can take a couple of days. This page updates when it&apos;s done.
-      </p>
-    );
-  }
-  return null;
+  return (
+    <p role="status" className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700">
+      {reviewing
+        ? "You've sent Stripe everything it asked for. Stripe is checking your details - this usually takes a few minutes but can take a couple of days."
+        : "You've sent Stripe everything it asked for. Stripe is finishing setting up your account - this usually takes a few seconds."}{" "}
+      This page updates by itself.
+    </p>
+  );
 }

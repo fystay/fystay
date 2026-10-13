@@ -3,8 +3,9 @@
 **The single remaining-work list.** Update this file instead of re-auditing.
 When an item is done, move it to COMPLETE with the commit or date.
 
-Last verified: **12 October 2026** (launch-control mini-audit, read-only
-checks of GitHub, Vercel, Stripe and Supabase). Earlier audits are kept
+Last verified: **13 October 2026** (live Stripe Identity and Connect onboarding
+tested by the owner; read-only checks of Vercel logs, Sentry, Stripe and
+Supabase). The 12 Oct snapshot below is kept as history. Earlier audits are kept
 below as history. [handover.md](handover.md) has the background.
 
 Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-setup.md) ·
@@ -14,7 +15,7 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 
 ---
 
-## Verified state (12 Oct 2026)
+## Verified state (12 Oct 2026, history)
 
 | Area | State | Evidence |
 |---|---|---|
@@ -28,20 +29,40 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | Production database | 62 migrations applied, latest `20261012170000_listing_location_index`, none unfinished. PropertyType has BED_AND_BREAKFAST and LODGE; `Listing_latitude_longitude_idx` exists; HostInvitation, ListingReviewEvent and AdminAuditEvent have row-level security on; iCal sync error columns present | Migration run 38284206307 (owner-approved, success 12 Oct ~17:29); read-only SQL 17:31 UTC. Old run 38244398792 cancelled (superseded) |
 | Catalogue | 0 listings live, so town suggestions are empty (they come from towns with live stays) and search returns no stays | Live `/api/listings` and suggestions, 12 Oct 17:33 |
 
-## LAUNCH BLOCKERS (outstanding)
+## Verified state (13 Oct 2026)
 
-| # | Blocker | Type | Next step |
-|---|---|---|---|
-| 1 | **Trader identity.** The business structure is not finalised, so the site can't name the trader. Set `NEXT_PUBLIC_COMPANY_LEGAL_NAME` and `NEXT_PUBLIC_COMPANY_ADDRESS` (+ `NEXT_PUBLIC_COMPANY_NUMBER` only for a company) once decided. **Never publish placeholder details.** | External (owner) | Decide the entity and the address to publish |
-| 2 | **Legal sign-off.** Solicitor review of Terms, Privacy, Cookies and cancellation wording; host terms don't exist yet (draft in [legal-drafts.md](legal-drafts.md)); ICO registration; VAT on the 10% commission and invoicing (accountant); whether hosts must be told about HMRC digital-platform reporting; chargeback liability under destination charges. | External (owner) | Instruct solicitor/accountant |
-| 3 | **Payment safeguard, ready for review, not merged.** Branch `claude/trader-identity-gate` (`b2b3988`): on Production, refuses new payments (booking, date change, extras, Spotlight) and marks readiness incomplete until blocker 1 is set. Refunds, webhooks, payouts and deposits are unaffected. Merging deploys to Production and closes live checkout until blocker 1 is done. | Code, awaiting approval | Owner approves merge |
-| 4 | **Hosts can self-publish (verified 12 Oct, code).** Today, on `1c0eb6f`: any signed-in user can switch to hosting (`/api/account/become-host`), and a listing they create is published automatically once they've confirmed their email and Stripe reports charges and payouts enabled (`publicationBlockers`). Guests can then book and pay live. Already in place: email verification, Stripe Connect KYC, a live re-check of the host's Stripe account before every charge, admin suspension of listings and hosts. Missing: any FYStay review, host terms, and the trader identity gate (#7, unmerged). **Safeguard live (13 Oct, `27fdbc6`):** [#34](https://github.com/fystay/fystay/pull/34) holds hosts' own listings until an admin approves them (Admin → Add a property → Approve listing); on by default on Production, `HOST_LISTING_REVIEW=off` opens self-publishing. No migration. | Owner decision | Decide when to open self-publishing (recommended: after blocker 2) |
-| 5 | **Credential rotation unconfirmed.** Production database password was shared in chat on 7 Oct; Vercel `DATABASE_URL` was last changed before that note. The Stripe sandbox key pasted in chat also needs rolling. | External (owner) | Reset database password; update Vercel `DATABASE_URL`/`DIRECT_URL` and GitHub `PROD_DIRECT_URL`; redeploy; roll the sandbox key |
-| 6 | **Email delivery unproven.** Settings pass the health check, but no real email has been seen to arrive. | External (owner test) | Password reset to a real inbox; check it isn't in spam |
-| 7 | **Backups unverified.** Production backup / point-in-time-recovery setting not visible to Claude; the backup project still holds old data awaiting clean-up approval. | External (owner) | Confirm backups in Supabase; restore drill can follow launch |
-| 8 | **No real-money test yet.** Only sandbox tests (11 Oct) have passed. | External (owner), after 1-3 | One real booking and refund ([handover.md](handover.md) Step 4) |
-| 9 | Stripe business description still says "service fee per booking"; FYStay now charges hosts a 10% commission. | External (owner) | Edit in Stripe dashboard |
-| 10 | **Contact mailboxes unconfirmed.** The site shows `support@`, `privacy@` and `legal@fystay.co.uk` by default (`NEXT_PUBLIC_SUPPORT_EMAIL` / `_PRIVACY_EMAIL` / `_LEGAL_EMAIL` are not set in Production). Nothing confirms those inboxes receive mail. | External (owner test) | Send a test message to each, or set the variables to inboxes you read |
+| Area | State | Evidence |
+|---|---|---|
+| Production deploy | `5923a71` (#46), then #47 when approved; health ok | Vercel `dpl_G5okwZqVrjMyKUmfJzFfjABK2YPa`; `/api/health` 13 Oct 14:06 UTC |
+| Email verification at sign-up | Live (#36) | Merged 13 Oct |
+| Real email delivery | Works | hello@fystay.co.uk confirmed through the emailed link, 13 Oct 01:54 UTC |
+| Admins | hello@fystay.co.uk and the original Gmail account | Granted 13 Oct at the owner's request |
+| Stripe Identity | **Live.** Activated by the owner 13 Oct; a live verification session was created for the owner's host account (status PENDING until they finish the ID + selfie) | Production DB, read-only |
+| Stripe Connect | **Live.** First connected account `acct_1UQ6NfE6g0pKrmpo` (owner's host account): `stripe_transfers` and `payouts` active, no requirements; FYStay shows "Payouts active" | Stripe API (read-only), payouts page |
+| Connect platform profile | Completed by the owner as "Sellers collect payments directly", Stripe liable, full Dashboard - not the marketplace setup. Live refused recipient-only accounts (`capability_not_available_without_other_capability`), so #46 requests `card_payments` alongside `stripe_transfers`; checkout is still destination charges. Stripe Support case opened 13 Oct to correct the profile (reply due within 24h) | Vercel logs, Sentry JAVASCRIPT-NEXTJS-A |
+| Catalogue | 0 published listings | Production DB |
+
+## LAUNCH BLOCKERS (outstanding, 13 Oct)
+
+| # | Blocker | Owner action |
+|---|---|---|
+| 1 | **Trader identity.** Entity not decided, so `NEXT_PUBLIC_COMPANY_LEGAL_NAME` / `_ADDRESS` (+ `_NUMBER` for a company) aren't set and #7 can't merge. **Never publish placeholder details.** | Decide sole trader or Ltd and the address to publish |
+| 2 | **Legal sign-off.** Solicitor review of Terms, Privacy, Cookies, cancellation wording; host terms (draft in [legal-drafts.md](legal-drafts.md)); ICO registration; VAT on the 10% commission; HMRC platform reporting; chargeback liability. | Instruct solicitor/accountant; register with the ICO |
+| 3 | **Credential rotation.** Database password shared in chat on 7 Oct; Stripe sandbox key pasted in chat. | Reset the DB password, update Vercel `DATABASE_URL`/`DIRECT_URL` and GitHub `PROD_DIRECT_URL`, redeploy; roll the sandbox key |
+| 4 | **Google sign-in broken on www.** | Add `https://www.fystay.co.uk/api/auth/callback/google` and the www origin to the OAuth client; publish the consent screen |
+| 5 | **Vercel production branch.** Feature-branch builds reached Production twice on 13 Oct (#43) without a merge. | Settings → Environments → Production: branch `claude/airbnb-competitor-1fjjpk`; check no one promotes previews |
+| 6 | **No real-money test yet.** | After 1: one real booking, cancellation, refund and payout ([handover.md](handover.md) Step 4) |
+| 7 | **No listings.** | Create and approve the first listings (Admin → Add a property → Approve listing) |
+
+**Should do before launch:** confirm Supabase backups / point-in-time recovery; test support@, privacy@ and legal@ inboxes; change the Stripe business description to the 10% host commission; decide payout timing (at booking today, or after check-in); finish the owner's own ID check; answer Stripe Support; final phone and desktop check once listings exist.
+
+**Done 13 Oct:** real email delivery proven; Stripe Identity activated; Connect onboarding live.
+
+## PRs (13 Oct)
+
+**Merged and live 13 Oct:** #36 email verification · #37 identity retry cap · #38-#41 homepage, stay cards, booking-box sign-up link · #42 Now covering strip · #43 hero photos · #44 Liverpool and Manchester in Now covering · #45 Connect/Identity error handling and live status · #46 card_payments alongside transfers for host accounts.
+
+**Open:** #47 payouts page refreshes itself while Stripe finishes activating a host (plus this checklist) · #7 trader-identity payment gate (waits on blocker 1) · #9 Spotlight overselling safeguard (owner review).
 
 ## PRs (12 Oct)
 
