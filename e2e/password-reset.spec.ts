@@ -21,6 +21,7 @@ test("guest can reset a forgotten password and log in with the new one", async (
       email,
       passwordHash: originalPasswordHash,
       role: "GUEST",
+      emailVerifiedAt: new Date(),
       referralCode: generateReferralCode(),
     },
   });

@@ -21,7 +21,7 @@ test("phone verification: honest when unconfigured, full code flow when configur
   test.setTimeout(90_000);
   const email = `e2e-phone-${Date.now()}@fystay.dev`;
   await prisma.user.create({
-    data: { name: "E2E Phone", email, passwordHash: await bcrypt.hash(PASSWORD, 10), role: "GUEST", referralCode: generateReferralCode() },
+    data: { name: "E2E Phone", email, passwordHash: await bcrypt.hash(PASSWORD, 10), role: "GUEST", emailVerifiedAt: new Date(), referralCode: generateReferralCode() },
   });
 
   try {

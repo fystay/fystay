@@ -104,6 +104,16 @@ test.describe("favourites / wishlist", () => {
       await page.getByRole("checkbox", { name: /I agree to/ }).check();
       await page.getByRole("button", { name: "Create account" }).click();
 
+      // Sign-up asks them to confirm their email first (locally nothing is
+      // emailed and the link is shown instead), then to log in - and still
+      // returns to the property.
+      await page.waitForURL(/\/verify-email\?sent=0/);
+      await page.getByRole("link", { name: "Confirm email" }).click();
+      await page.waitForURL(/\/login\?emailConfirmed=1/);
+      await page.fill("#email", email);
+      await page.fill("#password", "newfanpass123");
+      await page.click("button[type=submit]");
+
       await page.waitForURL(new RegExp(`/listings/${listing.id}$`));
 
       // The save they started finishes by itself - no second tap.

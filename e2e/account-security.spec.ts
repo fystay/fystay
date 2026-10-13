@@ -24,6 +24,7 @@ async function createUser(label: string) {
       email,
       passwordHash: await bcrypt.hash(PASSWORD, 10),
       role: "GUEST",
+      emailVerifiedAt: new Date(),
       referralCode: generateReferralCode(),
     },
   });

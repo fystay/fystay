@@ -21,7 +21,7 @@ test("login: reveal and mask keep the value, keyboard works, and sign-in still s
   test.setTimeout(90_000);
   const email = `${PREFIX}${Date.now()}@fystay.dev`;
   await prisma.user.create({
-    data: { name: "E2E Visibility", email, passwordHash: await bcrypt.hash(PASSWORD, 10), role: "GUEST", referralCode: generateReferralCode() },
+    data: { name: "E2E Visibility", email, passwordHash: await bcrypt.hash(PASSWORD, 10), role: "GUEST", emailVerifiedAt: new Date(), referralCode: generateReferralCode() },
   });
 
   await page.goto("/login");

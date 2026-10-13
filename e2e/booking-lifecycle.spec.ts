@@ -50,6 +50,7 @@ test.describe("booking lifecycle", () => {
         name: "Lifecycle Guest",
         passwordHash: await bcrypt.hash(GUEST_PASSWORD, 10),
         role: "GUEST",
+        emailVerifiedAt: new Date(),
         referralCode: `LIFE${suffix}`,
       },
     });

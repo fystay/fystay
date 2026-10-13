@@ -25,7 +25,7 @@ async function createSecondGuest() {
   const email = `e2e-second-guest-${generateBookingReference()}@fystay.dev`.toLowerCase();
   const passwordHash = await bcrypt.hash("secondguestpass123", 10);
   const user = await prisma.user.create({
-    data: { name: "Sam Traveller", email, passwordHash, role: "GUEST", referralCode: generateReferralCode() },
+    data: { name: "Sam Traveller", email, passwordHash, role: "GUEST", emailVerifiedAt: new Date(), referralCode: generateReferralCode() },
   });
   return { ...user, password: "secondguestpass123" };
 }
