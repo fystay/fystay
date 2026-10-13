@@ -176,6 +176,9 @@ export function SearchBar({
     return errors;
   })();
   const searchValid = Object.keys(issues).length === 0;
+  // Set by tapping Search before the search is complete, so the hint that
+  // stays out of the way on a fresh page shows what's still missing.
+  const [attempted, setAttempted] = useState(false);
   const nothingEntered = !city.trim() && !range?.from;
   const statusId = variant === "hero" ? "search-status-hero" : "search-status";
 
@@ -228,7 +231,12 @@ export function SearchBar({
     e.preventDefault();
     // Guards against Enter-key resubmission in browsers that don't already
     // block implicit submission via a disabled submit button.
-    if (isSearching || !searchValid) return;
+    if (isSearching) return;
+    if (!searchValid) {
+      setAttempted(true);
+      if (issues.where) document.getElementById("search-city")?.focus();
+      return;
+    }
     startTransition(() => {
       if (selectedListingId) {
         const stay = new URLSearchParams(buildSearchQuery("", range, guestCounts));
@@ -390,6 +398,7 @@ export function SearchBar({
           className="sm:flex-[1.15]"
           triggerClassName={isHero ? "px-3 py-2.5 sm:px-2 sm:py-1" : undefined}
           variant={isHero ? "hero" : "default"}
+          chevron={!isHero}
           invalid={Boolean(city.trim()) && !whereSelected}
           describedBy={statusId}
         />
@@ -404,6 +413,7 @@ export function SearchBar({
         <SearchDateRangeField
           range={range}
           onChange={setRange}
+          chevron={!isHero}
           className="sm:flex-[1.6]"
           triggerClassName={isHero ? "px-3 py-2.5 sm:px-2 sm:py-1" : undefined}
           variant={isHero ? "hero" : "default"}
@@ -413,6 +423,7 @@ export function SearchBar({
           value={guestCounts}
           onChange={setGuestCounts}
           requireDoneToConfirm
+          chevron={!isHero}
           className="flex-1"
           // [&>svg]: recolors just this trigger's own icon to match the
           // teal used by the Where/Check-in fields, without touching
@@ -433,7 +444,11 @@ export function SearchBar({
 
       <button
         type="submit"
-        disabled={isSearching || !searchValid}
+        // Only truly disabled while a search is running. An incomplete
+        // search stays tappable (aria-disabled, so it's announced as not yet
+        // ready): tapping it says what's missing and moves to that field.
+        disabled={isSearching}
+        aria-disabled={(!searchValid && !isSearching) || undefined}
         aria-busy={isSearching}
         aria-describedby={statusId}
         aria-label={isHero ? (isSearching ? "Searching…" : "Search") : undefined}
@@ -447,7 +462,6 @@ export function SearchBar({
           // relative z-10: stays above the search-in-progress sweep above,
           // same reason as the field row.
           "relative z-10 flex w-full items-center justify-center gap-2 rounded-xl font-semibold text-white shadow-sm transition-all duration-150 hover:bg-brand-800 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 sm:w-auto sm:shrink-0 focus-ring",
-          !searchValid && !isSearching && "disabled:hover:bg-inherit disabled:hover:shadow-sm",
           isHero
             ? // At lg: this collapses from the pill-with-label below into a
               // circular icon-only button (the mockup's arrow button) - the
@@ -484,12 +498,12 @@ export function SearchBar({
         className={cn(
           "relative z-10 basis-full px-3 pb-1 text-xs sm:order-last",
           isHero ? "text-white/85" : "text-stone-600",
-          searchValid && "sr-only",
+          (searchValid || (nothingEntered && !attempted)) && "sr-only",
         )}
       >
         {searchValid ? (
           "Ready to search."
-        ) : nothingEntered ? (
+        ) : nothingEntered && !attempted ? (
           "Choose where from the suggestions and pick your dates to search."
         ) : (
           <ul className="flex flex-wrap gap-x-4 gap-y-0.5" data-testid="search-bar-issues">

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Building2, History, Landmark, Loader2, MapPin, Navigation, SearchX, Sparkles } from "lucide-react";
+import { Building2, ChevronDown, History, Landmark, Loader2, MapPin, Navigation, SearchX, Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { DestinationSuggestion, HotelSuggestion, LandmarkSuggestion } from "@/lib/searchSuggestions";
 import type { PlaceSuggestion } from "@/lib/googlePlaces";
@@ -73,6 +73,7 @@ export function DestinationAutocomplete({
   className,
   triggerClassName,
   variant = "default",
+  chevron = false,
   invalid = false,
   describedBy,
 }: {
@@ -88,6 +89,8 @@ export function DestinationAutocomplete({
   triggerClassName?: string;
   /** "hero" swaps the closed trigger's icon/label/input to white, at every breakpoint - see SearchBar's own variant, which this mirrors for its tinted-glass-to-solid-pill treatment. The open dropdown panel is unaffected (always on a white surface, so its own text stays dark regardless). */
   variant?: "default" | "hero";
+  /** A dropdown arrow at the end of the field on phones (the homepage search panel). */
+  chevron?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -382,6 +385,7 @@ export function DestinationAutocomplete({
             )}
           />
         </span>
+        {chevron && <ChevronDown className="h-5 w-5 shrink-0 text-brand-700 sm:hidden" aria-hidden />}
       </label>
 
       {open &&
