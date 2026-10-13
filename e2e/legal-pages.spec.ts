@@ -64,3 +64,15 @@ test("cookie notice shows on first visit, and dismissing it persists across relo
   await page.reload();
   await expect(page.getByRole("region", { name: "Cookie notice" })).toBeHidden();
 });
+
+test("the short /privacy, /terms and /cookies addresses open the legal pages", async ({ page }) => {
+  for (const [short, heading] of [
+    ["/privacy", "Privacy Policy"],
+    ["/terms", "Terms and Conditions"],
+    ["/cookies", "Cookie Policy"],
+  ]) {
+    await page.goto(short);
+    await expect(page).toHaveURL(new RegExp(`/legal${short}$`));
+    await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+  }
+});
