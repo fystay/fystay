@@ -8,10 +8,13 @@ import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 /** Popular Lake District towns and villages, after the Fylde Coast towns. */
 const LAKE_DISTRICT_TOWNS = ["Windermere", "Bowness-on-Windermere", "Ambleside", "Grasmere", "Keswick", "Coniston", "Glenridding"];
 
+/** The cities in the homepage hero, after the Lake District. */
+const CITIES = ["Liverpool", "Manchester"];
+
 /** Each pill opens search for that town (dates still to pick). */
 const COVERED_TOWNS = [
   ...FYLDE_COAST_DESTINATIONS.map((destination) => ({ name: destination.name, searchCity: destination.searchCity })),
-  ...LAKE_DISTRICT_TOWNS.map((name) => ({ name, searchCity: name })),
+  ...[...LAKE_DISTRICT_TOWNS, ...CITIES].map((name) => ({ name, searchCity: name })),
 ];
 
 /** How long one full lap of the list takes when it drifts by itself. */
@@ -20,9 +23,9 @@ const LAP_SECONDS = 60;
 const TOUCH_RESUME_MS = 1200;
 
 /**
- * The towns FYStay covers - the Fylde Coast, then popular Lake District
- * towns - as pills that each open that town's search results. Sits
- * directly under the homepage search panel, drifting slowly through every
+ * The towns FYStay covers - the Fylde Coast, popular Lake District towns,
+ * then Liverpool and Manchester - as pills that each open that town's
+ * search results. Sits directly under the homepage search panel, drifting slowly through every
  * town. Pointing at it (or touching it, or tabbing into it) stops the
  * drift and it can be swiped or scrolled either way by hand; letting go
  * picks the drift up again from wherever it was left. A mouse can drag it. The edges fade out
