@@ -120,8 +120,11 @@ export default function Home() {
         </section>
 
         {/* The search card - the page's main control - rising a little into
-            the hero's faded foot, with a small gap above the tab bar. */}
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-4 sm:px-6 lg:pb-0">
+            the hero's faded foot, 16px clear of the tab bar. Sticky below lg
+            so it's never under the bar when something above takes more room
+            than the wrapper allows for (the Preview banner, larger text): it
+            rises over the hero instead, and scrolls away normally. */}
+        <div className="sticky bottom-[calc(57px+env(safe-area-inset-bottom))] z-10 mx-auto w-full max-w-6xl px-4 pb-4 sm:px-6 lg:relative lg:bottom-auto lg:pb-0">
           <div className="-mt-14 sm:-mt-20 lg:-mt-[112px]">
             <Suspense>
               <SearchBar liveUpdate={false} className="max-w-none shadow-[var(--shadow-popover)]" />
