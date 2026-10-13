@@ -41,7 +41,7 @@ export default async function AdminPropertyPage({ params }: { params: Promise<{ 
       },
     },
   });
-  if (!listing || !listing.preparedById) notFound();
+  if (!listing) notFound();
 
   const { blockers, stage } = publicationState(listing);
   const searchable = isPubliclyBookable({ listing, host: listing.host, payoutsRequired: payoutReadinessRequired() });
@@ -56,7 +56,9 @@ export default async function AdminPropertyPage({ params }: { params: Promise<{ 
       : "Invitation not sent yet."
     : accessGranted
       ? `Yes - accepted their invitation ${formatDateTime(accessGranted.createdAt)}; it's under Hosting → Listings.`
-      : "Yes - an existing host; they can open it from Hosting → Listings.";
+      : listing.preparedById
+        ? "Yes - an existing host; they can open it from Hosting → Listings."
+        : "Yes - the host created this listing themselves.";
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
@@ -121,7 +123,7 @@ export default async function AdminPropertyPage({ params }: { params: Promise<{ 
             {listing.approvedRevision
               ? `Revision ${listing.approvedRevision}, approved by ${listing.approvedBy?.name ?? "the host"} on ${formatDate(listing.approvedAt!)}${
                   listing.approvedRevision !== listing.materialRevision
-                    ? listing.reviewStatus === "HOST_APPROVED"
+                    ? listing.reviewStatus === "HOST_APPROVED" || !listing.preparedById
                       ? ` (the host has since made their own changes - now revision ${listing.materialRevision})`
                       : ` - FYStay has changed it since (now revision ${listing.materialRevision}), so it needs approving again`
                     : ""
@@ -161,6 +163,7 @@ export default async function AdminPropertyPage({ params }: { params: Promise<{ 
           canSendInvitation={Boolean(listing.hostInvitationId)}
           invitationSent={Boolean(invitation?.sentAt)}
           canSendForReview={listing.reviewStatus === "DRAFT" || listing.reviewStatus === "CHANGES_REQUESTED"}
+          canApprove={stage === "awaiting_fystay_review"}
         />
       </section>
 

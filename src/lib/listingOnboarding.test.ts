@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hashResetToken } from "@/lib/passwordReset";
-import { acceptHostInvitation, canManageListing, findInvitationByToken } from "./listingOnboarding";
+import { acceptHostInvitation, canManageListing, findInvitationByToken, fystayListingReviewRequired } from "./listingOnboarding";
 
 const token = "a".repeat(64);
 const now = new Date("2026-10-11T12:00:00Z");
@@ -90,5 +90,19 @@ describe("listing management permissions", () => {
     expect(canManageListing({ user: { id: "admin_1", role: "ADMIN" } }, own)).toBe(false);
     expect(canManageListing({ user: { id: "admin_9", role: "ADMIN" } }, prepared)).toBe(true);
     expect(canManageListing(null, own)).toBe(false);
+  });
+});
+
+describe("fystayListingReviewRequired", () => {
+  it("is on for Production by default and off elsewhere", () => {
+    expect(fystayListingReviewRequired({ VERCEL_ENV: "production" })).toBe(true);
+    expect(fystayListingReviewRequired({ VERCEL_ENV: "preview" })).toBe(false);
+    expect(fystayListingReviewRequired({})).toBe(false);
+  });
+
+  it("follows HOST_LISTING_REVIEW when set", () => {
+    expect(fystayListingReviewRequired({ VERCEL_ENV: "production", HOST_LISTING_REVIEW: "off" })).toBe(false);
+    expect(fystayListingReviewRequired({ HOST_LISTING_REVIEW: "required" })).toBe(true);
+    expect(fystayListingReviewRequired({ VERCEL_ENV: "production", HOST_LISTING_REVIEW: "maybe" })).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ const STAGE_VARIANT: Record<LifecycleStage, "neutral" | "brand" | "success" | "w
   changes_requested: "warning",
   host_approved: "brand",
   ready_to_publish: "brand",
+  awaiting_fystay_review: "warning",
   live: "success",
   suspended: "danger",
   withdrawn: "neutral",

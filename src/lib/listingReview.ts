@@ -19,6 +19,10 @@ import { isConnectReady } from "@/lib/stripeConnect";
  * A listing the host created themselves has preparedById and reviewStatus
  * null: the host wrote it, so there is nothing for them to approve, but it
  * still goes through the same publicationBlockers() before going live.
+ * Where FYStay review is required (fystayReviewRequired - on by default on
+ * Production), it also waits for an admin to approve it once: the approval
+ * is stored in the same approvedRevision/approvedAt/approvedById fields,
+ * which a self-created listing otherwise never uses.
  *
  * Everything here is pure (no database), so the rules are unit-tested
  * directly - see listingReview.test.ts.
@@ -191,6 +195,7 @@ export type PublicationBlocker = {
     | "not_sent_for_review"
     | "awaiting_host_review"
     | "changes_requested"
+    | "awaiting_fystay_review"
     | "host_suspended"
     | "host_email_unverified"
     | "payouts_not_ready"
@@ -217,6 +222,7 @@ export type PublicationInput = {
     preparedById: string | null;
     reviewStatus: ListingReviewStatus | null;
     hostInvitationId: string | null;
+    approvedRevision: number | null;
   };
   host: {
     name: string;
@@ -230,7 +236,17 @@ export type PublicationInput = {
   invitation?: { name: string; email: string; sentAt: Date | null } | null;
   /** Whether payouts gate bookings here - true wherever Stripe is configured (see hostAcceptsPaidBookings). */
   payoutsRequired: boolean;
+  /** Whether a listing a host created themselves needs FYStay's approval before going live (see fystayListingReviewRequired). */
+  fystayReviewRequired: boolean;
 };
+
+/** A self-created listing still waiting for FYStay's one-off approval. */
+export function awaitsFystayReview(
+  listing: { preparedById: string | null; approvedRevision: number | null },
+  fystayReviewRequired: boolean,
+): boolean {
+  return fystayReviewRequired && listing.preparedById === null && listing.approvedRevision === null;
+}
 
 /**
  * Everything that stops a listing going live, in the order to fix it.
@@ -240,7 +256,7 @@ export type PublicationInput = {
  * listing for an unpayable host, publishing is refused too.
  */
 export function publicationBlockers(input: PublicationInput): PublicationBlocker[] {
-  const { listing, host, invitation, payoutsRequired } = input;
+  const { listing, host, invitation, payoutsRequired, fystayReviewRequired } = input;
   const blockers: PublicationBlocker[] = [];
 
   if (listing.suspendedAt) {
@@ -275,6 +291,14 @@ export function publicationBlockers(input: PublicationInput): PublicationBlocker
         owner: "fystay",
       });
     }
+  }
+
+  if (awaitsFystayReview(listing, fystayReviewRequired)) {
+    blockers.push({
+      code: "awaiting_fystay_review",
+      message: "FYStay checks every new host's listing before it goes live. We'll review it and let you know.",
+      owner: "fystay",
+    });
   }
 
   if (host.suspendedAt || host.deletedAt) {
@@ -321,6 +345,7 @@ export type LifecycleStage =
   | "changes_requested"
   | "host_approved"
   | "ready_to_publish"
+  | "awaiting_fystay_review"
   | "live"
   | "suspended"
   | "withdrawn"
@@ -340,6 +365,7 @@ export function lifecycleStage(input: {
     if (listing.reviewStatus === "CHANGES_REQUESTED") return "changes_requested";
     if (listing.reviewStatus === "HOST_APPROVED") return blockers.length === 0 ? "ready_to_publish" : "host_approved";
   }
+  if (blockers.some((blocker) => blocker.code === "awaiting_fystay_review")) return "awaiting_fystay_review";
   if (blockers.length === 0) return "ready_to_publish";
   return listing.approvedRevision !== null ? "withdrawn" : "hidden";
 }
@@ -350,6 +376,7 @@ export const STAGE_LABEL: Record<LifecycleStage, string> = {
   changes_requested: "Changes requested",
   host_approved: "Host approved",
   ready_to_publish: "Ready to publish",
+  awaiting_fystay_review: "Awaiting FYStay review",
   live: "Live",
   suspended: "Suspended",
   withdrawn: "Withdrawn",

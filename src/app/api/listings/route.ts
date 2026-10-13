@@ -16,6 +16,7 @@ import { locationWhere, matchesLocation, parseSearchRequest } from "@/lib/search
 import { isKnownTown } from "@/lib/searchTown";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { publicationBlockers } from "@/lib/listingReview";
+import { fystayListingReviewRequired } from "@/lib/listingOnboarding";
 import { payoutReadinessRequired } from "@/lib/stripeConnect";
 import { resolveLastMinuteDeal } from "@/lib/dealValidation";
 import { createListingSchema } from "@/lib/listingInput";
@@ -196,9 +197,11 @@ async function postHandler(request: Request) {
       preparedById: null,
       reviewStatus: null,
       hostInvitationId: null,
+      approvedRevision: null,
     },
     host,
     payoutsRequired: payoutReadinessRequired(),
+    fystayReviewRequired: fystayListingReviewRequired(),
   });
 
   // For a HOTEL listing, roomTypes (validated non-empty above) are the
@@ -246,7 +249,10 @@ async function postHandler(request: Request) {
     {
       listing: withCoordinates,
       ...(blockers.length > 0 && {
-        notice: `Saved, but hidden from guests for now. ${blockers.map((b) => b.message).join(" ")} Then switch it to Live.`,
+        notice: `Saved, but hidden from guests for now. ${blockers.map((b) => b.message).join(" ")}${
+          // FYStay's approval publishes it when it's the only thing left.
+          blockers.every((b) => b.code === "awaiting_fystay_review") ? "" : " Then switch it to Live."
+        }`,
       }),
     },
     { status: 201 },
