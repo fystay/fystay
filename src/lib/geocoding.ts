@@ -4,8 +4,8 @@ import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
  * Approximate town-center coordinates for every town FYStay actually
  * covers - not real per-property geocoding (this app has none), and
  * deliberately keyed off the same fixed list that already drives the
- * /destinations town tiles and the homepage's "Now covering"
- * badges, so a listing only ever gets a map pin for a place FYStay
+ * /destinations town tiles and the homepage's town cards,
+ * so a listing only ever gets a map pin for a place FYStay
  * genuinely serves.
  */
 export const TOWN_COORDINATES: Record<string, { latitude: number; longitude: number }> = {

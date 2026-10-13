@@ -116,7 +116,7 @@ export function PopularStays({
       />
       {filters.length > 1 && (
         // One line at every size, scrolling sideways when it doesn't fit.
-        // Out of flow inside a fixed-height wrapper, like NowCovering, so a
+        // Out of flow inside a fixed-height wrapper, like ListingsCarousel, so a
         // row of buttons wider than the screen can't widen the page.
         <div className="relative mb-6 h-10">
           <div

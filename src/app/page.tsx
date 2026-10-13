@@ -2,14 +2,13 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  BadgeCheck,
-  CalendarCheck,
   Compass,
   Home as HomeIcon,
   Receipt,
   MapPin,
   ShieldCheck,
   Star,
+  Tag,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { bookableHostWhere } from "@/lib/stripeConnect";
@@ -27,7 +26,7 @@ import { ListingsCarouselSkeleton } from "@/components/ListingCardSkeleton";
 import { Reveal } from "@/components/Reveal";
 import { buildExploreFilters, rankByPopularity } from "@/lib/marketplace";
 import { getActiveOfferings } from "@/lib/travelAddons";
-import { NowCovering } from "@/components/NowCovering";
+import { HomeTowns } from "@/components/HomeTowns";
 import { SpotlightStays } from "@/components/SpotlightStays";
 import { LastMinuteDeals } from "@/components/LastMinuteDeals";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
@@ -36,17 +35,16 @@ import { HomeSectionEmpty } from "@/components/HomeSectionEmpty";
 import { cn } from "@/lib/cn";
 import * as Sentry from "@sentry/nextjs";
 
-// The four reasons to trust a booking, shown directly under the hero search
+// The three reasons to trust a booking, shown directly under the hero search
 // so they're read in the same glance as it. Each is already true site-wide:
-// payment runs through Stripe Checkout, every listing comes straight from
-// its own independent host (never resold or aggregated), only a guest with a completed paid stay can review, and every listing
-// shows its cancellation policy before payment. TRUST_POINTS below is the
-// fuller "Why FYStay?" version further down the page.
+// every listing comes straight from its own independent host (never resold
+// or aggregated), payment runs through Stripe Checkout, and guests pay the
+// host's price with no fee on top (see HOST_COMMISSION_RATE in pricing.ts).
+// TRUST_POINTS below is the fuller "Why FYStay?" version further down.
 const TRUST_STRIP = [
+  { icon: HomeIcon, label: "Book direct", detail: "with local hosts" },
   { icon: ShieldCheck, label: "Secure payments", detail: "Encrypted Stripe checkout" },
-  { icon: MapPin, label: "Local hosts", detail: "Independent, never resold" },
-  { icon: BadgeCheck, label: "Genuine reviews", detail: "Only from guests who stayed" },
-  { icon: CalendarCheck, label: "Flexible cancellation", detail: "Where available, shown upfront" },
+  { icon: Tag, label: "No booking fees", detail: "Honest, transparent pricing" },
 ];
 
 // "Why FYStay?": four short, checkable reasons - each already true
@@ -188,7 +186,7 @@ export default async function Home() {
   // can offer directly in results (a "sitelinks search box"), targeting the
   // real /search?city= URL the homepage's own search bar already uses -
   // not a hypothetical endpoint. Organization's areaServed is the same
-  // named-town list as the "Now covering" badges and the Explore section
+  // named-town list as the homepage's town cards and the Explore section
   // below, so this only ever states places FYStay actually covers.
   const jsonLd = {
     "@context": "https://schema.org",
@@ -232,67 +230,45 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
-      {/* The homepage opens as one continuous destination-first sequence:
-          the video hero (headline at the bottom), then the search panel
-          straddling the seam, the trust row, and the towns covered, then
-          the discovery rails. The headline, search and everything below
-          share the header's max-w-6xl grid, so they line up with the logo
-          (the hero runs edge to edge, so its text sits in that same grid).
+      {/* The homepage opens with the hero (real Blackpool footage, the
+          Tower on the right), the search panel straddling the seam into the
+          cream page, the trust row and the towns, then the discovery rails.
+          The headline, search and everything below share the header's
+          max-w-6xl grid, so they line up with the logo.
 
-          The hero runs the full width of the page directly under the
-          header - no framed, rounded panel - and its bottom dissolves into
-          the cream page over a fixed band (80px on phones, 140px on tablets, 180px from lg):
-          the footage's sand is close to the page's own colour, so the beach
-          simply becomes the page instead of ending at an edge. The fade is a
-          mask on the media layer only, so the headline above it is never
-          faded. On phones it takes 37% of the screen (svh: the height with
-          the browser's toolbars showing, so it doesn't resize as they
-          collapse), which keeps the whole search panel, Search button
-          included, above the fold on a typical phone. isolate keeps its
-          layered video/scrim/text z-indexes inside the hero, so neither the
-          sticky header nor the cream sheet has to out-rank them.
-
-          The headline block is bottom-anchored with padding that keeps it
-          clear of the fade band, where the search bar floats. */}
-      <section className="relative isolate flex h-[37svh] min-h-[250px] w-full flex-col justify-end sm:h-[48svh] sm:min-h-[380px] lg:h-[68svh] lg:max-h-[700px] lg:min-h-[540px]">
-        <div className="absolute inset-0 [mask-image:linear-gradient(to_top,transparent_0,#000_80px)] sm:[mask-image:linear-gradient(to_top,transparent_0,#000_140px)] lg:[mask-image:linear-gradient(to_top,transparent_0,#000_180px)]">
-          <HeroBanner className="absolute inset-0 h-full w-full" />
-
-          {/* Scrim, only where the text is: a whisper of shade at the very
-              top, clear through the sky, Tower and pier, a warm-brown band
-              (the brand's own dark, not near-black) behind the headline,
-              easing off again into the fade so the sand meets the cream page
-              in its own colour rather than as a muddy brown smudge. From lg
-              the headline is left-aligned, so the band there is lighter and
-              a wash from the left carries it instead. */}
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(46,24,14,0.06)_0%,rgba(46,24,14,0)_28%,rgba(46,24,14,0.44)_58%,rgba(46,24,14,0.5)_calc(100%-96px),rgba(46,24,14,0)_100%)] sm:bg-[linear-gradient(180deg,rgba(46,24,14,0.06)_0%,rgba(46,24,14,0)_28%,rgba(46,24,14,0.4)_55%,rgba(46,24,14,0.42)_calc(100%-160px),rgba(46,24,14,0)_100%)] lg:bg-[linear-gradient(180deg,rgba(46,24,14,0.05)_0%,rgba(46,24,14,0)_30%,rgba(46,24,14,0.22)_55%,rgba(46,24,14,0.26)_calc(100%-200px),rgba(46,24,14,0)_100%)]" />
-          <div className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(46,24,14,0.5)_0%,rgba(46,24,14,0.18)_40%,rgba(46,24,14,0)_62%)] lg:block" />
+          The hero runs edge to edge under the header and dissolves into the
+          cream page over a fixed band at the bottom (a mask on the media
+          only). A light cream wash over the sky on the left (and the top on
+          phones, where the text spans the width) keeps the dark headline
+          readable on every frame of the footage, leaving the Tower clear.
+          On phones it takes 37% of the screen (svh, so it doesn't resize as
+          the toolbars collapse), keeping the whole search panel above the
+          fold. isolate keeps its layers' z-indexes inside the hero. */}
+      <section className="relative isolate flex h-[37svh] min-h-[270px] w-full flex-col sm:h-[48svh] sm:min-h-[380px] lg:h-[68svh] lg:max-h-[700px] lg:min-h-[540px]">
+        <div className="absolute inset-0 overflow-hidden [mask-image:linear-gradient(to_top,transparent_0,#000_80px)] sm:[mask-image:linear-gradient(to_top,transparent_0,#000_140px)] lg:[mask-image:linear-gradient(to_top,transparent_0,#000_180px)]">
+          {/* On phones the frame is zoomed toward the Tower so it stands
+              beside the headline rather than as a speck on the horizon. */}
+          <HeroBanner className="absolute inset-0 h-full w-full origin-[92%_42%] scale-[1.45] sm:scale-100" />
+          {/* A warm, golden-hour grade blended into the footage (soft-light,
+              not a flat tint), so midday scenery reads as the brand's warm
+              seaside rather than cool drone footage. */}
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#f2b27e_0%,#f6c99c_45%,#e9a878_100%)] opacity-60 mix-blend-soft-light" />
+          {/* A cream wash where the text sits - the top on phones (the text
+              spans the width there), the left from sm - keeping the dark
+              headline readable on every frame while the Tower stays clear. */}
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(246,243,236,0.82)_0%,rgba(246,243,236,0.55)_42%,rgba(246,243,236,0)_68%)] sm:bg-[linear-gradient(90deg,rgba(246,243,236,0.88)_0%,rgba(246,243,236,0.6)_40%,rgba(246,243,236,0)_66%)]" />
         </div>
 
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-[88px] [text-shadow:0_1px_18px_rgba(46,24,14,0.5)] sm:pb-[156px] lg:pb-[196px]">
-          {/* A soft patch of the scrim's own warm brown, just behind the
-              headline and its supporting line: the video swings from the
-              Tower's dark ironwork to bright sky and sand, and no text colour
-              stays readable over every frame on the general scrim alone. The
-              patch is blurred so it reads as shade, not a box, and leaves the
-              rest of the footage untouched. Measured against every pixel of
-              eleven frames per breakpoint - see docs/brand/fystay-brand.md.
-              w-fit keeps it to the text's own width. */}
-          <div className="relative w-fit max-w-3xl">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -inset-x-12 -inset-y-12 -z-10 rounded-[56px] bg-[rgba(46,24,14,var(--hero-shade))] blur-2xl [--hero-shade:0.6] sm:-inset-x-16 sm:-inset-y-14"
-            />
-            {/* "Find your stay" echoes the name itself (FYStay - For Your
-                Stay); "in Lancashire" never splits, so the place reads as one
-                phrase, in a pale tone of the brand terracotta. */}
-            <h1 className="text-[2rem] leading-[1.06] tracking-[-0.01em] text-white min-[400px]:text-[2.2rem] sm:text-5xl lg:text-[4rem]">
-              Find your stay <span className="whitespace-nowrap">in <span className="text-brand-200">Lancashire</span></span>
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pt-5 sm:pt-12 lg:pt-20">
+          <div className="max-w-[20rem] min-[400px]:max-w-[22rem] sm:max-w-xl lg:max-w-2xl">
+            <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
+              <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
+              The Fylde Coast
+            </p>
+            <h1 className="mt-2 text-[2.1rem] font-bold leading-[1.02] tracking-[-0.015em] text-foreground min-[400px]:text-[2.4rem] sm:mt-3 sm:text-5xl lg:text-[4.25rem]">
+              Popular on the <span className="block text-brand-600">Fylde Coast</span>
             </h1>
-            {/* One supporting line. It names only the area where FYStay
-                has towns of its own; anywhere else appears once a host
-                there is live (the destinations hub reads real listings). */}
-            <p className="mt-2 max-w-2xl text-pretty text-[15px] font-medium leading-snug text-white sm:mt-3 sm:text-lg sm:leading-relaxed">
+            <p className="mt-2 max-w-[18rem] text-pretty text-sm font-medium leading-snug text-stone-800 sm:mt-4 sm:max-w-lg sm:text-lg sm:leading-relaxed">
               Holiday homes, apartments and guest houses from local hosts, starting on the Fylde Coast.
             </p>
           </div>
@@ -316,26 +292,23 @@ export default async function Home() {
           </Suspense>
         </div>
 
-        {/* Trust row: read in the same glance as the search, as quiet
-            icon-and-text items rather than cards or ruled cells - a 2x2
-            grid on phones, one row from lg. */}
+        {/* Trust row: three short, checkable reasons, read in the same
+            glance as the search - centred, divided by hairlines. */}
         <ul
           aria-label="Why book with FYStay"
-          className="mt-7 grid grid-cols-2 gap-x-5 gap-y-6 px-1 sm:mt-6 sm:px-0 lg:mt-7 lg:grid-cols-4 lg:gap-x-8"
+          className="mt-8 grid grid-cols-3 divide-x divide-border-subtle sm:mt-10"
         >
           {TRUST_STRIP.map(({ icon: Icon, label, detail }) => (
-            <li key={label} className="flex items-start gap-3 lg:pl-1">
-              <Icon className="mt-px h-[18px] w-[18px] shrink-0 text-brand-600" aria-hidden />
-              <div className="min-w-0">
-                <p className="text-[13.5px] font-semibold leading-snug text-foreground sm:text-sm">{label}</p>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500 sm:text-[13px]">{detail}</p>
-              </div>
+            <li key={label} className="flex flex-col items-center px-1.5 text-center sm:px-4">
+              <Icon className="h-7 w-7 text-brand-600 sm:h-8 sm:w-8" strokeWidth={1.6} aria-hidden />
+              <p className="mt-2.5 whitespace-nowrap font-serif text-[13.5px] font-bold leading-tight text-foreground min-[400px]:text-[15px] sm:text-lg">{label}</p>
+              <p className="mt-1 text-[11px] leading-snug text-stone-500 min-[400px]:text-xs sm:text-sm">{detail}</p>
             </li>
           ))}
         </ul>
 
-        <div className="mt-9 lg:mt-10">
-          <NowCovering />
+        <div className="mt-10 sm:mt-14">
+          <HomeTowns />
         </div>
 
         {/* Discovery: stays, then towns, then trip types - each a swipeable

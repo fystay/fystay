@@ -1,6 +1,6 @@
 /**
  * The Fylde Coast towns FYStay covers - the same set as the homepage's
- * "Now covering" badges. Backs both the /destinations index tiles and
+ * town cards. Backs both the /destinations index tiles and
  * the dedicated /destinations/[slug] landing pages (e.g.
  * /destinations/blackpool, targeting searches like "accommodation in
  * Blackpool"), so both read from one list rather than re-deriving it.
