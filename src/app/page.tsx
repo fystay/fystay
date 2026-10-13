@@ -82,9 +82,9 @@ export default function Home() {
       />
       {/* Phones: the first screen is the header, the hero and the search
           card, which sits just above the bottom tab bar - the wrapper fills
-          the screen between the header (85px) and the tab bar (64px plus
-          the home-indicator area) and the hero takes whatever the card
-          leaves, so the Fylde Coast stays visible behind the headline. From
+          the screen between the header (87px) and the tab bar (57px plus
+          the home-indicator area), the card keeps 16px clear above the bar,
+          and the hero takes whatever the card leaves, so the Fylde Coast stays visible behind the headline. From
           lg the hero is a fixed share of the window with the search bar
           straddling its foot.
 
@@ -93,7 +93,7 @@ export default function Home() {
           real Blackpool footage, and a cream wash where the text sits keeps
           the dark headline readable on every frame. isolate keeps its
           layers' z-indexes inside the hero. */}
-      <div className="flex min-h-[calc(100svh-85px-64px-env(safe-area-inset-bottom))] flex-col lg:block lg:min-h-0">
+      <div className="flex min-h-[calc(100svh-88px-58px-env(safe-area-inset-bottom))] flex-col lg:block lg:min-h-0">
         <section className="relative isolate flex min-h-[230px] w-full flex-1 flex-col lg:h-[64svh] lg:max-h-[660px] lg:min-h-[520px] lg:flex-none">
           <div className="absolute inset-0 overflow-hidden [mask-image:linear-gradient(to_top,transparent_0,#000_90px)] lg:[mask-image:linear-gradient(to_top,transparent_0,#000_180px)]">
             {/* On phones the frame is zoomed toward the Tower so it stands
@@ -109,7 +109,7 @@ export default function Home() {
                 <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
                 The Fylde Coast
               </p>
-              <h1 className="mt-2.5 text-[1.85rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground min-[400px]:text-[2.1rem] sm:mt-3 sm:text-[2.6rem] lg:text-[3.75rem]">
+              <h1 className="mt-2.5 text-[2.05rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground min-[400px]:text-[2.3rem] sm:mt-3 sm:text-[2.85rem] lg:text-[4.1rem]">
                 Popular on the <span className="block text-brand-600">Fylde Coast</span>
               </h1>
               <p className="mt-2.5 max-w-[16.5rem] text-pretty text-[13.5px] font-medium leading-snug text-foreground/85 sm:mt-4 sm:max-w-sm sm:text-base">
@@ -121,7 +121,7 @@ export default function Home() {
 
         {/* The search card - the page's main control - rising a little into
             the hero's faded foot, with a small gap above the tab bar. */}
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-3 sm:px-6 lg:pb-0">
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-4 sm:px-6 lg:pb-0">
           <div className="-mt-14 sm:-mt-20 lg:-mt-[112px]">
             <Suspense>
               <SearchBar liveUpdate={false} className="max-w-none shadow-[var(--shadow-popover)]" />
