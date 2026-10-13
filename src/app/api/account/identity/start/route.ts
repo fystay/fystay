@@ -6,7 +6,7 @@ import { getStripeClient } from "@/lib/stripe";
 import { createIdentityVerificationSession, identityStateFromSession } from "@/lib/identity";
 import { BASE_URL } from "@/lib/baseUrl";
 import { withApiErrorHandling } from "@/lib/apiError";
-import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
+import { checkRateLimit, rateLimitedResponse, releaseRateLimitHit } from "@/lib/rateLimit";
 
 /**
  * Starts (or resumes) a Stripe Identity check for the signed-in user and
@@ -64,8 +64,9 @@ async function postHandler() {
   }
 
   // Each new session is a billable Stripe check, so cap restarts.
+  const limitKey = `identity-start:${session.user.id}`;
   const limit = await checkRateLimit({
-    key: `identity-start:${session.user.id}`,
+    key: limitKey,
     limit: 5,
     windowMs: 24 * 60 * 60 * 1000,
   });
@@ -84,6 +85,8 @@ async function postHandler() {
       // Most often Stripe Identity isn't activated on the account yet. Log
       // the error type only - never the request, which names the user.
       console.error("Stripe Identity session could not be created", { type: error.type, code: error.code });
+      // No session was created, so nothing was billed: don't count it.
+      await releaseRateLimitHit(limitKey).catch(() => {});
       return NextResponse.json(
         { error: "Identity verification isn't available right now. Please try again later." },
         { status: 503 },
