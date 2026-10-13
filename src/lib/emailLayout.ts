@@ -18,7 +18,7 @@ const COLORS = {
   page: "#f7f3ef",
   card: "#ffffff",
   border: "#ece4dd",
-  ink: "#301a13",
+  ink: "#2b1712",
   text: "#4a3b34",
   muted: "#7c6c64",
   brand: "#bc522f",

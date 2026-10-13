@@ -268,7 +268,7 @@ export default async function Home() {
             <h1 className="mt-2 text-[2.1rem] font-bold leading-[1.02] tracking-[-0.015em] text-foreground min-[400px]:text-[2.4rem] sm:mt-3 sm:text-5xl lg:text-[4.25rem]">
               Popular on the <span className="block text-brand-600">Fylde Coast</span>
             </h1>
-            <p className="mt-2 max-w-[18rem] text-pretty text-sm font-medium leading-snug text-stone-800 sm:mt-4 sm:max-w-lg sm:text-lg sm:leading-relaxed">
+            <p className="mt-2 max-w-[18rem] text-pretty text-sm font-medium leading-snug text-foreground sm:mt-4 sm:max-w-lg sm:text-lg sm:leading-relaxed">
               Holiday homes, apartments and guest houses from local hosts, starting on the Fylde Coast.
             </p>
           </div>

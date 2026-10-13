@@ -327,7 +327,7 @@ export function SearchBar({
             // the extra padding looking cramped against a tighter card.
             // sm:/lg: revert to the original tighter values, since desktop
             // hero is mouse-driven and was already comfortable.
-            "w-full gap-1 rounded-2xl border-white/15 bg-ink/40 p-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:max-w-4xl sm:gap-0.5 sm:p-1 lg:border-white/10 lg:bg-ink/80 lg:p-1.5 lg:shadow-[0_16px_36px_-18px_rgba(48,26,19,0.55)]"
+            "w-full gap-1 rounded-2xl border-white/15 bg-ink/40 p-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:max-w-4xl sm:gap-0.5 sm:p-1 lg:border-white/10 lg:bg-ink/80 lg:p-1.5 lg:shadow-[0_16px_36px_-18px_rgba(43,23,18,0.55)]"
           : "max-w-4xl border-border-subtle bg-surface p-2 sm:p-2",
         className,
       )}
@@ -473,7 +473,7 @@ export function SearchBar({
               // brand-500 is this design system's own version of that
               // exact terracotta.
               "bg-brand-700/90 px-4 py-1 text-xs sm:ml-1 sm:py-1 lg:aspect-square lg:h-11 lg:w-11 lg:shrink-0 lg:rounded-full lg:bg-brand-500 lg:px-0 lg:py-0 lg:hover:bg-brand-600"
-            : "mt-1 bg-brand-700 px-6 py-3.5 text-sm sm:ml-1 sm:mt-0 sm:py-3",
+            : "mt-1 bg-brand-600 px-6 py-3.5 text-sm hover:bg-brand-700 sm:ml-1 sm:mt-0 sm:py-3",
         )}
       >
         {isSearching ? (

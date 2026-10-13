@@ -26,7 +26,9 @@
      slightly brighter ivory for cards/panels that sit on top of it, so
      elevation still reads even though neither is stark white. */
   --background: #f6f3ec;
-  --foreground: #22201a;
+  /* Text: the logo's "Stay" espresso (--color-ink), so headings and copy
+     share the wordmark's warm dark brown rather than a neutral near-black. */
+  --foreground: #2b1712;
   --surface: #fdfbf7;
   --surface-muted: #efe9dc;
   --border-subtle: #e3ddce;
@@ -52,7 +54,7 @@
   --color-brand-700: #954328;
   --color-brand-800: #723622;
   --color-brand-900: #50281b;
-  --color-brand-950: #301a13;
+  --color-brand-950: #2b1712;
 
   /* Accent: warm amber, used sparingly for highlights (ratings, badges) */
   --color-accent-400: #fbbf24;
@@ -64,7 +66,7 @@
      darkest shade) rather than an unrelated navy, so the two halves of the
      wordmark read as one considered pairing instead of two colors that
      just happen to sit next to each other. */
-  --color-ink: #301a13;
+  --color-ink: #2b1712;
 
   /* Warm brown-black tint (not a cool blue-grey) so drop shadows read as
      part of the same warm palette as the background/surface tones above. */
