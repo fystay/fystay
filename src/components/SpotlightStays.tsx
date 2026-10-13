@@ -80,7 +80,10 @@ export async function SpotlightStays() {
 
   const promoted = rotate(promotions);
   const promotedIds = new Set(promoted.map((promotion) => promotion.listing.id));
-  const popular = rankByPopularity(listings)
+  // Stays with photos lead (in popularity order), so the row opens on real
+  // photography; a stay without one still appears, after them.
+  const ranked = rankByPopularity(listings);
+  const popular = [...ranked.filter((l) => l.photos.length > 0), ...ranked.filter((l) => l.photos.length === 0)]
     .filter((listing) => !promotedIds.has(listing.id))
     .slice(0, Math.max(0, MAX_STAYS - promoted.length));
   const shownIds = [...promotedIds, ...popular.map((listing) => listing.id)];
