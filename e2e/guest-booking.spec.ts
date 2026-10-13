@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { isoInDays } from "./support/search";
 
 // Playwright's test process doesn't load .env the way `next dev` does.
 // CI sets these vars directly instead of via a .env file, so don't fail
@@ -131,4 +132,17 @@ test("logged-out guest is redirected to log in when trying to book", async ({ pa
   await page.waitForURL(/\/login/);
   // The callback is URL-encoded (it can carry the selected dates/guests).
   expect(decodeURIComponent(page.url())).toContain("callbackUrl=/listings/");
+});
+
+test("a new guest can go straight to sign-up from the booking box, keeping their dates and guests", async ({ page }) => {
+  const listing = await prisma.listing.findFirstOrThrow({
+    where: { published: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  await page.goto(`/listings/${listing.id}?checkIn=${isoInDays(250)}&checkOut=${isoInDays(252)}&adults=2`);
+  await page.getByRole("link", { name: "Create a free account" }).click();
+  await page.waitForURL(/\/register\?callbackUrl=/);
+  const callback = new URL(page.url()).searchParams.get("callbackUrl")!;
+  expect(callback).toBe(`/listings/${listing.id}?checkIn=${isoInDays(250)}&checkOut=${isoInDays(252)}&adults=2`);
 });

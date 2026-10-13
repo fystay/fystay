@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { type DateRange } from "react-day-picker";
 import { format, parseISO, subDays } from "date-fns";
 import { toast } from "sonner";
@@ -483,9 +484,19 @@ export function BookingWidget({
               <Button onClick={goToLogin} size="lg" className="mt-4 w-full">
                 Log in to book
               </Button>
-              <p className="mt-2 text-center text-xs text-stone-500">
+              <p className="mt-3 text-center text-sm text-stone-600">
+                New to FYStay?{" "}
+                <Link
+                  href={`/register?callbackUrl=${encodeURIComponent(listingUrlWithSelection())}`}
+                  className="font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
+                >
+                  Create a free account
+                </Link>
+              </p>
+              <p className="mt-1.5 text-center text-xs text-stone-500">
                 Booking needs a free FYStay account - it keeps your booking, receipt and host messages
-                together. New here? Sign up in a minute and we&apos;ll bring you straight back.
+                together. Once you&apos;ve confirmed your email, we&apos;ll bring you back to this stay with your
+                dates and guests still chosen.
               </p>
             </>
           ) : (
