@@ -12,6 +12,9 @@ import { ListingCard } from "@/components/ListingCard";
 import { SpotlightTracker } from "@/components/SpotlightTracker";
 import { ComingSoonStayCard } from "@/components/ComingSoonStayCard";
 
+/** The towns whose "Coming soon" cards hold the row before any stay is live (owner's choice). */
+const COMING_SOON_TOWNS = ["blackpool", "lytham", "thornton-cleveleys", "fleetwood"];
+
 /** How many stays the carousel holds at most. */
 const MAX_STAYS = 10;
 
@@ -80,7 +83,10 @@ export async function SpotlightStays() {
 
   const promoted = rotate(promotions);
   const promotedIds = new Set(promoted.map((promotion) => promotion.listing.id));
-  const popular = rankByPopularity(listings)
+  // Stays with photos lead (in popularity order), so the row opens on real
+  // photography; a stay without one still appears, after them.
+  const ranked = rankByPopularity(listings);
+  const popular = [...ranked.filter((l) => l.photos.length > 0), ...ranked.filter((l) => l.photos.length === 0)]
     .filter((listing) => !promotedIds.has(listing.id))
     .slice(0, Math.max(0, MAX_STAYS - promoted.length));
   const shownIds = [...promotedIds, ...popular.map((listing) => listing.id)];
@@ -115,7 +121,9 @@ export async function SpotlightStays() {
       />
       <LargeCardRail label="Spotlight stays">
         {empty
-          ? FYLDE_COAST_DESTINATIONS.slice(0, 4).map((destination) => (
+          ? FYLDE_COAST_DESTINATIONS.filter((destination) => COMING_SOON_TOWNS.includes(destination.slug))
+              .sort((a, b) => COMING_SOON_TOWNS.indexOf(a.slug) - COMING_SOON_TOWNS.indexOf(b.slug))
+              .map((destination) => (
               <ComingSoonStayCard key={destination.slug} destination={destination} />
             ))
           : [

@@ -19,7 +19,10 @@
  * fallback rule exists to avoid. St Annes uses TownHeroArt's generated
  * scene instead, same as any other town without a real photo yet.
  */
-export const DESTINATION_PHOTOS: Partial<Record<string, { hero: string; tile: string }>> = {
+// `hero` is optional: a town whose only real photo is too small for a
+// full-width banner (Fleetwood's, 612px wide) uses it on cards only and
+// keeps the generated banner art.
+export const DESTINATION_PHOTOS: Partial<Record<string, { hero?: string; tile: string }>> = {
   blackpool: {
     hero: "/images/destinations/blackpool-hero.jpg",
     tile: "/images/destinations/blackpool-tile.jpg",
@@ -27,6 +30,9 @@ export const DESTINATION_PHOTOS: Partial<Record<string, { hero: string; tile: st
   lytham: {
     hero: "/images/destinations/lytham-st-annes.jpg",
     tile: "/images/destinations/lytham-st-annes.jpg",
+  },
+  fleetwood: {
+    tile: "/images/listings/fleetwood-cover.jpg",
   },
   "thornton-cleveleys": {
     hero: "/images/destinations/cleveleys.jpg",
