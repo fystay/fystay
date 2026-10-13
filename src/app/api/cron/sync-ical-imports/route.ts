@@ -4,6 +4,7 @@ import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { reportError, withCronMonitor } from "@/lib/observability";
 import { prisma } from "@/lib/prisma";
 import { syncListingIcalImport } from "@/lib/icalSync";
+import { ICAL_SYNC_CRON_SCHEDULE } from "@/lib/icalChannel";
 
 // A calendar fetch per listing, done sequentially - see refresh-local-data's
 // own maxDuration comment for the same "stay inside Vercel Hobby's 60s
@@ -50,4 +51,4 @@ async function getHandler(request: Request) {
   return NextResponse.json({ syncedAt: new Date().toISOString(), listings: results });
 }
 
-export const GET = withCronMonitor("sync-ical-imports", "0 6 * * *", "ICAL_SYNC_CRON_SECRET", withApiErrorHandling(getHandler));
+export const GET = withCronMonitor("sync-ical-imports", ICAL_SYNC_CRON_SCHEDULE, "ICAL_SYNC_CRON_SECRET", withApiErrorHandling(getHandler));
