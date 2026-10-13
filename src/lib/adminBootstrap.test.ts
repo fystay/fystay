@@ -8,7 +8,7 @@ function fakePrisma(user: Record<string, unknown> | null) {
   return { prisma, update };
 }
 
-const active = { id: "u1", role: "GUEST", deletedAt: null, suspendedAt: null };
+const active = { id: "u1", role: "GUEST", deletedAt: null, suspendedAt: null, emailVerifiedAt: new Date() };
 
 describe("grantAdmin", () => {
   it("promotes an active account and signs it out everywhere", async () => {
@@ -32,6 +32,13 @@ describe("grantAdmin", () => {
       expect((await grantAdmin(prisma, "x@example.com")).outcome).toBe("refused");
       expect(update).not.toHaveBeenCalled();
     }
+  });
+
+  it("refuses an account that hasn't confirmed its email - anyone can register an address they don't own", async () => {
+    const { prisma, update } = fakePrisma({ ...active, emailVerifiedAt: null });
+    const result = await grantAdmin(prisma, "hello@example.com");
+    expect(result.outcome).toBe("refused");
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("is a no-op for an existing admin", async () => {

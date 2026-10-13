@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { appleSignInEnabled, googleSignInEnabled } from "@/lib/authProviders";
 import { createAppleClientSecret } from "@/lib/appleClientSecret";
 import { claimIsTrue, isOAuthProvider, resolveOAuthSignIn } from "@/lib/oauthAccounts";
+import { reportAuthError } from "@/lib/authLogger";
 import { deployedOverHttps, LINK_INTENT_COOKIE, linkIntentCookieOptions, linkIntentSecret, verifyLinkIntent } from "@/lib/oauthLinkIntent";
 import {
   createOAuthTwoFactorToken,
@@ -128,6 +129,7 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
   // ("UntrustedHost") since it can't otherwise tell a real request apart
   // from one with a spoofed Host header.
   trustHost: true,
+  logger: { error: reportAuthError },
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
