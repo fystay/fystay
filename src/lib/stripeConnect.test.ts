@@ -64,12 +64,13 @@ describe("connectFlagsFromV2Account", () => {
 });
 
 describe("hostConnectAccountParams", () => {
-  it("creates a marketplace recipient: Express dashboard, platform owns fees and losses, transfers only", () => {
+  it("creates a marketplace recipient: Express dashboard, platform owns fees and losses, transfers plus card payments", () => {
     const params = hostConnectAccountParams({ userId: "user_1", email: "host@example.com", name: "Sam" });
     expect(params.dashboard).toBe("express");
     expect(params.defaults?.responsibilities).toEqual({ fees_collector: "application", losses_collector: "application" });
     expect(params.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.requested).toBe(true);
-    expect(params.configuration?.merchant).toBeUndefined();
+    // Live Stripe requires card_payments alongside transfers for this platform.
+    expect(params.configuration?.merchant?.capabilities?.card_payments?.requested).toBe(true);
     expect(params.metadata).toEqual({ fystay_user_id: "user_1" });
   });
 });
