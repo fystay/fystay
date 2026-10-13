@@ -56,7 +56,8 @@ test("host sees sync timing, a failed sync's reason, and can reset the export li
     await page.goto(`/host/listings/${listing.id}/calendar`);
     await expect(page.getByText(/Syncing isn.t instant/)).toBeVisible({ timeout: 30_000 });
     const alert = page.getByRole("alert").filter({ hasText: "Last sync failed" });
-    await expect(alert).toContainText("refused the calendar link");
+    await expect(alert).toContainText("Airbnb refused the link (403)");
+    await expect(alert).toContainText("copy a fresh export link from Airbnb");
     await expect(alert).toContainText("are still blocked");
 
     await page.getByRole("button", { name: "Reset link" }).click();

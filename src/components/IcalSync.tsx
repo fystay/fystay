@@ -10,6 +10,7 @@ import { Field, FieldHint, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
+import { friendlyIcalSyncError, icalChannelForUrl, icalSyncFailing, ICAL_SYNC_SCHEDULE_TEXT } from "@/lib/icalChannel";
 
 /**
  * Two-way calendar sync with Airbnb, Vrbo and similar, by iCal links:
@@ -105,17 +106,23 @@ export function IcalSync({
     router.refresh();
   }
 
-  const failedSinceLastSuccess = Boolean(syncError && syncFailedAt && (!syncedAt || syncFailedAt > syncedAt));
+  const failedSinceLastSuccess = icalSyncFailing({
+    icalImportUrl: initialImportUrl,
+    icalSyncedAt: syncedAt,
+    icalSyncError: syncError,
+    icalSyncFailedAt: syncFailedAt,
+  });
+  const friendlyError = friendlyIcalSyncError(syncError, icalChannelForUrl(initialImportUrl) ?? "OTHER");
 
   return (
-    <Card className="p-5">
+    <Card id="calendar-sync" className="scroll-mt-24 p-5">
       <CardHeader className="p-0">
         <CardTitle>Calendar sync</CardTitle>
       </CardHeader>
       <CardContent className="mt-3 flex flex-col gap-5 p-0">
         <p className="text-sm text-stone-600">
           Link this listing with Airbnb, Vrbo or another calendar so a booking on one blocks the dates on the
-          other. Syncing isn&apos;t instant: FYStay checks your other calendar every morning, whenever you press
+          other. Syncing isn&apos;t instant: FYStay checks your other calendar {ICAL_SYNC_SCHEDULE_TEXT}, whenever you press
           Sync now, and again just before taking a booking if it hasn&apos;t checked in the last 30 minutes.
           Airbnb reads FYStay&apos;s link on its own schedule, usually every few hours. Until both sides
           have updated, a last-minute booking can still clash, so check new bookings on both.
@@ -179,7 +186,7 @@ export function IcalSync({
                 <span className="font-medium">
                   Last sync failed {formatDistanceToNow(syncFailedAt!, { addSuffix: true })}.
                 </span>{" "}
-                {syncError}{" "}
+                {friendlyError}{" "}
                 {syncedAt
                   ? `Dates from the last good sync (${formatDistanceToNow(syncedAt, { addSuffix: true })}) are still blocked.`
                   : "No dates have been imported yet."}

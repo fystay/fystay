@@ -11,6 +11,7 @@ import { Field, FieldError, FieldHint, Label } from "@/components/ui/Label";
 import { cn } from "@/lib/cn";
 import { AMENITY_OPTIONS } from "@/lib/amenityOptions";
 import type { ImportedListingDraft, ListingImportResult } from "@/lib/listingImport";
+import { countOptions, LISTING_COUNT_RANGES } from "@/lib/listingFormOptions";
 
 type HostOption = { id: string; name: string; email: string; suspended: boolean };
 
@@ -37,7 +38,8 @@ const EMPTY_DETAILS: Details = {
 };
 
 function detailsFrom(draft: ImportedListingDraft): Details {
-  const n = (v: number | null) => (v === null ? "" : String(v));
+  // Whole numbers, as the dropdowns below offer and the save sends.
+  const n = (v: number | null) => (v === null ? "" : String(Math.round(v)));
   return {
     description: draft.description ?? "",
     address: draft.address ?? "",
@@ -373,7 +375,7 @@ function ImportedDetailsFields({
   setDetails: (next: Details) => void;
   imported: ListingImportResult;
 }) {
-  const set = (key: keyof Details) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const set = (key: keyof Details) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setDetails({ ...details, [key]: e.target.value });
   return (
     <>
@@ -390,14 +392,22 @@ function ImportedDetailsFields({
       <div className="grid gap-4 sm:grid-cols-4">
         {(
           [
-            ["bedrooms", "Bedrooms", 0],
-            ["bathrooms", "Bathrooms", 0],
-            ["maxGuests", "Max guests", 1],
+            ["bedrooms", "Bedrooms"],
+            ["bathrooms", "Bathrooms"],
+            ["maxGuests", "Max guests"],
           ] as const
-        ).map(([key, label, min]) => (
+        ).map(([key, label]) => (
           <Field key={key}>
             <Label htmlFor={`import-${key}`}>{label}</Label>
-            <Input id={`import-${key}`} type="number" min={min} max={50} step={1} value={details[key]} onChange={set(key)} />
+            {/* Blank means the import didn't find it - left unset rather than guessed. */}
+            <Select id={`import-${key}`} value={details[key]} onChange={set(key)}>
+              <option value="">Not set</option>
+              {countOptions(LISTING_COUNT_RANGES[key], details[key]).map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </Select>
             <Flag>{flagFor(imported, key)}</Flag>
           </Field>
         ))}
