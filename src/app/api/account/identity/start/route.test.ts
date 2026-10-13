@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   updateMany: vi.fn(),
+  release: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({ auth: async () => ({ user: { id: "user_1" } }) }));
@@ -15,6 +16,7 @@ vi.mock("@/lib/stripe", () => ({ getStripeClient: () => mocks.stripe }));
 vi.mock("@/lib/rateLimit", () => ({
   checkRateLimit: async () => ({ allowed: true, remaining: 1, resetAt: new Date() }),
   rateLimitedResponse: vi.fn(),
+  releaseRateLimitHit: (...a: unknown[]) => mocks.release(...a),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -33,6 +35,7 @@ beforeEach(() => {
   mocks.create.mockReset().mockResolvedValue({ id: "vs_new", url: "https://verify.stripe.com/new" });
   mocks.update.mockReset();
   mocks.updateMany.mockReset();
+  mocks.release.mockReset().mockResolvedValue(undefined);
   mocks.stripe = { identity: { verificationSessions: { retrieve: mocks.retrieve, create: mocks.create } } };
   mocks.user = { identityVerificationStatus: "NONE", stripeIdentitySessionId: null };
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -91,5 +94,12 @@ describe("POST /api/account/identity/start", () => {
     expect(res.status).toBe(503);
     expect((await res.json()).error).toMatch(/isn't available/);
     expect(mocks.update).not.toHaveBeenCalled();
+    // Nothing was created or billed, so the attempt doesn't count toward the daily cap.
+    expect(mocks.release).toHaveBeenCalledWith("identity-start:user_1");
+  });
+
+  it("counts a session Stripe did create toward the daily cap", async () => {
+    await POST();
+    expect(mocks.release).not.toHaveBeenCalled();
   });
 });
