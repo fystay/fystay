@@ -9,6 +9,7 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isLocalEnvironment } from "@/lib/deploymentEnvironment";
 import { BASE_URL } from "@/lib/baseUrl";
+import { checkNewEmail } from "@/lib/signupEmailCheck";
 
 const requestEmailChangeSchema = z.object({
   newEmail: z.string().email(),
@@ -38,6 +39,10 @@ async function postHandler(request: Request) {
     );
   }
   const newEmail = parsed.data.newEmail.toLowerCase();
+  // Shape and (deployed) whether the domain takes mail; the confirmation
+  // link sent to the new address is what proves it's theirs.
+  const emailCheck = await checkNewEmail(newEmail, { acceptedAsTyped: true });
+  if (!emailCheck.ok) return NextResponse.json({ error: emailCheck.error }, { status: 400 });
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },

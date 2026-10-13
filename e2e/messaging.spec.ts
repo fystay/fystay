@@ -125,6 +125,7 @@ test("a host can't start a conversation with a guest who never booked their list
       email: strangerEmail,
       passwordHash: await bcrypt.hash("strangerpass123", 10),
       role: "GUEST",
+      emailVerifiedAt: new Date(),
       referralCode: generateReferralCode(),
     },
   });

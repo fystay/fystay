@@ -8,10 +8,17 @@ import { generateReferralCode } from "@/lib/referral";
 import { sendVerificationEmail } from "@/lib/emailVerification";
 import { isLocalEnvironment } from "@/lib/deploymentEnvironment";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { checkNewEmail } from "@/lib/signupEmailCheck";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Please enter your name.").max(100, "Name is too long."),
-  email: z.string().email("Please enter a valid email address."),
+  email: z.string().trim().max(254, "That email address is too long."),
+  // Sent once the person has seen a "Did you mean …?" prompt and chosen to
+  // keep the address exactly as typed.
+  emailConfirmedAsTyped: z.boolean().optional(),
+  // Where to go after confirming the email (e.g. back to the stay they
+  // were saving); checked to be a path on this site before use.
+  callbackUrl: z.string().max(500).nullish(),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters.")
@@ -45,8 +52,19 @@ async function postHandler(request: Request) {
     );
   }
 
-  const { name, email, password, role, referralCode } = parsed.data;
+  const { name, email, password, role, referralCode, emailConfirmedAsTyped, callbackUrl } = parsed.data;
   const normalizedEmail = email.toLowerCase();
+
+  // Shape, likely typo (needs the person's say-so) and, on deployed sites,
+  // whether the domain takes mail. None of this proves the mailbox exists -
+  // the account can't sign in until the confirmation link is opened.
+  const emailCheck = await checkNewEmail(normalizedEmail, { acceptedAsTyped: emailConfirmedAsTyped });
+  if (!emailCheck.ok) {
+    return NextResponse.json(
+      { error: emailCheck.error, ...(emailCheck.status === 422 && { suggestion: emailCheck.suggestion }) },
+      { status: emailCheck.status },
+    );
+  }
 
   const existing = await prisma.user.findUnique({
     where: { email: normalizedEmail },
@@ -90,16 +108,16 @@ async function postHandler(request: Request) {
         },
         select: { id: true, name: true, email: true, role: true },
       });
-      // Never blocks sign-up: the account works straight away, and the
-      // account page offers to send the link again.
-      const verification = await sendVerificationEmail(prisma, user, { local: isLocalEnvironment() }).catch(
-        (error: unknown) => {
-          console.error("couldn't send the verification email at sign-up", error);
-          return { sent: false, devUrl: undefined };
-        },
-      );
+      // The account exists either way, but can't sign in until the link
+      // is opened. `emailSent` is only true when the email provider took
+      // the message, so the next screen never claims a send that failed -
+      // it offers to try again instead.
+      const verification = await sendVerificationEmail(prisma, user, {
+        local: isLocalEnvironment(),
+        next: callbackUrl,
+      }).catch(() => ({ sent: false, devUrl: undefined }));
       return NextResponse.json(
-        { user, ...(verification.devUrl && { devVerifyUrl: verification.devUrl }) },
+        { user, emailSent: verification.sent, ...(verification.devUrl && { devVerifyUrl: verification.devUrl }) },
         { status: 201 },
       );
     } catch (error) {

@@ -59,6 +59,20 @@ class AccountSuspendedError extends CredentialsSignin {
 }
 
 /**
+ * Thrown when the email and password are right but the address hasn't been
+ * confirmed yet: such an account gets no session at all (the jwt callback
+ * below also ends any it already has). Checked only after the password, so
+ * it never tells a guesser that an account exists. LoginForm.tsx shows a
+ * "confirm your email" step with a way to send a new link.
+ */
+class EmailUnverifiedError extends CredentialsSignin {
+  constructor() {
+    super();
+    this.code = "EmailUnverified";
+  }
+}
+
+/**
  * A TOTP code, or else one of the account's backup codes (used up once
  * accepted). Shared by password sign-in and the Google/Apple code step.
  */
@@ -201,6 +215,13 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
         // no real login has succeeded yet.
         if (isSuspended(user)) {
           throw new AccountSuspendedError();
+        }
+
+        // Proving the inbox comes before anything else the account can do.
+        // Like the suspended check: only after the password, and nothing
+        // recorded against the rate limit since nothing was guessed.
+        if (!user.emailVerifiedAt) {
+          throw new EmailUnverifiedError();
         }
 
         if (user.twoFactorEnabledAt && user.twoFactorSecretCiphertext) {
@@ -367,9 +388,9 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
           where: {
             provider_providerAccountId: { provider: account.provider, providerAccountId: account.providerAccountId },
           },
-          select: { user: { select: { id: true, role: true, sessionVersion: true, name: true, image: true } } },
+          select: { user: { select: { id: true, role: true, sessionVersion: true, name: true, image: true, emailVerifiedAt: true } } },
         });
-        if (!identity) return null;
+        if (!identity || !identity.user.emailVerifiedAt) return null;
         token.id = identity.user.id;
         token.role = identity.user.role;
         token.sessionVersion = identity.user.sessionVersion;
@@ -402,11 +423,14 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
       // request no matter how many places call it.
       const current = await prisma.user.findUnique({
         where: { id: token.id as string },
-        select: { role: true, sessionVersion: true, suspendedAt: true, deletedAt: true },
+        select: { role: true, sessionVersion: true, suspendedAt: true, deletedAt: true, emailVerifiedAt: true },
       });
       if (!current || current.deletedAt || isSuspended(current) || current.sessionVersion !== token.sessionVersion) {
         return null;
       }
+      // A session from before sign-in required a confirmed email ends here,
+      // so no unconfirmed account keeps access to anything signed-in.
+      if (!current.emailVerifiedAt) return null;
       // The role is re-read too, so a guest who starts hosting (see
       // /api/account/become-host) gets host access without signing out.
       token.role = current.role;

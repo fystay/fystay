@@ -25,9 +25,12 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const callbackUrl = safeRedirectPath(searchParams.get("callbackUrl"));
   // Set when the "Confirm your email" link was opened while signed out
   // (see the account page's redirect).
-  const emailVerifiedOutcome = callbackUrl.startsWith("/account?")
-    ? new URLSearchParams(callbackUrl.slice("/account?".length)).get("emailVerified")
-    : null;
+  const emailVerifiedOutcome =
+    searchParams.get("emailConfirmed") === "1"
+      ? "verified"
+      : callbackUrl.startsWith("/account?")
+        ? new URLSearchParams(callbackUrl.slice("/account?".length)).get("emailVerified")
+        : null;
   const { message: oauthError, showHandOffError } = useOAuthErrorMessage(searchParams, rememberedProvider);
 
   const [email, setEmail] = useState("");
@@ -42,6 +45,11 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   // account: they can't sign in, but can still reach support and ask for
   // their data.
   const [suspended, setSuspended] = useState(false);
+  // Set when the password was right but the email isn't confirmed yet: no
+  // session until it is, so offer a new link instead.
+  const [unverified, setUnverified] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // Set once the password (and code) are accepted: the button stays busy and
   // says where it's going until the next page is on screen, rather than
@@ -52,6 +60,7 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
     e.preventDefault();
     setError(null);
     setSuspended(false);
+    setUnverified(false);
     setLoading(true);
 
     let result: Awaited<ReturnType<typeof signIn>>;
@@ -88,6 +97,14 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
       return;
     }
 
+    // See auth.ts's EmailUnverifiedError.
+    if (result?.code === "EmailUnverified") {
+      setUnverified(true);
+      setResendState("idle");
+      setResendMessage(null);
+      return;
+    }
+
     if (result?.error) {
       setError(
         oauthTwoFactor
@@ -112,6 +129,33 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
     setLoading(true);
     router.push(destination);
     router.refresh();
+  }
+
+  async function resendConfirmation() {
+    setResendState("sending");
+    try {
+      const res = await fetch("/api/auth/verify-email/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, ...(callbackUrl !== "/" && { callbackUrl }) }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; devUrl?: string };
+      if (!res.ok) {
+        setResendState("error");
+        setResendMessage(
+          res.status === 429
+            ? "You've asked for several links in a row. Please wait a few minutes and try again."
+            : (data.error ?? "We couldn't send the email just now. Please try again in a few minutes."),
+        );
+        return;
+      }
+      if (data.devUrl) console.info("Confirmation link (local development only):", data.devUrl);
+      setResendState("sent");
+      setResendMessage(`We've sent a new link to ${email}. Open it, then log in here.`);
+    } catch {
+      setResendState("error");
+      setResendMessage("Couldn't reach FYStay - check your connection and try again.");
+    }
   }
 
   return (
@@ -212,6 +256,30 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
                   </a>
                   .
                 </p>
+              </div>
+            )}
+
+            {unverified && (
+              <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-medium">Please confirm your email first.</p>
+                <p className="mt-1">
+                  Open the link we sent to <strong className="break-all">{email}</strong> when you signed up, then log in.
+                </p>
+                {resendMessage && (
+                  <p className={resendState === "error" ? "mt-2 text-red-700" : "mt-2 text-emerald-800"}>{resendMessage}</p>
+                )}
+                {resendState !== "sent" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    loading={resendState === "sending"}
+                    onClick={resendConfirmation}
+                  >
+                    Send a new link
+                  </Button>
+                )}
               </div>
             )}
 

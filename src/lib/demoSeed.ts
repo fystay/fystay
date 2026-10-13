@@ -680,6 +680,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
       email: "guest@fystay.dev",
       passwordHash: guestPassword,
       role: "GUEST",
+      // Sign-in needs a confirmed email; this fictional demo login has none to confirm.
+      emailVerifiedAt: new Date(),
       referralCode: generateReferralCode(),
     },
   });
