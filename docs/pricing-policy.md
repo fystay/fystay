@@ -151,7 +151,9 @@ Pure and deterministic: the same inputs always give the same price.
    - Every candidate is rounded to whole pounds and clamped to the host's minimum and maximum nightly price.
    - Candidates that pay the host less than their minimum payout per night (under the dynamic commission) are dropped.
    - The engine picks the candidate closest to the proposal. With a conversion model, it would pick the one with the highest expected contribution instead.
-   - If no candidate pays the minimum, the outcome is `constrained`: the host's own price is charged and FYStay's fee is cut as far as 8%.
+   - Without a validated conversion model, the price only moves in the direction the demand data points, and no further than it proposes. It is never raised just to meet the host's minimum.
+   - The host's own price is judged with FYStay's fee already reduced for their minimum, so a high minimum alone never moves the price.
+   - If no allowed candidate pays the minimum, the outcome is `constrained`. This happens when the host's own weekly, monthly or last-minute discount takes the stay below their minimum. The host's own price is charged, FYStay's fee is cut as far as 8%, and the decision says why.
 7. **When data is sparse** (true in every FYStay town today), every signal is `none` and the price is the host's own: the documented baseline. The decision records why.
 
 ## A worked example

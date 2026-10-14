@@ -286,9 +286,11 @@ export function decideSmartPrice(params: {
   const assessment = assessDemand(demand);
   const minStayPayout = settings.minHostPayoutPerNightCents === null ? null : settings.minHostPayoutPerNightCents * nights;
 
-  // Candidates are judged without the host-minimum fee cap, so smart pricing
-  // never picks a price that only works because FYStay waived its fee; the
-  // price actually charged has the cap (see commissionDecision).
+  // Changed prices are judged without the host-minimum fee cap, so smart
+  // pricing never picks a price that only works because FYStay cut its fee.
+  // The host's own price is judged with it - FYStay already promises to cut
+  // its fee there - so a high minimum never pushes the price up on its own.
+  // The price actually charged always has the cap (see commissionDecision).
   const context = (protectHost: boolean): CommissionContext => ({
     leadDays: assessment.leadDays,
     demand: assessment.demand,
@@ -320,7 +322,7 @@ export function decideSmartPrice(params: {
 
   const candidates: PriceCandidate[] = [];
   for (let percent = -cap; percent <= cap; percent += step) {
-    const pricing = priceAt(percent, false, baseAccommodationCents);
+    const pricing = priceAt(percent, percent === 0, baseAccommodationCents);
     const money = stayFinancials({ accommodationCents: pricing.totalPriceCents, platformFeeCents: pricing.hostCommissionCents });
     const hostPayoutPerNightCents = Math.floor(money.hostPayoutCents / nights);
     candidates.push({
@@ -342,8 +344,13 @@ export function decideSmartPrice(params: {
   const modelled = conversionModel && valid.length > 0 && valid.every((c) => c.bookingProbability !== null);
   if (modelled) {
     chosen = [...valid].sort((a, b) => b.bookingProbability! * b.contributionCents - a.bookingProbability! * a.contributionCents || closerToZero(a, b))[0];
-  } else if (valid.length > 0) {
-    chosen = [...valid].sort(
+  } else {
+    // Without a validated model the price only moves the way the demand data
+    // points, and no further: never up or down just to meet a limit.
+    const low = Math.min(0, proposedAdjustmentPercent);
+    const high = Math.max(0, proposedAdjustmentPercent);
+    const supported = valid.filter((c) => c.adjustmentPercent >= low && c.adjustmentPercent <= high);
+    chosen = [...supported].sort(
       (a, b) => Math.abs(a.adjustmentPercent - proposedAdjustmentPercent) - Math.abs(b.adjustmentPercent - proposedAdjustmentPercent) || closerToZero(a, b),
     )[0];
   }
@@ -381,10 +388,10 @@ export function decideSmartPrice(params: {
   const reasons = proposal.signals.filter((s) => s.effectPercent !== 0).map((s) => s.detail);
   const explanation =
     outcome === "constrained"
-      ? `Your own price was kept: no price within your limits pays your minimum of ${pounds(settings.minHostPayoutPerNightCents ?? 0)} a night.`
+      ? `Your own price was kept, with FYStay's fee cut to its lowest: this stay pays ${pounds(final.hostPayoutPerNightCents)} a night before that cut, below your minimum of ${pounds(settings.minHostPayoutPerNightCents ?? 0)}, and demand doesn't support a higher price. Your own discounts can cause this.`
       : outcome === "unchanged"
         ? `Your own price applies${reasons.length ? ` (${reasons.join("; ")}, within your limits)` : " - no demand signal for these dates"}.`
-        : `${adjustmentPercent > 0 ? "Raised" : "Lowered"} ${Math.abs(adjustmentPercent)}% for these dates: ${reasons.join("; ")}.`;
+        : `${adjustmentPercent > 0 ? "Raised" : "Lowered"} ${Math.abs(adjustmentPercent)}% for these dates${reasons.length ? `: ${reasons.join("; ")}` : modelled ? " (expected to earn the most within your limits)" : ""}.`;
 
   return {
     strategyId: strategy.id,
