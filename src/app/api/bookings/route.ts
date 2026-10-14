@@ -28,7 +28,7 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/rateLimit";
 import { isSuspended } from "@/lib/suspension";
 import { heldRepeatBookingWhere } from "@/lib/heldBooking";
 import { HOST_NOT_PAYMENT_READY_MESSAGE, hostAcceptsPaidBookings } from "@/lib/stripeConnect";
-import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
+import { PRIVATE_LISTING_FIELDS, guestBookingView } from "@/lib/listingPrivacy";
 import { parseStayDate, todayStayDate } from "@/lib/stayDates";
 import { BASE_URL } from "@/lib/baseUrl";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
@@ -73,7 +73,7 @@ async function getHandler() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ bookings });
+  return NextResponse.json({ bookings: bookings.map(guestBookingView) });
 }
 
 async function postHandler(request: Request) {
@@ -149,10 +149,10 @@ async function postHandler(request: Request) {
         return NextResponse.json({ error: `This listing sleeps up to ${listing?.maxGuests ?? 0} guests` }, { status: 400 });
       }
       const updated = await prisma.booking.update({ where: { id: heldBooking.id }, data: { guests } });
-      return NextResponse.json({ booking: updated, reused: true }, { status: 200 });
+      return NextResponse.json({ booking: guestBookingView(updated), reused: true }, { status: 200 });
     }
     if (heldBooking) {
-      return NextResponse.json({ booking: heldBooking, reused: true }, { status: 200 });
+      return NextResponse.json({ booking: guestBookingView(heldBooking), reused: true }, { status: 200 });
     }
   }
 
@@ -236,7 +236,7 @@ async function postHandler(request: Request) {
         );
       }
 
-      return NextResponse.json({ booking }, { status: 201 });
+      return NextResponse.json({ booking: guestBookingView(booking) }, { status: 201 });
     } catch (error) {
       if (error instanceof BookingRequestError) {
         return NextResponse.json({ error: error.message }, { status: error.status });

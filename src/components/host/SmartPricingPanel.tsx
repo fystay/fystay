@@ -40,11 +40,14 @@ export function SmartPricingPanel({
   initial,
   mode,
   pricePerNightCents,
+  payoutConflict = null,
 }: {
   listingId: string;
   initial: SmartPricingValues;
   /** The host's own weeknight price, for the worked example. */
   pricePerNightCents: number;
+  /** Why the saved minimum payout can't be met on every stay now (minimumPayoutError), or null. */
+  payoutConflict?: string | null;
   /** "shadow": FYStay is only trialling smart pricing, so nothing changes for guests yet. */
   mode: "shadow" | "on";
 }) {
@@ -130,6 +133,12 @@ export function SmartPricingPanel({
           Use smart pricing for this listing
         </label>
 
+        {payoutConflict && (
+          <p className="rounded-xl bg-amber-50 p-3 text-amber-950">
+            {payoutConflict} Until then, on stays where it can&apos;t be met, your own stay discount is reduced so the stay still pays your
+            minimum; if even that isn&apos;t enough, your own price is charged and the booking is flagged.
+          </p>
+        )}
         {initial.enabled && !initial.consentCurrent && (
           <p className="rounded-xl bg-amber-50 p-3 text-amber-950">
             FYStay&apos;s commission terms have changed since you agreed. Until you agree to the new ones below, this listing is charged

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { PRIVATE_LISTING_FIELDS } from "@/lib/listingPrivacy";
+import { PRIVATE_LISTING_FIELDS, guestBookingView } from "@/lib/listingPrivacy";
 
 /** Used by the checkout and confirmation pages to poll a single booking's live status. */
 async function getHandler(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -23,7 +23,7 @@ async function getHandler(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ booking });
+  return NextResponse.json({ booking: guestBookingView(booking) });
 }
 
 export const GET = withApiErrorHandling(getHandler);

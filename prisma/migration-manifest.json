@@ -372,7 +372,7 @@
     {
       "name": "20261014120000_smart_pricing_and_commission_policy",
       "files": {
-        "migration.sql": "974ec15f58515e170b37553321a0e93a3a5f444d001d235922f40f500184d9e2"
+        "migration.sql": "f10894c8e0eab51bf6c0fdfa45fce5a030e0a7ca2d5deb1dfb6de45c1e5b7f5d"
       }
     }
   ],

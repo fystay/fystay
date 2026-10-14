@@ -3,13 +3,15 @@ import {
   assessDemand,
   decideSmartPrice,
   rulesBaselineStrategy,
+  highestReachableMinimumPayout,
+  minimumPayoutError,
   smartPricingSettingsError,
   type ConversionModel,
   type DemandInputs,
   type SmartPricingSettings,
   type StayInput,
 } from "./dynamicPricing";
-import { CURRENT_DYNAMIC_POLICY, LEGACY_FIXED_10, platformFeeCents } from "./pricingPolicy";
+import { LEGACY_FIXED_10 } from "./pricingPolicy";
 import { computeBookingPricing, splitBookingChange } from "./pricing";
 import type { MarketDemand } from "./marketDemand";
 
@@ -114,7 +116,7 @@ describe("decideSmartPrice", () => {
     expect(decision.pricing.totalPriceCents).toBe(30_000);
     expect(decision.pricing.hostCommissionCents).toBe(2_400); // 8%, the policy's minimum
     expect(decision.constraints.find((c) => c.name === "min_host_payout")?.ok).toBe(false);
-    expect(decision.explanation).toMatch(/Your own price was kept/);
+    expect(decision.explanation).toMatch(/can.t be met for this stay.*Your own price was charged/);
   });
 
   it("never prices so the host gets less than their minimum when one is achievable", () => {
@@ -201,16 +203,48 @@ describe("host protection and no arbitrary moves (regressions)", () => {
     expect(decision.pricing).toMatchObject({ totalPriceCents: 30_000, hostCommissionCents: 2_700 }); // fee cut so the host gets £91 x 3
   });
 
-  it("keeps the host's own price, marked constrained, when their own discount takes the stay below their minimum", () => {
+  it("limits the host's own stay discount, to a whole percent, rather than pay them less than their minimum", () => {
+    // 7 nights at £100 with a 20% weekly discount: £560, which pays £73.60 a night at 8%. A £80 minimum needs 13%.
     const decision = decideSmartPrice({
       stay: stay({ nights: 7, weeklyDiscountPercent: 20 }),
-      settings: settings({ minHostPayoutPerNightCents: 9_000 }),
+      settings: settings({ minHostPayoutPerNightCents: 8_000 }),
       demand: demand({ market: null, checkOut: day("2026-10-27") }),
     });
+    expect(decision.outcome).toBe("unchanged");
+    expect(decision.discountLimited).toEqual({ fromPercent: 20, toPercent: 13 });
+    expect(decision.pricing).toMatchObject({ lengthOfStayDiscountPercent: 13, lengthOfStayDiscountCents: 9_100, totalPriceCents: 60_900 });
+    expect(decision.pricing.totalPriceCents - decision.pricing.hostCommissionCents).toBeGreaterThanOrEqual(8_000 * 7);
+    // 14% would pay £60,200 - 8% = £553.84, under £560.
+    expect(decision.explanation).toMatch(/20% stay discount was limited to 13%/);
+  });
+
+  it.each([
+    // [minimum per night, expected discount]: neighbouring boundaries around the 13% step.
+    [7_999, 13],
+    [8_000, 13],
+    [8_004, 13],
+    [8_005, 12],
+    [7_360, 20], // exactly what the full 20% pays at 8%: no limit
+    [7_361, 19],
+  ])("minimum £%i/100 a night over 7 nights keeps a %i%% discount", (minimum, percent) => {
+    const decision = decideSmartPrice({
+      stay: stay({ nights: 7, weeklyDiscountPercent: 20 }),
+      settings: settings({ minHostPayoutPerNightCents: minimum }),
+      demand: demand({ market: null, checkOut: day("2026-10-27") }),
+    });
+    expect(decision.pricing.lengthOfStayDiscountPercent).toBe(percent);
+    expect(decision.pricing.totalPriceCents - decision.pricing.hostCommissionCents).toBeGreaterThanOrEqual(minimum * 7);
+  });
+
+  it("says plainly when even the undiscounted price can't pay the minimum (price lowered after it was set)", () => {
+    const decision = decideSmartPrice({
+      stay: stay({ pricePerNightCents: 8_000 }),
+      settings: settings({ minHostPayoutPerNightCents: 8_000 }),
+      demand: demand({ market: null }),
+    });
     expect(decision.outcome).toBe("constrained");
-    expect(decision.adjustmentPercent).toBe(0);
-    expect(decision.pricing.hostCommissionCents).toBe(Math.round(decision.pricing.totalPriceCents * 0.08));
-    expect(decision.explanation).toMatch(/own discounts can cause this/);
+    expect(decision.pricing).toMatchObject({ totalPriceCents: 24_000, hostCommissionCents: 1_920 });
+    expect(decision.explanation).toMatch(/can't be met for this stay.*Raise your nightly price or lower your minimum/);
   });
 });
 
@@ -219,7 +253,6 @@ describe("properties over random stays", () => {
   let seed = 7;
   const rnd = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
   const pick = <T,>(values: T[]) => values[Math.floor(rnd() * values.length)];
-  const lowestRate = { ...CURRENT_DYNAMIC_POLICY, baseRateBps: CURRENT_DYNAMIC_POLICY.minRateBps, valueBands: [], longLead: null, thinMarket: null, upliftShareBps: 0, minContributionCents: null };
 
   it("holds the host minimum, the 8-15% bounds, the price limits and the demand direction", () => {
     let checked = 0;
@@ -228,15 +261,19 @@ describe("properties over random stays", () => {
       const weekend = rnd() < 0.3 ? price + Math.floor(rnd() * 10_000) : null;
       const nights = 1 + Math.floor(rnd() * 30);
       const discounted = rnd() < 0.3;
-      const ownPayout = price - platformFeeCents(lowestRate, { accommodationCents: price });
-      const minPay = 1 + Math.floor(rnd() * ownPayout);
+      const weekly = discounted ? pick([5, 10, 20]) : null;
+      const monthly = discounted ? pick([15, 30]) : null;
+      const listing = { pricePerNightCents: price, weekendPricePerNightCents: weekend, weeklyDiscountPercent: weekly, monthlyDiscountPercent: monthly, lastMinuteDiscountPercent: null };
+      // Mostly minimums the settings check accepts; some it would refuse (as if saved before a later discount or price change).
+      const minPay = 1 + Math.floor(rnd() * (rnd() < 0.8 ? highestReachableMinimumPayout(listing).cents : price));
+      const valid = minimumPayoutError(minPay, listing) === null;
       const limits = settings({
         minHostPayoutPerNightCents: minPay,
         minGuestPricePerNightCents: rnd() < 0.3 ? Math.max(1, price - Math.floor(rnd() * price * 0.3)) : null,
         maxGuestPricePerNightCents: rnd() < 0.3 ? (weekend ?? price) + Math.floor(rnd() * 5_000) : null,
         maxAdjustmentPercent: pick([null, 0, 5, 10, 15]),
       });
-      if (smartPricingSettingsError(limits, { pricePerNightCents: price, weekendPricePerNightCents: weekend }, ownPayout)) continue;
+      if (smartPricingSettingsError({ ...limits, enabled: false, minHostPayoutPerNightCents: null }, listing)) continue;
       const checkIn = new Date(TODAY.getTime() + Math.floor(rnd() * 200) * 86_400_000);
       const decision = decideSmartPrice({
         stay: stay({
@@ -244,8 +281,8 @@ describe("properties over random stays", () => {
           pricePerNightCents: price,
           weekendPricePerNightCents: weekend,
           weekendNights: weekend === null ? 0 : Math.min(nights, Math.floor(rnd() * 9)),
-          weeklyDiscountPercent: discounted ? pick([5, 10, 20]) : null,
-          monthlyDiscountPercent: discounted ? pick([15, 30]) : null,
+          weeklyDiscountPercent: weekly,
+          monthlyDiscountPercent: monthly,
         }),
         settings: limits,
         demand: demand({
@@ -257,15 +294,24 @@ describe("properties over random stays", () => {
       });
       checked++;
       const { totalPriceCents: total, hostCommissionCents: fee, nightlyPriceCents } = decision.pricing;
-      if (decision.outcome !== "constrained") expect(total - fee).toBeGreaterThanOrEqual(minPay * nights);
-      else expect([decision.adjustmentPercent, fee]).toEqual([0, Math.round(total * 0.08)]);
+      if (valid) expect([decision.outcome, decision.discountLimited]).not.toContain("constrained");
+      if (valid) expect(decision.discountLimited).toBeNull();
+      if (decision.outcome !== "constrained") {
+        expect(total - fee).toBeGreaterThanOrEqual(minPay * nights);
+      } else {
+        // Only when even the undiscounted stay can't pay it at 8% - and then it says so.
+        expect([decision.adjustmentPercent, fee]).toEqual([0, Math.round(total * 0.08)]);
+        const undiscounted = decision.pricing.nightlySubtotalCents;
+        expect(undiscounted - Math.round(undiscounted * 0.08)).toBeLessThan(minPay * nights);
+        expect(decision.explanation).toMatch(/can't be met for this stay/);
+      }
       expect(fee).toBeGreaterThanOrEqual(Math.round(total * 0.08));
       expect(fee).toBeLessThanOrEqual(Math.round(total * 0.15));
       expect(fee).toBe(decision.commission.feeCents);
       if (limits.maxGuestPricePerNightCents !== null) expect(nightlyPriceCents).toBeLessThanOrEqual(limits.maxGuestPricePerNightCents);
       if (decision.adjustmentPercent !== 0) expect(Math.sign(decision.adjustmentPercent)).toBe(Math.sign(decision.proposedAdjustmentPercent));
       // A date change at the booking's own price and rate keeps the host's minimum per night.
-      if (decision.outcome !== "constrained" && weekend === null && !discounted) {
+      if (decision.outcome !== "constrained" && weekend === null && !discounted && valid) {
         const newNights = Math.max(1, nights + pick([-3, -1, 1, 4]));
         const newTotal = newNights * nightlyPriceCents;
         const booking = { totalPriceCents: total, cleaningFeeCents: 0, serviceFeeCents: 0, taxCents: 0, creditAppliedCents: 0, promoDiscountCents: 0, hostCommissionCents: fee, commissionRateBps: decision.commission.rateBps };
@@ -310,11 +356,11 @@ describe("rulesBaselineStrategy", () => {
 });
 
 describe("smartPricingSettingsError", () => {
-  const listing = { pricePerNightCents: 10_000, weekendPricePerNightCents: 12_000 };
+  const listing = { pricePerNightCents: 10_000, weekendPricePerNightCents: 12_000, weeklyDiscountPercent: null, monthlyDiscountPercent: null, lastMinuteDiscountPercent: null };
   const ok = { enabled: true, autoApply: true, minHostPayoutPerNightCents: 8_000, targetHostPayoutPerNightCents: 9_000, minGuestPricePerNightCents: 9_000, maxGuestPricePerNightCents: 13_000, maxAdjustmentPercent: 10 };
 
   it("accepts sensible settings", () => {
-    expect(smartPricingSettingsError(ok, listing, 9_000)).toBeNull();
+    expect(smartPricingSettingsError(ok, listing)).toBeNull();
   });
 
   it.each([
@@ -325,10 +371,41 @@ describe("smartPricingSettingsError", () => {
     [{ minGuestPricePerNightCents: 10_500, maxGuestPricePerNightCents: 20_000 }, /above your own nightly price/],
     [{ maxGuestPricePerNightCents: 11_000 }, /below your own prices/],
     [{ minHostPayoutPerNightCents: 9_500, targetHostPayoutPerNightCents: 9_000 }, /minimum payout can't be above your target/],
-    [{ minHostPayoutPerNightCents: 9_100, targetHostPayoutPerNightCents: null }, /what your own price pays you/],
+    [{ minHostPayoutPerNightCents: 9_200, targetHostPayoutPerNightCents: null }, /what your own price pays you at FYStay's lowest commission, 8% \(£91.99 a night\)/],
     [{ minHostPayoutPerNightCents: null }, /Set the minimum/],
   ])("refuses %o", (change, message) => {
-    expect(smartPricingSettingsError({ ...ok, ...change }, listing, 9_000)).toMatch(message);
+    expect(smartPricingSettingsError({ ...ok, ...change }, listing)).toMatch(message);
+  });
+});
+
+describe("minimumPayoutError", () => {
+  const own = { pricePerNightCents: 10_000, weeklyDiscountPercent: null, monthlyDiscountPercent: null, lastMinuteDiscountPercent: null };
+
+  it("allows the most every stay can pay at 8%, less 1p for rounding, and nothing above", () => {
+    expect(highestReachableMinimumPayout(own).cents).toBe(9_199);
+    expect(minimumPayoutError(9_199, own)).toBeNull();
+    expect(minimumPayoutError(9_200, own)).toMatch(/£91.99 a night/);
+    expect(minimumPayoutError(null, own)).toBeNull();
+  });
+
+  it("names the largest of the host's own discounts", () => {
+    const discounted = { ...own, weeklyDiscountPercent: 10, monthlyDiscountPercent: 25, lastMinuteDiscountPercent: 15 };
+    expect(highestReachableMinimumPayout(discounted)).toEqual({ cents: 6_899, discount: { percent: 25, name: "monthly discount" } });
+    expect(minimumPayoutError(6_900, discounted)).toMatch(/With your 25% monthly discount, a night can pay you at most £68.99/);
+  });
+
+  it("is never more than every multi-night stay actually pays, at any length", () => {
+    for (const price of [999, 10_006, 12_345, 54_321]) {
+      for (const percent of [0, 7, 20, 33]) {
+        const listing = { ...own, pricePerNightCents: price, weeklyDiscountPercent: percent };
+        const minimum = highestReachableMinimumPayout(listing).cents;
+        for (let nights = 1; nights <= 60; nights++) {
+          const p = computeBookingPricing({ nights, pricePerNightCents: price, weeklyDiscountPercent: percent });
+          // Whether or not the discount applies at this length, the stay pays the minimum at 8%.
+          expect(p.totalPriceCents - Math.round(p.totalPriceCents * 0.08)).toBeGreaterThanOrEqual(minimum * nights);
+        }
+      }
+    }
   });
 });
 

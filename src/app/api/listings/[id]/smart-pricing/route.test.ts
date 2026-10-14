@@ -85,8 +85,8 @@ describe("PUT /api/listings/[id]/smart-pricing", () => {
   });
 
   it.each([
-    // £100 a night pays at most £92 (FYStay's lowest commission is 8%).
-    [{ minPayoutCents: 9_300, targetPayoutCents: null }, /what your own price pays you at FYStay's lowest commission \(£92 a night\)/],
+    // £100 a night pays at most £91.99 on every stay (8%, less 1p for rounding).
+    [{ minPayoutCents: 9_200, targetPayoutCents: null }, /what your own price pays you at FYStay's lowest commission, 8% \(£91.99 a night\)/],
     [{ minPriceCents: 13_000 }, /lowest nightly price can't be above the highest/],
     [{ maxAdjustmentPercent: 50 }, /between 0% and 15%/],
     [{ minPayoutCents: 0 }, /Too small|greater than 0|positive/i],
@@ -102,6 +102,14 @@ describe("PUT /api/listings/[id]/smart-pricing", () => {
     state.listing = { ...state.listing, smartPricingEnabled: true, smartPricingConsentAt: new Date("2026-10-01") };
     expect((await put({ ...settings, enabled: false, consent: undefined })).status).toBe(200);
     expect(update.mock.calls[0][0].data).toMatchObject({ smartPricingEnabled: false, smartPricingConsentAt: null, smartPricingConsentPolicyVersion: null });
+  });
+
+  it("refuses a minimum the host's own discount can't pay, naming the discount", async () => {
+    state.listing = { ...state.listing, weeklyDiscountPercent: 20 };
+    const res = await put({ ...settings, minPayoutCents: 7_400, targetPayoutCents: null });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/With your 20% weekly discount, a night can pay you at most £73.59/);
+    expect((await put({ ...settings, minPayoutCents: 7_359, targetPayoutCents: null, minPriceCents: null })).status).toBe(200);
   });
 
   it("isn't offered for hotels", async () => {

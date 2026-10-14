@@ -152,8 +152,14 @@ export default async function AdminBookingDetailPage({
               </p>
               <p>
                 <span className="text-stone-500">FYStay contribution:</span>{" "}
+                {/* The original payment's fee, less what refunds returned of it
+                    (proportionally, as Stripe does), less Stripe's fee - which
+                    Stripe keeps even on a refund. */}
                 {booking.hostPaidViaConnect && booking.applicationFeeCents !== null
-                  ? formatPrice(booking.applicationFeeCents - (booking.stripeProcessingFeeCents ?? estimatedProcessingFeeCents(booking.totalPriceCents)))
+                  ? formatPrice(
+                      Math.round(booking.applicationFeeCents * Math.max(0, 1 - (booking.refundedAmountCents ?? 0) / Math.max(1, booking.totalPriceCents))) -
+                        (booking.stripeProcessingFeeCents ?? estimatedProcessingFeeCents(booking.totalPriceCents)),
+                    )
                   : "—"}
               </p>
               <p>

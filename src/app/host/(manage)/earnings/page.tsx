@@ -32,7 +32,8 @@ import {
   nextHostStep,
 } from "@/components/host/HostUi";
 import { buttonVariants } from "@/components/ui/Button";
-import { STANDARD_COMMISSION_RATE_TEXT } from "@/lib/pricingPolicy";
+import { hostCommissionText } from "@/lib/pricingPolicy";
+import { smartPricingMode } from "@/lib/smartPricingMode";
 
 export const metadata: Metadata = { title: "Earnings · Hosting", robots: { index: false } };
 
@@ -107,7 +108,7 @@ export default async function HostEarningsPage({
           <ul className="mt-1 flex flex-col gap-2 text-left">
             <li>
               <strong className="font-semibold text-foreground">One simple fee.</strong> Guests pay your nightly
-              rate with nothing added; FYStay keeps {STANDARD_COMMISSION_RATE_TEXT} of each booking and you get the rest.
+              rate with nothing added; FYStay keeps {hostCommissionText(smartPricingMode())} of each booking and you get the rest.
             </li>
             <li>
               <strong className="font-semibold text-foreground">No card fees for you.</strong> FYStay covers the payment
@@ -244,13 +245,13 @@ export default async function HostEarningsPage({
         <Panel title="Where it comes from" icon={ReceiptText}>
           <dl className="flex flex-col gap-2 text-sm">
             <Line label="Guests paid" value={summary.guestPaidCents} />
-            <Line label="FYStay commission" value={-summary.fystayFeeCents} note={`${STANDARD_COMMISSION_RATE_TEXT} of each booking`} />
+            <Line label="FYStay commission" value={-summary.fystayFeeCents} note={smartPricingMode() === "on" ? "each booking's own rate" : `${hostCommissionText("off")} of each booking`} />
             <Line label="Card processing" value={0} note="FYStay covers it" />
             {summary.refundedCents > 0 && <Line label="Refunded to guests" value={-summary.refundedCents} />}
             <Line label="Your earnings" value={summary.earnedCents} strong className="mt-1 border-t border-border-subtle pt-2" />
           </dl>
           <p className="mt-3 text-xs text-stone-500">
-            Guests pay your nightly rate with no fees added. FYStay keeps {STANDARD_COMMISSION_RATE_TEXT} of each booking.
+            Guests pay your nightly rate with no fees added. FYStay keeps {hostCommissionText(smartPricingMode())} of each booking.
           </p>
         </Panel>
       </div>

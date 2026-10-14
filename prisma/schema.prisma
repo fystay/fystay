@@ -736,51 +736,56 @@ model Booking {
   // and FYStay's 10% is hostCommissionCents, taken out of the host's payout
   // rather than added to the guest's total. Older bookings keep their
   // cleaning and service fee and a hostCommissionCents of 0.
-  nightlyPriceCents         Int
+  nightlyPriceCents          Int
   // How many of the stay's nights were Friday or Saturday nights charged at
   // the listing's weekend rate, and that rate, copied at booking so a later
   // price change can't alter this booking. 0/null: every night was
   // nightlyPriceCents (every booking before weekend rates existed).
-  weekendNights             Int            @default(0)
-  weekendNightlyPriceCents  Int?
+  weekendNights              Int            @default(0)
+  weekendNightlyPriceCents   Int?
   // Amount and which threshold (weekly/monthly) applied, snapshotted the
   // same way as the other price fields - a later edit to the listing's
   // discount settings never rewrites what a guest already agreed to.
   // 0/null when no discount applied to this stay.
   // Holds the stay's one discount: weekly/monthly, or a last-minute deal
   // ("last_minute") when that was larger - they never stack.
-  lengthOfStayDiscountCents Int            @default(0)
-  lengthOfStayDiscountLabel String?
+  lengthOfStayDiscountCents  Int            @default(0)
+  lengthOfStayDiscountLabel  String?
   // The last-minute deal percentage this booking qualified for when it was
   // made (null if none), so a later date change reprices with the same deal
   // instead of quietly taking it away.
-  lastMinuteDiscountPercent Int?
-  cleaningFeeCents          Int            @default(0)
-  serviceFeeCents           Int            @default(0)
-  hostCommissionCents       Int            @default(0)
-  taxCents                  Int            @default(0)
+  lastMinuteDiscountPercent  Int?
+  cleaningFeeCents           Int            @default(0)
+  serviceFeeCents            Int            @default(0)
+  hostCommissionCents        Int            @default(0)
+  taxCents                   Int            @default(0)
   // The commission policy this booking was priced under
   // (src/lib/pricingPolicy.ts) and its effective rate in basis points, so a
   // later policy change never reprices it and a date change moves FYStay's
   // fee at the booking's own rate. Null on bookings made before policies
   // were versioned: those are the fixed 10% (LEGACY_FIXED_10).
-  pricingPolicyVersion      String?
-  commissionRateBps         Int?
+  pricingPolicyVersion       String?
+  commissionRateBps          Int?
   // Smart pricing: the accommodation at the host's own rates (after stay
   // discounts) when smart pricing set a different price, and the decision
   // that did. Null when the host's own price was charged.
-  basePriceSubtotalCents    Int?
-  priceDecisionId           String?
-  priceDecision             PriceDecision? @relation(fields: [priceDecisionId], references: [id], onDelete: SetNull)
+  basePriceSubtotalCents     Int?
+  // The host's smart-pricing minimum payout per night this booking was
+  // priced to protect (dynamic policy only; null otherwise). A date change
+  // protects it too: the host's own stay discount is limited, as at
+  // booking, so the changed stay still pays it (changeRequests.ts).
+  minHostPayoutPerNightCents Int?
+  priceDecisionId            String?
+  priceDecision              PriceDecision? @relation(fields: [priceDecisionId], references: [id], onDelete: SetNull)
   // Stripe's actual processing fee for the payment, read back from its
   // balance transaction after confirmation - FYStay's cost, never the
   // host's. Null until known (estimates are never stored here).
-  stripeProcessingFeeCents  Int?
+  stripeProcessingFeeCents   Int?
   // Referral-program credit spent on this booking (see User.creditBalanceCents
   // in referral.ts) - deducted from the guest's balance at booking creation
   // and absorbed out of the platform's own applicationFeeCents at checkout,
   // never the host's share. 0 when the guest had no balance to spend.
-  creditAppliedCents        Int            @default(0)
+  creditAppliedCents         Int            @default(0)
   // An admin-issued PromoCode's discount, snapshotted the same way as every
   // other price field - editing or deactivating the code later never
   // rewrites what a guest already agreed to. Stacks with creditAppliedCents
@@ -788,10 +793,10 @@ model Booking {
   // out of the platform's own applicationFeeCents at checkout, never the
   // host's share - see promoCode.ts's own comment for why. 0/null when no
   // code was used.
-  promoCodeId               String?
-  promoCode                 PromoCode?     @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
-  promoDiscountCents        Int            @default(0)
-  totalPriceCents           Int
+  promoCodeId                String?
+  promoCode                  PromoCode?     @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  promoDiscountCents         Int            @default(0)
+  totalPriceCents            Int
 
   // Request-to-book (see Listing.instantBook and BookingApprovalStatus).
   // requestExpiresAt is only ever set alongside approvalStatus AWAITING -

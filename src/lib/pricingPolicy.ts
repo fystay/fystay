@@ -372,8 +372,20 @@ export function describeCommissionPolicy(policy: CommissionPolicy): string[] {
   if (policy.thinMarket) lines.push(`${points(policy.thinMarket.adjustBps)} while fewer than ${policy.thinMarket.belowListings} FYStay listings are live in your town.`);
   if (policy.upliftShareBps) lines.push(`Plus ${formatRate(policy.upliftShareBps)} of any amount smart pricing adds above your own price.`);
   if (policy.minContributionCents !== null) lines.push(`At least enough to cover the card processing fee FYStay pays.`);
-  lines.push(`Always between ${commissionRangeText(policy)}, and never so much that you get less than your minimum payout - unless your own discounts take the stay below it.`);
+  lines.push(`Always between ${commissionRangeText(policy)}, and never so much that you get less than your minimum payout (your own stay discount is limited for a stay if that is needed to pay it).`);
   return lines;
+}
+
+/**
+ * FYStay's commission as general host-facing copy describes it, true in
+ * every SMART_PRICING_MODE: only "on" charges anyone the dynamic policy,
+ * and then only on listings whose host agreed to it. A booking's own rate
+ * is Booking.commissionRateBps.
+ */
+export function hostCommissionText(mode: "off" | "shadow" | "on"): string {
+  return mode === "on"
+    ? `${STANDARD_COMMISSION_RATE_TEXT} (${commissionRangeText(CURRENT_DYNAMIC_POLICY)}, worked out per booking, on listings where you've turned on smart pricing)`
+    : STANDARD_COMMISSION_RATE_TEXT;
 }
 
 /** "8%-15%": the range a host agrees to under a dynamic policy. */

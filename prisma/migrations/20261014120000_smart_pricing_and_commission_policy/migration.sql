@@ -7,6 +7,7 @@
 -- AlterTable
 ALTER TABLE "Booking" ADD COLUMN     "basePriceSubtotalCents" INTEGER,
 ADD COLUMN     "commissionRateBps" INTEGER,
+ADD COLUMN     "minHostPayoutPerNightCents" INTEGER,
 ADD COLUMN     "priceDecisionId" TEXT,
 ADD COLUMN     "pricingPolicyVersion" TEXT,
 ADD COLUMN     "stripeProcessingFeeCents" INTEGER;

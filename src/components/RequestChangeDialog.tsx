@@ -24,6 +24,7 @@ export function RequestChangeDialog({
   currentCheckOut,
   currentGuests,
   priceBasis,
+  protectsHostMinimum = false,
   weeklyDiscountPercent,
   monthlyDiscountPercent,
   minNights,
@@ -37,6 +38,12 @@ export function RequestChangeDialog({
   currentGuests: number;
   /** The booking's own snapshotted rates and totals - what the server prices a change from. */
   priceBasis: ChangePricingBooking;
+  /**
+   * The booking protects a host's private smart-pricing minimum, which can
+   * limit the host's discount on new dates - so only the server can price
+   * the change exactly (and refuse it if needed).
+   */
+  protectsHostMinimum?: boolean;
   weeklyDiscountPercent?: number | null;
   monthlyDiscountPercent?: number | null;
   minNights: number;
@@ -81,7 +88,6 @@ export function RequestChangeDialog({
   // Mirrors the server's refusal (see isRefundChangeOnDiscountedBooking), so
   // the guest learns why before submitting rather than from an error.
   const refundBlockedByDiscount = isRefundChangeOnDiscountedBooking(priceBasis, priceDeltaCents);
-
   function isSelectionValid(): boolean {
     if (!range?.from || !range?.to) return false;
     if (stayLengthError(nightsBetween(range.from, range.to), { minNights, maxNights })) return false;
@@ -190,17 +196,25 @@ export function RequestChangeDialog({
                 <span>Original total</span>
                 <span>{formatPrice(priceBasis.totalPriceCents)}</span>
               </div>
-              <div className="flex justify-between text-stone-600">
-                <span>New total</span>
-                <span>{formatPrice(priceBasis.totalPriceCents + priceDeltaCents)}</span>
-              </div>
-              {priceDeltaCents !== 0 && !refundBlockedByDiscount && (
+              {protectsHostMinimum ? (
+                // The host's pricing limits are private, so the difference
+                // is worked out by the server when the request is sent.
+                <p className="text-xs text-stone-500">
+                  The exact price difference for these dates is confirmed when you send the request, before you pay anything.
+                </p>
+              ) : (
+                <div className="flex justify-between text-stone-600">
+                  <span>New total</span>
+                  <span>{formatPrice(priceBasis.totalPriceCents + priceDeltaCents)}</span>
+                </div>
+              )}
+              {!protectsHostMinimum && priceDeltaCents !== 0 && !refundBlockedByDiscount && (
                 <div className="flex justify-between border-t border-border-subtle pt-1.5 font-semibold text-foreground">
                   <span>{priceDeltaCents > 0 ? "Additional payment" : "Refund due"}</span>
                   <span>{formatPrice(Math.abs(priceDeltaCents))}</span>
                 </div>
               )}
-              {priceDeltaCents !== 0 && !refundBlockedByDiscount && (
+              {!protectsHostMinimum && priceDeltaCents !== 0 && !refundBlockedByDiscount && (
                 <p className="text-xs text-stone-500">
                   {priceDeltaCents > 0
                     ? `You'll owe an extra ${formatPrice(priceDeltaCents)} if approved.`

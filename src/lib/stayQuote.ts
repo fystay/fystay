@@ -60,6 +60,11 @@ export type StayQuote = {
   basePriceSubtotalCents: number | null;
   /** How the charged commission was worked out. */
   commission: CommissionDecision;
+  /**
+   * The host's minimum payout per night this stay was priced to protect
+   * (dynamic policy only) - snapshotted so a later date change protects it too.
+   */
+  minHostPayoutPerNightCents: number | null;
   smartPricing: { use: SmartPricingUse; decision: SmartPriceDecision } | null;
 };
 
@@ -133,6 +138,7 @@ function legacyQuote(listing: QuoteListing, checkIn: Date, checkOut: Date): Stay
     lastMinuteDiscountPercent,
     basePriceSubtotalCents: null,
     commission: commissionDecision(LEGACY_FIXED_10, { accommodationCents: pricing.totalPriceCents }),
+    minHostPayoutPerNightCents: null,
     smartPricing: null,
   };
 }
@@ -200,6 +206,7 @@ export async function quoteListingStay(
       lastMinuteDiscountPercent: legacy.lastMinuteDiscountPercent,
       basePriceSubtotalCents: pricing.totalPriceCents === decision.basePricing.totalPriceCents ? null : decision.basePricing.totalPriceCents,
       commission,
+      minHostPayoutPerNightCents: listing.smartPricingMinPayoutCents,
       smartPricing: { use, decision },
     };
   } catch (error) {
@@ -277,6 +284,7 @@ export function bookingPricingSnapshot(quote: StayQuote, priceDecisionId: string
     pricingPolicyVersion: quote.policy.version,
     commissionRateBps: quote.commissionRateBps,
     basePriceSubtotalCents: quote.basePriceSubtotalCents,
+    minHostPayoutPerNightCents: quote.minHostPayoutPerNightCents,
     // Shadow decisions are linked too: the comparison is per booking.
     priceDecisionId,
   };

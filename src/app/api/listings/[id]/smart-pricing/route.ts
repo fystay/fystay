@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isListingHost } from "@/lib/listingOnboarding";
 import { smartPricingSettingsError } from "@/lib/dynamicPricing";
-import { CURRENT_DYNAMIC_POLICY, platformFeeCents } from "@/lib/pricingPolicy";
+import { CURRENT_DYNAMIC_POLICY } from "@/lib/pricingPolicy";
 
 /**
  * A host's smart-pricing settings for one listing. Only the listing's own
@@ -36,7 +36,7 @@ async function putHandler(request: Request, { params }: { params: Promise<{ id: 
 
   const listing = await prisma.listing.findUnique({
     where: { id },
-    select: { id: true, hostId: true, hostInvitationId: true, preparedById: true, propertyType: true, pricePerNightCents: true, weekendPricePerNightCents: true, smartPricingConsentAt: true, smartPricingConsentPolicyVersion: true, smartPricingEnabled: true },
+    select: { id: true, hostId: true, hostInvitationId: true, preparedById: true, propertyType: true, pricePerNightCents: true, weekendPricePerNightCents: true, weeklyDiscountPercent: true, monthlyDiscountPercent: true, lastMinuteDiscountPercent: true, smartPricingConsentAt: true, smartPricingConsentPolicyVersion: true, smartPricingEnabled: true },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!isListingHost(session, listing)) return NextResponse.json({ error: "Only the listing's host can change smart pricing" }, { status: 403 });
@@ -61,11 +61,9 @@ async function putHandler(request: Request, { params }: { params: Promise<{ id: 
     maxGuestPricePerNightCents: input.maxPriceCents,
     maxAdjustmentPercent: input.maxAdjustmentPercent,
   };
-  // The most one weeknight at the host's own price can pay them: at the
-  // policy's lowest rate. A minimum above that could never be met.
-  const lowest = { ...CURRENT_DYNAMIC_POLICY, baseRateBps: CURRENT_DYNAMIC_POLICY.minRateBps, valueBands: [], longLead: null, thinMarket: null, upliftShareBps: 0, minContributionCents: null };
-  const basePayoutPerNightCents = listing.pricePerNightCents - platformFeeCents(lowest, { accommodationCents: listing.pricePerNightCents });
-  const error = smartPricingSettingsError(settings, listing, basePayoutPerNightCents);
+  // Every limit, including whether the minimum payout can be met on every
+  // stay given the host's own price and discounts (minimumPayoutError).
+  const error = smartPricingSettingsError(settings, listing);
   if (error) return NextResponse.json({ error }, { status: 400 });
 
   const updated = await prisma.listing.update({

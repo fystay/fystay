@@ -46,7 +46,8 @@ import {
   type StayCard,
 } from "@/components/host/TodayPanels";
 import { buttonVariants } from "@/components/ui/Button";
-import { STANDARD_COMMISSION_RATE_TEXT } from "@/lib/pricingPolicy";
+import { hostCommissionText } from "@/lib/pricingPolicy";
+import { smartPricingMode } from "@/lib/smartPricingMode";
 
 export const metadata: Metadata = { title: "Today · Hosting", robots: { index: false } };
 
@@ -139,7 +140,7 @@ export default async function HostTodayPage() {
         <FirstGuestChecklist
           className="mt-6"
           title="Let's get your first place live"
-          intro={`Two steps and you're taking bookings. Guests pay your nightly price with no fees added; FYStay keeps ${STANDARD_COMMISSION_RATE_TEXT} when you're paid.`}
+          intro={`Two steps and you're taking bookings. Guests pay your nightly price with no fees added; FYStay keeps ${hostCommissionText(smartPricingMode())} when you're paid.`}
           steps={[
             {
               key: "listing",

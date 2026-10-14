@@ -8,6 +8,7 @@ import { listingFormValues } from "@/lib/listingFormValues";
 import { SmartPricingPanel } from "@/components/host/SmartPricingPanel";
 import { smartPricingMode } from "@/lib/smartPricingMode";
 import { CURRENT_DYNAMIC_POLICY } from "@/lib/pricingPolicy";
+import { minimumPayoutError } from "@/lib/dynamicPricing";
 
 export async function generateMetadata({
   params,
@@ -60,6 +61,7 @@ export default async function EditListingPage({
       <ListingForm
         listingId={listing.id}
         initialValues={listingFormValues(listing)}
+        smartPriced={mode === "on" && listing.smartPricingEnabled && listing.smartPricingConsentPolicyVersion === CURRENT_DYNAMIC_POLICY.version}
       />
       {/* Only once FYStay runs smart pricing (SMART_PRICING_MODE), and never
           for a hotel's room types - so it's never offered while it can't work. */}
@@ -68,6 +70,7 @@ export default async function EditListingPage({
           listingId={listing.id}
           mode={mode}
           pricePerNightCents={listing.pricePerNightCents}
+          payoutConflict={listing.smartPricingEnabled ? minimumPayoutError(listing.smartPricingMinPayoutCents, listing) : null}
           initial={{
             enabled: listing.smartPricingEnabled,
             autoApply: listing.smartPricingAutoApply,

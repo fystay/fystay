@@ -75,7 +75,11 @@ Verified in code, and unchanged by this work:
    - The guest's refund is decided by the booking's cancellation terms. The commission doesn't change it.
    - Stripe reverses the host's transfer and FYStay's fee in the same proportion (`reverse_transfer` and `refund_application_fee`), using idempotency keys.
    - Stripe keeps its own processing fee, so a fully refunded booking costs FYStay that fee.
-6. **Date changes** move FYStay's fee at **the booking's own stored rate** (`splitBookingChange`). Today's policy is never used.
+6. **Date changes** move FYStay's fee at the booking's own stored terms (`splitBookingChange`). Today's policy is never used.
+   - Fixed-10% bookings (and every booking from before versions existed) move at 10%, exactly as before this PR.
+   - Dynamic-policy bookings move at their **exact** stored ratio (fee ÷ accommodation), not a rate rounded to a basis point.
+     - An extension's application fee is the fee on the new total at that ratio, less the fee already taken.
+     - A shortened stay returns `round(refund × fee ÷ accommodation)` of the fee, the same proportional share Stripe's `refund_application_fee` returns.
 7. **The webhook confirms a booking only if Stripe took exactly its stored total in GBP.**
    - It confirms under the availability lock.
    - A repeated delivery is a no-op: one confirmation and one set of emails.
@@ -153,8 +157,68 @@ Pure and deterministic: the same inputs always give the same price.
    - The engine picks the candidate closest to the proposal. With a conversion model, it would pick the one with the highest expected contribution instead.
    - Without a validated conversion model, the price only moves in the direction the demand data points, and no further than it proposes. It is never raised just to meet the host's minimum.
    - The host's own price is judged with FYStay's fee already reduced for their minimum, so a high minimum alone never moves the price.
-   - If no allowed candidate pays the minimum, the outcome is `constrained`. This happens when the host's own weekly, monthly or last-minute discount takes the stay below their minimum. The host's own price is charged, FYStay's fee is cut as far as 8%, and the decision says why.
+   - If the host's own price, with FYStay's fee cut as far as 8%, still doesn't pay the minimum, see "The host's minimum payout" below.
 7. **When data is sparse** (true in every FYStay town today), every signal is `none` and the price is the host's own: the documented baseline. The decision records why.
+
+## The host's minimum payout
+
+The host sets it per night. It is enforced **per stay**: payout ≥ minimum × nights. On a stay mixing weekday and weekend nights, it is the average per night that is guaranteed, not each night.
+
+**1. Prevented when it is set.** Both the smart-pricing settings and the listing's own price and discount edits are refused if the minimum can't be met on every stay (`minimumPayoutError`). The highest allowed minimum is:
+
+```
+floor(nightly price × (1 − host's largest own discount) × (1 − 8%) − 1p)
+```
+
+- The largest discount is whichever is biggest of the weekly, monthly and last-minute discounts, assuming the worst case.
+- The 1p covers rounding: the discount and the fee each round once per stay.
+- A test covers prices from £9.99 to £543.21, discounts of 0–33% and 1–60 nights, and shows every stay pays it.
+- Example: £100 a night with a 20% weekly discount allows at most £73.59 a night.
+
+**2. At booking (a safety net).** FYStay's fee is cut, down to 8% at most, so the host gets the minimum.
+- If that isn't enough, the host's own stay discount is reduced a whole percent at a time until the stay pays it. For example, 20% becomes 13%, and the guest sees "Weekly discount (13%)" and is charged exactly that.
+- The preview and the booking use the same quote, so they always agree.
+- The decision records "Your 20% stay discount was limited to 13%", and the Edit listing page warns the host about the conflict.
+
+**3. Explicit outcome when it can't be met.** If even the undiscounted price can't pay the minimum (only possible with data saved before these checks), the result is marked `constrained`:
+- the host's own price is charged at 8%;
+- the decision says so ("can't be met for this stay … raise your nightly price or lower your minimum");
+- it is logged as `smart_pricing_constrained`.
+
+The engine never raises the guest's price to meet the minimum.
+
+**4. Date changes.** Each dynamic booking stores the minimum it protected (`Booking.minHostPayoutPerNightCents`).
+- The change quote limits the host's discount the same way.
+- A change that would still pay the host less is refused (`changeBreaksMinimumPayout`) when it is requested and again when it is approved. An example is dropping a weekend night from a stay with a high fee ratio.
+  - The guest sees "can't be requested as a change … under the host's pricing", which never states the figure.
+  - The host is told it is below their minimum.
+- The guest can cancel under the policy and book the new dates instead.
+- The host's minimum is never sent to the guest's browser: guest booking APIs strip it (`guestBookingView`), and the change dialog defers the exact price to the server.
+
+**5. Cancellations are not covered.** The published cancellation policy decides what the host keeps, and a refund reduces their payout in the same proportion as the guest's refund.
+
+**Currency.** Everything is in GBP pence. Checkout charges GBP only, and the webhook refuses any other currency. No conversion is involved.
+
+## Reconciliation with Stripe
+
+`src/lib/financialFlow.test.ts` simulates 3,000 random dynamic bookings: smart pricing, checkout with and without promos, up to two date changes, and part-cancellations. It compares FYStay's books with what Stripe moves on a destination charge.
+
+**Exact to the penny:**
+- checkout (the host's transfer is always accommodation − commission; promos come only out of FYStay's fee);
+- every extension payment;
+- a booking's first refund change;
+- a part-cancellation with no refund before it;
+- the guest's total paid, at every step;
+- the host's minimum, never broken.
+
+**Up to 1p per refund:** a booking's later refunds.
+- Stripe works out each refund's fee share at the ratio of the payment it hits, newest payment first.
+- The books carry one ratio for the whole booking.
+- Making these exact needs a per-payment refund ledger, or reading Stripe's actual fee refunds back. That is a follow-up.
+
+**Assumption, not verified against live Stripe:** Stripe rounds its proportional fee refund to the nearest penny. Stripe documents the refund as proportional but not how it rounds.
+
+**Admin reporting** nets refunds off gross booking value and platform revenue in the same proportion. The booking page shows FYStay's contribution after refunds and Stripe's fee. Stripe's fee is never returned.
 
 ## A worked example
 
@@ -249,6 +313,28 @@ The booking route also logs `pricing_shadow_comparison` with charged against pro
 4. **Host consent wording, and the Terms.** A solicitor should review it before `on` (see below).
 5. **Pilot hosts and length,** and the success measures, for example host payout, conversion and complaints.
 6. **Ticketmaster:** whether to set `TICKETMASTER_API_KEY`, which makes the events signal live.
+
+## Disclosures
+
+Every fixed-10% claim was checked.
+
+**General copy now uses `hostCommissionText(mode)`.** It reads "10%" in `off` and `shadow`, where only 10% is ever charged, and "10% (8%-15%, worked out per booking, on listings where you've turned on smart pricing)" in `on`. It is used on:
+- the host landing page;
+- the host guide;
+- the dashboard;
+- the listings, earnings and payouts pages.
+
+**Per-booking copy uses the booking's own rate:**
+- the host's "New booking" email ("FYStay's 11.5% commission for this booking");
+- the host booking page.
+
+**The listing form** adds the 8–15% range for a host with smart pricing on.
+
+**Not changed, needs a solicitor before `on`:**
+- **`/legal/terms`** says "FYStay keeps a commission of 10%". That is accurate while dynamic commission is off. It needs the clause below before any host is charged under it.
+- **`docs/launch/legal-drafts.md`** has the same fixed-10% wording.
+- **The consent text in the smart-pricing panel.** It includes the policy version, the range, every rule and the payout limits.
+- **The guest-facing note** "The host's price for these dates reflects demand around them", to check against the CMA's dynamic- and drip-pricing guidance.
 
 ## Wording for legal review (not published)
 

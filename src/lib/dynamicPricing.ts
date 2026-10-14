@@ -2,6 +2,7 @@ import { computeBookingPricing, type BookingPriceBreakdown } from "@/lib/pricing
 import {
   commissionDecision,
   CURRENT_DYNAMIC_POLICY,
+  formatRate,
   stayFinancials,
   type CommissionContext,
   type CommissionDecision,
@@ -240,6 +241,8 @@ export type SmartPriceDecision = {
   signals: MarketSignal[];
   constraints: ConstraintCheck[];
   candidates: PriceCandidate[];
+  /** The host's own stay discount, when it was limited to keep their minimum payout. */
+  discountLimited: { fromPercent: number; toPercent: number } | null;
   explanation: string;
 };
 
@@ -312,6 +315,10 @@ export function decideSmartPrice(params: {
       commissionPolicy: policy,
       baseAccommodationCents,
       commissionContext: context(protectHost),
+      minimumPayout:
+        protectHost && minStayPayout !== null
+          ? { stayCents: minStayPayout, feeFor: (accommodation: number) => Math.round((accommodation * policy.minRateBps) / 10_000) }
+          : null,
     });
   };
 
@@ -386,12 +393,18 @@ export function decideSmartPrice(params: {
   ];
 
   const reasons = proposal.signals.filter((s) => s.effectPercent !== 0).map((s) => s.detail);
+  const nominalPercent = priceAt(adjustmentPercent, false, baseAccommodationCents).lengthOfStayDiscountPercent;
+  const discountLimited =
+    pricing.lengthOfStayDiscountPercent < nominalPercent ? { fromPercent: nominalPercent, toPercent: pricing.lengthOfStayDiscountPercent } : null;
+  const limitedNote = discountLimited
+    ? ` Your ${discountLimited.fromPercent}% stay discount was limited to ${discountLimited.toPercent}% for this stay so it still pays your minimum.`
+    : "";
   const explanation =
-    outcome === "constrained"
-      ? `Your own price was kept, with FYStay's fee cut to its lowest: this stay pays ${pounds(final.hostPayoutPerNightCents)} a night before that cut, below your minimum of ${pounds(settings.minHostPayoutPerNightCents ?? 0)}, and demand doesn't support a higher price. Your own discounts can cause this.`
+    (outcome === "constrained"
+      ? `Your minimum of ${pounds(settings.minHostPayoutPerNightCents ?? 0)} a night can't be met for this stay: even with FYStay's fee at its lowest, your own price pays ${pounds(Math.floor((pricing.totalPriceCents - pricing.hostCommissionCents) / nights))} a night. Your own price was charged. Raise your nightly price or lower your minimum.`
       : outcome === "unchanged"
         ? `Your own price applies${reasons.length ? ` (${reasons.join("; ")}, within your limits)` : " - no demand signal for these dates"}.`
-        : `${adjustmentPercent > 0 ? "Raised" : "Lowered"} ${Math.abs(adjustmentPercent)}% for these dates${reasons.length ? `: ${reasons.join("; ")}` : modelled ? " (expected to earn the most within your limits)" : ""}.`;
+        : `${adjustmentPercent > 0 ? "Raised" : "Lowered"} ${Math.abs(adjustmentPercent)}% for these dates${reasons.length ? `: ${reasons.join("; ")}` : modelled ? " (expected to earn the most within your limits)" : ""}.`) + limitedNote;
 
   return {
     strategyId: strategy.id,
@@ -408,15 +421,52 @@ export function decideSmartPrice(params: {
     signals: proposal.signals,
     constraints,
     candidates,
+    discountLimited,
     explanation,
   };
 }
 
 /** Why a host's smart-pricing settings can't be saved, or null. Checked by the settings API and form alike. */
+export type MinimumPayoutListing = {
+  pricePerNightCents: number;
+  weeklyDiscountPercent: number | null;
+  monthlyDiscountPercent: number | null;
+  lastMinuteDiscountPercent: number | null;
+};
+
+/**
+ * The highest minimum payout per night this listing can always pay: one
+ * weeknight at its own price, less its largest own discount (weekly,
+ * monthly or last-minute), at the policy's lowest commission rate, less 1p
+ * for rounding (each of the discount and the fee rounds once per stay, so
+ * a stay can never fall more than 1p short of the exact figure). Weekend
+ * nights only pay more. A minimum at or below this is met on every stay.
+ */
+export function highestReachableMinimumPayout(listing: MinimumPayoutListing, policy: CommissionPolicy = CURRENT_DYNAMIC_POLICY) {
+  const candidates = [
+    { percent: listing.weeklyDiscountPercent ?? 0, name: "weekly discount" },
+    { percent: listing.monthlyDiscountPercent ?? 0, name: "monthly discount" },
+    { percent: listing.lastMinuteDiscountPercent ?? 0, name: "last-minute deal" },
+  ];
+  const largest = candidates.reduce((a, b) => (b.percent > a.percent ? b : a), { percent: 0, name: "" });
+  const exactScaled = listing.pricePerNightCents * (100 - largest.percent) * (10_000 - policy.minRateBps);
+  return { cents: Math.max(0, Math.floor((exactScaled - 1_000_000) / 1_000_000)), discount: largest.percent > 0 ? largest : null };
+}
+
+/** Why a minimum payout can't be kept on every stay of this listing, or null. */
+export function minimumPayoutError(minPayoutPerNightCents: number | null, listing: MinimumPayoutListing): string | null {
+  if (minPayoutPerNightCents === null) return null;
+  const reachable = highestReachableMinimumPayout(listing);
+  if (minPayoutPerNightCents <= reachable.cents) return null;
+  const rate = formatRate(CURRENT_DYNAMIC_POLICY.minRateBps);
+  return reachable.discount
+    ? `With your ${reachable.discount.percent}% ${reachable.discount.name}, a night can pay you at most ${pounds(reachable.cents)} (after FYStay's lowest commission, ${rate}). Lower your minimum payout or the discount.`
+    : `Your minimum payout can't be above what your own price pays you at FYStay's lowest commission, ${rate} (${pounds(reachable.cents)} a night).`;
+}
+
 export function smartPricingSettingsError(
   settings: Omit<SmartPricingSettings, "consentAt">,
-  listing: { pricePerNightCents: number; weekendPricePerNightCents: number | null },
-  basePayoutPerNightCents: number,
+  listing: MinimumPayoutListing & { weekendPricePerNightCents: number | null },
 ): string | null {
   const money = [settings.minHostPayoutPerNightCents, settings.targetHostPayoutPerNightCents, settings.minGuestPricePerNightCents, settings.maxGuestPricePerNightCents];
   if (money.some((v) => v !== null && (!Number.isInteger(v) || v <= 0 || v > 1_000_000))) return "Amounts must be whole pence between 1p and £10,000";
@@ -429,9 +479,8 @@ export function smartPricingSettingsError(
   const highestOwn = listing.weekendPricePerNightCents ?? listing.pricePerNightCents;
   if (maxP !== null && maxP < highestOwn) return "The highest nightly price can't be below your own prices";
   if (minPay !== null && target !== null && minPay > target) return "Your minimum payout can't be above your target payout";
-  if (minPay !== null && minPay > basePayoutPerNightCents) {
-    return `Your minimum payout can't be above what your own price pays you at FYStay's lowest commission (${pounds(basePayoutPerNightCents)} a night)`;
-  }
+  const payoutError = minimumPayoutError(minPay, listing);
+  if (payoutError) return payoutError;
   if (settings.enabled && settings.minHostPayoutPerNightCents === null) return "Set the minimum you'll accept per night before turning smart pricing on";
   return null;
 }

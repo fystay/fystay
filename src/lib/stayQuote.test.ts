@@ -64,6 +64,8 @@ describe("quoteListingStay", () => {
     expect(quote.commissionRateBps).toBe(998);
     expect(quote.basePriceSubtotalCents).toBe(20_000);
     expect(quote.commission.components.map((c) => c.name)).toEqual(["base", "lead_time", "market", "uplift_share"]);
+    // The host's minimum travels with the booking, for later date changes.
+    expect(bookingPricingSnapshot(quote, null)).toMatchObject({ pricingPolicyVersion: "dynamic-v1", minHostPayoutPerNightCents: 8_000 });
   });
 
   it("charges the dynamic commission at the host's own price when they only want suggestions", async () => {
@@ -138,7 +140,13 @@ describe("recordPriceDecision", () => {
     expect(data.inputs).toMatchObject({ commission: { proposed: { policyVersion: "dynamic-v1" }, charged: { policyVersion: "fixed-10-v1" } } });
     expect(info).toHaveBeenCalledWith("pricing_shadow_comparison", expect.objectContaining({ listingId: "l1", use: "shadow" }));
     // The booking links the decision whichever way it was used.
-    expect(bookingPricingSnapshot(quote, "pd_1")).toEqual({ pricingPolicyVersion: "fixed-10-v1", commissionRateBps: 1000, basePriceSubtotalCents: null, priceDecisionId: "pd_1" });
+    expect(bookingPricingSnapshot(quote, "pd_1")).toEqual({
+      pricingPolicyVersion: "fixed-10-v1",
+      commissionRateBps: 1000,
+      basePriceSubtotalCents: null,
+      minHostPayoutPerNightCents: null,
+      priceDecisionId: "pd_1",
+    });
   });
 
   it("records nothing when no dynamic figures were worked out", async () => {

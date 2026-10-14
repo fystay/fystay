@@ -8,7 +8,7 @@ import { AlertTriangle, Camera, ClipboardList, Home, MapPin, Percent, ShieldChec
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Field, FieldError, FieldHint, Label } from "@/components/ui/Label";
 import { hostCommissionFor } from "@/lib/pricing";
-import { formatRate, LEGACY_FIXED_10 } from "@/lib/pricingPolicy";
+import { commissionRangeText, CURRENT_DYNAMIC_POLICY, formatRate, LEGACY_FIXED_10 } from "@/lib/pricingPolicy";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
@@ -239,9 +239,11 @@ type Props = {
    * still require them before it can go live.
    */
   allowIncomplete?: boolean;
+  /** The host has smart pricing on, with FYStay running it ("on"): their commission is the dynamic policy's. */
+  smartPriced?: boolean;
 };
 
-export function ListingForm({ listingId, initialValues, afterSaveHref = "/host/listings", allowIncomplete = false }: Props) {
+export function ListingForm({ listingId, initialValues, afterSaveHref = "/host/listings", allowIncomplete = false, smartPriced = false }: Props) {
   const router = useRouter();
   const [values, setValues] = useState<ListingFormValues>(() =>
     initialValues ? withPickerTimes(initialValues) : emptyValues,
@@ -546,7 +548,7 @@ export function ListingForm({ listingId, initialValues, afterSaveHref = "/host/l
                     onChange={(e) => update("pricePerNight", e.target.value)}
                     aria-describedby="price-hint"
                   />
-                  <p id="price-hint" className="mt-1.5 text-xs text-stone-500">{nightlyEarningsHint(values.pricePerNight)}</p>
+                  <p id="price-hint" className="mt-1.5 text-xs text-stone-500">{nightlyEarningsHint(values.pricePerNight, smartPriced)}</p>
                 </Field>
                 <Field>
                   <Label htmlFor="weekendPrice">Fri &amp; Sat price / night (£, optional)</Label>
@@ -1003,11 +1005,11 @@ function TimeField({
  * the commission is never a surprise: guests pay exactly this price, and
  * FYStay's commission (the fixed rate, pricingPolicy.ts) comes out of it.
  */
-function nightlyEarningsHint(pricePerNight: string): string {
+function nightlyEarningsHint(pricePerNight: string, smartPriced: boolean): string {
   const cents = Math.round(Number(pricePerNight) * 100);
   if (!Number.isFinite(cents) || cents <= 0) {
     return `Include cleaning - there's no separate cleaning fee. Guests pay this price; FYStay keeps ${formatRate(LEGACY_FIXED_10.baseRateBps)}.`;
   }
   const pounds = (c: number) => `£${(c / 100).toFixed(2).replace(/\.00$/, "")}`;
-  return `Guests pay ${pounds(cents)} a night. You receive ${pounds(cents - hostCommissionFor(cents))} after FYStay's ${formatRate(LEGACY_FIXED_10.baseRateBps)}. Include cleaning in this price.`;
+  return `Guests pay ${pounds(cents)} a night. You receive ${pounds(cents - hostCommissionFor(cents))} after FYStay's ${formatRate(LEGACY_FIXED_10.baseRateBps)}${smartPriced ? ` - or after ${commissionRangeText(CURRENT_DYNAMIC_POLICY)}, worked out per booking, while smart pricing is on (see Smart pricing below)` : ""}. Include cleaning in this price.`;
 }
