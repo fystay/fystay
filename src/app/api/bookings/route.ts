@@ -436,15 +436,11 @@ async function createListingBooking(
   }
 
   // The same quote the widget and the availability preview show (see
-  // stayQuote.ts): the host's own price under the fixed 10%, or a smart
-  // price when the host opted in. Decided here, at booking time, and
-  // snapshotted on the booking like every other price input.
-  const quote = await quoteListingStay(tx, listing, {
-    checkIn,
-    checkOut,
-    today: todayStayDate(),
-    ranges: blockingRanges(listing.bookings, listing.availabilityBlocks),
-  });
+  // stayQuote.ts): the host's own price under the fixed 10%, or the dynamic
+  // commission (and smart price) when the host agreed to it. Decided here,
+  // at booking time, and snapshotted on the booking like every other price
+  // input; in shadow mode the dynamic figures are recorded beside it.
+  const quote = await quoteListingStay(tx, listing, { checkIn, checkOut, today: todayStayDate() }, process.env, { shadow: true });
   const { pricing, lastMinuteDiscountPercent } = quote;
   if (expectedTotalCents !== undefined && expectedTotalCents !== pricing.totalPriceCents) {
     throw new BookingRequestError(

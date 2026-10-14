@@ -5,15 +5,16 @@ import { auth } from "@/auth";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { isListingHost } from "@/lib/listingOnboarding";
 import { smartPricingSettingsError } from "@/lib/dynamicPricing";
-import { hostCommissionFor } from "@/lib/pricing";
+import { CURRENT_DYNAMIC_POLICY, platformFeeCents } from "@/lib/pricingPolicy";
 
 /**
  * A host's smart-pricing settings for one listing. Only the listing's own
  * host can change them - not an admin, not FYStay - because turning smart
  * pricing on lets FYStay change the price guests pay and the host earns.
- * Turning it on needs the host's explicit agreement (`consent: true`),
- * recorded with the time, and a minimum payout; every limit is checked
- * here whatever the form already checked.
+ * Turning it on - or keeping it on after the dynamic policy's version
+ * changed - needs the host's explicit agreement (`consent: true`) to the
+ * current version, recorded with the time and version, and a minimum
+ * payout; every limit is checked here whatever the form already checked.
  */
 
 const pence = z.number().int().positive().max(1_000_000).nullable();
@@ -35,7 +36,7 @@ async function putHandler(request: Request, { params }: { params: Promise<{ id: 
 
   const listing = await prisma.listing.findUnique({
     where: { id },
-    select: { id: true, hostId: true, hostInvitationId: true, preparedById: true, propertyType: true, pricePerNightCents: true, weekendPricePerNightCents: true, smartPricingConsentAt: true, smartPricingEnabled: true },
+    select: { id: true, hostId: true, hostInvitationId: true, preparedById: true, propertyType: true, pricePerNightCents: true, weekendPricePerNightCents: true, smartPricingConsentAt: true, smartPricingConsentPolicyVersion: true, smartPricingEnabled: true },
   });
   if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!isListingHost(session, listing)) return NextResponse.json({ error: "Only the listing's host can change smart pricing" }, { status: 403 });
@@ -45,9 +46,10 @@ async function putHandler(request: Request, { params }: { params: Promise<{ id: 
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   const input = parsed.data;
 
-  const turningOn = input.enabled && !listing.smartPricingEnabled;
-  if (turningOn && input.consent !== true) {
-    return NextResponse.json({ error: "Please confirm you agree to smart pricing before turning it on" }, { status: 400 });
+  // Agreement is to one policy version: turning it on, or staying on under a newer version, asks again.
+  const needsConsent = input.enabled && (!listing.smartPricingEnabled || listing.smartPricingConsentPolicyVersion !== CURRENT_DYNAMIC_POLICY.version);
+  if (needsConsent && input.consent !== true) {
+    return NextResponse.json({ error: "Please confirm you agree to smart pricing and FYStay's commission terms before turning it on" }, { status: 400 });
   }
 
   const settings = {
@@ -59,8 +61,10 @@ async function putHandler(request: Request, { params }: { params: Promise<{ id: 
     maxGuestPricePerNightCents: input.maxPriceCents,
     maxAdjustmentPercent: input.maxAdjustmentPercent,
   };
-  // What one weeknight at the host's own price pays them today.
-  const basePayoutPerNightCents = listing.pricePerNightCents - hostCommissionFor(listing.pricePerNightCents);
+  // The most one weeknight at the host's own price can pay them: at the
+  // policy's lowest rate. A minimum above that could never be met.
+  const lowest = { ...CURRENT_DYNAMIC_POLICY, baseRateBps: CURRENT_DYNAMIC_POLICY.minRateBps, valueBands: [], longLead: null, thinMarket: null, upliftShareBps: 0, minContributionCents: null };
+  const basePayoutPerNightCents = listing.pricePerNightCents - platformFeeCents(lowest, { accommodationCents: listing.pricePerNightCents });
   const error = smartPricingSettingsError(settings, listing, basePayoutPerNightCents);
   if (error) return NextResponse.json({ error }, { status: 400 });
 
@@ -69,8 +73,9 @@ async function putHandler(request: Request, { params }: { params: Promise<{ id: 
     data: {
       smartPricingEnabled: input.enabled,
       smartPricingAutoApply: input.autoApply,
-      // Each time it's turned on, the agreement is recorded afresh.
-      smartPricingConsentAt: turningOn ? new Date() : input.enabled ? listing.smartPricingConsentAt : null,
+      // Each agreement is recorded afresh, with the policy version agreed to.
+      smartPricingConsentAt: needsConsent ? new Date() : input.enabled ? listing.smartPricingConsentAt : null,
+      smartPricingConsentPolicyVersion: needsConsent ? CURRENT_DYNAMIC_POLICY.version : input.enabled ? listing.smartPricingConsentPolicyVersion : null,
       smartPricingMinPayoutCents: input.minPayoutCents,
       smartPricingTargetPayoutCents: input.targetPayoutCents,
       smartPricingMinPriceCents: input.minPriceCents,
@@ -81,6 +86,7 @@ async function putHandler(request: Request, { params }: { params: Promise<{ id: 
       smartPricingEnabled: true,
       smartPricingAutoApply: true,
       smartPricingConsentAt: true,
+      smartPricingConsentPolicyVersion: true,
       smartPricingMinPayoutCents: true,
       smartPricingTargetPayoutCents: true,
       smartPricingMinPriceCents: true,

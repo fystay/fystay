@@ -9,12 +9,14 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { SectionHeading } from "@/components/SectionHeading";
 import { ENGINE_LIMITS } from "@/lib/dynamicPricing";
-import { formatRate, SMART_PRICING_V1 } from "@/lib/pricingPolicy";
+import { commissionDecision, commissionRangeText, CURRENT_DYNAMIC_POLICY, describeCommissionPolicy, formatRate, STANDARD_COMMISSION_RATE_TEXT } from "@/lib/pricingPolicy";
 
 export type SmartPricingValues = {
   enabled: boolean;
   autoApply: boolean;
   consentAt: string | null;
+  /** Whether the host's agreement is to the current policy version. */
+  consentCurrent: boolean;
   minPayoutCents: number | null;
   targetPayoutCents: number | null;
   minPriceCents: number | null;
@@ -24,19 +26,25 @@ export type SmartPricingValues = {
 
 const toPounds = (cents: number | null) => (cents === null ? "" : String(cents / 100));
 const toCents = (pounds: string) => (pounds.trim() === "" ? null : Math.round(Number(pounds) * 100));
+const gbp = (cents: number) => `£${(cents / 100).toFixed(2)}`;
 
 /**
- * The host's smart-pricing controls (src/lib/dynamicPricing.ts): off until
- * they turn it on and agree, and every limit is theirs. The server checks
- * every value again (PUT /api/listings/[id]/smart-pricing).
+ * The host's smart-pricing controls (src/lib/dynamicPricing.ts) and the
+ * dynamic commission they agree to with it (src/lib/pricingPolicy.ts): off
+ * until they turn it on and agree to the current policy version, and every
+ * limit is theirs. The server checks every value again
+ * (PUT /api/listings/[id]/smart-pricing).
  */
 export function SmartPricingPanel({
   listingId,
   initial,
   mode,
+  pricePerNightCents,
 }: {
   listingId: string;
   initial: SmartPricingValues;
+  /** The host's own weeknight price, for the worked example. */
+  pricePerNightCents: number;
   /** "shadow": FYStay is only trialling smart pricing, so nothing changes for guests yet. */
   mode: "shadow" | "on";
 }) {
@@ -49,7 +57,13 @@ export function SmartPricingPanel({
   const [maxPrice, setMaxPrice] = useState(toPounds(initial.maxPriceCents));
   const [maxAdjustment, setMaxAdjustment] = useState(initial.maxAdjustmentPercent === null ? "" : String(initial.maxAdjustmentPercent));
   const [saving, setSaving] = useState(false);
-  const turningOn = enabled && !initial.enabled;
+  // Agreement is per policy version: turning it on, or a newer version, asks again.
+  const turningOn = enabled && (!initial.enabled || !initial.consentCurrent);
+  const policy = CURRENT_DYNAMIC_POLICY;
+  // Two weeknights at the host's own price, no other adjustments - the
+  // same calculation checkout charges (commissionDecision).
+  const exampleCents = pricePerNightCents * 2;
+  const example = commissionDecision(policy, { accommodationCents: exampleCents });
 
   async function save() {
     setSaving(true);
@@ -87,11 +101,24 @@ export function SmartPricingPanel({
       <CardContent className="flex flex-col gap-4 text-sm">
         <p className="text-stone-600">
           Smart pricing can move your nightly price by up to {ENGINE_LIMITS.maxAdjustmentPercent}% for particular dates, in{" "}
-          {ENGINE_LIMITS.stepPercent}% steps, based on how booked your own calendar is around them and verified local events. It
-          never charges guests outside the limits you set, and never pays you less than your minimum. FYStay keeps{" "}
-          {formatRate(SMART_PRICING_V1.baseRateBps)} of what guests pay for the stay, as now; card fees are FYStay&apos;s cost, not yours.
-          It doesn&apos;t predict demand from data FYStay doesn&apos;t have, and it&apos;s off unless you turn it on.
+          {ENGINE_LIMITS.stepPercent}% steps. It only reacts to demand when FYStay&apos;s own bookings in your town are enough to be
+          reliable (and to verified local events); otherwise your own price stays. It never charges guests outside the limits you
+          set, and never pays you less than your minimum. It&apos;s off unless you turn it on.
         </p>
+        <div className="rounded-xl border border-stone-200 p-3 text-stone-700">
+          <p className="font-medium text-stone-900">FYStay&apos;s commission with smart pricing: {commissionRangeText(policy)}, worked out per booking</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {describeCommissionPolicy(policy).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <p className="mt-2">
+            Example: 2 nights at your {gbp(pricePerNightCents)}. The guest pays {gbp(exampleCents)} with nothing added. FYStay keeps{" "}
+            {gbp(example.feeCents)} ({formatRate(example.rateBps)}) and you receive {gbp(exampleCents - example.feeCents)}. Card processing
+            fees and FYStay&apos;s promo codes or credit come out of FYStay&apos;s share, never yours. Without smart pricing it stays a
+            fixed {STANDARD_COMMISSION_RATE_TEXT}.
+          </p>
+        </div>
         {mode === "shadow" && (
           <p className="rounded-xl bg-stone-100 p-3 text-stone-700">
             FYStay is still trialling smart pricing: for now your own prices are charged and smart prices are only worked out alongside them.
@@ -103,6 +130,12 @@ export function SmartPricingPanel({
           Use smart pricing for this listing
         </label>
 
+        {initial.enabled && !initial.consentCurrent && (
+          <p className="rounded-xl bg-amber-50 p-3 text-amber-950">
+            FYStay&apos;s commission terms have changed since you agreed. Until you agree to the new ones below, this listing is charged
+            the fixed {STANDARD_COMMISSION_RATE_TEXT} at your own price.
+          </p>
+        )}
         {enabled && (
           <>
             <label className="flex items-start gap-2">
@@ -142,8 +175,9 @@ export function SmartPricingPanel({
                 <input type="checkbox" className="mt-1" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
                 <span>
                   I agree that FYStay may set this listing&apos;s nightly price for particular dates within the limits above
-                  {autoApply ? "" : " (only as suggestions while automatic changes are off)"}, and that I can turn this off at any time.
-                  Bookings already made keep their price.
+                  {autoApply ? "" : " (only as suggestions while automatic changes are off)"}, and that FYStay&apos;s commission on its
+                  bookings is worked out as described above ({commissionRangeText(policy)}, policy {policy.version}). I can turn this off at
+                  any time. Bookings already made keep their price and commission.
                 </span>
               </label>
             )}

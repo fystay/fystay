@@ -17,6 +17,17 @@ describe("recordStripeProcessingFee", () => {
     expect(updateMany).toHaveBeenCalledWith({ where: { id: "bk_1", stripeProcessingFeeCents: null }, data: { stripeProcessingFeeCents: 815 } });
   });
 
+  it("is safe on a webhook retry: only a booking with no fee recorded yet is written", async () => {
+    const { db: prisma, updateMany } = db();
+    updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+    const stripe = stripeReturning({ balance_transaction: { fee: 815, currency: "gbp" } });
+    await recordStripeProcessingFee(stripe, prisma, "bk_1", "pi_1");
+    await recordStripeProcessingFee(stripe, prisma, "bk_1", "pi_1");
+    for (const [args] of updateMany.mock.calls as unknown as [{ where: object }][]) {
+      expect(args.where).toEqual({ id: "bk_1", stripeProcessingFeeCents: null });
+    }
+  });
+
   it("stores nothing it can't trust: another currency, an unexpanded transaction, or no payment", async () => {
     const { db: prisma, updateMany } = db();
     await recordStripeProcessingFee(stripeReturning({ balance_transaction: { fee: 815, currency: "eur" } }), prisma, "bk_1", "pi_1");

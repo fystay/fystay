@@ -20,6 +20,7 @@ export const PRIVATE_LISTING_FIELDS = {
   // The host's own smart-pricing limits (minimum payout and price bounds).
   smartPricingAutoApply: true,
   smartPricingConsentAt: true,
+  smartPricingConsentPolicyVersion: true,
   smartPricingMinPayoutCents: true,
   smartPricingTargetPayoutCents: true,
   smartPricingMinPriceCents: true,

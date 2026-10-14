@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { getBookingDetailForAdmin } from "@/lib/adminBookingLookup";
 import { bookingCancellationTerms, previewCancellation } from "@/lib/cancellationPolicy";
 import { formatPrice } from "@/lib/format";
+import { bookingCommissionRateBps, estimatedProcessingFeeCents, formatRate } from "@/lib/pricingPolicy";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
@@ -136,6 +137,23 @@ export default async function AdminBookingDetailPage({
                 <span className="text-stone-500">FYStay fee:</span>{" "}
                 {booking.hostPaidViaConnect && booking.applicationFeeCents !== null
                   ? formatPrice(booking.applicationFeeCents)
+                  : "—"}
+              </p>
+              <p>
+                <span className="text-stone-500">Commission policy:</span>{" "}
+                {booking.pricingPolicyVersion ?? "fixed-10-v1"} ({formatRate(bookingCommissionRateBps(booking))})
+              </p>
+              {/* Stripe's fee is FYStay's cost on a destination charge, never the host's. */}
+              <p>
+                <span className="text-stone-500">Card processing:</span>{" "}
+                {booking.stripeProcessingFeeCents !== null
+                  ? formatPrice(booking.stripeProcessingFeeCents)
+                  : `~${formatPrice(estimatedProcessingFeeCents(booking.totalPriceCents))} (estimate)`}
+              </p>
+              <p>
+                <span className="text-stone-500">FYStay contribution:</span>{" "}
+                {booking.hostPaidViaConnect && booking.applicationFeeCents !== null
+                  ? formatPrice(booking.applicationFeeCents - (booking.stripeProcessingFeeCents ?? estimatedProcessingFeeCents(booking.totalPriceCents)))
                   : "—"}
               </p>
               <p>

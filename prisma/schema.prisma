@@ -436,16 +436,19 @@ model Listing {
   // discount - the guest gets whichever is larger. See src/lib/deals.ts.
   lastMinuteDiscountPercent        Int?
   lastMinuteWindowDays             Int?
-  // Smart pricing (src/lib/dynamicPricing.ts): off until the host turns it
-  // on and agrees (smartPricingConsentAt). Every amount is the host's own
-  // limit, in pence per night; the engine never prices outside them and
-  // never pays the host less than smartPricingMinPayoutCents. A listing
-  // without these keeps the fixed-10% price exactly as before. Private to
-  // the host (PRIVATE_LISTING_FIELDS).
+  // Smart pricing and the dynamic commission (src/lib/dynamicPricing.ts,
+  // src/lib/pricingPolicy.ts): off until the host turns it on and agrees
+  // (smartPricingConsentAt) to a policy version
+  // (smartPricingConsentPolicyVersion) - a new version needs agreeing to
+  // again. Every amount is the host's own limit, in pence per night; the
+  // engine never prices outside them and never pays the host less than
+  // smartPricingMinPayoutCents. A listing without these keeps the fixed-10%
+  // price exactly as before. Private to the host (PRIVATE_LISTING_FIELDS).
   smartPricingEnabled              Boolean         @default(false)
   // false: FYStay only suggests prices; the host's own price is charged.
   smartPricingAutoApply            Boolean         @default(false)
   smartPricingConsentAt            DateTime?
+  smartPricingConsentPolicyVersion String?
   smartPricingMinPayoutCents       Int?
   smartPricingTargetPayoutCents    Int?
   smartPricingMinPriceCents        Int?
@@ -2450,10 +2453,11 @@ model AdminAuditEvent {
   @@index([targetListingId, createdAt])
 }
 
-// One smart-pricing decision (src/lib/dynamicPricing.ts): the inputs it used,
-// with their source, time and confidence, the bounds it worked within and
-// what it chose. Written when a booking is priced by smart pricing, and in
-// shadow mode when it only would have been. Holds no guest data.
+// One pricing decision (src/lib/stayQuote.ts): what the dynamic policy
+// proposed (price and commission) beside what was actually charged, with
+// every input - its source, time and confidence - the bounds it worked
+// within and the reasons. Written for each new single-unit booking while
+// SMART_PRICING_MODE is shadow or on. Holds no guest data.
 model PriceDecision {
   id                         String    @id @default(cuid())
   listingId                  String
@@ -2468,14 +2472,24 @@ model PriceDecision {
   conversionModelId          String?
   policyVersion              String
   outcome                    String
+  // "none" when the decision rests on the baseline alone.
+  dataConfidence             String
+  // Proposed by the dynamic policy:
   proposedAdjustmentPercent  Int
   adjustmentPercent          Int
   baseAccommodationCents     Int
   chosenAccommodationCents   Int
+  commissionRateBps          Int
   hostPayoutCents            Int
   platformFeeCents           Int
   estimatedContributionCents Int
-  // Signals, constraints and the candidates considered.
+  // Actually charged (the same as proposed when applied):
+  chargedPolicyVersion       String
+  chargedAccommodationCents  Int
+  chargedPlatformFeeCents    Int
+  chargedHostPayoutCents     Int
+  // Demand assessment, signals, both commission workings, constraints and
+  // the candidates considered.
   inputs                     Json
   explanation                String
   bookings                   Booking[]

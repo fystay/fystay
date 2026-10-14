@@ -7,6 +7,7 @@ import { ListingForm } from "@/components/ListingForm";
 import { listingFormValues } from "@/lib/listingFormValues";
 import { SmartPricingPanel } from "@/components/host/SmartPricingPanel";
 import { smartPricingMode } from "@/lib/smartPricingMode";
+import { CURRENT_DYNAMIC_POLICY } from "@/lib/pricingPolicy";
 
 export async function generateMetadata({
   params,
@@ -66,10 +67,12 @@ export default async function EditListingPage({
         <SmartPricingPanel
           listingId={listing.id}
           mode={mode}
+          pricePerNightCents={listing.pricePerNightCents}
           initial={{
             enabled: listing.smartPricingEnabled,
             autoApply: listing.smartPricingAutoApply,
             consentAt: listing.smartPricingConsentAt?.toISOString() ?? null,
+            consentCurrent: listing.smartPricingConsentPolicyVersion === CURRENT_DYNAMIC_POLICY.version,
             minPayoutCents: listing.smartPricingMinPayoutCents,
             targetPayoutCents: listing.smartPricingTargetPayoutCents,
             minPriceCents: listing.smartPricingMinPriceCents,

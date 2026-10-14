@@ -1,7 +1,8 @@
--- Smart pricing and versioned commission policies (src/lib/pricingPolicy.ts,
--- src/lib/dynamicPricing.ts). Additive only: every new column is nullable or
--- defaults to "off", so existing listings keep the fixed-10% price and
--- existing bookings keep their stored amounts exactly as they are.
+-- Dynamic commission, smart pricing and pricing decisions
+-- (src/lib/pricingPolicy.ts, src/lib/dynamicPricing.ts, src/lib/stayQuote.ts).
+-- Additive only: every new column is nullable or defaults to "off", so
+-- existing listings keep the fixed-10% price and existing bookings keep
+-- their stored amounts exactly as they are. No data is changed.
 
 -- AlterTable
 ALTER TABLE "Booking" ADD COLUMN     "basePriceSubtotalCents" INTEGER,
@@ -13,6 +14,7 @@ ADD COLUMN     "stripeProcessingFeeCents" INTEGER;
 -- AlterTable
 ALTER TABLE "Listing" ADD COLUMN     "smartPricingAutoApply" BOOLEAN NOT NULL DEFAULT false,
 ADD COLUMN     "smartPricingConsentAt" TIMESTAMP(3),
+ADD COLUMN     "smartPricingConsentPolicyVersion" TEXT,
 ADD COLUMN     "smartPricingEnabled" BOOLEAN NOT NULL DEFAULT false,
 ADD COLUMN     "smartPricingMaxAdjustmentPercent" INTEGER,
 ADD COLUMN     "smartPricingMaxPriceCents" INTEGER,
@@ -32,13 +34,19 @@ CREATE TABLE "PriceDecision" (
     "conversionModelId" TEXT,
     "policyVersion" TEXT NOT NULL,
     "outcome" TEXT NOT NULL,
+    "dataConfidence" TEXT NOT NULL,
     "proposedAdjustmentPercent" INTEGER NOT NULL,
     "adjustmentPercent" INTEGER NOT NULL,
     "baseAccommodationCents" INTEGER NOT NULL,
     "chosenAccommodationCents" INTEGER NOT NULL,
+    "commissionRateBps" INTEGER NOT NULL,
     "hostPayoutCents" INTEGER NOT NULL,
     "platformFeeCents" INTEGER NOT NULL,
     "estimatedContributionCents" INTEGER NOT NULL,
+    "chargedPolicyVersion" TEXT NOT NULL,
+    "chargedAccommodationCents" INTEGER NOT NULL,
+    "chargedPlatformFeeCents" INTEGER NOT NULL,
+    "chargedHostPayoutCents" INTEGER NOT NULL,
     "inputs" JSONB NOT NULL,
     "explanation" TEXT NOT NULL,
 
@@ -53,6 +61,7 @@ ALTER TABLE "Booking" ADD CONSTRAINT "Booking_priceDecisionId_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "PriceDecision" ADD CONSTRAINT "PriceDecision_listingId_fkey" FOREIGN KEY ("listingId") REFERENCES "Listing"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
 
 
 -- Like every app table: no access through Supabase's public API roles.

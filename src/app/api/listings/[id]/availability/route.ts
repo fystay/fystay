@@ -228,12 +228,7 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
 
   const nights = nightsBetween(checkIn, checkOut);
   // The same quote booking creation charges (stayQuote.ts).
-  const quote = await quoteListingStay(prisma, listing, {
-    checkIn,
-    checkOut,
-    today,
-    ranges: blockingRanges(blockingBookings, listing.availabilityBlocks),
-  });
+  const quote = await quoteListingStay(prisma, listing, { checkIn, checkOut, today });
   const { pricing } = quote;
   const promo = parsed.data.promoCode
     ? await previewPromoDiscount(parsed.data.promoCode, pricing)

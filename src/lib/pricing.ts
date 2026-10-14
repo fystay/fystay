@@ -2,12 +2,13 @@ import {
   bookingCommissionRateBps,
   LEGACY_FIXED_10,
   platformFeeCents,
+  type CommissionContext,
   type CommissionPolicy,
 } from "@/lib/pricingPolicy";
 
 // FYStay's commission, kept out of the host's payout: the rates live in
-// src/lib/pricingPolicy.ts (the fixed 10% unless a stay was priced under
-// another policy). Guests pay the host's price and nothing on top - no
+// src/lib/pricingPolicy.ts (the fixed 10% unless the host agreed to the
+// dynamic commission and it's switched on). Guests pay the host's price and nothing on top - no
 // guest service fee and no separate cleaning fee (hosts build cleaning into
 // their nightly rate) - so the price on every card is the price they pay.
 // FYStay pays card processing costs out of this commission.
@@ -195,6 +196,8 @@ export function computeBookingPricing(params: {
    * the rates given are the host's own.
    */
   baseAccommodationCents?: number;
+  /** What a dynamic commission responds to (lead time, demand, the host's minimum payout...). */
+  commissionContext?: CommissionContext;
 }): BookingPriceBreakdown {
   const {
     nights,
@@ -206,6 +209,7 @@ export function computeBookingPricing(params: {
     lastMinuteDiscountPercent,
     commissionPolicy = LEGACY_FIXED_10,
     baseAccommodationCents,
+    commissionContext,
   } = params;
   const nightlySubtotalCents = nightlySubtotal(nights, pricePerNightCents, weekendNights, weekendPricePerNightCents);
   const chargedWeekendNights =
@@ -232,6 +236,7 @@ export function computeBookingPricing(params: {
     cleaningFeeCents: 0,
     serviceFeeCents: 0,
     hostCommissionCents: platformFeeCents(commissionPolicy, {
+      ...commissionContext,
       accommodationCents: discountedNightlySubtotalCents,
       baseAccommodationCents,
     }),
