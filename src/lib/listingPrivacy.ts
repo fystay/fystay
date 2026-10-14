@@ -17,4 +17,12 @@ export const PRIVATE_LISTING_FIELDS = {
   icalSyncError: true,
   icalSyncFailedAt: true,
   suspendedReason: true,
+  // The host's own smart-pricing limits (minimum payout and price bounds).
+  smartPricingAutoApply: true,
+  smartPricingConsentAt: true,
+  smartPricingMinPayoutCents: true,
+  smartPricingTargetPayoutCents: true,
+  smartPricingMinPriceCents: true,
+  smartPricingMaxPriceCents: true,
+  smartPricingMaxAdjustmentPercent: true,
 } as const;

@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import { StripeBadge } from "@/components/StripeBadge";
 import { getStripeClient } from "@/lib/stripe";
 import { RefreshWhileStripeFinishes } from "@/components/RefreshWhileStripeFinishes";
+import { STANDARD_COMMISSION_RATE_TEXT } from "@/lib/pricingPolicy";
 
 export const metadata: Metadata = { title: "Payouts", robots: { index: false } };
 
@@ -138,7 +139,7 @@ export default async function HostPayoutsPage({
             <>
               <p className="text-sm text-stone-600">
                 Your listings can take bookings. For each one you receive the booking total less
-                FYStay&apos;s 10% commission automatically, and Stripe pays it out to your bank
+                FYStay&apos;s {STANDARD_COMMISSION_RATE_TEXT} commission automatically, and Stripe pays it out to your bank
                 account. You don&apos;t need to do anything else.
               </p>
               <a

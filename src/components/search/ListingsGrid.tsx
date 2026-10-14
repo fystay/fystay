@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Search, SearchX, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { prisma } from "@/lib/prisma";
+import { smartPricingMode } from "@/lib/smartPricingMode";
+import { SMART_PRICED_FOR_GUESTS_WHERE } from "@/lib/stayQuote";
 import { bookableHostWhere } from "@/lib/stripeConnect";
 import {
   blockingBookingWhere,
@@ -244,7 +246,24 @@ export async function ListingsGrid({
 
   const results = sortListings(applyListingFilters(petFiltered, filters), sort, { near: landmark });
   const page = parsePageParam(searchParams.page);
-  const paginated = paginateListings(results, page, LISTINGS_PAGE_SIZE);
+  const pageOfListings = paginateListings(results, page, LISTINGS_PAGE_SIZE);
+  // Which of these hosts' stays are smart-priced for guests right now, so
+  // their cards don't show a date total worked out from the listing's rates.
+  const smartPricedIds =
+    smartPricingMode() === "on" && pageOfListings.items.length > 0
+      ? new Set(
+          (
+            await prisma.listing.findMany({
+              where: { id: { in: pageOfListings.items.map((l) => l.id) }, ...SMART_PRICED_FOR_GUESTS_WHERE },
+              select: { id: true },
+            })
+          ).map((l) => l.id),
+        )
+      : new Set<string>();
+  const paginated = {
+    ...pageOfListings,
+    items: pageOfListings.items.map((listing) => ({ ...listing, smartPriced: smartPricedIds.has(listing.id) })),
+  };
 
   const cityCounts = new Map<string, number>();
   for (const listing of results) {

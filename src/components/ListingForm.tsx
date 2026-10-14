@@ -8,6 +8,7 @@ import { AlertTriangle, Camera, ClipboardList, Home, MapPin, Percent, ShieldChec
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Field, FieldError, FieldHint, Label } from "@/components/ui/Label";
 import { hostCommissionFor } from "@/lib/pricing";
+import { formatRate, LEGACY_FIXED_10 } from "@/lib/pricingPolicy";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
@@ -1000,13 +1001,13 @@ function TimeField({
 /**
  * What a host keeps from their nightly price, shown under the price box so
  * the commission is never a surprise: guests pay exactly this price, and
- * FYStay's 10% comes out of it.
+ * FYStay's commission (the fixed rate, pricingPolicy.ts) comes out of it.
  */
 function nightlyEarningsHint(pricePerNight: string): string {
   const cents = Math.round(Number(pricePerNight) * 100);
   if (!Number.isFinite(cents) || cents <= 0) {
-    return "Include cleaning - there's no separate cleaning fee. Guests pay this price; FYStay keeps 10%.";
+    return `Include cleaning - there's no separate cleaning fee. Guests pay this price; FYStay keeps ${formatRate(LEGACY_FIXED_10.baseRateBps)}.`;
   }
   const pounds = (c: number) => `£${(c / 100).toFixed(2).replace(/\.00$/, "")}`;
-  return `Guests pay ${pounds(cents)} a night. You receive ${pounds(cents - hostCommissionFor(cents))} after FYStay's 10%. Include cleaning in this price.`;
+  return `Guests pay ${pounds(cents)} a night. You receive ${pounds(cents - hostCommissionFor(cents))} after FYStay's ${formatRate(LEGACY_FIXED_10.baseRateBps)}. Include cleaning in this price.`;
 }

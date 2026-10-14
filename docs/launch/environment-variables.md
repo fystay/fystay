@@ -63,6 +63,7 @@ Stripe's hosted page); it's harmless on Preview and not needed on Production.
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | Results map on Google Maps. Sent to browsers: restrict by website (www.fystay.co.uk, fystay.co.uk, preview domain) and to the Maps JavaScript API only. Must be a different key from `GOOGLE_MAPS_API_KEY`. Build-time: redeploy after setting | Unset (OpenStreetMap map) |
 | `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | Google Map ID for the results map (vector, JavaScript). Build-time | `DEMO_MAP_ID` |
 | `TICKETMASTER_API_KEY` | Events on destination pages | Unset |
+| `SMART_PRICING_MODE` | Smart pricing: `off`, `shadow` or `on` ([pricing-policy.md](../pricing-policy.md)). Server-only; rollback is `off` | Unset (= off) |
 | `BOOKING_COM_API_KEY`, `BOOKING_COM_AFFILIATE_ID`, `BOOKING_COM_API_BASE_URL` | Hotel affiliate; also needs a code change to activate | Unset |
 | `HOTEL_PROVIDER_*`, `HOTEL_*_CACHE_TTL_MS` | Hotel affiliate tuning | Unset (defaults) |
 | `DISPUTE_ALERT_EMAIL` | Chargeback alerts; defaults to the support address | Unset |

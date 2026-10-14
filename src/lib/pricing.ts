@@ -1,9 +1,17 @@
-// FYStay's commission: 10% of what the guest pays for the stay, kept out of
-// the host's payout. Guests pay the host's price and nothing on top - no
+import {
+  bookingCommissionRateBps,
+  LEGACY_FIXED_10,
+  platformFeeCents,
+  type CommissionPolicy,
+} from "@/lib/pricingPolicy";
+
+// FYStay's commission, kept out of the host's payout: the rates live in
+// src/lib/pricingPolicy.ts (the fixed 10% unless a stay was priced under
+// another policy). Guests pay the host's price and nothing on top - no
 // guest service fee and no separate cleaning fee (hosts build cleaning into
 // their nightly rate) - so the price on every card is the price they pay.
 // FYStay pays card processing costs out of this commission.
-export const HOST_COMMISSION_RATE = 0.1;
+export const HOST_COMMISSION_RATE = LEGACY_FIXED_10.baseRateBps / 10_000;
 
 // The guest service fee bookings carried before the commission model (on
 // top of the stay, the host keeping their full price). Only read to split a
@@ -15,9 +23,9 @@ export function legacyGuestServiceFeeFor(accommodationCents: number): number {
   return Math.round(accommodationCents * LEGACY_GUEST_SERVICE_FEE_RATE);
 }
 
-/** FYStay's commission on a stay the guest pays accommodationCents for. */
+/** FYStay's commission on a stay the guest pays accommodationCents for, under the fixed 10%. */
 export function hostCommissionFor(accommodationCents: number): number {
-  return Math.round(Math.max(0, accommodationCents) * HOST_COMMISSION_RATE);
+  return platformFeeCents(LEGACY_FIXED_10, { accommodationCents });
 }
 
 // Airbnb-style length-of-stay discount thresholds. A stay only qualifies
@@ -145,8 +153,10 @@ export type BookingPriceBreakdown = {
   cleaningFeeCents: number;
   /** Always 0: guests pay no service fee. Older bookings may carry one. */
   serviceFeeCents: number;
-  /** FYStay's 10% (hostCommissionFor), taken from the host's payout - not added to the guest's total. */
+  /** FYStay's commission under the stay's policy (10% by default), taken from the host's payout - not added to the guest's total. */
   hostCommissionCents: number;
+  /** The weekday nightly rate the stay was priced at (smart pricing may have adjusted the listing's). */
+  nightlyPriceCents: number;
   taxCents: number;
   totalPriceCents: number;
 };
@@ -177,6 +187,14 @@ export function computeBookingPricing(params: {
    * instead of the weekly/monthly discount only when it's larger.
    */
   lastMinuteDiscountPercent?: number | null;
+  /** The commission policy; the fixed 10% when omitted. */
+  commissionPolicy?: CommissionPolicy;
+  /**
+   * What the stay's accommodation would cost at the host's own rates, when
+   * smart pricing changed them - lets a policy share a price rise. Omitted:
+   * the rates given are the host's own.
+   */
+  baseAccommodationCents?: number;
 }): BookingPriceBreakdown {
   const {
     nights,
@@ -186,6 +204,8 @@ export function computeBookingPricing(params: {
     weeklyDiscountPercent,
     monthlyDiscountPercent,
     lastMinuteDiscountPercent,
+    commissionPolicy = LEGACY_FIXED_10,
+    baseAccommodationCents,
   } = params;
   const nightlySubtotalCents = nightlySubtotal(nights, pricePerNightCents, weekendNights, weekendPricePerNightCents);
   const chargedWeekendNights =
@@ -211,7 +231,11 @@ export function computeBookingPricing(params: {
     lengthOfStayDiscountLabel,
     cleaningFeeCents: 0,
     serviceFeeCents: 0,
-    hostCommissionCents: hostCommissionFor(discountedNightlySubtotalCents),
+    hostCommissionCents: platformFeeCents(commissionPolicy, {
+      accommodationCents: discountedNightlySubtotalCents,
+      baseAccommodationCents,
+    }),
+    nightlyPriceCents: pricePerNightCents,
     taxCents,
     totalPriceCents,
   };
@@ -278,6 +302,8 @@ export type ChangeSplitBooking = {
   taxCents: number;
   creditAppliedCents: number;
   promoDiscountCents: number;
+  /** The booking's own commission rate (Booking.commissionRateBps); the fixed 10% when absent. */
+  commissionRateBps?: number | null;
 };
 
 /**
@@ -301,7 +327,8 @@ export function isLegacyServiceFeeBooking(booking: { serviceFeeCents: number; ho
  *
  * - Commission bookings: the guest pays the accommodation itself, so the new
  *   accommodation is the current one plus the difference, and FYStay's
- *   share is how much its 10% commission moves with it.
+ *   share is how much its commission moves with it - at the booking's own
+ *   rate, never today's policy.
  * - Older service-fee bookings: the new accommodation is the one whose
  *   accommodation + service fee covers the current amount + the
  *   difference, and FYStay's share is how much the service fee moves.
@@ -337,7 +364,8 @@ export function splitBookingChange(
     }
     rawPlatformShare = serviceFeeFor(newAccommodationCents) - booking.serviceFeeCents;
   } else {
-    rawPlatformShare = hostCommissionFor(currentAccommodationCents + deltaCents) - booking.hostCommissionCents;
+    const rateBps = bookingCommissionRateBps(booking);
+    rawPlatformShare = Math.round((Math.max(0, currentAccommodationCents + deltaCents) * rateBps) / 10_000) - booking.hostCommissionCents;
   }
 
   // Never more than the difference itself, in either direction.

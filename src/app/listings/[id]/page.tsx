@@ -56,6 +56,7 @@ import { isSuspended } from "@/lib/suspension";
 import { parseStaySelection } from "@/lib/stayQuery";
 import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 import { activePriceDrop } from "@/lib/deals";
+import { guestsSeeSmartPrices } from "@/lib/stayQuote";
 
 const getListing = cache(async (id: string) => {
   return prisma.listing.findUnique({
@@ -565,6 +566,7 @@ export default async function ListingDetailPage({
               instantBook={listing.instantBook}
               initialSelection={staySelection}
               acceptsPaidBookings={hostAcceptsPaidBookings(listing.host)}
+              serverPriced={guestsSeeSmartPrices(listing)}
             />
           )}
 

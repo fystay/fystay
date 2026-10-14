@@ -28,6 +28,7 @@ import { SecurityDeposits } from "@/components/host/SecurityDeposits";
 import { GuestAvatar, Panel, Pill } from "@/components/host/HostUi";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { bookingCommissionRateBps, formatRate } from "@/lib/pricingPolicy";
 
 export const metadata: Metadata = { title: "Booking · Hosting", robots: { index: false } };
 
@@ -281,7 +282,7 @@ export default async function HostBookingPage({ params }: { params: Promise<{ id
               )}
               {booking.cleaningFeeCents > 0 && <Row label="Cleaning fee" value={booking.cleaningFeeCents} />}
               {booking.hostCommissionCents > 0 && (
-                <Row label="FYStay commission (10%)" value={-booking.hostCommissionCents} />
+                <Row label={`FYStay commission (${formatRate(bookingCommissionRateBps(booking))})`} value={-booking.hostCommissionCents} />
               )}
               <Row label="Your share" value={gross} strong />
               {refunded > 0 && booking.paidAt && (

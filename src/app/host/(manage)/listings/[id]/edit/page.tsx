@@ -5,6 +5,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ListingForm } from "@/components/ListingForm";
 import { listingFormValues } from "@/lib/listingFormValues";
+import { SmartPricingPanel } from "@/components/host/SmartPricingPanel";
+import { smartPricingMode } from "@/lib/smartPricingMode";
 
 export async function generateMetadata({
   params,
@@ -40,6 +42,7 @@ export default async function EditListingPage({
   if (!listing) notFound();
   // Not a draft FYStay is still holding for an invited owner.
   if (listing.hostId !== session.user.id || listing.hostInvitationId) redirect("/host/dashboard");
+  const mode = smartPricingMode();
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
@@ -57,6 +60,24 @@ export default async function EditListingPage({
         listingId={listing.id}
         initialValues={listingFormValues(listing)}
       />
+      {/* Only once FYStay runs smart pricing (SMART_PRICING_MODE), and never
+          for a hotel's room types - so it's never offered while it can't work. */}
+      {mode !== "off" && listing.propertyType !== "HOTEL" && (
+        <SmartPricingPanel
+          listingId={listing.id}
+          mode={mode}
+          initial={{
+            enabled: listing.smartPricingEnabled,
+            autoApply: listing.smartPricingAutoApply,
+            consentAt: listing.smartPricingConsentAt?.toISOString() ?? null,
+            minPayoutCents: listing.smartPricingMinPayoutCents,
+            targetPayoutCents: listing.smartPricingTargetPayoutCents,
+            minPriceCents: listing.smartPricingMinPriceCents,
+            maxPriceCents: listing.smartPricingMaxPriceCents,
+            maxAdjustmentPercent: listing.smartPricingMaxAdjustmentPercent,
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -14,7 +14,7 @@ const { state, mocks } = vi.hoisted(() => ({
     promoUses: 0,
     listingOverrides: {} as Record<string, unknown>,
   },
-  mocks: { bookingCreate: vi.fn() },
+  mocks: { bookingCreate: vi.fn(), decisionCreate: vi.fn() },
 }));
 
 vi.mock("@/auth", () => ({ auth: async () => ({ user: { id: "guest_1" } }) }));
@@ -63,6 +63,14 @@ vi.mock("@/lib/prisma", () => {
   return {
     prisma: {
       $executeRaw: async () => 0,
+      priceDecision: {
+        create: async (args: { data: Record<string, unknown> }) => {
+          mocks.decisionCreate(args);
+          return { id: "pd_1" };
+        },
+      },
+      // No verified event feed for this town: smart pricing reads only the calendar.
+      localTown: { findFirst: async () => null },
       booking: {
         findFirst: async () => null,
         count: async () => state.promoUses,
@@ -155,7 +163,9 @@ const book = (body: object) =>
   );
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   mocks.bookingCreate.mockReset();
+  mocks.decisionCreate.mockReset();
   state.log = [];
   state.listingBookings = [];
   state.listingBlocks = [];
@@ -233,5 +243,106 @@ describe("creating a booking", () => {
     state.promoRacesToLose = 3;
     expect((await book({ listingId: "listing_1", promoCode: "LAST1" })).status).toBe(409);
     expect(mocks.bookingCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("pricing a booking (stayQuote.ts)", () => {
+  // Every night two weeks either side of the stay is booked: high demand.
+  const busyCalendar = () => {
+    state.listingBookings = [
+      { checkIn: new Date("2027-02-15T00:00:00Z"), checkOut: new Date("2027-03-01T00:00:00Z") },
+      { checkIn: new Date("2027-03-03T00:00:00Z"), checkOut: new Date("2027-03-17T00:00:00Z") },
+    ];
+  };
+  const optedIn = (overrides: Record<string, unknown> = {}) => {
+    state.listingOverrides = {
+      weekendPricePerNightCents: null,
+      smartPricingEnabled: true,
+      smartPricingAutoApply: true,
+      smartPricingConsentAt: new Date("2026-10-01"),
+      smartPricingMinPayoutCents: 8_000,
+      smartPricingTargetPayoutCents: null,
+      smartPricingMinPriceCents: null,
+      smartPricingMaxPriceCents: null,
+      smartPricingMaxAdjustmentPercent: null,
+      ...overrides,
+    };
+  };
+
+  it("snapshots the fixed-10% policy on an ordinary booking", async () => {
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({
+      nightlyPriceCents: 10_000,
+      hostCommissionCents: 2_000,
+      totalPriceCents: 20_000,
+      pricingPolicyVersion: "fixed-10-v1",
+      commissionRateBps: 1000,
+      basePriceSubtotalCents: null,
+      priceDecisionId: null,
+    });
+    expect(mocks.decisionCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to book at a price the guest wasn't shown", async () => {
+    const res = await book({ listingId: "listing_1", expectedTotalCents: 19_000 });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/now £200\.00/);
+    expect(mocks.bookingCreate).not.toHaveBeenCalled();
+    expect((await book({ listingId: "listing_1", expectedTotalCents: 20_000 })).status).toBe(201);
+  });
+
+  it("ignores a host's smart-pricing settings while SMART_PRICING_MODE is off", async () => {
+    busyCalendar();
+    optedIn();
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({ totalPriceCents: 20_000, pricingPolicyVersion: "fixed-10-v1" });
+  });
+
+  it("charges the smart price when it's on and the host opted in, recording the decision", async () => {
+    vi.stubEnv("SMART_PRICING_MODE", "on");
+    busyCalendar();
+    optedIn();
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({
+      nightlyPriceCents: 10_500,
+      totalPriceCents: 21_000,
+      hostCommissionCents: 2_100,
+      pricingPolicyVersion: "smart-v1",
+      commissionRateBps: 1000,
+      basePriceSubtotalCents: 20_000,
+      priceDecisionId: "pd_1",
+    });
+    expect(mocks.decisionCreate.mock.calls[0][0].data).toMatchObject({ mode: "applied", outcome: "adjusted", adjustmentPercent: 5 });
+  });
+
+  it("in shadow mode charges the host's own price and only records the smart one", async () => {
+    vi.stubEnv("SMART_PRICING_MODE", "shadow");
+    busyCalendar();
+    optedIn();
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({ totalPriceCents: 20_000, pricingPolicyVersion: "fixed-10-v1", priceDecisionId: null });
+    expect(mocks.decisionCreate.mock.calls[0][0].data).toMatchObject({ mode: "shadow", chosenAccommodationCents: 21_000 });
+  });
+
+  it("only suggests when the host wants to approve changes, and never prices without their consent", async () => {
+    vi.stubEnv("SMART_PRICING_MODE", "on");
+    busyCalendar();
+    optedIn({ smartPricingAutoApply: false });
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data.totalPriceCents).toBe(20_000);
+    expect(mocks.decisionCreate.mock.calls[0][0].data.mode).toBe("suggested");
+
+    mocks.bookingCreate.mockReset();
+    mocks.decisionCreate.mockReset();
+    optedIn({ smartPricingConsentAt: null });
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data.totalPriceCents).toBe(20_000);
+    expect(mocks.decisionCreate).not.toHaveBeenCalled();
+  });
+
+  it("prices hotel room types at the fixed 10%", async () => {
+    vi.stubEnv("SMART_PRICING_MODE", "on");
+    expect((await book({ roomTypeId: "rt_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({ pricingPolicyVersion: "fixed-10-v1", commissionRateBps: 1000 });
   });
 });

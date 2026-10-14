@@ -4,6 +4,7 @@ import { formatListingTime } from "@/lib/listingTimes";
 import { SUPPORT_EMAIL } from "@/lib/seo";
 import { BASE_URL } from "@/lib/baseUrl";
 import { escapeHtml, renderEmail, type EmailDetail } from "@/lib/emailLayout";
+import { STANDARD_COMMISSION_RATE_TEXT } from "@/lib/pricingPolicy";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   weekday: "short",
@@ -122,7 +123,7 @@ export async function sendBookingConfirmedEmails(
         paragraphs: [
           ...(host.earningsCents !== undefined
             ? [
-                "Your earnings (the booking total less FYStay's 10% commission) go straight to your Stripe account, and Stripe pays them into your bank on your payout schedule.",
+                `Your earnings (the booking total less FYStay's ${STANDARD_COMMISSION_RATE_TEXT} commission) go straight to your Stripe account, and Stripe pays them into your bank on your payout schedule.`,
               ]
             : []),
           "Their contact details are on your dashboard, and they can message you through FYStay.",

@@ -14,7 +14,9 @@ import {
   REQUEST_HOLD_HOURS,
   stayLengthError,
 } from "@/lib/availability";
-import { computeBookingPricing, maxFyStayDiscountCents, stayRates } from "@/lib/pricing";
+import { computeBookingPricing, maxFyStayDiscountCents } from "@/lib/pricing";
+import { LEGACY_FIXED_10 } from "@/lib/pricingPolicy";
+import { bookingPricingSnapshot, quoteListingStay, recordPriceDecision } from "@/lib/stayQuote";
 import { cancellationTermsSnapshot } from "@/lib/cancellationPolicy";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { generateBookingReference } from "@/lib/bookingReference";
@@ -44,6 +46,12 @@ const createBookingSchema = z
     checkOut: z.string().min(1),
     guests: z.number().int().min(1),
     promoCode: z.string().min(1).max(40).optional(),
+    // The stay's price (before promo and credit) the guest was shown. When
+    // given and the server's price differs - a smart price moved, or the
+    // host changed their rates - nothing is booked and the guest is asked
+    // to review the new price, rather than being charged an amount they
+    // didn't see.
+    expectedTotalCents: z.number().int().min(0).optional(),
   })
   .refine((data) => Boolean(data.listingId) !== Boolean(data.roomTypeId), {
     message: "Provide either a listing or a room type to book",
@@ -96,7 +104,7 @@ async function postHandler(request: Request) {
     );
   }
 
-  const { listingId, roomTypeId, guests, promoCode } = parsed.data;
+  const { listingId, roomTypeId, guests, promoCode, expectedTotalCents } = parsed.data;
   const roomsBooked = parsed.data.roomsBooked ?? 1;
   const checkIn = parseStayDate(parsed.data.checkIn);
   const checkOut = parseStayDate(parsed.data.checkOut);
@@ -200,6 +208,7 @@ async function postHandler(request: Request) {
           guestId: session.user.id,
           guestAccount,
           promoCode,
+          expectedTotalCents,
         });
       });
 
@@ -269,6 +278,7 @@ type NewBookingParams = {
   guestId: string;
   guestAccount: { name: string; email: string } | null;
   promoCode?: string;
+  expectedTotalCents?: number;
 };
 
 /**
@@ -372,7 +382,7 @@ async function createListingBooking(
   tx: Prisma.TransactionClient,
   params: NewBookingParams & { listingId: string },
 ) {
-  const { listingId, checkIn, checkOut, guests, guestId, guestAccount, promoCode } = params;
+  const { listingId, checkIn, checkOut, guests, guestId, guestAccount, promoCode, expectedTotalCents } = params;
 
   const listing = await tx.listing.findUnique({
     where: { id: listingId },
@@ -425,16 +435,24 @@ async function createListingBooking(
     throw new BookingRequestError(409, "Those dates are not available");
   }
 
-  // Decided here, at booking time, from the stay's check-in date - and
+  // The same quote the widget and the availability preview show (see
+  // stayQuote.ts): the host's own price under the fixed 10%, or a smart
+  // price when the host opted in. Decided here, at booking time, and
   // snapshotted on the booking like every other price input.
-  const lastMinuteDiscountPercent = lastMinuteDiscountFor(listing, checkIn);
-  const pricing = computeBookingPricing({
-    nights,
-    ...stayRates(listing, checkIn, checkOut),
-    weeklyDiscountPercent: listing.weeklyDiscountPercent,
-    monthlyDiscountPercent: listing.monthlyDiscountPercent,
-    lastMinuteDiscountPercent,
+  const quote = await quoteListingStay(tx, listing, {
+    checkIn,
+    checkOut,
+    today: todayStayDate(),
+    ranges: blockingRanges(listing.bookings, listing.availabilityBlocks),
   });
+  const { pricing, lastMinuteDiscountPercent } = quote;
+  if (expectedTotalCents !== undefined && expectedTotalCents !== pricing.totalPriceCents) {
+    throw new BookingRequestError(
+      409,
+      `The price for these dates is now £${(pricing.totalPriceCents / 100).toFixed(2)}. Please check it and book again.`,
+    );
+  }
+  const priceDecisionId = await recordPriceDecision(tx, listingId, { checkIn, checkOut }, quote);
 
   // Spent at creation, not at payment: if this PENDING booking is later
   // abandoned and expires unpaid (see PENDING_BOOKING_HOLD_MINUTES), the
@@ -463,7 +481,7 @@ async function createListingBooking(
       checkOut,
       guests,
       nights,
-      nightlyPriceCents: listing.pricePerNightCents,
+      nightlyPriceCents: pricing.nightlyPriceCents,
       weekendNights: pricing.weekendNights,
       weekendNightlyPriceCents: pricing.weekendNightlyPriceCents,
       lengthOfStayDiscountCents: pricing.lengthOfStayDiscountCents,
@@ -473,6 +491,7 @@ async function createListingBooking(
       serviceFeeCents: pricing.serviceFeeCents,
       hostCommissionCents: pricing.hostCommissionCents,
       taxCents: pricing.taxCents,
+      ...bookingPricingSnapshot(quote, priceDecisionId),
       creditAppliedCents,
       promoCodeId,
       promoDiscountCents,
@@ -619,6 +638,9 @@ async function createRoomTypeBooking(
       serviceFeeCents: pricing.serviceFeeCents,
       hostCommissionCents: pricing.hostCommissionCents,
       taxCents: pricing.taxCents,
+      // Room types are priced by the host per room, always at the fixed 10%.
+      pricingPolicyVersion: LEGACY_FIXED_10.version,
+      commissionRateBps: LEGACY_FIXED_10.baseRateBps,
       creditAppliedCents,
       promoCodeId,
       promoDiscountCents,
