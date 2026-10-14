@@ -42,27 +42,28 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | Connect platform profile | Completed by the owner as "Sellers collect payments directly", Stripe liable, full Dashboard - not the marketplace setup. Live refused recipient-only accounts (`capability_not_available_without_other_capability`), so #46 requests `card_payments` alongside `stripe_transfers`; checkout is still destination charges. Stripe Support case opened 13 Oct to correct the profile (reply due within 24h) | Vercel logs, Sentry JAVASCRIPT-NEXTJS-A |
 | Catalogue | 0 published listings | Production DB |
 
-## LAUNCH BLOCKERS (outstanding, 13 Oct)
+## LAUNCH BLOCKERS (outstanding, 14 Oct)
 
 | # | Blocker | Owner action |
 |---|---|---|
 | 1 | **Trader identity.** Entity not decided, so `NEXT_PUBLIC_COMPANY_LEGAL_NAME` / `_ADDRESS` (+ `_NUMBER` for a company) aren't set and #7 can't merge. **Never publish placeholder details.** | Decide sole trader or Ltd and the address to publish |
 | 2 | **Legal sign-off.** Solicitor review of Terms, Privacy, Cookies, cancellation wording; host terms (draft in [legal-drafts.md](legal-drafts.md)); ICO registration; VAT on the 10% commission; HMRC platform reporting; chargeback liability. | Instruct solicitor/accountant; register with the ICO |
-| 3 | **Credential rotation.** Database password shared in chat on 7 Oct; Stripe sandbox key pasted in chat. | Reset the DB password, update Vercel `DATABASE_URL`/`DIRECT_URL` and GitHub `PROD_DIRECT_URL`, redeploy; roll the sandbox key |
-| 4 | **Google sign-in broken on www.** | Add `https://www.fystay.co.uk/api/auth/callback/google` and the www origin to the OAuth client; publish the consent screen |
-| 5 | **Vercel production branch.** Feature-branch builds reached Production twice on 13 Oct (#43) without a merge. | Settings → Environments → Production: branch `claude/airbnb-competitor-1fjjpk`; check no one promotes previews |
-| 6 | **No real-money test yet.** | After 1: one real booking, cancellation, refund and payout ([handover.md](handover.md) Step 4) |
-| 7 | **No listings.** | Create and approve the first listings (Admin → Add a property → Approve listing) |
+| 3 | **No listings.** 0 published. New listings now get a map position anywhere in the UK (#49). | Create and approve the first listings (Admin → Add a property → Approve listing) |
+| 4 | **No real-money test yet.** | After 1: one real booking, cancellation, refund and payout ([handover.md](handover.md) Step 4) |
 
-**Should do before launch:** confirm Supabase backups / point-in-time recovery; test support@, privacy@ and legal@ inboxes; change the Stripe business description to the 10% host commission; decide payout timing (at booking today, or after check-in); finish the owner's own ID check; answer Stripe Support; final phone and desktop check once listings exist.
+**Should do before launch:** confirm Supabase backups / point-in-time recovery; test support@, privacy@ and legal@ inboxes; change the Stripe business description to the 10% host commission; decide payout timing (at booking today, or after check-in); answer Stripe Support (platform profile); final phone and desktop check once listings exist. Redeploys: choose the latest `claude/airbnb-competitor-1fjjpk` deployment - redeploying a PR branch's deployment as Production put unmerged code live twice on 13 Oct.
 
-**Done 13 Oct:** real email delivery proven; Stripe Identity activated; Connect onboarding live.
+**Done 13 Oct (owner, confirmed):** database password rotated (Vercel + GitHub secret, health ok); Stripe sandbox key rolled (Preview only); Google sign-in fixed on www and consent screen published; Vercel production branch confirmed as `claude/airbnb-competitor-1fjjpk`; real email delivery proven; Stripe Identity activated; Connect onboarding live; owner's own ID check **verified** by Stripe (session `vs_1UQ6VxCgubLh6wuSBGPKXE9U`, document + matching selfie, `identity.verification_session.verified` at 14:18 UTC, webhook delivered; FYStay shows VERIFIED).
+
+**Done 13 Oct (Google Maps, #49/#50):** `GOOGLE_MAPS_API_KEY` (server, Places API (New)), `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` (Maps JavaScript, website-restricted) and `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` set for Production and Preview. Verified live 21:33 UTC: suggestions for "Manchester" come from Google; the search page's security policy allows Google Maps. Google refusals are now logged with their reason (#50).
 
 ## PRs (13 Oct)
 
+**Merged 13 Oct (later):** #47 payouts page auto-refresh · #48 short /privacy, /terms, /cookies links · #49 UK-wide search with Google Maps · #50 Google refusal logging.
+
 **Merged and live 13 Oct:** #36 email verification · #37 identity retry cap · #38-#41 homepage, stay cards, booking-box sign-up link · #42 Now covering strip · #43 hero photos · #44 Liverpool and Manchester in Now covering · #45 Connect/Identity error handling and live status · #46 card_payments alongside transfers for host accounts.
 
-**Open:** #47 payouts page refreshes itself while Stripe finishes activating a host (plus this checklist) · #7 trader-identity payment gate (waits on blocker 1) · #9 Spotlight overselling safeguard (owner review).
+**Open:** #7 trader-identity payment gate (waits on blocker 1) · #9 Spotlight overselling safeguard (owner review).
 
 ## PRs (12 Oct)
 
