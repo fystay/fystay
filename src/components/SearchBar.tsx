@@ -63,11 +63,16 @@ function buildSearchQuery(
   if (place) {
     params.set("place", place.placeId);
     params.set("placeLabel", place.label);
-    params.set("lat", String(place.latitude));
-    params.set("lng", String(place.longitude));
+    // Rounded to 6 decimal places (about 11cm): short URLs, and always a
+    // plain decimal the server accepts (once rounded, a number never prints
+    // as "1e-7"). The area is rounded outwards, so the point stays inside it.
+    const decimal = (value: number) => String(Number(value.toFixed(6)));
+    params.set("lat", decimal(place.latitude));
+    params.set("lng", decimal(place.longitude));
     if (place.bounds) {
       const { south, west, north, east } = place.bounds;
-      params.set("bbox", [south, west, north, east].join(","));
+      const out = (value: number, round: (n: number) => number) => decimal(round(value * 1e6) / 1e6);
+      params.set("bbox", [out(south, Math.floor), out(west, Math.floor), out(north, Math.ceil), out(east, Math.ceil)].join(","));
     }
   } else if (city) params.set("city", city);
   if (nearLandmark) params.set("near", nearLandmark);
