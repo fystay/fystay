@@ -42,7 +42,9 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | Connect platform profile | Completed by the owner as "Sellers collect payments directly", Stripe liable, full Dashboard - not the marketplace setup. Live refused recipient-only accounts (`capability_not_available_without_other_capability`), so #46 requests `card_payments` alongside `stripe_transfers`; checkout is still destination charges. Stripe Support case opened 13 Oct to correct the profile (reply due within 24h) | Vercel logs, Sentry JAVASCRIPT-NEXTJS-A |
 | Catalogue | 0 published listings | Production DB |
 
-## LAUNCH BLOCKERS (outstanding, 14 Oct)
+## LAUNCH BLOCKERS (outstanding, rechecked 16 Oct)
+
+16 Oct, read-only: health ok (status, database, config); Production database has 0 listings, 0 bookings, 5 users. Open PRs waiting on the owner: #7 (blocker 1), #9 (Spotlight), #52 (nightly backup: needs the read-only login and two secrets, see its runbook), #53 (smart pricing: migration + solicitor first).
 
 | # | Blocker | Owner action |
 |---|---|---|
@@ -51,7 +53,7 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | 3 | **No listings.** 0 published. New listings now get a map position anywhere in the UK (#49). | Create and approve the first listings (Admin → Add a property → Approve listing) |
 | 4 | **No real-money test yet.** | After 1: one real booking, cancellation, refund and payout ([handover.md](handover.md) Step 4) |
 
-**Should do before launch:** confirm Supabase backups / point-in-time recovery; test support@, privacy@ and legal@ inboxes; change the Stripe business description to the 10% host commission; decide payout timing (at booking today, or after check-in); answer Stripe Support (platform profile); final phone and desktop check once listings exist. Redeploys: choose the latest `claude/airbnb-competitor-1fjjpk` deployment - redeploying a PR branch's deployment as Production put unmerged code live twice on 13 Oct.
+**Should do before launch:** confirm Supabase backups / point-in-time recovery; test support@, privacy@ and legal@ inboxes; change the Stripe business description to the 10% host commission; decide payout timing (at booking today, or after check-in); retake the Connect platform profile as Stripe Support asked on 14 Oct (marketplace: FYStay collects payments, pays hosts by destination charges, FYStay responsible for negative balances), then merge #55 (hosts back to transfers only) and retry one host onboarding - send Stripe the request ID if it fails; final phone and desktop check once listings exist. Redeploys: choose the latest `claude/airbnb-competitor-1fjjpk` deployment - redeploying a PR branch's deployment as Production put unmerged code live twice on 13 Oct.
 
 **Done 13 Oct (owner, confirmed):** database password rotated (Vercel + GitHub secret, health ok); Stripe sandbox key rolled (Preview only); Google sign-in fixed on www and consent screen published; Vercel production branch confirmed as `claude/airbnb-competitor-1fjjpk`; real email delivery proven; Stripe Identity activated; Connect onboarding live; owner's own ID check **verified** by Stripe (session `vs_1UQ6VxCgubLh6wuSBGPKXE9U`, document + matching selfie, `identity.verification_session.verified` at 14:18 UTC, webhook delivered; FYStay shows VERIFIED).
 
@@ -118,7 +120,7 @@ legal details, or onboarding real hosts.
 - Ticketmaster events on destination pages (`TICKETMASTER_API_KEY`).
 - Booking.com hotel affiliate. Credentials alone never switch it on: the code must also list it in `LIVE_HOTEL_PROVIDER_CODES`.
 - PMS integrations: Cloudbeds is built, SiteMinder and SuperControl are stubs.
-- Uptime monitoring on `/` and `/api/health` (once #30 is in, `/api/listings` needs a full search and answers 400 without one); check the Supabase backup / point-in-time-recovery plan.
+- Uptime monitoring: `.github/workflows/uptime-production.yml` checks `/` and `/api/health` every 30 minutes once merged (GitHub emails on failure). Backups: Supabase Free plan has none; #52 adds a nightly backup.
 - A test-timezone tidy-up: the hotel deep link used the wrong day on UK summer time; fixed in [#31](https://github.com/fystay/fystay/pull/31) (open).
 
 ---
