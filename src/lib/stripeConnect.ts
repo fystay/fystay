@@ -11,11 +11,8 @@ import { getStripeClient } from "@/lib/stripe";
  * FYStay owning pricing (fees) and negative-balance liability (losses),
  * which destination charges require.
  *
- * FYStay's live Stripe platform won't grant stripe_transfers on its own
- * (capability_not_available_without_other_capability), so card_payments is
- * requested alongside it - the classic Express marketplace setup. Guests
- * still pay FYStay through destination charges; hosts never take card
- * payments themselves, and readiness still follows stripe_transfers.
+ * Recipient-only (no card_payments) needs the platform profile set to the
+ * marketplace setup, which Stripe Support enabled for FYStay on 14 Oct.
  */
 export function hostConnectAccountParams(host: {
   userId: string;
@@ -33,11 +30,10 @@ export function hostConnectAccountParams(host: {
     },
     configuration: {
       recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
-      merchant: { capabilities: { card_payments: { requested: true } } },
     },
     // Lets anyone looking at the account in Stripe find the FYStay user.
     metadata: { fystay_user_id: host.userId },
-    include: ["configuration.recipient", "configuration.merchant"],
+    include: ["configuration.recipient"],
   };
 }
 
