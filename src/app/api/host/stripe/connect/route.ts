@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { hostConnectAccountParams } from "@/lib/stripeConnect";
+import { ensureManualPayouts } from "@/lib/hostPayouts";
 import { BASE_URL } from "@/lib/baseUrl";
 
 /**
@@ -69,6 +70,15 @@ export async function GET() {
       });
       if (stored.count === 1) {
         accountId = account.id;
+        // Payouts wait until after the stay (src/lib/hostPayouts.ts). The
+        // daily host-payouts run also sets this, so a failure here never
+        // blocks onboarding.
+        await ensureManualPayouts(stripe, account.id).catch((error) =>
+          console.warn("Could not set manual payouts on a new host account yet", {
+            account: account.id,
+            code: error instanceof Stripe.errors.StripeError ? error.code : undefined,
+          }),
+        );
       } else {
         // Another request stored one first - use that, leave this one unused.
         const winner = await prisma.user.findUniqueOrThrow({
