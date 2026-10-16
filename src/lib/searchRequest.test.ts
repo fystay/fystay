@@ -79,6 +79,33 @@ describe("parseBounds", () => {
   it("reads south,west,north,east", () => {
     expect(parseBounds("53.7, -3.1, 53.9, -2.9")).toEqual({ south: 53.7, west: -3.1, north: 53.9, east: -2.9 });
   });
+
+  it("accepts Google's full-precision viewport corners (picking Manchester failed with 15 decimal places)", () => {
+    expect(parseBounds("53.340099894221245,-2.319930911325602,53.54458610034016,-2.146828085398713")).toEqual({
+      south: 53.340099894221245,
+      west: -2.319930911325602,
+      north: 53.54458610034016,
+      east: -2.146828085398713,
+    });
+  });
+});
+
+describe("a picked Google place at full precision", () => {
+  it("is a valid search", () => {
+    const result = parseSearchRequest(
+      {
+        place: "ChIJ2_UmUkxNekgRqmv-BDgUvtk",
+        placeLabel: "Manchester, UK",
+        lat: "53.48075930000001",
+        lng: "-2.2426305",
+        bbox: "53.340099894221245,-2.319930911325602,53.54458610034016,-2.146828085398713",
+        checkIn: "2099-10-15",
+        checkOut: "2099-10-17",
+      },
+      new Date("2099-10-01T12:00:00Z"),
+    );
+    expect(result.ok).toBe(true);
+  });
 });
 
 describe("geospatial area", () => {
