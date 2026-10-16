@@ -42,7 +42,9 @@ Related: [handover](handover.md) · [Stripe and email setup](stripe-and-email-se
 | Connect platform profile | Completed by the owner as "Sellers collect payments directly", Stripe liable, full Dashboard - not the marketplace setup. Live refused recipient-only accounts (`capability_not_available_without_other_capability`), so #46 requests `card_payments` alongside `stripe_transfers`; checkout is still destination charges. Stripe Support case opened 13 Oct to correct the profile (reply due within 24h) | Vercel logs, Sentry JAVASCRIPT-NEXTJS-A |
 | Catalogue | 0 published listings | Production DB |
 
-## LAUNCH BLOCKERS (outstanding, 14 Oct)
+## LAUNCH BLOCKERS (outstanding, rechecked 16 Oct)
+
+16 Oct, read-only: health ok (status, database, config); Production database has 0 listings, 0 bookings, 5 users. Open PRs waiting on the owner: #7 (blocker 1), #9 (Spotlight), #52 (nightly backup: needs the read-only login and two secrets, see its runbook), #53 (smart pricing: migration + solicitor first).
 
 | # | Blocker | Owner action |
 |---|---|---|
@@ -118,7 +120,7 @@ legal details, or onboarding real hosts.
 - Ticketmaster events on destination pages (`TICKETMASTER_API_KEY`).
 - Booking.com hotel affiliate. Credentials alone never switch it on: the code must also list it in `LIVE_HOTEL_PROVIDER_CODES`.
 - PMS integrations: Cloudbeds is built, SiteMinder and SuperControl are stubs.
-- Uptime monitoring on `/` and `/api/health` (once #30 is in, `/api/listings` needs a full search and answers 400 without one); check the Supabase backup / point-in-time-recovery plan.
+- Uptime monitoring: `.github/workflows/uptime-production.yml` checks `/` and `/api/health` every 30 minutes once merged (GitHub emails on failure). Backups: Supabase Free plan has none; #52 adds a nightly backup.
 - A test-timezone tidy-up: the hotel deep link used the wrong day on UK summer time; fixed in [#31](https://github.com/fystay/fystay/pull/31) (open).
 
 ---
