@@ -1,0 +1,78 @@
+# Production database backup - nightly, into the FYStay Backup Supabase
+# project ("fystaybackup"). Runbook: docs/production-database-backups.md.
+#
+# Production is on Supabase's Free plan, which takes no backups of its own
+# and has no point-in-time recovery, so this is FYStay's only backup.
+#
+#   - Reads production through fystay_backup_reader, a login that can only
+#     read; never writes to production.
+#   - Restores every dump into a throwaway Postgres 17 on this runner and
+#     checks it row for row before keeping it.
+#   - Keeps 35 days of nightly backups plus the first of each month for a
+#     year, in the private `prod-backups` bucket in the Backup project.
+#   - A failed run fails the workflow, and GitHub emails the owner.
+#
+# Secrets live only in the GitHub Environment `backup` (no reviewers, so the
+# nightly run doesn't wait for anyone): PROD_BACKUP_DB_URL and
+# BACKUP_SUPABASE_SERVICE_ROLE_KEY. Neither is ever printed.
+
+name: Production database backup
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # 03:17 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Back up production into fystaybackup
+    runs-on: ubuntu-latest
+    environment: backup
+    timeout-minutes: 30
+    services:
+      # The isolated restore check: empty, private to this run, gone after it.
+      restore-check:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: restore-check-only
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Production runs Postgres 17; pg_dump must be at least that version.
+      - name: Install Postgres 17 client tools
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Back up, restore-check, store and prune
+        env:
+          PROD_BACKUP_DB_URL: ${{ secrets.PROD_BACKUP_DB_URL }}
+          BACKUP_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_ROLE_KEY }}
+          RESTORE_CHECK_DB_URL: postgresql://postgres:restore-check-only@localhost:55432/postgres
+        run: npx tsx scripts/db/backup-production.ts
