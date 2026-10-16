@@ -13,12 +13,14 @@ export const SITE_URL = BASE_URL;
 
 export const SITE_NAME = "FYStay";
 
-// Public contact addresses. Each can be set per deployment once the real
-// mail domain exists; the defaults are the addresses the site has always
-// shown. NEXT_PUBLIC_ so the client-side support widget sees the same value.
-export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@fystay.co.uk";
-export const PRIVACY_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_EMAIL || "privacy@fystay.co.uk";
-export const LEGAL_EMAIL = process.env.NEXT_PUBLIC_LEGAL_EMAIL || "legal@fystay.co.uk";
+// Public contact addresses. Each can be set per deployment; by default all
+// three are hello@, the one mailbox FYStay has (owner, 16 Oct - support@,
+// privacy@ and legal@ don't exist). NEXT_PUBLIC_ so the client-side support
+// widget sees the same value.
+const CONTACT_EMAIL = "hello@fystay.co.uk";
+export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || CONTACT_EMAIL;
+export const PRIVACY_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_EMAIL || CONTACT_EMAIL;
+export const LEGAL_EMAIL = process.env.NEXT_PUBLIC_LEGAL_EMAIL || CONTACT_EMAIL;
 
 /**
  * The site-wide share image (src/app/opengraph-image.tsx). Next only adds
