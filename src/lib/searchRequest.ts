@@ -36,7 +36,10 @@ function read(params: Params, key: string): string {
 }
 
 // Plain decimal numbers only: "1e3", "0x10", "Infinity" and "" are malformed.
-const DECIMAL = /^-?\d{1,3}(\.\d{1,12})?$/;
+// Up to 17 decimal places - as many as a JavaScript number can print, and
+// Google's viewport corners often have 15 (a 12-place limit rejected every
+// picked town with a viewport, e.g. Manchester).
+const DECIMAL = /^-?\d{1,3}(\.\d{1,17})?$/;
 const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
 // Longest stay the search accepts, matching what the date picker allows.
 const MAX_NIGHTS = 365;

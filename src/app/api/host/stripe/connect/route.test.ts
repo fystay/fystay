@@ -97,7 +97,7 @@ describe("GET /api/host/stripe/connect", () => {
       use_case: {
         type: "account_onboarding",
         account_onboarding: {
-          configurations: ["recipient", "merchant"],
+          configurations: ["recipient"],
           refresh_url: "https://www.fystay.co.uk/api/host/stripe/connect",
           return_url: "https://www.fystay.co.uk/host/payouts?onboarding=return",
         },
