@@ -122,7 +122,7 @@ export async function sendBookingConfirmedEmails(
         paragraphs: [
           ...(host.earningsCents !== undefined
             ? [
-                "Your earnings (the booking total less FYStay's 10% commission) go straight to your Stripe account, and Stripe pays them into your bank on your payout schedule.",
+                "Your earnings (the booking total less FYStay's 10% commission) go to your Stripe account now and are paid into your bank 89 days (about 3 months) after the guest paid.",
               ]
             : []),
           "Their contact details are on your dashboard, and they can message you through FYStay.",
