@@ -11,7 +11,8 @@ import {
   isRoomTypeRangeAvailable,
   nightsBetween,
 } from "@/lib/availability";
-import { computeBookingPricing, maxFyStayDiscountCents, stayRates } from "@/lib/pricing";
+import { computeBookingPricing, maxFyStayDiscountCents } from "@/lib/pricing";
+import { quoteListingStay } from "@/lib/stayQuote";
 import { lastMinuteDiscountFor } from "@/lib/deals";
 import { computePromoDiscount, normalizePromoCode, validatePromoCode } from "@/lib/promoCode";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/rateLimit";
@@ -226,18 +227,17 @@ async function getHandler(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const nights = nightsBetween(checkIn, checkOut);
-  const pricing = computeBookingPricing({
-    nights,
-    ...stayRates(listing, checkIn, checkOut),
-    weeklyDiscountPercent: listing.weeklyDiscountPercent,
-    monthlyDiscountPercent: listing.monthlyDiscountPercent,
-    lastMinuteDiscountPercent: lastMinuteDiscountFor(listing, checkIn),
-  });
+  // The same quote booking creation charges (stayQuote.ts).
+  const quote = await quoteListingStay(prisma, listing, { checkIn, checkOut, today });
+  const { pricing } = quote;
   const promo = parsed.data.promoCode
     ? await previewPromoDiscount(parsed.data.promoCode, pricing)
     : undefined;
+  // Guests learn only that the price reflects their dates - never the
+  // host's limits or FYStay's demand inputs.
+  const smartPriced = quote.smartPricing?.use === "applied" && quote.basePriceSubtotalCents !== null;
 
-  return NextResponse.json({ available: true, nights, pricing, promo });
+  return NextResponse.json({ available: true, nights, pricing, promo, smartPriced });
 }
 
 export const GET = withApiErrorHandling(getHandler);

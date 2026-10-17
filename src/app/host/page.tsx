@@ -13,6 +13,8 @@ import { auth } from "@/auth";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { DEFAULT_SHARE_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { hostCommissionText } from "@/lib/pricingPolicy";
+import { smartPricingMode } from "@/lib/smartPricingMode";
 
 const title = "List Your Holiday Let in Lancashire & the North West";
 const description =
@@ -63,7 +65,7 @@ const REASONS = [
     icon: PoundSterling,
     title: "Transparent fees, shown upfront",
     description:
-      "You set your own nightly rate, with cleaning included - guests pay exactly that, with no booking fees added. FYStay's only charge is a 10% commission on each booking, taken before your payout. No card fees, no subscription.",
+      `You set your own nightly rate, with cleaning included - guests pay exactly that, with no booking fees added. FYStay's only charge is a commission of ${hostCommissionText(smartPricingMode())} on each booking, taken before your payout. No card fees, no subscription.`,
   },
 ];
 

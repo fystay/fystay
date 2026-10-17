@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { guestBookingView } from "@/lib/listingPrivacy";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canCancelBooking } from "@/lib/changeRequests";
@@ -51,7 +52,7 @@ async function postHandler(_request: Request, { params }: { params: Promise<{ id
   }
   const { updated, refund } = result;
 
-  return NextResponse.json({ booking: updated, refund });
+  return NextResponse.json({ booking: guestBookingView(updated), refund });
 }
 
 export const POST = withApiErrorHandling(postHandler);

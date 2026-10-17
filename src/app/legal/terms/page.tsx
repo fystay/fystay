@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LegalPageLayout, LegalSection } from "@/components/legal/LegalPageLayout";
 import { describeOperator, getCompanyInfo } from "@/lib/companyInfo";
 import { LEGAL_EMAIL, pageMetadata } from "@/lib/seo";
+import { STANDARD_COMMISSION_RATE_TEXT } from "@/lib/pricingPolicy";
 
 export const metadata = pageMetadata({
   title: "Terms and Conditions",
@@ -82,7 +83,7 @@ export default function TermsPage() {
           or breaches these terms.
         </p>
         <p>
-          FYStay keeps a commission of 10% of the amount the guest pays for each booking, deducted
+          FYStay keeps a commission of {STANDARD_COMMISSION_RATE_TEXT} of the amount the guest pays for each booking, deducted
           before the rest is paid to the host through Stripe Connect. FYStay pays card processing
           costs out of its commission; there is no separate charge to the host or the guest for
           them. If a booking is refunded under its cancellation policy, the host&apos;s payout and

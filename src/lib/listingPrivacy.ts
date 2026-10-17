@@ -17,4 +17,24 @@ export const PRIVATE_LISTING_FIELDS = {
   icalSyncError: true,
   icalSyncFailedAt: true,
   suspendedReason: true,
+  // The host's own smart-pricing limits (minimum payout and price bounds).
+  smartPricingAutoApply: true,
+  smartPricingConsentAt: true,
+  smartPricingConsentPolicyVersion: true,
+  smartPricingMinPayoutCents: true,
+  smartPricingTargetPayoutCents: true,
+  smartPricingMinPriceCents: true,
+  smartPricingMaxPriceCents: true,
+  smartPricingMaxAdjustmentPercent: true,
 } as const;
+
+/**
+ * A booking as its guest may see it: without the host's private
+ * smart-pricing minimum payout it was priced to protect. Used on every
+ * guest-facing booking response.
+ */
+export function guestBookingView<T extends { minHostPayoutPerNightCents?: number | null }>(booking: T): Omit<T, "minHostPayoutPerNightCents"> {
+  const view: Partial<T> = { ...booking };
+  delete view.minHostPayoutPerNightCents;
+  return view as Omit<T, "minHostPayoutPerNightCents">;
+}

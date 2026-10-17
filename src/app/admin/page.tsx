@@ -60,6 +60,7 @@ export default async function AdminOverviewPage() {
         taxCents: true,
         creditAppliedCents: true,
         promoDiscountCents: true,
+        refundedAmountCents: true,
       },
     }),
     prisma.bookingExtra.findMany({
@@ -114,7 +115,7 @@ export default async function AdminOverviewPage() {
           icon={PoundSterling}
           label="Platform revenue"
           value={formatPrice(financials.platformRevenueCents)}
-          sublabel="Commission, net of credit/promo"
+          sublabel="Commission, net of credit/promo and refunds"
         />
         <StatCard
           icon={Ticket}

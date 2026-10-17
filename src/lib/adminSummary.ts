@@ -8,10 +8,12 @@ export type AdminBookingSummary = {
   taxCents: number;
   creditAppliedCents: number;
   promoDiscountCents: number;
+  /** Refunded to the guest so far (Booking.refundedAmountCents). */
+  refundedAmountCents?: number | null;
 };
 
 export type PlatformFinancials = {
-  /** Gross booking value: what guests have actually paid across every paid booking, lifetime. */
+  /** Gross booking value: what guests have actually paid across every paid booking, lifetime, less what was refunded. */
   grossBookingValueCents: number;
   /**
    * What FYStay itself nets, not what the host earns: its commission (or an
@@ -20,7 +22,11 @@ export type PlatformFinancials = {
    * never the host's (see applyDiscountsToApplicationFee in pricing.ts),
    * so they come out of this figure, not out of grossBookingValueCents.
    * Floored per-booking at 0 the same way that function is, since a
-   * booking's combined discounts can in principle exceed its own fee.
+   * booking's combined discounts can in principle exceed its own fee. A
+   * refund returns the same share of FYStay's fee as of the payment (Stripe's
+   * refund_application_fee; hostRevenueCents does the same for the host),
+   * so only the kept share counts. Stripe's own processing fees aren't
+   * deducted here: they're FYStay's cost and aren't returned on refunds.
    */
   platformRevenueCents: number;
   paidBookingsCount: number;
@@ -34,10 +40,11 @@ export function summarizePlatformFinancials(bookings: AdminBookingSummary[]): Pl
 
   for (const booking of bookings) {
     if (booking.paymentStatus === "UNPAID") continue;
-    grossBookingValueCents += booking.totalPriceCents;
-    platformRevenueCents += applyDiscountsToApplicationFee(
-      fyStayFeeCents(booking),
-      booking.creditAppliedCents + booking.promoDiscountCents,
+    const refunded = Math.min(Math.max(0, booking.refundedAmountCents ?? 0), booking.totalPriceCents);
+    const keptShare = booking.totalPriceCents > 0 ? 1 - refunded / booking.totalPriceCents : 0;
+    grossBookingValueCents += booking.totalPriceCents - refunded;
+    platformRevenueCents += Math.round(
+      applyDiscountsToApplicationFee(fyStayFeeCents(booking), booking.creditAppliedCents + booking.promoDiscountCents) * keptShare,
     );
     paidBookingsCount += 1;
   }

@@ -479,7 +479,11 @@ export default async function BookingDetailPage({
                       totalPriceCents: booking.totalPriceCents,
                       creditAppliedCents: booking.creditAppliedCents,
                       promoDiscountCents: booking.promoDiscountCents,
+                      taxCents: booking.taxCents,
+                      pricingPolicyVersion: booking.pricingPolicyVersion,
+                      commissionRateBps: booking.commissionRateBps,
                     }}
+                    protectsHostMinimum={booking.minHostPayoutPerNightCents !== null}
                     weeklyDiscountPercent={booking.listing.weeklyDiscountPercent}
                     monthlyDiscountPercent={booking.listing.monthlyDiscountPercent}
                     minNights={booking.listing.minNights}

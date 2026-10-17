@@ -368,6 +368,12 @@
       "files": {
         "migration.sql": "1e6baa260cb421aa15bc8686952cbc5cb9a2a983966f14e4d8063a2f6bab16a5"
       }
+    },
+    {
+      "name": "20261014120000_smart_pricing_and_commission_policy",
+      "files": {
+        "migration.sql": "f10894c8e0eab51bf6c0fdfa45fce5a030e0a7ca2d5deb1dfb6de45c1e5b7f5d"
+      }
     }
   ],
   "retired": [
