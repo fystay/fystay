@@ -35,7 +35,7 @@ Secret = mark it **Sensitive** in Vercel. Public = safe to be seen; the
 | `NEXT_PUBLIC_COMPANY_LEGAL_NAME` | Terms + Privacy operator disclosure (`src/lib/companyInfo.ts`) | Public | **Missing** |
 | `NEXT_PUBLIC_COMPANY_ADDRESS` | Same | Public | **Missing** |
 | `NEXT_PUBLIC_COMPANY_NUMBER` | Same; only if a limited company/LLP | Public | Leave empty if sole trader |
-| `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_LEGAL_EMAIL` | Contact addresses on the site (`src/lib/seo.ts`) | Public | Unset (default `support@` / `privacy@` / `legal@fystay.co.uk`) |
+| `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_LEGAL_EMAIL` | Contact addresses on the site (`src/lib/seo.ts`) | Public | Unset (all three default to `hello@fystay.co.uk`) |
 | `ANTHROPIC_API_KEY` | Optional. Admin AI on prepared listings: "Draft the words with AI" (`src/lib/listingAiDraft.ts`) and "Import from an existing listing" (`src/lib/listingImport.ts`). Without it both are hidden. | Secret | Unset |
 | `SENTRY_DSN` | Server error reporting (`src/instrumentation.ts`, every generic 500) | Low-sensitivity | Set (Production + Preview), project `fystay/fystay-web` |
 | `NEXT_PUBLIC_SENTRY_DSN` | Browser error reporting (`src/instrumentation-client.ts`); same value as above; the CSP allows its ingest host (`src/lib/sentryCsp.ts`) | Public | Set (Production + Preview) |

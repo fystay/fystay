@@ -7,7 +7,8 @@ export type HostStripeBalance = { availableCents: number; pendingCents: number }
  * (FYStay keeps no copy, so it can never disagree with what Stripe shows
  * them). With destination charges, a booking's share lands there when the
  * guest pays: "pending" until the card payment settles, then "available"
- * until Stripe pays it out to the host's bank on their payout schedule.
+ * until the host-payouts run pays it out to the host's bank after the stay
+ * (src/lib/hostPayouts.ts).
  *
  * Null when Stripe isn't configured, the host has no account yet, or
  * Stripe can't be reached - the earnings page then says so rather than
