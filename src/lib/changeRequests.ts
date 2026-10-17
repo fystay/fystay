@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { computeBookingPricing, isLegacyServiceFeeBooking, legacyGuestServiceFeeFor, splitBookingChange, weekendNightsBetween } from "@/lib/pricing";
+import { computeBookingPricing, isLegacyServiceFeeBooking, legacyGuestServiceFeeFor, splitBookingChange, weekendNightsBetween, type MinimumPayoutGuard } from "@/lib/pricing";
 import { nightsBetween } from "@/lib/availability";
 
 export type CancellableBooking = {
@@ -92,7 +92,20 @@ export type ChangePricingBooking = {
   totalPriceCents: number;
   creditAppliedCents: number;
   promoDiscountCents: number;
+  taxCents?: number;
+  /** How FYStay's fee moves (see splitBookingChange). */
+  pricingPolicyVersion?: string | null;
+  commissionRateBps?: number | null;
+  /** The host's smart-pricing minimum per night this booking protects (dynamic policy only). */
+  minHostPayoutPerNightCents?: number | null;
 };
+
+/** FYStay's fee on the booking once its accommodation becomes newAccommodationCents through a change. */
+function feeAfterChange(booking: ChangePricingBooking, newAccommodationCents: number, legacyServiceFee: boolean): number {
+  const newGross = newAccommodationCents + booking.cleaningFeeCents + (legacyServiceFee ? legacyGuestServiceFeeFor(newAccommodationCents) : 0);
+  const split = splitBookingChange(newGross - bookingGrossTotalCents(booking), { ...booking, taxCents: booking.taxCents ?? 0 });
+  return booking.hostCommissionCents + split.platformShareCents;
+}
 
 export function changePriceDeltaCents(
   booking: ChangePricingBooking,
@@ -100,17 +113,25 @@ export function changePriceDeltaCents(
   requested: { checkIn: Date; checkOut: Date },
 ): number {
   const { weekendNightlyPriceCents } = booking;
+  const requestedNights = nightsBetween(requested.checkIn, requested.checkOut);
+  const legacyServiceFee = isLegacyServiceFeeBooking(booking);
   const grossDeltaCents = computePriceDeltaCents({
-    requestedNights: nightsBetween(requested.checkIn, requested.checkOut),
+    requestedNights,
     pricePerNightCents: booking.nightlyPriceCents,
     weekendPricePerNightCents: weekendNightlyPriceCents,
     weekendNights: weekendNightlyPriceCents === null ? 0 : weekendNightsBetween(requested.checkIn, requested.checkOut),
     cleaningFeeCents: booking.cleaningFeeCents,
-    legacyServiceFee: isLegacyServiceFeeBooking(booking),
+    legacyServiceFee,
     weeklyDiscountPercent: listing.weeklyDiscountPercent,
     monthlyDiscountPercent: listing.monthlyDiscountPercent,
     lastMinuteDiscountPercent: booking.lastMinuteDiscountPercent,
     currentTotalPriceCents: bookingGrossTotalCents(booking),
+    // As at booking: the host's own stay discount is limited so the changed
+    // stay still pays their minimum, with FYStay's fee moving as it will.
+    minimumPayout:
+      booking.minHostPayoutPerNightCents != null
+        ? { stayCents: booking.minHostPayoutPerNightCents * requestedNights, feeFor: (accommodation) => feeAfterChange(booking, accommodation, legacyServiceFee) }
+        : null,
   });
   return Math.max(grossDeltaCents, -booking.totalPriceCents);
 }
@@ -130,6 +151,7 @@ export function computePriceDeltaCents(params: {
   /** The booking's own snapshotted last-minute deal (Booking.lastMinuteDiscountPercent), kept through a change. */
   lastMinuteDiscountPercent?: number | null;
   currentTotalPriceCents: number;
+  minimumPayout?: MinimumPayoutGuard | null;
 }): number {
   const {
     requestedNights,
@@ -142,6 +164,7 @@ export function computePriceDeltaCents(params: {
     monthlyDiscountPercent,
     lastMinuteDiscountPercent,
     currentTotalPriceCents,
+    minimumPayout = null,
   } = params;
   const { totalPriceCents, taxCents } = computeBookingPricing({
     nights: requestedNights,
@@ -151,6 +174,7 @@ export function computePriceDeltaCents(params: {
     weeklyDiscountPercent,
     monthlyDiscountPercent,
     lastMinuteDiscountPercent,
+    minimumPayout,
   });
   const serviceFeeCents = legacyServiceFee ? legacyGuestServiceFeeFor(totalPriceCents - taxCents) : 0;
   return totalPriceCents + cleaningFeeCents + serviceFeeCents - currentTotalPriceCents;
@@ -215,6 +239,38 @@ export const CHANGE_REQUEST_IN_PROGRESS_MESSAGE =
 export const DISCOUNTED_BOOKING_REFUND_CHANGE_MESSAGE =
   "This booking used a promo code or referral credit, so its dates can't be changed to a shorter or cheaper stay. " +
   "You can cancel it under its cancellation policy and book the new dates instead.";
+
+/**
+ * Why a change can't be made when it would pay the host less than the
+ * smart-pricing minimum they set. Worded for the guest without revealing
+ * the host's figure. A shortened stay refunds through Stripe in proportion
+ * to the payment, so it can't lift the host's share back up to the minimum;
+ * cancelling under the booking's policy and booking again keeps every
+ * split exact.
+ */
+export const MINIMUM_PAYOUT_CHANGE_MESSAGE =
+  "These dates can't be requested as a change to this booking under the host's pricing. " +
+  "You can cancel it under its cancellation policy and book the new dates instead.";
+
+/**
+ * Whether a change would leave the host less than their smart-pricing
+ * minimum for the new stay (bookings that protect one only), after the
+ * host's own discount was already limited for it in changePriceDeltaCents.
+ * Cancellations are unaffected: the published cancellation policy can
+ * legitimately reduce what a host receives.
+ */
+export function changeBreaksMinimumPayout(
+  booking: ChangePricingBooking,
+  priceDeltaCents: number,
+  requested: { checkIn: Date; checkOut: Date },
+): boolean {
+  if (booking.minHostPayoutPerNightCents == null) return false;
+  const legacyServiceFee = isLegacyServiceFeeBooking(booking);
+  const currentAccommodation = bookingGrossTotalCents(booking) - booking.cleaningFeeCents - booking.serviceFeeCents - (booking.taxCents ?? 0);
+  const newAccommodation = currentAccommodation + priceDeltaCents;
+  const hostPayout = newAccommodation - feeAfterChange(booking, newAccommodation, legacyServiceFee);
+  return hostPayout < booking.minHostPayoutPerNightCents * nightsBetween(requested.checkIn, requested.checkOut);
+}
 
 /**
  * Whether a date change would refund part of a booking that used a promo

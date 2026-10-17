@@ -9,6 +9,7 @@ import {
   bookingMatchesChangeSnapshot,
   CHANGE_REQUEST_IN_PROGRESS_MESSAGE,
   isBookingStillChangeable,
+  changeBreaksMinimumPayout,
   isRefundChangeOnDiscountedBooking,
   OUTSTANDING_CHANGE_REQUEST_WHERE,
 } from "@/lib/changeRequests";
@@ -91,6 +92,17 @@ async function postHandler(
     if (isRefundChangeOnDiscountedBooking(booking, changeRequest.priceDeltaCents)) {
       return { kind: "discounted_refund" as const };
     }
+    // Nor one that would pay the host below the smart-pricing minimum this
+    // booking protects (changeBreaksMinimumPayout) - so the host can't
+    // approve it by mistake either.
+    if (
+      changeBreaksMinimumPayout(booking, changeRequest.priceDeltaCents, {
+        checkIn: changeRequest.requestedCheckIn,
+        checkOut: changeRequest.requestedCheckOut,
+      })
+    ) {
+      return { kind: "below_minimum_payout" as const };
+    }
     // One change at a time: another request still awaiting the host or the
     // guest's payment would apply its difference on top of this one's. And
     // this request's difference was priced against the booking as it stood
@@ -137,6 +149,16 @@ async function postHandler(
       {
         error:
           "This booking used a promo code or referral credit, so it can't be moved to a shorter or cheaper stay. " +
+          "Decline this request - the guest can cancel under the booking's policy and book again.",
+      },
+      { status: 409 },
+    );
+  }
+  if (outcome.kind === "below_minimum_payout") {
+    return NextResponse.json(
+      {
+        error:
+          "These dates would pay you less than the minimum payout you set for smart pricing. " +
           "Decline this request - the guest can cancel under the booking's policy and book again.",
       },
       { status: 409 },

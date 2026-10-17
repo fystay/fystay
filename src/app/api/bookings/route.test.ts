@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { state, mocks } = vi.hoisted(() => ({
   state: {
@@ -13,8 +13,10 @@ const { state, mocks } = vi.hoisted(() => ({
     // Bookings this guest already made with the promo code.
     promoUses: 0,
     listingOverrides: {} as Record<string, unknown>,
+    // A fresh verified local event in the listing's town during the stay.
+    townEvent: false,
   },
-  mocks: { bookingCreate: vi.fn() },
+  mocks: { bookingCreate: vi.fn(), decisionCreate: vi.fn() },
 }));
 
 vi.mock("@/auth", () => ({ auth: async () => ({ user: { id: "guest_1" } }) }));
@@ -63,7 +65,17 @@ vi.mock("@/lib/prisma", () => {
   return {
     prisma: {
       $executeRaw: async () => 0,
+      priceDecision: {
+        create: async (args: { data: Record<string, unknown> }) => {
+          mocks.decisionCreate(args);
+          return { id: "pd_1" };
+        },
+      },
+      localTown: { findFirst: async () => (state.townEvent ? { slug: "leeds" } : null) },
+      localEvent: { count: async () => 1, aggregate: async () => ({ _max: { lastFetchedAt: new Date() } }) },
       booking: {
+        // The town's paid bookings (marketDemand.ts): none yet.
+        findMany: async () => [],
         findFirst: async () => null,
         count: async () => state.promoUses,
         create: async (args: { data: Record<string, unknown> }) => {
@@ -108,6 +120,8 @@ vi.mock("@/lib/prisma", () => {
         },
       },
       listing: {
+        // Live listings in the town (marketDemand.ts).
+        count: async () => 2,
         findUnique: async () => {
           state.log.push("availability-read");
           return {
@@ -155,7 +169,10 @@ const book = (body: object) =>
   );
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
+  state.townEvent = false;
   mocks.bookingCreate.mockReset();
+  mocks.decisionCreate.mockReset();
   state.log = [];
   state.listingBookings = [];
   state.listingBlocks = [];
@@ -233,5 +250,122 @@ describe("creating a booking", () => {
     state.promoRacesToLose = 3;
     expect((await book({ listingId: "listing_1", promoCode: "LAST1" })).status).toBe(409);
     expect(mocks.bookingCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("pricing a booking (stayQuote.ts)", () => {
+  // A fresh local event during the stay: +5%. Two live listings in Leeds and
+  // no FYStay bookings there yet, so no demand reading (baseline). Booked
+  // 138 days ahead of the 1 March stay.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+  const eventInTown = () => {
+    state.townEvent = true;
+  };
+  const optedIn = (overrides: Record<string, unknown> = {}) => {
+    state.listingOverrides = {
+      weekendPricePerNightCents: null,
+      smartPricingEnabled: true,
+      smartPricingAutoApply: true,
+      smartPricingConsentAt: new Date("2026-10-01"),
+      smartPricingConsentPolicyVersion: "dynamic-v1",
+      smartPricingMinPayoutCents: 8_000,
+      smartPricingTargetPayoutCents: null,
+      smartPricingMinPriceCents: null,
+      smartPricingMaxPriceCents: null,
+      smartPricingMaxAdjustmentPercent: null,
+      ...overrides,
+    };
+  };
+
+  it("snapshots the fixed-10% policy on an ordinary booking", async () => {
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({
+      nightlyPriceCents: 10_000,
+      hostCommissionCents: 2_000,
+      totalPriceCents: 20_000,
+      pricingPolicyVersion: "fixed-10-v1",
+      commissionRateBps: 1000,
+      basePriceSubtotalCents: null,
+      priceDecisionId: null,
+    });
+    expect(mocks.decisionCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to book at a price the guest wasn't shown", async () => {
+    const res = await book({ listingId: "listing_1", expectedTotalCents: 19_000 });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/now £200\.00/);
+    expect(mocks.bookingCreate).not.toHaveBeenCalled();
+    expect((await book({ listingId: "listing_1", expectedTotalCents: 20_000 })).status).toBe(201);
+  });
+
+  it("ignores a host's smart-pricing settings while SMART_PRICING_MODE is off", async () => {
+    eventInTown();
+    optedIn();
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({ totalPriceCents: 20_000, hostCommissionCents: 2_000, pricingPolicyVersion: "fixed-10-v1" });
+    expect(mocks.decisionCreate).not.toHaveBeenCalled();
+  });
+
+  it("charges the dynamic commission at the smart price when it's on and the host agreed, recording the decision", async () => {
+    vi.stubEnv("SMART_PRICING_MODE", "on");
+    eventInTown();
+    optedIn();
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({
+      nightlyPriceCents: 10_500,
+      totalPriceCents: 21_000,
+      // 9.5% (10% - 1 for a thin market + 0.5 booked 138 days ahead) + 10% of the £10 rise.
+      hostCommissionCents: 2_095,
+      pricingPolicyVersion: "dynamic-v1",
+      commissionRateBps: 998,
+      basePriceSubtotalCents: 20_000,
+      priceDecisionId: "pd_1",
+    });
+    expect(mocks.decisionCreate.mock.calls[0][0].data).toMatchObject({ mode: "applied", outcome: "adjusted", adjustmentPercent: 5, chargedPlatformFeeCents: 2_095 });
+  });
+
+  it("in shadow mode charges the fixed 10% at the host's own price and records the dynamic figures, for any listing", async () => {
+    vi.stubEnv("SMART_PRICING_MODE", "shadow");
+    eventInTown();
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({ totalPriceCents: 20_000, hostCommissionCents: 2_000, pricingPolicyVersion: "fixed-10-v1", priceDecisionId: "pd_1" });
+    expect(mocks.decisionCreate.mock.calls[0][0].data).toMatchObject({
+      mode: "shadow",
+      chosenAccommodationCents: 21_000,
+      platformFeeCents: 2_095,
+      chargedPolicyVersion: "fixed-10-v1",
+      chargedAccommodationCents: 20_000,
+      chargedPlatformFeeCents: 2_000,
+    });
+  });
+
+  it("only suggests when the host wants to approve changes, and never uses the dynamic commission without agreement to the current version", async () => {
+    vi.stubEnv("SMART_PRICING_MODE", "on");
+    eventInTown();
+    optedIn({ smartPricingAutoApply: false });
+    expect((await book({ listingId: "listing_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({ totalPriceCents: 20_000, hostCommissionCents: 1_900, pricingPolicyVersion: "dynamic-v1" });
+    expect(mocks.decisionCreate.mock.calls[0][0].data.mode).toBe("suggested");
+
+    for (const lapsed of [{ smartPricingConsentAt: null }, { smartPricingConsentPolicyVersion: "dynamic-v0" }]) {
+      mocks.bookingCreate.mockReset();
+      mocks.decisionCreate.mockReset();
+      optedIn(lapsed);
+      expect((await book({ listingId: "listing_1" })).status).toBe(201);
+      expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({ totalPriceCents: 20_000, hostCommissionCents: 2_000, pricingPolicyVersion: "fixed-10-v1" });
+      // Still compared in shadow, never charged.
+      expect(mocks.decisionCreate.mock.calls[0][0].data.mode).toBe("shadow");
+    }
+  });
+
+  it("prices hotel room types at the fixed 10%", async () => {
+    vi.stubEnv("SMART_PRICING_MODE", "on");
+    expect((await book({ roomTypeId: "rt_1" })).status).toBe(201);
+    expect(mocks.bookingCreate.mock.calls[0][0].data).toMatchObject({ pricingPolicyVersion: "fixed-10-v1", commissionRateBps: 1000 });
   });
 });

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/apiError";
 import { prisma } from "@/lib/prisma";
+import { recordStripeProcessingFee } from "@/lib/processingFees";
+import { bookingCommissionRateBps } from "@/lib/pricingPolicy";
 import { getStripeClient } from "@/lib/stripe";
 import { applyApprovedChange } from "@/app/api/bookings/[id]/change-requests/[requestId]/pay/route";
 import { refreshConnectAccountStatus } from "@/lib/stripeConnect";
@@ -262,8 +264,12 @@ async function confirmPaidBooking(bookingId: string, checkoutSession: Stripe.Che
       hostName: booking.listing.host.name,
       hostEmail: booking.listing.host.email,
       bookingUrl: `${baseUrl}/bookings/${booking.id}`,
-    }, { earningsCents: hostPayoutCents(booking) });
+    }, { earningsCents: hostPayoutCents(booking), commissionRateBps: bookingCommissionRateBps(booking) });
     await awardReferralBonusIfEligible(prisma, booking.guestId);
+    // Best-effort, like the PMS push below: Stripe's actual fee, for
+    // FYStay's own reconciliation (see processingFees.ts).
+    const stripe = getStripeClient();
+    if (stripe) await recordStripeProcessingFee(stripe, prisma, bookingId, booking.stripePaymentIntentId);
     // Best-effort: pushBookingReservation never throws (it catches and
     // records every failure on the PmsReservationLink row itself), so
     // awaiting it here can't fail this webhook or delay Stripe's retry

@@ -8,7 +8,10 @@ import {
   computePriceDeltaCents,
   isBookingStillChangeable,
   isRefundChangeOnDiscountedBooking,
+  changeBreaksMinimumPayout,
+  MINIMUM_PAYOUT_CHANGE_MESSAGE,
 } from "./changeRequests";
+import { splitBookingChange } from "./pricing";
 
 const now = new Date("2026-06-15");
 
@@ -429,5 +432,60 @@ describe("isRefundChangeOnDiscountedBooking (launch rule: no refunding date chan
     );
     expect(delta).toBe(-10_000);
     expect(isRefundChangeOnDiscountedBooking(weekendBooking, delta)).toBe(true);
+  });
+});
+
+describe("date changes on a dynamic-commission booking that protects a host minimum", () => {
+  const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
+  // Thu 22 + Fri 23 Oct 2026: £100 weeknight, £200 Friday. FYStay 15% (£45), host £255.
+  const booking = {
+    nightlyPriceCents: 10_000,
+    weekendNightlyPriceCents: 20_000,
+    cleaningFeeCents: 0,
+    serviceFeeCents: 0,
+    taxCents: 0,
+    hostCommissionCents: 4_500,
+    lastMinuteDiscountPercent: null,
+    totalPriceCents: 30_000,
+    creditAppliedCents: 0,
+    promoDiscountCents: 0,
+    pricingPolicyVersion: "dynamic-v1",
+    commissionRateBps: 1500,
+    minHostPayoutPerNightCents: 9_000,
+  };
+  const noDiscounts = { weeklyDiscountPercent: null, monthlyDiscountPercent: null };
+
+  it("refuses a change that would leave the host under their minimum (dropping the Friday), with a message that doesn't reveal it", () => {
+    const requested = { checkIn: day("2026-10-26"), checkOut: day("2026-10-28") }; // two weeknights
+    const delta = changePriceDeltaCents(booking, noDiscounts, requested);
+    expect(delta).toBe(-10_000);
+    // FYStay returns its 15% of the £100 refund, as Stripe does: the host keeps £170 < 2 x £90.
+    expect(splitBookingChange(delta, booking)).toEqual({ hostShareCents: -8_500, platformShareCents: -1_500 });
+    expect(changeBreaksMinimumPayout(booking, delta, requested)).toBe(true);
+    expect(MINIMUM_PAYOUT_CHANGE_MESSAGE).not.toMatch(/£|90/);
+    // Keeping a Friday night is fine.
+    const keepsFriday = { checkIn: day("2026-10-29"), checkOut: day("2026-10-31") };
+    expect(changeBreaksMinimumPayout(booking, changePriceDeltaCents(booking, noDiscounts, keepsFriday), keepsFriday)).toBe(false);
+  });
+
+  it("limits the host's weekly discount on an extension to 7 nights, so the stay still pays their minimum", () => {
+    // 6 weeknights at £100, FYStay 10% (£60), minimum £80 a night.
+    const sixNights = { ...booking, weekendNightlyPriceCents: null, hostCommissionCents: 6_000, totalPriceCents: 60_000, commissionRateBps: 1000, minHostPayoutPerNightCents: 8_000 };
+    const requested = { checkIn: day("2026-10-26"), checkOut: day("2026-11-02") };
+    // 20% would make it £560 and pay £504 < 7 x £80; 11% (£623) pays £560.70 - the largest whole percent that works.
+    const delta = changePriceDeltaCents(sixNights, { weeklyDiscountPercent: 20, monthlyDiscountPercent: null }, requested);
+    expect(delta).toBe(62_300 - 60_000);
+    expect(changeBreaksMinimumPayout(sixNights, delta, requested)).toBe(false);
+    // Without a protected minimum the host's full 20% applies, as before.
+    expect(changePriceDeltaCents({ ...sixNights, minHostPayoutPerNightCents: null }, { weeklyDiscountPercent: 20, monthlyDiscountPercent: null }, requested)).toBe(56_000 - 60_000);
+  });
+
+  it("moves FYStay's fee at the booking's exact ratio, not the rate rounded to a basis point; the fixed 10% is unchanged", () => {
+    const odd = { ...booking, weekendNightlyPriceCents: null, hostCommissionCents: 2_999, commissionRateBps: 1000, minHostPayoutPerNightCents: null };
+    // 2,999 / 30,000 of a £100 refund is £9.9967 -> £10.00 (a 10.00% basis-point rate would also say £10.00; on £33.33 it differs).
+    expect(splitBookingChange(-3_333, odd).platformShareCents).toBe(-Math.round((3_333 * 2_999) / 30_000));
+    expect(splitBookingChange(3_333, odd).platformShareCents).toBe(Math.round((33_333 * 2_999) / 30_000) - 2_999);
+    const fixed = { ...odd, pricingPolicyVersion: "fixed-10-v1" };
+    expect(splitBookingChange(-3_333, fixed).platformShareCents).toBe(Math.round((26_667 * 1000) / 10_000) - 2_999);
   });
 });

@@ -45,6 +45,12 @@ export type ListingCardData = {
   lastMinuteWindowDays?: number | null;
   priceDropFromCents?: number | null;
   priceDroppedAt?: Date | null;
+  /**
+   * The host uses smart pricing (stayQuote.ts), so a stay's total depends on
+   * its dates and is only quoted on the listing page - the card never shows
+   * a total it worked out from the listing's own rates.
+   */
+  smartPriced?: boolean;
 };
 
 const MAX_AMENITY_ICONS = 3;
@@ -190,7 +196,7 @@ export function ListingCard({
     : null;
 
   const totalPriceCents =
-    nights && nights > 0
+    nights && nights > 0 && !listing.smartPriced
       ? computeBookingPricing({
           nights,
           ...(searchedCheckIn
@@ -476,6 +482,8 @@ export function ListingCard({
             </p>
             {totalPriceCents !== null ? (
               <span className="text-xs text-stone-500">{formattedTotal} total</span>
+            ) : listing.smartPriced && nights ? (
+              <span className="text-xs text-stone-500">price varies by date</span>
             ) : (
               <span className="text-xs text-stone-500">no booking fees</span>
             )}

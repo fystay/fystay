@@ -18,6 +18,8 @@ import { HostPageEmpty, HostPageHeader, Meter, Pill, hostPageClassName } from "@
 import { PublishToggle } from "@/components/host/PublishToggle";
 import { DeleteListingButton } from "@/components/DeleteListingButton";
 import { buttonVariants } from "@/components/ui/Button";
+import { hostCommissionText } from "@/lib/pricingPolicy";
+import { smartPricingMode } from "@/lib/smartPricingMode";
 
 export const metadata: Metadata = { title: "Listings · Hosting", robots: { index: false } };
 
@@ -89,7 +91,7 @@ export default async function HostListingsPage() {
           secondary={{ href: "/host-guide", label: "Read the host guide" }}
         >
           Add a few photos, your nightly price and your house rules - about ten minutes. Guests pay your price with
-          no fees added, FYStay keeps 10% when you&apos;re paid, and you decide when it goes live.
+          no fees added, FYStay keeps {hostCommissionText(smartPricingMode())} when you&apos;re paid, and you decide when it goes live.
         </HostPageEmpty>
       )}
 

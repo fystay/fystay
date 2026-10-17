@@ -11,6 +11,7 @@ import { withApiErrorHandling } from "@/lib/apiError";
 import { priceChangeFields } from "@/lib/deals";
 import { weekendRateError } from "@/lib/pricing";
 import { lastMinuteDealInput, resolveLastMinuteDeal } from "@/lib/dealValidation";
+import { minimumPayoutError } from "@/lib/dynamicPricing";
 import { listingTimesError } from "@/lib/listingTimes";
 import { PROPERTY_TYPES, type PropertyType } from "@/lib/propertyType";
 import { materialChanges, materialSnapshot, reviewEffectsOfEdit } from "@/lib/listingReview";
@@ -258,6 +259,21 @@ async function patchHandler(
   const deal = resolveLastMinuteDeal(parsed.data, listing);
   if ("error" in deal) {
     return NextResponse.json({ error: deal.error }, { status: 400 });
+  }
+
+  // A host's smart-pricing minimum payout has to stay reachable: a lower
+  // price or a bigger discount that would break it is refused here, rather
+  // than silently paying the host less (see minimumPayoutError).
+  if (listing.smartPricingEnabled) {
+    const payoutError = minimumPayoutError(listing.smartPricingMinPayoutCents, {
+      pricePerNightCents: parsed.data.pricePerNightCents ?? listing.pricePerNightCents,
+      weeklyDiscountPercent: parsed.data.weeklyDiscountPercent !== undefined ? parsed.data.weeklyDiscountPercent : listing.weeklyDiscountPercent,
+      monthlyDiscountPercent: parsed.data.monthlyDiscountPercent !== undefined ? parsed.data.monthlyDiscountPercent : listing.monthlyDiscountPercent,
+      lastMinuteDiscountPercent: { ...listing, ...parsed.data, ...deal.fields }.lastMinuteDiscountPercent ?? null,
+    });
+    if (payoutError) {
+      return NextResponse.json({ error: `${payoutError} (Smart pricing minimum payout - change it under Smart pricing.)` }, { status: 400 });
+    }
   }
 
   // A changed nightly price updates the price-drop tracking behind the

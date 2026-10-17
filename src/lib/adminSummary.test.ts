@@ -57,6 +57,16 @@ describe("summarizePlatformFinancials", () => {
     expect(result.paidBookingsCount).toBe(2);
   });
 
+  it("nets refunds off both figures, returning FYStay's fee in the same share as Stripe", () => {
+    const result = summarizePlatformFinancials([
+      booking({ paymentStatus: "PARTIALLY_REFUNDED", refundedAmountCents: 5_000 }),
+      booking({ paymentStatus: "REFUNDED", refundedAmountCents: 20_000 }),
+    ]);
+    expect(result.grossBookingValueCents).toBe(15_000);
+    expect(result.platformRevenueCents).toBe(1_500);
+    expect(result.paidBookingsCount).toBe(2);
+  });
+
   it("subtracts referral credit and promo discount from platform revenue, not gross booking value", () => {
     // £200 stay, £5 credit + £3 promo: the guest paid £192, FYStay nets £20 - £8 = £12.
     const result = summarizePlatformFinancials([

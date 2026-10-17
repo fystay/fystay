@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type DateRange } from "react-day-picker";
@@ -59,6 +59,12 @@ type Props = {
   acceptsPaidBookings?: boolean;
   /** A refundable card hold placed before check-in (securityDeposit.ts) - told up front so it isn't a surprise at checkout. */
   securityDepositCents?: number;
+  /**
+   * The host uses smart pricing (stayQuote.ts), so the price for chosen
+   * dates comes from the server's quote rather than the listing's rates -
+   * and the booking is only made at the price shown.
+   */
+  serverPriced?: boolean;
 };
 
 /** Guest counts from a search, trimmed to what this listing can actually host. */
@@ -94,6 +100,7 @@ export function BookingWidget({
   initialSelection,
   acceptsPaidBookings = true,
   securityDepositCents = 0,
+  serverPriced = false,
 }: Props) {
   const router = useRouter();
   const [range, setRange] = useState<DateRange | undefined>(() =>
@@ -153,7 +160,7 @@ export function BookingWidget({
     ? lastMinuteDiscountFor({ lastMinuteDiscountPercent, lastMinuteWindowDays }, selectedCheckIn)
     : null;
   const selectedCheckOut = range?.to ? parseStayDate(toStayDateString(range.to)) : null;
-  const pricing = computeBookingPricing({
+  const localPricing = computeBookingPricing({
     nights,
     ...(selectedCheckIn && selectedCheckOut
       ? stayRates({ pricePerNightCents, weekendPricePerNightCents }, selectedCheckIn, selectedCheckOut)
@@ -162,6 +169,30 @@ export function BookingWidget({
     monthlyDiscountPercent,
     lastMinuteDiscountPercent: lastMinuteForStay,
   });
+
+  // A smart-priced listing's price for these dates, from the same quote the
+  // booking is charged at (GET /api/listings/[id]/availability).
+  const [serverQuote, setServerQuote] = useState<{ key: string; pricing: typeof localPricing; smartPriced: boolean } | null>(null);
+  const [quoteRefresh, setQuoteRefresh] = useState(0);
+  const quoteKey = selectedCheckIn && selectedCheckOut ? `${toStayDateString(selectedCheckIn)}|${toStayDateString(selectedCheckOut)}` : null;
+  useEffect(() => {
+    if (!serverPriced || !quoteKey) return;
+    const [checkIn, checkOut] = quoteKey.split("|");
+    const controller = new AbortController();
+    fetch(`/api/listings/${listingId}/availability?${new URLSearchParams({ checkIn, checkOut, guests: "1" })}`, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data: { available?: boolean; pricing?: typeof localPricing; smartPriced?: boolean }) => {
+        if (data.available && data.pricing) setServerQuote({ key: quoteKey, pricing: data.pricing, smartPriced: Boolean(data.smartPriced) });
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [serverPriced, quoteKey, listingId, quoteRefresh]);
+  const currentServerQuote = serverQuote && serverQuote.key === quoteKey ? serverQuote : null;
+  const pricing = serverPriced && currentServerQuote ? currentServerQuote.pricing : localPricing;
+  // The nightly price to lead with: the chosen dates' smart price once quoted, otherwise the host's own.
+  const headlineNightlyCents = serverPriced && currentServerQuote ? currentServerQuote.pricing.nightlyPriceCents : pricePerNightCents;
+  // Until the server's price for these dates has arrived, a smart-priced stay can't be reserved.
+  const awaitingServerPrice = serverPriced && Boolean(quoteKey) && !currentServerQuote;
 
   const {
     promoCodeInput,
@@ -208,7 +239,7 @@ export function BookingWidget({
    * transaction - so there's no separate "check" step to sit through.
    */
   async function handleReserve() {
-    if (reservingRef.current) return;
+    if (reservingRef.current || awaitingServerPrice) return;
     setError(null);
     // The "dates are free" style toasts from an earlier attempt would
     // otherwise still be on screen over the next page's header.
@@ -242,11 +273,15 @@ export function BookingWidget({
           checkOut: toStayDateString(range.to),
           guests,
           promoCode: promoCodeToSubmit,
+          // The price shown: if the server's has moved since, nothing is booked.
+          ...(serverPriced && currentServerQuote && { expectedTotalCents: currentServerQuote.pricing.totalPriceCents }),
         }),
       });
       const bookingData = await bookingRes.json().catch(() => null);
       if (!bookingRes.ok || !bookingData?.booking) {
         const message = bookingData?.error ?? "We couldn't reserve those dates. Please try again.";
+        // A moved smart price: show the new one before the guest tries again.
+        if (serverPriced && bookingRes.status === 409) setQuoteRefresh((n) => n + 1);
         setError(message);
         toast.error(message);
         scrollToBookingWidget();
@@ -316,7 +351,7 @@ export function BookingWidget({
                 </s>
               )}
               {hasWeekendRate && <span className="mr-1 text-sm font-normal text-stone-500">from</span>}
-              {formatPrice(pricePerNightCents)}
+              {formatPrice(headlineNightlyCents)}
               <span className="ml-1 text-sm font-normal text-stone-500">/ night</span>
             </p>
             {rating !== null && (
@@ -379,7 +414,7 @@ export function BookingWidget({
               {nightlyChargeLines(
                 {
                   nights,
-                  nightlyPriceCents: pricePerNightCents,
+                  nightlyPriceCents: pricing.nightlyPriceCents,
                   weekendNights: pricing.weekendNights,
                   weekendNightlyPriceCents: pricing.weekendNightlyPriceCents,
                 },
@@ -408,6 +443,10 @@ export function BookingWidget({
                 <span>Total</span>
                 <span>{formatPrice(pricing.totalPriceCents - promoDiscountCents)}</span>
               </div>
+              {awaitingServerPrice && <p className="text-xs text-stone-500">Checking the price for your dates…</p>}
+              {currentServerQuote?.smartPriced && (
+                <p className="text-xs text-stone-500">The host&apos;s price for these dates reflects demand around them.</p>
+              )}
               <p className="text-xs text-stone-500">
                 Taxes aren&apos;t charged today - the total above is everything you pay.
                 {securityDepositCents > 0 &&
@@ -561,7 +600,7 @@ export function BookingWidget({
           ) : (
             <>
               {hasWeekendRate && <span className="text-sm text-stone-500">from </span>}
-              <span className="font-bold text-brand-800">{formatPrice(pricePerNightCents)}</span>{" "}
+              <span className="font-bold text-brand-800">{formatPrice(headlineNightlyCents)}</span>{" "}
               <span className="text-sm text-stone-500">/ night</span>
             </>
           )

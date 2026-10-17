@@ -16,7 +16,9 @@ import {
   CHANGE_REQUEST_IN_PROGRESS_MESSAGE,
   changePriceDeltaCents,
   DISCOUNTED_BOOKING_REFUND_CHANGE_MESSAGE,
+  changeBreaksMinimumPayout,
   isRefundChangeOnDiscountedBooking,
+  MINIMUM_PAYOUT_CHANGE_MESSAGE,
   OUTSTANDING_CHANGE_REQUEST_WHERE,
 } from "@/lib/changeRequests";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
@@ -144,6 +146,9 @@ async function postHandler(request: Request, { params }: { params: Promise<{ id:
   const priceDeltaCents = changePriceDeltaCents(booking, booking.listing, { checkIn, checkOut });
   if (isRefundChangeOnDiscountedBooking(booking, priceDeltaCents)) {
     return NextResponse.json({ error: DISCOUNTED_BOOKING_REFUND_CHANGE_MESSAGE }, { status: 409 });
+  }
+  if (changeBreaksMinimumPayout(booking, priceDeltaCents, { checkIn, checkOut })) {
+    return NextResponse.json({ error: MINIMUM_PAYOUT_CHANGE_MESSAGE }, { status: 409 });
   }
 
   // The in-progress check above is repeated under the listing's lock, so two

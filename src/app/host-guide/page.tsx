@@ -2,6 +2,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { pageMetadata } from "@/lib/seo";
+import { hostCommissionText } from "@/lib/pricingPolicy";
+import { smartPricingMode } from "@/lib/smartPricingMode";
 
 export const metadata = pageMetadata({
   title: "Host guide",
@@ -28,7 +30,7 @@ const STEPS = [
   {
     title: "4. Connect payouts and get paid",
     description:
-      "Connect a Stripe account from Payouts in your host dashboard - guests can't pay for a stay until it's set up. When a guest pays, your share - 90% of the stay price after any weekly or monthly discount you offer (FYStay's 10% commission comes off; a FYStay promo code or credit the guest uses is paid for by FYStay, not you) - goes to your Stripe account straight away. Stripe then pays it into your bank on your Stripe payout schedule, which you can see in your Stripe dashboard - a new account's first payout can take a little longer while Stripe checks it. If a booking is cancelled and the guest gets a refund under your cancellation policy, the same proportion of your share is taken back.",
+      `Connect a Stripe account from Payouts in your host dashboard - guests can't pay for a stay until it's set up. When a guest pays, your share - the stay price after any weekly or monthly discount you offer, less FYStay's commission (${hostCommissionText(smartPricingMode())}; a FYStay promo code or credit the guest uses is paid for by FYStay, not you) - goes to your Stripe account straight away. Stripe then pays it into your bank on your Stripe payout schedule, which you can see in your Stripe dashboard - a new account's first payout can take a little longer while Stripe checks it. If a booking is cancelled and the guest gets a refund under your cancellation policy, the same proportion of your share is taken back.`,
   },
   {
     title: "5. Publish and manage availability",
