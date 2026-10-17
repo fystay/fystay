@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { DayPicker, type DateRange } from "react-day-picker";
 import "react-day-picker/style.css";
 import { format } from "date-fns";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useAnchoredPortalPosition } from "@/lib/useAnchoredPortalPosition";
 
@@ -15,6 +15,7 @@ export function SearchDateRangeField({
   className,
   triggerClassName,
   variant = "default",
+  chevron = false,
 }: {
   range: DateRange | undefined;
   onChange: (range: DateRange | undefined) => void;
@@ -23,6 +24,8 @@ export function SearchDateRangeField({
   triggerClassName?: string;
   /** "hero" swaps both closed triggers' icon/label/value to white, at every breakpoint - see SearchBar's own variant, which this mirrors. The open calendar popover is unaffected. */
   variant?: "default" | "hero";
+  /** A dropdown arrow at the end of the field on phones (the homepage search panel). */
+  chevron?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Picking dates only updates this local draft; the parent (and, on the
@@ -126,6 +129,7 @@ export function SearchDateRangeField({
             {checkInLabel ?? "Add date"}
           </span>
         </span>
+        {chevron && <ChevronDown className="h-5 w-5 shrink-0 text-brand-700 sm:hidden" aria-hidden />}
       </button>
 
       <div className={cn("my-2 w-px shrink-0 bg-border-subtle", variant === "hero" && "bg-white/15")} aria-hidden />
@@ -141,6 +145,9 @@ export function SearchDateRangeField({
           triggerClassName,
         )}
       >
+        {chevron && (
+          <CalendarDays className={cn("h-4 w-4 shrink-0 text-brand-600 sm:hidden", variant === "hero" && "text-accent-400")} aria-hidden />
+        )}
         <span className="min-w-0 flex-1">
           <span
             className={cn(
@@ -160,6 +167,7 @@ export function SearchDateRangeField({
             {checkOutLabel ?? "Add date"}
           </span>
         </span>
+        {chevron && <ChevronDown className="h-5 w-5 shrink-0 text-brand-700 sm:hidden" aria-hidden />}
       </button>
 
       {open &&

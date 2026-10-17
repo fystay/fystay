@@ -9,6 +9,7 @@ import {
   Volume2,
   type LucideIcon,
 } from "lucide-react";
+import { formatListingTime, formatQuietHours } from "@/lib/listingTimes";
 
 export type HouseRulesListing = {
   checkInTime: string | null;
@@ -36,10 +37,10 @@ function buildRows(listing: HouseRulesListing): Row[] {
   const rows: Row[] = [];
 
   if (listing.checkInTime) {
-    rows.push({ icon: LogIn, text: `Check-in: ${listing.checkInTime}` });
+    rows.push({ icon: LogIn, text: `Check-in: ${formatListingTime(listing.checkInTime)}` });
   }
   if (listing.checkOutTime) {
-    rows.push({ icon: LogOut, text: `Checkout: ${listing.checkOutTime}` });
+    rows.push({ icon: LogOut, text: `Checkout: ${formatListingTime(listing.checkOutTime)}` });
   }
   if (listing.selfCheckIn) {
     rows.push({ icon: Key, text: "Self check-in with lockbox or keypad" });
@@ -69,7 +70,7 @@ function buildRows(listing: HouseRulesListing): Row[] {
   if (listing.quietHoursStart && listing.quietHoursEnd) {
     rows.push({
       icon: Volume2,
-      text: `Quiet hours: ${listing.quietHoursStart} – ${listing.quietHoursEnd}`,
+      text: `Quiet hours: ${formatQuietHours(listing.quietHoursStart, listing.quietHoursEnd)}`,
     });
   }
 

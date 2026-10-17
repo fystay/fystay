@@ -25,6 +25,15 @@ async function maybePruneStaleRows(now: Date): Promise<void> {
 }
 
 /**
+ * Gives back one hit counted by checkRateLimit, for a request that turned
+ * out to cost nothing (e.g. the provider refused it), so the cap counts
+ * only attempts that actually happened.
+ */
+export async function releaseRateLimitHit(key: string): Promise<void> {
+  await prisma.$executeRaw`UPDATE "RateLimitHit" SET "count" = "count" - 1 WHERE "key" = ${key} AND "count" > 0`;
+}
+
+/**
  * A fixed-window request counter backed by Postgres, not an in-memory Map -
  * FYStay runs as short-lived serverless functions (Vercel), each with its
  * own process memory, so an in-process counter would reset on every cold

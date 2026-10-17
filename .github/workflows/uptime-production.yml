@@ -1,0 +1,30 @@
+name: Production uptime
+
+# Read-only check that the live site answers. A failed run emails the
+# repository owner through GitHub's normal workflow-failure notifications.
+# Scheduled workflows only run from the default branch.
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    name: Homepage and /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE: https://www.fystay.co.uk
+    steps:
+      - name: Homepage answers 200
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 --retry 2 --retry-delay 20 --retry-all-errors "$SITE/")
+          echo "Homepage: $code"
+          test "$code" = "200"
+      - name: Health check is ok
+        run: |
+          body=$(curl -sS --max-time 30 --retry 2 --retry-delay 20 --retry-all-errors "$SITE/api/health")
+          echo "$body"
+          echo "$body" | jq -e '.status == "ok" and .database == "ok" and .config == "ok"' > /dev/null

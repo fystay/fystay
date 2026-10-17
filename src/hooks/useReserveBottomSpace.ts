@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { RefObject } from "react";
 
 /**
@@ -24,23 +24,63 @@ import type { RefObject } from "react";
  * that must avoid this bar, e.g. a floating support button pinned to the
  * bottom corner, can read the same live number instead of hardcoding a
  * guess or duplicating this observer.
+ *
+ * Several bars can be registered at once (the site's bottom navigation
+ * plus a page's own booking or hosting bar); the space reserved is the
+ * tallest of them. A page bar (the default) also tells the site's bottom
+ * navigation to step aside - see usePageBottomBarPresent - so two bars
+ * never stack over the content.
  */
-export function useReserveBottomSpace(ref: RefObject<HTMLElement | null>) {
+const heights = new Map<HTMLElement, number>();
+let pageBars = 0;
+const listeners = new Set<() => void>();
+
+function applyReservedSpace() {
+  const tallest = Math.max(0, ...heights.values());
+  if (tallest > 0) {
+    document.body.style.paddingBottom = `${tallest}px`;
+    document.documentElement.style.setProperty("--fixed-bottom-bar-height", `${tallest}px`);
+  } else {
+    document.body.style.paddingBottom = "";
+    document.documentElement.style.removeProperty("--fixed-bottom-bar-height");
+  }
+}
+
+function setPageBars(delta: number) {
+  pageBars += delta;
+  for (const listener of listeners) listener();
+}
+
+export function useReserveBottomSpace(
+  ref: RefObject<HTMLElement | null>,
+  { pageBar = true }: { pageBar?: boolean } = {},
+) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (pageBar) setPageBars(1);
     const observer = new ResizeObserver(() => {
-      document.body.style.paddingBottom = `${el.offsetHeight}px`;
-      document.documentElement.style.setProperty(
-        "--fixed-bottom-bar-height",
-        `${el.offsetHeight}px`,
-      );
+      heights.set(el, el.offsetHeight);
+      applyReservedSpace();
     });
     observer.observe(el);
     return () => {
       observer.disconnect();
-      document.body.style.paddingBottom = "";
-      document.documentElement.style.removeProperty("--fixed-bottom-bar-height");
+      heights.delete(el);
+      applyReservedSpace();
+      if (pageBar) setPageBars(-1);
     };
-  }, [ref]);
+  }, [ref, pageBar]);
+}
+
+/** True while a page's own fixed bottom bar (booking, checkout, hosting) is on screen. */
+export function usePageBottomBarPresent(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => pageBars > 0,
+    () => false,
+  );
 }

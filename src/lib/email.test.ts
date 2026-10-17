@@ -43,4 +43,31 @@ describe("getResendClient", () => {
     await getResendClient()!.emails.send({ from: "a@b.c", to: "x@y.z", subject: "Hi", html: "x" });
     expect(captureMessage).not.toHaveBeenCalled();
   });
+
+  it("sends replies to hello@fystay.co.uk unless the email sets its own reply-to", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    send.mockResolvedValue({ data: { id: "e1" }, error: null });
+    await getResendClient()!.emails.send({ from: "a@b.c", to: "x@y.z", subject: "Hi", html: "x" });
+    expect(send.mock.calls[0][0]).toMatchObject({ replyTo: "hello@fystay.co.uk" });
+    await getResendClient()!.emails.send({ from: "a@b.c", to: "x@y.z", subject: "Hi", html: "x", replyTo: "host@example.com" });
+    expect(send.mock.calls[1][0]).toMatchObject({ replyTo: "host@example.com" });
+  });
+});
+
+describe("sender and reply-to", () => {
+  it("default to hello@fystay.co.uk, with per-environment overrides", async () => {
+    vi.resetModules();
+    vi.stubEnv("EMAIL_FROM", "");
+    vi.stubEnv("EMAIL_REPLY_TO", "");
+    let email = await import("./email");
+    expect(email.EMAIL_FROM).toBe("FYStay <hello@fystay.co.uk>");
+    expect(email.EMAIL_REPLY_TO).toBe("hello@fystay.co.uk");
+
+    vi.resetModules();
+    vi.stubEnv("EMAIL_FROM", "FYStay <preview@example.test>");
+    vi.stubEnv("EMAIL_REPLY_TO", "replies@example.test");
+    email = await import("./email");
+    expect(email.EMAIL_FROM).toBe("FYStay <preview@example.test>");
+    expect(email.EMAIL_REPLY_TO).toBe("replies@example.test");
+  });
 });

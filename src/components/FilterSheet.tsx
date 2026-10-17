@@ -2,38 +2,34 @@
 
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  Building2,
-  Home,
-  Hotel,
-  LandPlot,
-  SlidersHorizontal,
-  Trees,
-  Warehouse,
-  type LucideIcon,
-} from "lucide-react";
+import { Building2, Coffee, Home, SlidersHorizontal, Trees, Warehouse, type LucideIcon } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
-import { PROPERTY_TYPE_LABEL, type PropertyType } from "@/lib/propertyType";
-import type { AmenityCategorySummary } from "@/lib/amenityCategories";
+import { FILTER_PROPERTY_TYPES, PROPERTY_TYPES, PROPERTY_TYPE_LABEL, type PropertyType } from "@/lib/propertyType";
+import { FILTER_AMENITIES } from "@/lib/amenityCategories";
 import { parseListingFiltersFromParams } from "@/lib/listingSearch";
+import { parseGuestParam } from "@/lib/search";
+import { GUEST_ROWS, GuestCountRows } from "@/components/GuestCategoryPicker";
 import { cn } from "@/lib/cn";
 
 const BEDROOM_BATHROOM_OPTIONS = [0, 1, 2, 3, 4];
 const RATING_OPTIONS = [0, 3, 3.5, 4, 4.5];
 
-const PROPERTY_TYPE_ICON: Record<PropertyType, LucideIcon> = {
+const PROPERTY_TYPE_ICON: Record<(typeof FILTER_PROPERTY_TYPES)[number], LucideIcon> = {
   APARTMENT: Building2,
+  BED_AND_BREAKFAST: Coffee,
+  LODGE: Trees,
   HOUSE: Home,
-  HOTEL: Hotel,
-  COTTAGE: Trees,
-  VILLA: LandPlot,
   STUDIO: Warehouse,
-  OTHER: Home,
 };
+
+// Guests in the panel are the search bar's own Adults and Children steppers,
+// with the same limits, writing the same ?adults=/&children= params.
+const GUEST_FILTER_ROWS = GUEST_ROWS.filter((row) => row.key === "adults" || row.key === "children");
+const DEFAULT_GUESTS = { adults: 1, children: 0 };
 
 function ToggleChip({
   active,
@@ -61,22 +57,17 @@ function ToggleChip({
   );
 }
 
-export function FilterSheet({
-  availablePropertyTypes,
-  availableAmenityCategories,
-}: {
-  availablePropertyTypes: PropertyType[];
-  availableAmenityCategories: AmenityCategorySummary[];
-}) {
+export function FilterSheet() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
 
-  const currentFilters = parseListingFiltersFromParams(
-    Object.fromEntries(searchParams.entries()),
-    availablePropertyTypes,
-  );
+  const currentFilters = parseListingFiltersFromParams(Object.fromEntries(searchParams.entries()), PROPERTY_TYPES);
+  const currentGuests = {
+    adults: parseGuestParam(searchParams.get("adults") ?? undefined, 1) || 1,
+    children: parseGuestParam(searchParams.get("children") ?? undefined, 0),
+  };
   const activeCount = [
     currentFilters.propertyTypes?.length ? 1 : 0,
     currentFilters.minPriceCents || currentFilters.maxPriceCents ? 1 : 0,
@@ -99,6 +90,22 @@ export function FilterSheet({
   const [minBedrooms, setMinBedrooms] = useState(currentFilters.minBedrooms ?? 0);
   const [minBathrooms, setMinBathrooms] = useState(currentFilters.minBathrooms ?? 0);
   const [minRating, setMinRating] = useState(currentFilters.minRating ?? 0);
+  const [guests, setGuests] = useState(currentGuests);
+
+  // Each time the panel opens it starts from what's actually applied, so a
+  // closed-without-applying draft never comes back. While it's open, the
+  // choices stay put until Show results or Clear all.
+  function openPanel() {
+    setPropertyTypes(currentFilters.propertyTypes ?? []);
+    setAmenities(currentFilters.amenityCategories ?? []);
+    setMinPrice(currentFilters.minPriceCents ? String(currentFilters.minPriceCents / 100) : "");
+    setMaxPrice(currentFilters.maxPriceCents ? String(currentFilters.maxPriceCents / 100) : "");
+    setMinBedrooms(currentFilters.minBedrooms ?? 0);
+    setMinBathrooms(currentFilters.minBathrooms ?? 0);
+    setMinRating(currentFilters.minRating ?? 0);
+    setGuests(currentGuests);
+    setOpen(true);
+  }
 
   function toggle<T>(list: T[], value: T, setList: (next: T[]) => void) {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -112,6 +119,7 @@ export function FilterSheet({
     setMinBedrooms(0);
     setMinBathrooms(0);
     setMinRating(0);
+    setGuests(DEFAULT_GUESTS);
   }
 
   function applyAndClose() {
@@ -143,6 +151,15 @@ export function FilterSheet({
     if (minRating > 0) params.set("minRating", String(minRating));
     else params.delete("minRating");
 
+    // Written exactly as the search bar writes them (adults omitted at 1).
+    if (guests.adults !== 1) params.set("adults", String(guests.adults));
+    else params.delete("adults");
+    if (guests.children > 0) params.set("children", String(guests.children));
+    else params.delete("children");
+
+    // New filters mean a new result set - start it from page 1.
+    params.delete("page");
+
     setOpen(false);
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
@@ -154,11 +171,13 @@ export function FilterSheet({
     Boolean(maxPrice) ||
     minBedrooms > 0 ||
     minBathrooms > 0 ||
-    minRating > 0;
+    minRating > 0 ||
+    guests.adults !== DEFAULT_GUESTS.adults ||
+    guests.children !== DEFAULT_GUESTS.children;
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className="gap-2">
+      <Button variant="outline" onClick={openPanel} className="gap-2">
         <SlidersHorizontal className="h-4 w-4" />
         Filters
         {activeCount > 0 && (
@@ -200,27 +219,6 @@ export function FilterSheet({
             </div>
           </div>
 
-          {availablePropertyTypes.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm font-semibold text-foreground">Property type</p>
-              <div className="flex flex-wrap gap-2">
-                {availablePropertyTypes.map((type) => {
-                  const Icon = PROPERTY_TYPE_ICON[type];
-                  return (
-                    <ToggleChip
-                      key={type}
-                      active={propertyTypes.includes(type)}
-                      onClick={() => toggle(propertyTypes, type, setPropertyTypes)}
-                    >
-                      <Icon className="h-3.5 w-3.5" aria-hidden />
-                      {PROPERTY_TYPE_LABEL[type]}
-                    </ToggleChip>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-2 gap-4">
             <Field label="Bedrooms" htmlFor="minBedrooms">
               <Select
@@ -250,23 +248,6 @@ export function FilterSheet({
             </Field>
           </div>
 
-          {availableAmenityCategories.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm font-semibold text-foreground">Amenities</p>
-              <div className="flex flex-wrap gap-2">
-                {availableAmenityCategories.map((category) => (
-                  <ToggleChip
-                    key={category.key}
-                    active={amenities.includes(category.key)}
-                    onClick={() => toggle(amenities, category.key, setAmenities)}
-                  >
-                    {category.label}
-                  </ToggleChip>
-                ))}
-              </div>
-            </div>
-          )}
-
           <Field label="Minimum guest rating" htmlFor="minRating">
             <Select
               id="minRating"
@@ -280,6 +261,49 @@ export function FilterSheet({
               ))}
             </Select>
           </Field>
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-foreground">Property type</legend>
+            <div className="flex flex-wrap gap-2">
+              {FILTER_PROPERTY_TYPES.map((type) => {
+                const Icon = PROPERTY_TYPE_ICON[type];
+                return (
+                  <ToggleChip
+                    key={type}
+                    active={propertyTypes.includes(type)}
+                    onClick={() => toggle<PropertyType>(propertyTypes, type, setPropertyTypes)}
+                  >
+                    <Icon className="h-3.5 w-3.5" aria-hidden />
+                    {PROPERTY_TYPE_LABEL[type]}
+                  </ToggleChip>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-foreground">Amenities</legend>
+            <div className="flex flex-wrap gap-2">
+              {FILTER_AMENITIES.map((amenity) => (
+                <ToggleChip
+                  key={amenity.key}
+                  active={amenities.includes(amenity.key)}
+                  onClick={() => toggle(amenities, amenity.key, setAmenities)}
+                >
+                  {amenity.label}
+                </ToggleChip>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-foreground">Guests</legend>
+            <GuestCountRows
+              rows={GUEST_FILTER_ROWS}
+              value={{ ...guests, infants: 0, pets: 0 }}
+              onStep={(key, next) => setGuests((g) => ({ ...g, [key]: next }))}
+            />
+          </fieldset>
         </div>
 
         {/* pb includes the iPhone home-indicator safe area: this bar sits

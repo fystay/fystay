@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { BedDouble, Compass, ConciergeBell, Heart, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { activeSiteSection, SITE_SECTIONS, type SiteSectionKey } from "@/lib/siteSections";
+import { usePageBottomBarPresent, useReserveBottomSpace } from "@/hooks/useReserveBottomSpace";
 
-type Variant = "header" | "tabs";
+type Variant = "header";
 
 // Plain text tabs that belong to the header rather than a boxed control
 // sitting on it: no track, no border. The current section reads as pressed
@@ -38,21 +40,10 @@ const ITEM_STYLES: Record<
       "after:absolute after:inset-x-3.5 after:bottom-0.5 after:h-0.5 after:rounded-full after:bg-brand-600",
     inset: 14,
   },
-  // Phones and tablets: the header's second row, four equal tabs whose
-  // underline sits on the header's bottom edge - an app-style tab bar.
-  tabs: {
-    base: "w-full rounded-t-lg px-1 pb-3 pt-1.5 text-[15px]",
-    active: "bg-brand-50/70 text-brand-700 shadow-[inset_0_2px_4px_-2px_rgba(124,45,18,0.16)]",
-    inactive: "text-stone-500 hover:text-foreground",
-    underline: "bottom-0 h-[3px] rounded-t-full",
-    staticUnderline:
-      "after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-t-full after:bg-brand-600",
-    inset: 12,
-  },
 };
 
 /**
- * The Stays / Discover / Journeys / Services navigation, with the current
+ * The Stays / Experiences / Services / Saved navigation, with the current
  * route's section marked (aria-current="page").
  *
  * The underline is one element that glides between tabs, and it moves the
@@ -129,7 +120,7 @@ export function SectionPills({ variant, className }: { variant: Variant; classNa
       {/* relative here, not on the list: the links' offsetLeft (where the
           underline is placed) is measured against this box. */}
       <div ref={rowRef} className="relative">
-        <ul className={cn(variant === "tabs" ? "grid grid-cols-4" : "flex items-center gap-1")}>
+        <ul className="flex items-center gap-1">
           {SITE_SECTIONS.map((section) => {
             const isShown = section.key === shown;
             return (
@@ -169,17 +160,92 @@ export function SectionPills({ variant, className }: { variant: Variant; classNa
   );
 }
 
-/**
- * The header's tab row below lg, on every page (from lg the same
- * navigation sits inline in the header - see Navbar). Outside the four
- * sections (account, trips, legal...) it shows with none selected, so a
- * phone always has the same way round the site - the account menu only
- * holds account actions.
- */
-export function SectionPillsBar() {
+const SECTION_ICONS: Record<SiteSectionKey, LucideIcon> = {
+  stays: BedDouble,
+  experiences: Compass,
+  services: ConciergeBell,
+  saved: Heart,
+};
+
+// Pages whose own fixed bottom bar takes the bottom edge from the first
+// render (booking a listing or hotel, checkout, the hosting tools): the
+// site bar isn't drawn there at all, so it never flashes in before the
+// page's bar mounts. Any other page bar hides it once mounted (see
+// usePageBottomBarPresent).
+function pageOwnsBottomEdge(pathname: string): boolean {
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 sm:px-6 lg:hidden">
-      <SectionPills variant="tabs" className="sm:max-w-md" />
-    </div>
+    pathname.startsWith("/listings/") ||
+    pathname.startsWith("/checkout/") ||
+    /^\/hotels\/[^/]+\/[^/]+/.test(pathname) ||
+    pathname.startsWith("/host/")
+  );
+}
+
+/**
+ * The four sections as a bottom tab bar below lg - in thumb reach on a
+ * phone, on every page outside the sections too (with none selected), so
+ * there's always the same way round the site. From lg the same navigation
+ * sits inline in the header instead (see Navbar), so it's never offered
+ * twice. It reserves its own height at the bottom of the page (content and
+ * the footer stay clear of it, and the support button and cookie notice
+ * sit above it), keeps out of the iPhone home indicator's area, and gives
+ * way to a page's own bottom bar.
+ */
+export function SiteBottomNav() {
+  const pathname = usePathname();
+  const pageBarPresent = usePageBottomBarPresent();
+  if (pageBarPresent || pageOwnsBottomEdge(pathname)) return null;
+  return <SiteBottomNavBar pathname={pathname} />;
+}
+
+function SiteBottomNavBar({ pathname }: { pathname: string }) {
+  const active = activeSiteSection(pathname);
+  // Like the header tabs: the tapped tab lights up straight away, before
+  // the next page has loaded; aria-current always follows the real route.
+  const [pressed, setPressed] = useState<{ key: SiteSectionKey; on: string } | null>(null);
+  const shown = pressed && pressed.on === pathname ? pressed.key : active;
+  const barRef = useRef<HTMLElement>(null);
+  useReserveBottomSpace(barRef, { pageBar: false });
+
+  return (
+    <nav
+      ref={barRef}
+      aria-label="Sections"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-surface/85 lg:hidden"
+    >
+      <ul className="mx-auto grid max-w-md grid-cols-4">
+        {SITE_SECTIONS.map((section) => {
+          const Icon = SECTION_ICONS[section.key];
+          const isShown = section.key === shown;
+          return (
+            <li key={section.key} className="flex">
+              <Link
+                href={section.href}
+                aria-current={section.key === active ? "page" : undefined}
+                onClick={(event) => {
+                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+                  setPressed({ key: section.key, on: pathname });
+                }}
+                className={cn(
+                  "focus-ring relative flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 pb-1.5 pt-2 text-xs font-medium transition-colors",
+                  isShown ? "text-brand-700" : "text-stone-500 hover:text-foreground",
+                )}
+              >
+                {/* The selected tab's marker along the bar's top edge. */}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-x-6 top-0 h-[3px] rounded-b-full bg-brand-600 transition-opacity",
+                    isShown ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <Icon className={cn("h-[22px] w-[22px]", isShown && "stroke-[2.25]")} aria-hidden />
+                {section.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }

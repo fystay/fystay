@@ -5,6 +5,18 @@ For whoever picks this up next, person or Claude session. **Read this first,
 then [master-checklist.md](master-checklist.md)**, the running list of every
 remaining item.
 
+## Status 12 Oct 2026: verified launch state
+
+The current state and the outstanding launch blockers are in
+[master-checklist.md](master-checklist.md) ("Verified state" and "Launch
+blockers"), checked against GitHub, Vercel, Stripe and Supabase on 12 Oct.
+Where this file disagrees, the checklist wins. In particular, "Where
+things stand" below is out of date: Production now runs `db4eda4` on
+`www.fystay.co.uk` with live Stripe and Resend configured. Trader
+identity and legal sign-off are external blockers (business structure not
+finalised); the payment safeguard for them waits on branch
+`claude/trader-identity-gate`, unmerged.
+
 ## Stripe: sandbox tests passed, live webhooks set up (11 Oct 2026)
 
 Sandbox, on the `claude/host-commission` Preview (test mode only):

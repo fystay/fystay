@@ -9,7 +9,8 @@ import { cn } from "@/lib/cn";
 import { parseGuestParam, type GuestCounts } from "@/lib/search";
 import { GuestCategoryPicker } from "@/components/GuestCategoryPicker";
 import { SearchDateRangeField } from "@/components/SearchDateRangeField";
-import { DestinationAutocomplete } from "@/components/DestinationAutocomplete";
+import { DestinationAutocomplete, type PickedPlace } from "@/components/DestinationAutocomplete";
+import { parseBounds, parseLatitude, parseLongitude, parseSearchRequest, type SearchField } from "@/lib/searchRequest";
 
 // How long to wait after the last change before auto-searching, so typing
 // a city or clicking +/- on guests a few times in a row doesn't fire a
@@ -34,6 +35,11 @@ function parseDateParam(value: string | null): Date | undefined {
 const SEARCHBAR_OWNED_PARAMS = [
   "city",
   "near",
+  "place",
+  "placeLabel",
+  "lat",
+  "lng",
+  "bbox",
   "checkIn",
   "checkOut",
   "adults",
@@ -47,9 +53,28 @@ function buildSearchQuery(
   range: DateRange | undefined,
   guestCounts: GuestCounts,
   nearLandmark?: string | null,
+  place?: PickedPlace | null,
 ): string {
   const params = new URLSearchParams();
-  if (city) params.set("city", city);
+  // A Google place isn't one of FYStay's towns, so it replaces the city
+  // filter: results are every stay, nearest to that place first. The label
+  // only refills the search box - the results page takes the place's name
+  // from Google, not from the URL.
+  if (place) {
+    params.set("place", place.placeId);
+    params.set("placeLabel", place.label);
+    // Rounded to 6 decimal places (about 11cm): short URLs, and always a
+    // plain decimal the server accepts (once rounded, a number never prints
+    // as "1e-7"). The area is rounded outwards, so the point stays inside it.
+    const decimal = (value: number) => String(Number(value.toFixed(6)));
+    params.set("lat", decimal(place.latitude));
+    params.set("lng", decimal(place.longitude));
+    if (place.bounds) {
+      const { south, west, north, east } = place.bounds;
+      const out = (value: number, round: (n: number) => number) => decimal(round(value * 1e6) / 1e6);
+      params.set("bbox", [out(south, Math.floor), out(west, Math.floor), out(north, Math.ceil), out(east, Math.ceil)].join(","));
+    }
+  } else if (city) params.set("city", city);
   if (nearLandmark) params.set("near", nearLandmark);
   if (range?.from) params.set("checkIn", format(range.from, "yyyy-MM-dd"));
   if (range?.to) params.set("checkOut", format(range.to, "yyyy-MM-dd"));
@@ -80,7 +105,7 @@ export function SearchBar({
   const searchParams = useSearchParams();
   const [isSearching, startTransition] = useTransition();
 
-  const [city, setCity] = useState(searchParams.get("city") ?? "");
+  const [city, setCity] = useState(searchParams.get("city") ?? searchParams.get("placeLabel") ?? "");
   // Set only when the "Where" field's selection was a specific hotel/property
   // from the autocomplete dropdown, so Search can route straight to that
   // listing instead of a city-filtered results page. Any further free typing
@@ -93,7 +118,21 @@ export function SearchBar({
   // and listingSearch.ts's "distance_asc"). Cleared by any further typing,
   // same as selectedListingId, since the field no longer reflects it.
   const [nearLandmark, setNearLandmark] = useState<string | null>(searchParams.get("near"));
-  const [range, setRange] = useState<DateRange | undefined>(() => {
+  // Set only when the selection was a Google Places location (any UK place
+  // or postcode outside FYStay's own towns and landmarks) - see
+  // buildSearchQuery. Cleared by further typing like the two above.
+  const [place, setPlace] = useState<PickedPlace | null>(() => {
+    const placeId = searchParams.get("place");
+    const latitude = parseLatitude(searchParams.get("lat") ?? "");
+    const longitude = parseLongitude(searchParams.get("lng") ?? "");
+    if (!placeId || latitude === null || longitude === null) return null;
+    const bounds = parseBounds(searchParams.get("bbox") ?? "");
+    return { placeId, label: searchParams.get("placeLabel") ?? "", latitude, longitude, bounds };
+  });
+  // A town picked from the suggestions (or carried in from a results URL,
+  // which the server checks). Typing clears it: typed text is never a place.
+  const [townPicked, setTownPicked] = useState(() => Boolean(searchParams.get("city")));
+  const [range, setRangeState] = useState<DateRange | undefined>(() => {
     const from = parseDateParam(searchParams.get("checkIn"));
     const to = parseDateParam(searchParams.get("checkOut"));
     return from || to ? { from, to } : undefined;
@@ -105,6 +144,49 @@ export function SearchBar({
     pets: parseGuestParam(searchParams.get("pets") ?? undefined, 0),
   });
 
+  // The Filters panel can change the guest count in the URL too; follow it
+  // (during render, React's pattern for state derived from a changed prop),
+  // so this bar shows the real count and its next live search doesn't put
+  // the old one back.
+  const urlGuests = ["adults", "children", "infants", "pets"].map((key) => searchParams.get(key) ?? "").join(",");
+  const [syncedUrlGuests, setSyncedUrlGuests] = useState(urlGuests);
+  if (syncedUrlGuests !== urlGuests) {
+    setSyncedUrlGuests(urlGuests);
+    setGuestCounts({
+      adults: parseGuestParam(searchParams.get("adults") ?? undefined, 1) || 1,
+      children: parseGuestParam(searchParams.get("children") ?? undefined, 0),
+      infants: parseGuestParam(searchParams.get("infants") ?? undefined, 0),
+      pets: parseGuestParam(searchParams.get("pets") ?? undefined, 0),
+    });
+  }
+
+  // Moving check-in on or past check-out drops check-out rather than keep
+  // a range that can't be booked.
+  function setRange(next: DateRange | undefined) {
+    if (next?.from && next.to && next.to <= next.from) setRangeState({ from: next.from, to: undefined });
+    else setRangeState(next);
+  }
+
+  // Where, check-in and check-out are all required, by the same rules the
+  // results page and API apply (parseSearchRequest). A hotel picked from
+  // the list goes straight to that stay, but still needs the dates.
+  const whereSelected = Boolean(selectedListingId || nearLandmark || place || (townPicked && city));
+  const issues: Partial<Record<SearchField, string>> = (() => {
+    const query = new URLSearchParams(buildSearchQuery(city, range, guestCounts, nearLandmark, place));
+    const result = parseSearchRequest(query);
+    const errors = result.ok ? {} : { ...result.errors };
+    if (selectedListingId) delete errors.where;
+    if (!whereSelected) errors.where = city.trim() ? "Pick a place from the suggestions." : "Choose where you're going.";
+    if (range?.from && !range.to) errors.checkOut = "Add a check-out date after check-in.";
+    return errors;
+  })();
+  const searchValid = Object.keys(issues).length === 0;
+  // Set by tapping Search before the search is complete, so the hint that
+  // stays out of the way on a fresh page shows what's still missing.
+  const [attempted, setAttempted] = useState(false);
+  const nothingEntered = !city.trim() && !range?.from;
+  const statusId = variant === "hero" ? "search-status-hero" : "search-status";
+
   // On the results page, search live as fields change, debounced, so
   // results update without waiting for an explicit "Search" click - the
   // results grid's own Suspense fallback (a skeleton) is what shows the
@@ -115,7 +197,7 @@ export function SearchBar({
   // rather than a real city, so a city-filtered auto-search would find
   // nothing - Search instead routes straight to that listing.
   useEffect(() => {
-    if (!liveUpdate || selectedListingId) return;
+    if (!liveUpdate || selectedListingId || !searchValid) return;
 
     // Merge into the *current* URL's params rather than building a fresh
     // one from just SearchBar's own fields - the results page also carries
@@ -128,7 +210,7 @@ export function SearchBar({
     // old result set the guest was on; sort/view/filters carry over
     // untouched either way.
     const params = new URLSearchParams(searchParams.toString());
-    const ownedQuery = new URLSearchParams(buildSearchQuery(city, range, guestCounts, nearLandmark));
+    const ownedQuery = new URLSearchParams(buildSearchQuery(city, range, guestCounts, nearLandmark, place));
     let ownedChanged = false;
     for (const key of SEARCHBAR_OWNED_PARAMS) {
       const nextValue = ownedQuery.get(key);
@@ -148,18 +230,24 @@ export function SearchBar({
 
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- router/searchParams/startTransition are stable
-  }, [city, range, guestCounts, selectedListingId, nearLandmark, liveUpdate]);
+  }, [city, range, guestCounts, selectedListingId, nearLandmark, place, liveUpdate, searchValid]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     // Guards against Enter-key resubmission in browsers that don't already
     // block implicit submission via a disabled submit button.
     if (isSearching) return;
+    if (!searchValid) {
+      setAttempted(true);
+      if (issues.where) document.getElementById("search-city")?.focus();
+      return;
+    }
     startTransition(() => {
       if (selectedListingId) {
-        router.push(`/listings/${selectedListingId}`);
+        const stay = new URLSearchParams(buildSearchQuery("", range, guestCounts));
+        router.push(`/listings/${selectedListingId}${stay.size ? `?${stay}` : ""}`);
       } else {
-        router.push(`${SEARCH_RESULTS_PATH}?${buildSearchQuery(city, range, guestCounts, nearLandmark)}`);
+        router.push(`${SEARCH_RESULTS_PATH}?${buildSearchQuery(city, range, guestCounts, nearLandmark, place)}`);
       }
     });
   }
@@ -168,6 +256,8 @@ export function SearchBar({
     setCity(next);
     setSelectedListingId(null);
     setNearLandmark(null);
+    setPlace(null);
+    setTownPicked(false);
   }
 
   const isHero = variant === "hero";
@@ -193,7 +283,7 @@ export function SearchBar({
         // actual layout or fields.
         // relative: the search-in-progress sweep below is absolutely
         // positioned against this form, not any one field inside it.
-        "relative mx-auto flex w-full flex-col gap-1 rounded-2xl border shadow-[var(--shadow-card)] transition-shadow duration-200 hover:shadow-[var(--shadow-popover)] focus-within:shadow-[var(--shadow-popover)] focus-within:ring-2 focus-within:ring-brand-600/25 sm:flex-row sm:items-stretch sm:gap-0",
+        "relative mx-auto flex w-full flex-col gap-1 rounded-2xl border shadow-[var(--shadow-card)] sm:flex-wrap transition-shadow duration-200 hover:shadow-[var(--shadow-popover)] focus-within:shadow-[var(--shadow-popover)] focus-within:ring-2 focus-within:ring-brand-600/25 sm:flex-row sm:items-stretch sm:gap-0",
         isHero
           ? // Frosted glass rather than the solid card below: this is the
             // one instance of SearchBar that floats directly over the hero
@@ -242,7 +332,7 @@ export function SearchBar({
             // the extra padding looking cramped against a tighter card.
             // sm:/lg: revert to the original tighter values, since desktop
             // hero is mouse-driven and was already comfortable.
-            "w-full gap-1 rounded-2xl border-white/15 bg-ink/40 p-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:max-w-4xl sm:gap-0.5 sm:p-1 lg:border-white/10 lg:bg-ink/80 lg:p-1.5 lg:shadow-[0_16px_36px_-18px_rgba(48,26,19,0.55)]"
+            "w-full gap-1 rounded-2xl border-white/15 bg-ink/40 p-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:max-w-4xl sm:gap-0.5 sm:p-1 lg:border-white/10 lg:bg-ink/80 lg:p-1.5 lg:shadow-[0_16px_36px_-18px_rgba(43,23,18,0.55)]"
           : "max-w-4xl border-border-subtle bg-surface p-2 sm:p-2",
         className,
       )}
@@ -282,19 +372,40 @@ export function SearchBar({
               setCity(payload.city);
               setSelectedListingId(null);
               setNearLandmark(null);
+              setPlace(null);
+              setTownPicked(true);
             } else if (payload.type === "landmark") {
               setCity(payload.town);
               setSelectedListingId(null);
               setNearLandmark(payload.name);
+              setPlace(null);
+              setTownPicked(true);
+            } else if (payload.type === "place") {
+              setCity(payload.label);
+              setSelectedListingId(null);
+              setNearLandmark(null);
+              setPlace({
+                placeId: payload.placeId,
+                label: payload.label,
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+                bounds: payload.bounds,
+              });
+              setTownPicked(false);
             } else {
               setCity(payload.title);
               setSelectedListingId(payload.listingId);
               setNearLandmark(null);
+              setPlace(null);
+              setTownPicked(false);
             }
           }}
           className="sm:flex-[1.15]"
           triggerClassName={isHero ? "px-3 py-2.5 sm:px-2 sm:py-1" : undefined}
           variant={isHero ? "hero" : "default"}
+          chevron={!isHero}
+          invalid={Boolean(city.trim()) && !whereSelected}
+          describedBy={statusId}
         />
 
         {/* Wider than the other segments: it holds two labelled sub-fields
@@ -307,6 +418,7 @@ export function SearchBar({
         <SearchDateRangeField
           range={range}
           onChange={setRange}
+          chevron={!isHero}
           className="sm:flex-[1.6]"
           triggerClassName={isHero ? "px-3 py-2.5 sm:px-2 sm:py-1" : undefined}
           variant={isHero ? "hero" : "default"}
@@ -316,6 +428,7 @@ export function SearchBar({
           value={guestCounts}
           onChange={setGuestCounts}
           requireDoneToConfirm
+          chevron={!isHero}
           className="flex-1"
           // [&>svg]: recolors just this trigger's own icon to match the
           // teal used by the Where/Check-in fields, without touching
@@ -336,8 +449,13 @@ export function SearchBar({
 
       <button
         type="submit"
+        // Only truly disabled while a search is running. An incomplete
+        // search stays tappable (aria-disabled, so it's announced as not yet
+        // ready): tapping it says what's missing and moves to that field.
         disabled={isSearching}
+        aria-disabled={(!searchValid && !isSearching) || undefined}
         aria-busy={isSearching}
+        aria-describedby={statusId}
         aria-label={isHero ? (isSearching ? "Searching…" : "Search") : undefined}
         className={cn(
           // rounded-xl (the same radius every other button on the site
@@ -348,7 +466,7 @@ export function SearchBar({
           // button, it should actually be circular, not a rounded square.
           // relative z-10: stays above the search-in-progress sweep above,
           // same reason as the field row.
-          "relative z-10 flex w-full items-center justify-center gap-2 rounded-xl font-semibold text-white shadow-sm transition-all duration-150 hover:bg-brand-800 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-90 disabled:active:scale-100 sm:w-auto sm:shrink-0 focus-ring",
+          "relative z-10 flex w-full items-center justify-center gap-2 rounded-xl font-semibold text-white shadow-sm transition-all duration-150 hover:bg-brand-800 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 sm:w-auto sm:shrink-0 focus-ring",
           isHero
             ? // At lg: this collapses from the pill-with-label below into a
               // circular icon-only button (the mockup's arrow button) - the
@@ -360,7 +478,7 @@ export function SearchBar({
               // brand-500 is this design system's own version of that
               // exact terracotta.
               "bg-brand-700/90 px-4 py-1 text-xs sm:ml-1 sm:py-1 lg:aspect-square lg:h-11 lg:w-11 lg:shrink-0 lg:rounded-full lg:bg-brand-500 lg:px-0 lg:py-0 lg:hover:bg-brand-600"
-            : "mt-1 bg-brand-700 px-6 py-3.5 text-sm sm:ml-1 sm:mt-0 sm:py-3",
+            : "mt-1 bg-brand-600 px-6 py-3.5 text-sm hover:bg-brand-700 sm:ml-1 sm:mt-0 sm:py-3",
         )}
       >
         {isSearching ? (
@@ -375,6 +493,38 @@ export function SearchBar({
           {isSearching ? "Searching…" : "Search"}
         </span>
       </button>
+
+      {/* What still needs doing before Search works - one line per field,
+          read out as it changes, and kept to a quiet hint until something
+          has been entered. */}
+      <div
+        id={statusId}
+        role="status"
+        className={cn(
+          "basis-full px-3 pb-1 text-xs sm:order-last",
+          isHero ? "text-white/85" : "text-stone-600",
+          // Hidden but still read out; positioned only when shown, since
+          // "relative" would override sr-only's absolute positioning.
+          searchValid || (nothingEntered && !attempted) ? "sr-only" : "relative z-10",
+        )}
+      >
+        {searchValid ? (
+          "Ready to search."
+        ) : nothingEntered && !attempted ? (
+          "Choose where from the suggestions and pick your dates to search."
+        ) : (
+          <ul className="flex flex-wrap gap-x-4 gap-y-0.5" data-testid="search-bar-issues">
+            {(["where", "checkIn", "checkOut"] as const)
+              .filter((field) => issues[field])
+              .map((field) => (
+                <li key={field}>
+                  <span className="font-semibold">{{ where: "Where", checkIn: "Check-in", checkOut: "Check-out" }[field]}:</span>{" "}
+                  {issues[field]}
+                </li>
+              ))}
+          </ul>
+        )}
+      </div>
     </form>
   );
 }

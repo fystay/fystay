@@ -2,18 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Minus, Plus, Users } from "lucide-react";
+import { ChevronDown, Minus, Plus, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { summarizeGuests, type GuestCounts } from "@/lib/search";
 import { useAnchoredPortalPosition } from "@/lib/useAnchoredPortalPosition";
 
-const ROWS: {
+export type GuestRow = {
   key: keyof GuestCounts;
   label: string;
   hint: string;
   min: number;
   max: number;
-}[] = [
+};
+
+/** The guest steppers' limits - shared by the search bar, booking widget and search Filters panel. */
+export const GUEST_ROWS: GuestRow[] = [
   { key: "adults", label: "Adults", hint: "Ages 13 or above", min: 1, max: 16 },
   { key: "children", label: "Children", hint: "Ages 2 – 12", min: 0, max: 16 },
   { key: "infants", label: "Infants", hint: "Under 2", min: 0, max: 5 },
@@ -29,6 +32,7 @@ export function GuestCategoryPicker({
   className,
   triggerClassName,
   variant = "default",
+  chevron = false,
 }: {
   value: GuestCounts;
   onChange: (value: GuestCounts) => void;
@@ -46,6 +50,8 @@ export function GuestCategoryPicker({
   triggerClassName?: string;
   /** "hero" swaps the closed trigger's icon/label/value to white, at every breakpoint - see SearchBar's own variant, which this mirrors. The open picker panel is unaffected. */
   variant?: "default" | "hero";
+  /** A dropdown arrow at the end of the field on phones (the homepage search panel). */
+  chevron?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Only meaningful when requireDoneToConfirm - +/- clicks update this
@@ -59,7 +65,7 @@ export function GuestCategoryPicker({
   // pressing Done (clicking outside, Escape) must fall back to the last
   // confirmed value, not leave the trigger label showing a discarded draft.
   const displayValue = open && requireDoneToConfirm ? draft : value;
-  const rows = showPets ? ROWS : ROWS.filter((row) => row.key !== "pets");
+  const rows = showPets ? GUEST_ROWS : GUEST_ROWS.filter((row) => row.key !== "pets");
 
   function maxFor(key: keyof GuestCounts, rowMax: number): number {
     if (capacity === undefined) return rowMax;
@@ -152,6 +158,7 @@ export function GuestCategoryPicker({
             {summarizeGuests(displayValue)}
           </span>
         </span>
+        {chevron && <ChevronDown className="h-5 w-5 shrink-0 text-brand-700 sm:hidden" aria-hidden />}
       </button>
 
       {open &&
@@ -163,53 +170,12 @@ export function GuestCategoryPicker({
             style={{ top: position.top + 8, left: position.left }}
             className="absolute z-[60] w-72 rounded-2xl border border-border-subtle bg-surface p-4 shadow-[var(--shadow-popover)]"
           >
-          <div className="flex flex-col divide-y divide-border-subtle">
-            {rows.map((row) => {
-              const rowMax = maxFor(row.key, row.max);
-              return (
-                <div
-                  key={row.key}
-                  className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{row.label}</p>
-                    <p className="text-xs text-stone-500">{row.hint}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => update(row.key, Math.max(row.min, displayValue[row.key] - 1))}
-                      disabled={displayValue[row.key] <= row.min}
-                      aria-label={`Decrease ${row.label.toLowerCase()}`}
-                      className={cn(
-                        "focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-border-subtle text-stone-600",
-                        "disabled:pointer-events-none disabled:opacity-40",
-                        "hover:border-stone-400",
-                      )}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <span className="w-4 text-center text-sm font-medium">
-                      {displayValue[row.key]}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => update(row.key, Math.min(rowMax, displayValue[row.key] + 1))}
-                      disabled={displayValue[row.key] >= rowMax}
-                      aria-label={`Increase ${row.label.toLowerCase()}`}
-                      className={cn(
-                        "focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-border-subtle text-stone-600",
-                        "disabled:pointer-events-none disabled:opacity-40",
-                        "hover:border-stone-400",
-                      )}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <GuestCountRows
+            rows={rows}
+            value={displayValue}
+            maxFor={maxFor}
+            onStep={update}
+          />
           {capacity !== undefined && (
             <p className="mt-3 text-xs text-stone-500">
               This place has a maximum of {capacity} guest{capacity === 1 ? "" : "s"}.
@@ -229,6 +195,63 @@ export function GuestCategoryPicker({
           </div>,
           document.body,
         )}
+    </div>
+  );
+}
+
+/** The +/- rows themselves, used inside the picker's panel and inline in the search Filters panel. */
+export function GuestCountRows({
+  rows,
+  value,
+  maxFor = (_key, rowMax) => rowMax,
+  onStep,
+}: {
+  rows: GuestRow[];
+  value: GuestCounts;
+  maxFor?: (key: keyof GuestCounts, rowMax: number) => number;
+  onStep: (key: keyof GuestCounts, next: number) => void;
+}) {
+  const stepButton = cn(
+    "focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-border-subtle text-stone-600",
+    "disabled:pointer-events-none disabled:opacity-40",
+    "hover:border-stone-400",
+  );
+  return (
+    <div className="flex flex-col divide-y divide-border-subtle">
+      {rows.map((row) => {
+        const rowMax = maxFor(row.key, row.max);
+        return (
+          <div key={row.key} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+            <div>
+              <p className="text-sm font-medium text-foreground">{row.label}</p>
+              <p className="text-xs text-stone-500">{row.hint}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onStep(row.key, Math.max(row.min, value[row.key] - 1))}
+                disabled={value[row.key] <= row.min}
+                aria-label={`Decrease ${row.label.toLowerCase()}`}
+                className={stepButton}
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-4 text-center text-sm font-medium">
+                {value[row.key]}
+              </span>
+              <button
+                type="button"
+                onClick={() => onStep(row.key, Math.min(rowMax, value[row.key] + 1))}
+                disabled={value[row.key] >= rowMax}
+                aria-label={`Increase ${row.label.toLowerCase()}`}
+                className={stepButton}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

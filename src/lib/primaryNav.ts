@@ -15,3 +15,13 @@ export const PRIMARY_NAV_LINKS = [
 // screen - leaving About.
 const SECTION_HREFS = new Set(SITE_SECTIONS.map((section) => section.href));
 export const HEADER_NAV_LINKS = PRIMARY_NAV_LINKS.filter((link) => !SECTION_HREFS.has(link.href));
+
+// The phone header's left-hand menu: secondary pages that have no tab of
+// their own. Account actions live in the account menu on the right, and the
+// four sections in the bottom bar, so nothing here repeats either.
+export const SECONDARY_NAV_LINKS = [
+  { href: "/about", label: "About FYStay" },
+  { href: "/help", label: "Help" },
+  { href: "/contact", label: "Contact" },
+  { href: "/host", label: "List your property" },
+];

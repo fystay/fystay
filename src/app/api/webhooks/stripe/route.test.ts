@@ -13,13 +13,18 @@ const { mocks, state } = vi.hoisted(() => ({
     opsAlerts: vi.fn(),
     refundAcrossPayments: vi.fn(),
     refundsList: vi.fn(),
+    refundsCreate: vi.fn(),
     notifyTripExtraPaid: vi.fn(),
     applyApprovedChange: vi.fn(),
     giveBack: vi.fn(),
+    activatePromotion: vi.fn(),
+    notifyPromotion: vi.fn(),
+    notifyPromotionRefunded: vi.fn(),
   },
   state: {
     booking: null as null | Record<string, unknown>,
     extra: null as null | Record<string, unknown>,
+    promotion: null as null | { status: string },
     alerts: new Set<string>(),
     available: true,
     // What happened, in order: lets a test see the availability check ran
@@ -32,6 +37,7 @@ vi.mock("@/lib/stripe", () => ({
   getStripeClient: () => {
     const client = new Stripe("sk_test_dummy");
     (client.refunds as unknown as { list: unknown }).list = mocks.refundsList;
+    (client.refunds as unknown as { create: unknown }).create = mocks.refundsCreate;
     return client;
   },
 }));
@@ -62,8 +68,11 @@ vi.mock("@/lib/availabilityLock", () => ({
   },
 }));
 vi.mock("@/lib/stripeConnect", () => ({ refreshConnectAccountStatus: vi.fn() }));
-vi.mock("@/lib/listingPromotions", () => ({ activatePaidPromotion: vi.fn() }));
-vi.mock("@/lib/listingPromotionNotifications", () => ({ notifyListingPromotionActivated: vi.fn() }));
+vi.mock("@/lib/listingPromotions", () => ({ activatePaidPromotion: (...a: unknown[]) => mocks.activatePromotion(...a) }));
+vi.mock("@/lib/listingPromotionNotifications", () => ({
+  notifyListingPromotionActivated: (...a: unknown[]) => mocks.notifyPromotion(...a),
+  notifyListingPromotionRefunded: (...a: unknown[]) => mocks.notifyPromotionRefunded(...a),
+}));
 vi.mock("@/lib/bookingLifecycle", () => ({
   releaseUnpaidBooking: vi.fn(),
   giveBackReservedDiscounts: (...a: unknown[]) => mocks.giveBack(...a),
@@ -109,7 +118,8 @@ vi.mock("@/lib/prisma", async () => {
           return { count: 1 };
         },
       },
-      user: { update: vi.fn() },
+      user: { update: vi.fn(), updateMany: vi.fn(async () => ({ count: 1 })) },
+      listingPromotion: { findUnique: async () => (state.promotion ? { ...state.promotion } : null) },
       paymentAlertSent: {
         delete: async ({ where }: { where: { key: string } }) => {
           state.alerts.delete(where.key);
@@ -167,6 +177,7 @@ beforeEach(() => {
   state.available = true;
   state.log = [];
   state.extra = null;
+  state.promotion = null;
   state.booking = {
     id: "bk_1",
     reference: "FY-ABC",
@@ -404,5 +415,93 @@ describe("refund alerts", () => {
     await POST(signedRequest(event("refund.failed", refund)));
     expect(mocks.opsAlerts).toHaveBeenCalledTimes(1);
     expect(mocks.opsAlerts).toHaveBeenCalledWith(expect.objectContaining({ subject: "A refund couldn't be delivered" }));
+  });
+});
+
+describe("Spotlight payments", () => {
+  const spotlightSession = () =>
+    paidSession({ amount_total: 1_500, payment_intent: "pi_spot", metadata: { purpose: "listing_promotion", promotionId: "promo_1" } });
+
+  it("activates the placement and emails the host", async () => {
+    mocks.activatePromotion.mockResolvedValue({ id: "promo_1" });
+    expect((await POST(signedRequest(event("checkout.session.completed", spotlightSession())))).status).toBe(200);
+    expect(mocks.notifyPromotion).toHaveBeenCalledWith("promo_1");
+    expect(mocks.refundsCreate).not.toHaveBeenCalled();
+  });
+
+  it("refunds in full and tells the host once, when the row filled up while the host was paying", async () => {
+    mocks.activatePromotion.mockResolvedValue(null);
+    state.promotion = { status: "CANCELLED" };
+    const delivered = event("checkout.session.completed", spotlightSession(), "evt_spot");
+    expect((await POST(signedRequest(delivered))).status).toBe(200);
+    expect((await POST(signedRequest(delivered))).status).toBe(200);
+    // Stripe's idempotency key makes the repeated refund call a no-op.
+    expect(mocks.refundsCreate).toHaveBeenCalledWith(
+      { payment_intent: "pi_spot" },
+      { idempotencyKey: "spotlight-full-refund:promo_1" },
+    );
+    expect(mocks.notifyPromotionRefunded).toHaveBeenCalledTimes(1);
+    expect(mocks.notifyPromotion).not.toHaveBeenCalled();
+  });
+
+  it("refunds nothing for a redelivery of a placement that's already live", async () => {
+    mocks.activatePromotion.mockResolvedValue(null);
+    state.promotion = { status: "PAID" };
+    await POST(signedRequest(event("checkout.session.completed", spotlightSession())));
+    expect(mocks.refundsCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("Stripe Identity events", () => {
+  const userUpdateMany = async () => {
+    const { prisma } = await import("@/lib/prisma");
+    return (prisma as unknown as { user: { updateMany: ReturnType<typeof vi.fn> } }).user.updateMany;
+  };
+  const vsEvent = (type: string) =>
+    event(type, { id: "vs_1", object: "identity.verification_session", status: "x", metadata: { userId: "user_1" } });
+
+  it("marks the account verified on Stripe's verified event, for that session only", async () => {
+    const updateMany = await userUpdateMany();
+    updateMany.mockClear();
+    expect((await POST(signedRequest(vsEvent("identity.verification_session.verified")))).status).toBe(200);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "user_1", stripeIdentitySessionId: "vs_1" },
+      data: { identityVerificationStatus: "VERIFIED", identityVerifiedAt: expect.any(Date) },
+    });
+  });
+
+  for (const type of ["identity.verification_session.requires_input", "identity.verification_session.canceled"]) {
+    it(`marks ${type.split(".").pop()} as FAILED without ever downgrading a verified account`, async () => {
+      const updateMany = await userUpdateMany();
+      updateMany.mockClear();
+      await POST(signedRequest(vsEvent(type)));
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { id: "user_1", stripeIdentitySessionId: "vs_1", identityVerificationStatus: { not: "VERIFIED" } },
+        data: { identityVerificationStatus: "FAILED" },
+      });
+    });
+  }
+
+  it("ignores a forged 'verified' event that isn't signed with FYStay's secret", async () => {
+    const updateMany = await userUpdateMany();
+    updateMany.mockClear();
+    const res = await POST(signedRequest(vsEvent("identity.verification_session.verified"), "whsec_attacker"));
+    expect(res.status).toBe(400);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("applies a redelivered 'verified' event harmlessly - the same single update again", async () => {
+    const updateMany = await userUpdateMany();
+    updateMany.mockClear();
+    const delivered = vsEvent("identity.verification_session.verified");
+    await POST(signedRequest(delivered));
+    await POST(signedRequest(delivered));
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    for (const [call] of updateMany.mock.calls) {
+      expect(call).toMatchObject({
+        where: { id: "user_1", stripeIdentitySessionId: "vs_1" },
+        data: { identityVerificationStatus: "VERIFIED" },
+      });
+    }
   });
 });

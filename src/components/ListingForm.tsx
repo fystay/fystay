@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { AMENITY_OPTIONS } from "@/lib/amenityOptions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Camera, ClipboardList, Home, MapPin, ShieldCheck, Wallet, Zap } from "lucide-react";
+import { AlertTriangle, Camera, ClipboardList, Home, MapPin, Percent, ShieldCheck, Wallet, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
-import { Field, FieldHint, Label } from "@/components/ui/Label";
+import { Field, FieldError, FieldHint, Label } from "@/components/ui/Label";
 import { hostCommissionFor } from "@/lib/pricing";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { LAST_MINUTE_MAX_PERCENT, LAST_MINUTE_MIN_PERCENT, LAST_MINUTE_WINDOW_OPTIONS } from "@/lib/deals";
+import { LAST_MINUTE_WINDOW_OPTIONS } from "@/lib/deals";
 import { Button } from "@/components/ui/Button";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -22,7 +23,19 @@ import {
   roomTypePayload,
   type RoomTypeFormValues,
 } from "@/components/host/RoomTypesEditor";
+import { ListingDiscounts } from "@/components/host/ListingDiscounts";
 import { cn } from "@/lib/cn";
+import {
+  DEFAULT_CHECK_IN_TIME,
+  DEFAULT_CHECK_OUT_TIME,
+  formatListingTime,
+  isCanonicalTime,
+  LISTING_TIME_FIELDS,
+  parseListingTime,
+  quietHoursError,
+  type ListingTimeField,
+} from "@/lib/listingTimes";
+import { countOptions, LISTING_COUNT_RANGES, nightOptions, stayLengthError } from "@/lib/listingFormOptions";
 
 function AmenityCheckbox({
   active,
@@ -49,6 +62,45 @@ function AmenityCheckbox({
     </button>
   );
 }
+
+/** A whole-number dropdown - easier than a number box on a phone, and it can't hold a value the server refuses. */
+function NumberSelect({
+  id,
+  value,
+  options,
+  onChange,
+  format = String,
+  emptyLabel,
+  describedBy,
+}: {
+  id: string;
+  value: string;
+  options: number[];
+  onChange: (value: string) => void;
+  format?: (n: number) => string;
+  /** Adds a first, blank option ("No maximum"); without it the field is required. */
+  emptyLabel?: string;
+  describedBy?: string;
+}) {
+  return (
+    <Select
+      id={id}
+      required={emptyLabel === undefined}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-describedby={describedBy}
+    >
+      {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
+      {options.map((n) => (
+        <option key={n} value={n}>
+          {format(n)}
+        </option>
+      ))}
+    </Select>
+  );
+}
+
+const nightsLabel = (n: number) => (n === 1 ? "1 night" : `${n} nights`);
 
 export type ListingFormValues = {
   title: string;
@@ -119,8 +171,10 @@ const emptyValues: ListingFormValues = {
   minNights: "1",
   maxNights: "",
   instantBook: true,
-  checkInTime: "",
-  checkOutTime: "",
+  // New listings start on the usual UK holiday-let times; the host can
+  // change or clear either.
+  checkInTime: DEFAULT_CHECK_IN_TIME,
+  checkOutTime: DEFAULT_CHECK_OUT_TIME,
   selfCheckIn: false,
   checkInInstructions: "",
   wifiNetwork: "",
@@ -133,37 +187,27 @@ const emptyValues: ListingFormValues = {
   roomTypes: [],
 };
 
-// A curated checklist covering the amenities guests actually filter by
-// (worded to match the regex categories in amenityCategories.ts, so ticking
-// one here is guaranteed to be found by that filter) plus other common
-// short-stay amenities. Anything a host has that isn't on this list still
-// has a home in the free-text "Other amenities" field below it.
-const AMENITY_OPTIONS = [
-  "Wifi",
-  "Free parking",
-  "Kitchen",
-  "Washer",
-  "Dryer",
-  "Air conditioning",
-  "Heating",
-  "TV",
-  "Pool",
-  "Hot tub",
-  "Gym",
-  "Pet friendly",
-  "Step-free entrance",
-  "Wide doorways",
-  "Accessible bathroom",
-  "Elevator access",
-  "Accessible parking",
-  "Sea view",
-  "Garden",
-  "Balcony",
-  "BBQ grill",
-  "Fireplace",
-  "Dedicated workspace",
-  "EV charger",
-];
+
+/**
+ * Saved times that aren't a picker "HH:MM" - free text from before the time
+ * picker ("After 3pm", "Flexible"). They're kept exactly as saved, and left
+ * out of the save, until the host picks a new time or removes them.
+ */
+function legacyTimesOf(values: ListingFormValues): Partial<Record<ListingTimeField, string>> {
+  const legacy: Partial<Record<ListingTimeField, string>> = {};
+  for (const field of LISTING_TIME_FIELDS) {
+    const raw = values[field].trim();
+    if (raw && !isCanonicalTime(raw)) legacy[field] = values[field];
+  }
+  return legacy;
+}
+
+/** Starting values with each time field as the picker shows it: a saved "After 3pm" reads as 15:00, "Flexible" as blank. */
+function withPickerTimes(values: ListingFormValues): ListingFormValues {
+  const next = { ...values };
+  for (const field of LISTING_TIME_FIELDS) next[field] = parseListingTime(values[field]) ?? "";
+  return next;
+}
 
 function splitAmenities(amenities: string[]): { selected: string[]; custom: string } {
   const selected: string[] = [];
@@ -186,11 +230,22 @@ const POLICY_PREVIEWS: Record<Exclude<CancellationPolicyKind, "CUSTOM">, string>
 type Props = {
   listingId?: string;
   initialValues?: ListingFormValues;
+  /** Where to go after saving - the admin property page when FYStay is preparing a listing. */
+  afterSaveHref?: string;
+  /**
+   * A private draft FYStay is preparing: save whatever is filled in so far
+   * (no photo, description or price needed yet). The publication checks
+   * still require them before it can go live.
+   */
+  allowIncomplete?: boolean;
 };
 
-export function ListingForm({ listingId, initialValues }: Props) {
+export function ListingForm({ listingId, initialValues, afterSaveHref = "/host/listings", allowIncomplete = false }: Props) {
   const router = useRouter();
-  const [values, setValues] = useState<ListingFormValues>(initialValues ?? emptyValues);
+  const [values, setValues] = useState<ListingFormValues>(() =>
+    initialValues ? withPickerTimes(initialValues) : emptyValues,
+  );
+  const [legacyTimes, setLegacyTimes] = useState(() => (initialValues ? legacyTimesOf(initialValues) : {}));
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
     () => splitAmenities(initialValues?.amenities ?? []).selected,
   );
@@ -203,6 +258,25 @@ export function ListingForm({ listingId, initialValues }: Props) {
   function update<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
   }
+
+  // Picking a time (or removing the old text) replaces a saved free-text time.
+  function updateTime(field: ListingTimeField, value: string) {
+    setLegacyTimes((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+    update(field, value);
+  }
+
+  // What each time will be after saving: the untouched older text, or the picker's value.
+  const effectiveTime = (field: ListingTimeField) => legacyTimes[field] ?? values[field];
+  // Both untouched older values aren't sent at all, so there's nothing to check.
+  const quietUntouched = "quietHoursStart" in legacyTimes && "quietHoursEnd" in legacyTimes;
+  const quietError = quietUntouched
+    ? null
+    : quietHoursError(effectiveTime("quietHoursStart"), effectiveTime("quietHoursEnd"));
+  const stayError = stayLengthError(values.minNights, values.maxNights);
 
   // A guest sees the Bedrooms field, not this text - if the two disagree
   // ("2-bedroom apartment" with Bedrooms set to 1), the listing page reads
@@ -224,9 +298,14 @@ export function ListingForm({ listingId, initialValues }: Props) {
     e.preventDefault();
     setError(null);
 
-    if (values.photos.length === 0) {
+    if (values.photos.length === 0 && !allowIncomplete) {
       setError("Add at least one photo.");
       toast.error("Add at least one photo.");
+      return;
+    }
+    if (quietError || stayError) {
+      setError(quietError ?? stayError);
+      toast.error(quietError ?? stayError);
       return;
     }
     const isHotel = values.propertyType === "HOTEL";
@@ -237,6 +316,11 @@ export function ListingForm({ listingId, initialValues }: Props) {
     }
 
     setLoading(true);
+
+    // An untouched older free-text time is left out, so the save keeps it
+    // exactly as it was rather than rewriting it.
+    const timePayload = (field: ListingTimeField) =>
+      field in legacyTimes ? {} : { [field]: values[field] || null };
 
     const payload = {
       title: values.title,
@@ -295,21 +379,21 @@ export function ListingForm({ listingId, initialValues }: Props) {
       minNights: values.minNights ? Number(values.minNights) : 1,
       maxNights: values.maxNights ? Number(values.maxNights) : null,
       instantBook: values.instantBook,
-      checkInTime: values.checkInTime.trim() || null,
-      checkOutTime: values.checkOutTime.trim() || null,
+      ...timePayload("checkInTime"),
+      ...timePayload("checkOutTime"),
       selfCheckIn: values.selfCheckIn,
       checkInInstructions: values.checkInInstructions.trim() || null,
       wifiNetwork: values.wifiNetwork.trim() || null,
       wifiPassword: values.wifiPassword.trim() || null,
       smokingAllowed: values.smokingAllowed,
       partiesAllowed: values.partiesAllowed,
-      quietHoursStart: values.quietHoursStart.trim() || null,
-      quietHoursEnd: values.quietHoursEnd.trim() || null,
+      ...timePayload("quietHoursStart"),
+      ...timePayload("quietHoursEnd"),
       additionalRules: values.additionalRules.trim() || null,
     };
 
     let res: Response;
-    let data: { error?: string };
+    let data: { error?: string; notice?: string };
     try {
       res = await fetch(listingId ? `/api/listings/${listingId}` : "/api/listings", {
         method: listingId ? "PATCH" : "POST",
@@ -334,8 +418,11 @@ export function ListingForm({ listingId, initialValues }: Props) {
       return;
     }
 
-    toast.success(listingId ? "Listing updated" : "Listing created");
-    router.push("/host/listings");
+    // The server's own explanation when the save changed what guests can
+    // see (saved hidden, or sent back to the host for approval).
+    if (data.notice) toast.info(data.notice, { duration: 10000 });
+    else toast.success(listingId ? "Listing updated" : "Listing created");
+    router.push(afterSaveHref);
     router.refresh();
   }
 
@@ -362,8 +449,8 @@ export function ListingForm({ listingId, initialValues }: Props) {
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              required
-              minLength={10}
+              required={!allowIncomplete}
+              minLength={allowIncomplete ? undefined : 10}
               maxLength={5000}
               rows={5}
               value={values.description}
@@ -438,172 +525,131 @@ export function ListingForm({ listingId, initialValues }: Props) {
       <Card>
         <CardHeader>
           <SectionHeading icon={Wallet}>
-            {values.propertyType === "HOTEL" ? "Fees, discounts & stay length" : "Capacity & pricing"}
+            {values.propertyType === "HOTEL" ? "Stay length" : "Capacity, pricing & stay length"}
           </SectionHeading>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {values.propertyType !== "HOTEL" && (
-              <Field>
-                <Label htmlFor="price">Price / night (£)</Label>
-                <Input
-                  id="price"
-                  required
-                  type="number"
-                  min={1}
-                  max={10000}
-                  step="0.01"
-                  value={values.pricePerNight}
-                  onChange={(e) => update("pricePerNight", e.target.value)}
-                  aria-describedby="price-hint"
-                />
-                <p id="price-hint" className="mt-1.5 text-xs text-stone-500">{nightlyEarningsHint(values.pricePerNight)}</p>
-              </Field>
-            )}
-            {values.propertyType !== "HOTEL" && (
-              <Field>
-                <Label htmlFor="weekendPrice">Fri &amp; Sat price / night (£, optional)</Label>
-                <Input
-                  id="weekendPrice"
-                  type="number"
-                  min={values.pricePerNight || 1}
-                  max={10000}
-                  step="0.01"
-                  value={values.weekendPricePerNight}
-                  onChange={(e) => update("weekendPricePerNight", e.target.value)}
-                  placeholder={values.pricePerNight || "Same as weekdays"}
-                />
-                <FieldHint>Charged for Friday and Saturday nights. Leave blank to charge the same every night.</FieldHint>
-              </Field>
-            )}
-            <Field>
-              <Label htmlFor="weeklyDiscountPercent">Weekly discount % (optional)</Label>
-              <Input
-                id="weeklyDiscountPercent"
-                type="number"
-                min={0}
-                max={90}
-                value={values.weeklyDiscountPercent}
-                onChange={(e) => update("weeklyDiscountPercent", e.target.value)}
-                placeholder="0"
-              />
-              <FieldHint>Applied to stays of 7+ nights.</FieldHint>
-            </Field>
-            <Field>
-              <Label htmlFor="monthlyDiscountPercent">Monthly discount % (optional)</Label>
-              <Input
-                id="monthlyDiscountPercent"
-                type="number"
-                min={0}
-                max={90}
-                value={values.monthlyDiscountPercent}
-                onChange={(e) => update("monthlyDiscountPercent", e.target.value)}
-                placeholder="0"
-              />
-              <FieldHint>Applied to stays of 28+ nights.</FieldHint>
-            </Field>
-            <Field>
-              <Label htmlFor="lastMinuteDiscountPercent">Last-minute deal % (optional)</Label>
-              <Input
-                id="lastMinuteDiscountPercent"
-                type="number"
-                min={LAST_MINUTE_MIN_PERCENT}
-                max={LAST_MINUTE_MAX_PERCENT}
-                value={values.lastMinuteDiscountPercent}
-                onChange={(e) => update("lastMinuteDiscountPercent", e.target.value)}
-                placeholder="e.g. 15"
-              />
-              <FieldHint>
-                Off stays that start soon - featured in Last Minute Deals on the homepage. Doesn&apos;t stack
-                with weekly or monthly discounts; guests get the larger one.
-              </FieldHint>
-            </Field>
-            <Field>
-              <Label htmlFor="lastMinuteWindowDays">Last-minute deal applies to check-ins within</Label>
-              <Select
-                id="lastMinuteWindowDays"
-                value={values.lastMinuteWindowDays || String(LAST_MINUTE_WINDOW_OPTIONS[1])}
-                onChange={(e) => update("lastMinuteWindowDays", e.target.value)}
-                disabled={!values.lastMinuteDiscountPercent}
-              >
-                {LAST_MINUTE_WINDOW_OPTIONS.map((days) => (
-                  <option key={days} value={days}>
-                    {days} days
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {values.propertyType !== "HOTEL" && (
-              <>
+        <CardContent className="flex flex-col gap-4">
+          {values.propertyType !== "HOTEL" && (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field>
+                  <Label htmlFor="price">Price / night (£)</Label>
+                  <Input
+                    id="price"
+                    required={!allowIncomplete}
+                    type="number"
+                    min={allowIncomplete ? 0 : 1}
+                    max={10000}
+                    step="0.01"
+                    value={values.pricePerNight}
+                    onChange={(e) => update("pricePerNight", e.target.value)}
+                    aria-describedby="price-hint"
+                  />
+                  <p id="price-hint" className="mt-1.5 text-xs text-stone-500">{nightlyEarningsHint(values.pricePerNight)}</p>
+                </Field>
+                <Field>
+                  <Label htmlFor="weekendPrice">Fri &amp; Sat price / night (£, optional)</Label>
+                  <Input
+                    id="weekendPrice"
+                    type="number"
+                    min={values.pricePerNight || 1}
+                    max={10000}
+                    step="0.01"
+                    value={values.weekendPricePerNight}
+                    onChange={(e) => update("weekendPricePerNight", e.target.value)}
+                    placeholder={values.pricePerNight || "Same as weekdays"}
+                  />
+                  <FieldHint>Charged for Friday and Saturday nights. Leave blank to charge the same every night.</FieldHint>
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Field>
                   <Label htmlFor="maxGuests">Max guests</Label>
-                  <Input
+                  <NumberSelect
                     id="maxGuests"
-                    required
-                    type="number"
-                    min={1}
                     value={values.maxGuests}
-                    onChange={(e) => update("maxGuests", e.target.value)}
+                    options={countOptions(LISTING_COUNT_RANGES.maxGuests, initialValues?.maxGuests)}
+                    onChange={(v) => update("maxGuests", v)}
                   />
                 </Field>
                 <Field>
                   <Label htmlFor="bedrooms">Bedrooms</Label>
-                  <Input
+                  <NumberSelect
                     id="bedrooms"
-                    required
-                    type="number"
-                    min={0}
                     value={values.bedrooms}
-                    onChange={(e) => update("bedrooms", e.target.value)}
+                    options={countOptions(LISTING_COUNT_RANGES.bedrooms, initialValues?.bedrooms)}
+                    onChange={(v) => update("bedrooms", v)}
+                    format={(n) => (n === 0 ? "0 (studio)" : String(n))}
                   />
                 </Field>
                 <Field>
                   <Label htmlFor="beds">Beds</Label>
-                  <Input
+                  <NumberSelect
                     id="beds"
-                    required
-                    type="number"
-                    min={1}
                     value={values.beds}
-                    onChange={(e) => update("beds", e.target.value)}
+                    options={countOptions(LISTING_COUNT_RANGES.beds, initialValues?.beds)}
+                    onChange={(v) => update("beds", v)}
                   />
                 </Field>
                 <Field>
                   <Label htmlFor="bathrooms">Bathrooms</Label>
-                  <Input
+                  <NumberSelect
                     id="bathrooms"
-                    required
-                    type="number"
-                    min={0}
                     value={values.bathrooms}
-                    onChange={(e) => update("bathrooms", e.target.value)}
+                    options={countOptions(LISTING_COUNT_RANGES.bathrooms, initialValues?.bathrooms)}
+                    onChange={(v) => update("bathrooms", v)}
                   />
                 </Field>
-              </>
-            )}
+              </div>
+            </>
+          )}
+          <div className="grid grid-cols-2 gap-4">
             <Field>
-              <Label htmlFor="minNights">Minimum nights</Label>
-              <Input
+              <Label htmlFor="minNights">Minimum stay</Label>
+              <NumberSelect
                 id="minNights"
-                required
-                type="number"
-                min={1}
                 value={values.minNights}
-                onChange={(e) => update("minNights", e.target.value)}
+                options={nightOptions(initialValues?.minNights)}
+                onChange={(v) => update("minNights", v)}
+                format={nightsLabel}
               />
             </Field>
             <Field>
-              <Label htmlFor="maxNights">Maximum nights (optional)</Label>
-              <Input
+              <Label htmlFor="maxNights">Maximum stay</Label>
+              <NumberSelect
                 id="maxNights"
-                type="number"
-                min={1}
                 value={values.maxNights}
-                onChange={(e) => update("maxNights", e.target.value)}
-                placeholder="No limit"
+                options={nightOptions(initialValues?.maxNights)}
+                onChange={(v) => update("maxNights", v)}
+                format={nightsLabel}
+                emptyLabel="No maximum"
+                describedBy={stayError ? "maxNights-error" : undefined}
               />
+              {stayError && (
+                <p id="maxNights-error" role="alert" className="mt-1.5 text-sm text-red-600">
+                  {stayError}
+                </p>
+              )}
             </Field>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <SectionHeading icon={Percent}>Discounts</SectionHeading>
+        </CardHeader>
+        <CardContent>
+          <ListingDiscounts
+            weeklyDiscountPercent={values.weeklyDiscountPercent}
+            monthlyDiscountPercent={values.monthlyDiscountPercent}
+            lastMinuteDiscountPercent={values.lastMinuteDiscountPercent}
+            lastMinuteWindowDays={values.lastMinuteWindowDays}
+            pricePerNight={values.pricePerNight}
+            weekendPricePerNight={values.weekendPricePerNight}
+            isHotel={values.propertyType === "HOTEL"}
+            onChange={(key, value) => update(key, value)}
+          />
         </CardContent>
       </Card>
 
@@ -675,25 +721,21 @@ export function ListingForm({ listingId, initialValues }: Props) {
           <SectionHeading icon={ClipboardList}>House rules & check-in</SectionHeading>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field>
-              <Label htmlFor="checkInTime">Check-in time</Label>
-              <Input
-                id="checkInTime"
-                value={values.checkInTime}
-                onChange={(e) => update("checkInTime", e.target.value)}
-                placeholder="After 3:00 PM"
-              />
-            </Field>
-            <Field>
-              <Label htmlFor="checkOutTime">Checkout time</Label>
-              <Input
-                id="checkOutTime"
-                value={values.checkOutTime}
-                onChange={(e) => update("checkOutTime", e.target.value)}
-                placeholder="Before 11:00 AM"
-              />
-            </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <TimeField
+              field="checkInTime"
+              label="Check-in from"
+              value={values.checkInTime}
+              legacy={legacyTimes.checkInTime}
+              onChange={updateTime}
+            />
+            <TimeField
+              field="checkOutTime"
+              label="Checkout by"
+              value={values.checkOutTime}
+              legacy={legacyTimes.checkOutTime}
+              onChange={updateTime}
+            />
           </div>
 
           <Field>
@@ -758,25 +800,30 @@ export function ListingForm({ listingId, initialValues }: Props) {
             </AmenityCheckbox>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field>
-              <Label htmlFor="quietHoursStart">Quiet hours start (optional)</Label>
-              <Input
-                id="quietHoursStart"
+          <div>
+            <div className="grid grid-cols-2 gap-4">
+              <TimeField
+                field="quietHoursStart"
+                label="Quiet hours start (optional)"
                 value={values.quietHoursStart}
-                onChange={(e) => update("quietHoursStart", e.target.value)}
-                placeholder="10:00 PM"
+                legacy={legacyTimes.quietHoursStart}
+                onChange={updateTime}
+                invalid={Boolean(quietError)}
               />
-            </Field>
-            <Field>
-              <Label htmlFor="quietHoursEnd">Quiet hours end (optional)</Label>
-              <Input
-                id="quietHoursEnd"
+              <TimeField
+                field="quietHoursEnd"
+                label="Quiet hours end (optional)"
                 value={values.quietHoursEnd}
-                onChange={(e) => update("quietHoursEnd", e.target.value)}
-                placeholder="8:00 AM"
+                legacy={legacyTimes.quietHoursEnd}
+                onChange={updateTime}
+                invalid={Boolean(quietError)}
               />
-            </Field>
+            </div>
+            {quietError ? (
+              <FieldError>{quietError}</FieldError>
+            ) : (
+              <FieldHint>Overnight is fine - for example 22:00 to 07:00.</FieldHint>
+            )}
           </div>
 
           <Field>
@@ -899,6 +946,54 @@ export function ListingForm({ listingId, initialValues }: Props) {
         {listingId ? "Save changes" : "Create listing"}
       </Button>
     </form>
+  );
+}
+
+/**
+ * A native time picker (the iPhone wheel, a desktop hh:mm box). A saved
+ * free-text time from before the picker is shown underneath, exactly as
+ * guests see it, and stays as it is until the host picks a time or removes
+ * it - never rewritten just because the form was saved.
+ */
+function TimeField({
+  field,
+  label,
+  value,
+  legacy,
+  onChange,
+  invalid = false,
+}: {
+  field: ListingTimeField;
+  label: string;
+  value: string;
+  legacy?: string;
+  onChange: (field: ListingTimeField, value: string) => void;
+  invalid?: boolean;
+}) {
+  const hintId = `${field}-legacy`;
+  return (
+    <Field>
+      <Label htmlFor={field}>{label}</Label>
+      <Input
+        id={field}
+        type="time"
+        value={value}
+        invalid={invalid}
+        onChange={(e) => onChange(field, e.target.value)}
+        aria-describedby={legacy ? hintId : undefined}
+      />
+      {legacy !== undefined ? (
+        <p id={hintId} className="mt-1.5 text-xs text-stone-500">
+          Guests currently see &ldquo;{legacy}&rdquo;. That stays as it is until you pick a new time, or{" "}
+          <button type="button" className="focus-ring rounded font-medium text-brand-700 underline" onClick={() => onChange(field, "")}>
+            remove it
+          </button>
+          .
+        </p>
+      ) : (
+        value && <p className="mt-1.5 text-xs text-stone-500">Guests see {formatListingTime(value)}.</p>
+      )}
+    </Field>
   );
 }
 

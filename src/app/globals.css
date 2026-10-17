@@ -26,7 +26,9 @@
      slightly brighter ivory for cards/panels that sit on top of it, so
      elevation still reads even though neither is stark white. */
   --background: #f6f3ec;
-  --foreground: #22201a;
+  /* Text: the logo's "Stay" espresso (--color-ink), so headings and copy
+     share the wordmark's warm dark brown rather than a neutral near-black. */
+  --foreground: #2b1712;
   --surface: #fdfbf7;
   --surface-muted: #efe9dc;
   --border-subtle: #e3ddce;
@@ -52,7 +54,7 @@
   --color-brand-700: #954328;
   --color-brand-800: #723622;
   --color-brand-900: #50281b;
-  --color-brand-950: #301a13;
+  --color-brand-950: #2b1712;
 
   /* Accent: warm amber, used sparingly for highlights (ratings, badges) */
   --color-accent-400: #fbbf24;
@@ -64,7 +66,7 @@
      darkest shade) rather than an unrelated navy, so the two halves of the
      wordmark read as one considered pairing instead of two colors that
      just happen to sit next to each other. */
-  --color-ink: #301a13;
+  --color-ink: #2b1712;
 
   /* Warm brown-black tint (not a cool blue-grey) so drop shadows read as
      part of the same warm palette as the background/surface tones above. */
@@ -236,28 +238,6 @@ body {
   .confirm-ping {
     animation: none;
   }
-}
-
-/* Homepage section entrances: each major section fades/slides in once as it
-   first enters the viewport (see useRevealOnScroll) - a single subtle beat,
-   not a per-scroll replay, and skipped entirely under reduced-motion by
-   never removing the .reveal-hidden class in the first place. */
-@keyframes reveal-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.reveal-hidden {
-  opacity: 0;
-  transform: translateY(14px);
-}
-.reveal-visible {
-  animation: reveal-in 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Hosting pages: content settles 4px into place when a page arrives, so
@@ -476,34 +456,6 @@ body {
   }
 }
 
-/* Homepage "Now covering" pill row: a slow, continuous
-   drift through every Fylde Coast town instead of a manual swipe-to-see-more
-   strip - the list is rendered twice back to back (see NowCovering.tsx) and this
-   translates the track exactly one copy's width (-50%) so the loop point is
-   invisible. 36s/linear reads as ambient movement, not something drawing
-   attention away from the search bar above it. Paused on hover/focus so a
-   pointer user can actually read and click a pill instead of chasing it. */
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-.animate-marquee {
-  animation: marquee 36s linear infinite;
-}
-.animate-marquee:hover,
-.animate-marquee:focus-within {
-  animation-play-state: paused;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-marquee {
-    animation: none;
-  }
-}
-
 /* Property-card photo crossfade (CrossfadeImages): the incoming photo fades
    in over the outgoing one, which stays fully visible underneath. An
    animation rather than a transition so it replays whichever photo becomes
@@ -521,60 +473,6 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-card-photo-fade {
-    animation: none;
-  }
-}
-
-/* Homepage Spotlight showcase (SpotlightShowcase.tsx).
-   - spotlight-progress fills the current stay's progress bar; the bar's own
-     animationend is what moves the showcase on, so pausing the animation
-     (animation-play-state) pauses the showcase with no separate timer to
-     keep in step. The duration is set inline from SPOTLIGHT_SLIDE_MS.
-   - spotlight-drift: the photo's slow push-in while its stay is showing.
-   - spotlight-rise: the stay's details easing in as it arrives.
-   Under reduced motion nothing drifts or rises, and the showcase never
-   moves on by itself (the component doesn't start the progress at all). */
-@keyframes spotlight-progress {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-.animate-spotlight-progress {
-  transform-origin: left;
-  animation-name: spotlight-progress;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-@keyframes spotlight-drift {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.07);
-  }
-}
-.animate-spotlight-drift {
-  animation: spotlight-drift 9s ease-out forwards;
-}
-@keyframes spotlight-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-spotlight-rise {
-  animation: spotlight-rise 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-spotlight-drift,
-  .animate-spotlight-rise {
     animation: none;
   }
 }
@@ -622,4 +520,16 @@ html .rdp-root {
   --rdp-accent-background-color: var(--color-brand-50);
   --rdp-today-color: var(--color-brand-700);
   font-size: 0.875rem;
+}
+
+/* The homepage hero's words settling in as each place comes round (HeroSlides). */
+@keyframes hero-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

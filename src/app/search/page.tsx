@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { SearchBar } from "@/components/SearchBar";
 import { ListingsGrid } from "@/components/search/ListingsGrid";
 import { SearchResultsLoader } from "@/components/search/SearchResultsLoader";
-import { findLandmarkByName } from "@/lib/landmarks";
+import { PLACE_RADIUS_MILES, parseSearchRequest } from "@/lib/searchRequest";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -21,9 +21,18 @@ export default async function SearchPage({
   searchParams: Promise<SearchParams>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const nearParam = typeof resolvedSearchParams.near === "string" ? resolvedSearchParams.near : "";
-  const landmark = nearParam ? findLandmarkByName(nearParam) : undefined;
-  const city = typeof resolvedSearchParams.city === "string" ? resolvedSearchParams.city.trim() : "";
+  // The heading names the search only once it's valid - ListingsGrid
+  // explains what's missing otherwise.
+  const request = parseSearchRequest(resolvedSearchParams);
+  const location = request.ok ? request.location : null;
+  const heading =
+    location?.kind === "landmark"
+      ? `Stays near ${location.name}`
+      : location?.kind === "place"
+        ? `Stays near ${location.label}`
+        : location?.kind === "town"
+          ? `Stays in ${location.city}`
+          : "Find a place to stay";
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
@@ -33,11 +42,13 @@ export default async function SearchPage({
 
       <div className="mt-8">
         <h1 className="text-xl font-bold text-foreground sm:text-2xl">
-          {landmark ? `Stays near ${landmark.name}` : city ? `Stays in ${city}` : "Stays from local hosts"}
+          {heading}
         </h1>
-        {landmark && (
+        {location && location.kind !== "town" && (
           <p className="mt-1 text-sm text-stone-500">
-            Sorted by distance from {landmark.name}, {landmark.town} - use Sort to change that.
+            Within {location.kind === "place" && location.bounds ? `${location.label} or ` : ""}{PLACE_RADIUS_MILES} miles of{" "}
+            {location.kind === "place" ? location.label : `${location.name}, ${location.town}`}, nearest first - use Sort to
+            change the order.
           </p>
         )}
         <div className="mt-6">

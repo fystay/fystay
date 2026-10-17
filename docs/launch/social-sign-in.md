@@ -66,10 +66,11 @@ Google/Apple apps, see the testing section). Rebuild after adding.
    - User type **External**.
    - App name **FYStay**, user support email (an inbox you read), logo
      (optional, triggers Google's brand review).
-   - App domain: home page `https://fystay.vercel.app`, privacy policy
-     `https://fystay.vercel.app/legal/privacy`, terms
-     `https://fystay.vercel.app/legal/terms`.
-   - Authorized domains: `fystay.vercel.app` (and your own domain later).
+   - App domain: home page `https://www.fystay.co.uk`, privacy policy
+     `https://www.fystay.co.uk/legal/privacy`, terms
+     `https://www.fystay.co.uk/legal/terms`.
+   - Authorized domains: `fystay.co.uk` (plus `fystay.vercel.app` if you
+     still test on the Vercel address).
      Google may ask you to prove you own the domain in Google Search
      Console; with a custom domain that's a DNS record.
    - Scopes: only the three defaults, `openid`, `email`, `profile`. These
@@ -80,9 +81,12 @@ Google/Apple apps, see the testing section). Rebuild after adding.
 3. **OAuth client** (APIs & Services → Credentials → Create credentials →
    OAuth client ID):
    - Application type **Web application**, name "FYStay web".
-   - **Authorized JavaScript origins:** `https://fystay.vercel.app`,
+   - **Authorized JavaScript origins:** `https://www.fystay.co.uk`,
      `http://localhost:3000`.
-   - **Authorized redirect URIs:** `https://fystay.vercel.app/api/auth/callback/google`,
+   - **Authorized redirect URIs:** `https://www.fystay.co.uk/api/auth/callback/google`
+     (exactly this - the live site has signed in from www.fystay.co.uk
+     since 11 Oct, and Google refuses any address not on this list with
+     "Error 400: redirect_uri_mismatch"), and
      `http://localhost:3000/api/auth/callback/google`.
      Add the Preview branch address too if you'll test there (Google
      doesn't accept wildcards).

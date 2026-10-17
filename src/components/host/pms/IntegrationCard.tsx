@@ -97,10 +97,7 @@ export function IntegrationCard({ summary }: { summary: IntegrationSummary }) {
           ) : summary.live ? (
             <span>Not connected</span>
           ) : (
-            <span>
-              Automatic two-way sync with {summary.label} is on the way. Until then, keep calendars in step with
-              the Calendar sync link on each listing&apos;s calendar page.
-            </span>
+            <span>Not available to connect.</span>
           )}
         </div>
       </div>
@@ -134,7 +131,7 @@ export function IntegrationCard({ summary }: { summary: IntegrationSummary }) {
 
 function StatusBadge({ summary }: { summary: IntegrationSummary }) {
   if (!summary.connected) {
-    return <Badge variant="neutral">{summary.live ? "Not connected" : "Coming soon"}</Badge>;
+    return <Badge variant="neutral">{summary.live ? "Not connected" : "Not available"}</Badge>;
   }
   if (summary.lastSyncStatus === "FAILURE") return <Badge variant="danger">Sync error</Badge>;
   if (summary.status === "ERROR") return <Badge variant="danger">Connection error</Badge>;

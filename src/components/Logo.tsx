@@ -28,7 +28,7 @@ export function Logo({
 }: {
   size?: keyof typeof sizeClasses;
   withTagline?: boolean;
-  /** Extra classes for the "Apartments · B&Bs · Lodges" descriptor line
+  /** Extra classes for the "· Apartments · B&Bs · Lodges" descriptor line
    * (small spaced capitals, sized per logo size). */
   taglineClassName?: string;
   className?: string;
@@ -68,6 +68,9 @@ export function Logo({
           )}
         >
           {/* The spaces are for screen readers; flex layout ignores them visually. */}
+          <span className={cn("text-stone-400", isHero && "text-white/40")} aria-hidden>
+            &middot;
+          </span>{" "}
           <span>Apartments</span>{" "}
           <span className={cn("text-stone-400", isHero && "text-white/40")} aria-hidden>
             &middot;

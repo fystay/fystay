@@ -9,7 +9,7 @@ try {
   // no .env file, so assume the environment already has DATABASE_URL set
 }
 
-const RAILS = ["Last Minute Deals", "More from FYStay"];
+const RAILS = ["Spotlight stays", "Last Minute Deals"];
 
 function rail(page: Page, label: string) {
   // The carousel itself - a homepage row's <section> can share its name.

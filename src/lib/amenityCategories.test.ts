@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AMENITY_CATEGORIES,
+  FILTER_AMENITIES,
   availableAmenityCategories,
   matchesAmenityCategories,
 } from "./amenityCategories";
@@ -72,5 +73,36 @@ describe("availableAmenityCategories", () => {
 
   it("returns nothing when no listings are given", () => {
     expect(availableAmenityCategories([])).toEqual([]);
+  });
+});
+
+describe("the Filters panel's core amenities", () => {
+  const test = (key: string, amenities: string[]) => matchesAmenityCategories(amenities, [key]);
+
+  it("offers six, each backed by a real category", () => {
+    expect(FILTER_AMENITIES.map((a) => a.label)).toEqual(["Free WiFi", "Free parking", "Kitchen", "Pet-friendly", "Washer", "Air conditioning"]);
+    for (const { key } of FILTER_AMENITIES) {
+      expect(AMENITY_CATEGORIES.some((c) => c.key === key)).toBe(true);
+    }
+  });
+
+  it("matches the ways hosts actually write them", () => {
+    expect(test("wifi", ["WiFi"])).toBe(true);
+    expect(test("wifi", ["Free wi-fi throughout"])).toBe(true);
+    expect(test("parking", ["Parking"])).toBe(true);
+    expect(test("parking", ["On-street parking"])).toBe(true);
+    expect(test("washer", ["Washer"])).toBe(true);
+    expect(test("washer", ["Washing machine"])).toBe(true);
+    expect(test("washer", ["Laundry room"])).toBe(true);
+    expect(test("air_conditioning", ["Air con"])).toBe(true);
+    expect(test("pet_friendly", ["Dogs welcome"])).toBe(true);
+  });
+
+  it("leaves out what doesn't qualify", () => {
+    expect(test("wifi", ["Paid wifi (£5/day)"])).toBe(false);
+    expect(test("parking", ["Paid parking nearby"])).toBe(false);
+    expect(test("washer", ["Dishwasher"])).toBe(false);
+    expect(test("pet_friendly", ["No pets"])).toBe(false);
+    expect(test("pet_friendly", ["Carpets throughout"])).toBe(false);
   });
 });

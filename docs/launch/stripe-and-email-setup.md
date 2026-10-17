@@ -84,7 +84,7 @@ the version the app's Stripe library speaks.
 - `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`: delayed payment methods (harmless today, since checkout is card-only)
 - `checkout.session.expired`: abandoned payment page, so the dates are freed and credit or promo returned
 - `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`: chargebacks, alerting `DISPUTE_ALERT_EMAIL`
-- `identity.verification_session.verified`, `identity.verification_session.requires_input`: host ID checks (only if you turn on Stripe Identity)
+- `identity.verification_session.verified`, `identity.verification_session.requires_input`, `identity.verification_session.canceled`: guest and host ID checks (only once Stripe Identity is activated on the account; /account also reads the result back from Stripe if an event is missed)
 - `charge.refunded`: a refund made by hand in the Stripe Dashboard (not through FYStay) emails `DISPUTE_ALERT_EMAIL`, because FYStay's booking record doesn't know about it
 - `refund.failed`: a refund Stripe couldn't put back on the guest's card emails `DISPUTE_ALERT_EMAIL`, so someone can pay the guest another way
 
@@ -123,15 +123,22 @@ policy. Check in Stripe that:
 | Variable | Value | Sensitive? |
 |---|---|---|
 | `RESEND_API_KEY` | Resend → API Keys → **Sending access**, restricted to your domain | Yes |
-| `EMAIL_FROM` | e.g. `FYStay <bookings@mail.yourdomain>`, on the verified domain | No |
-| `NEXT_PUBLIC_SUPPORT_EMAIL` | The real support inbox. It's the reply address in every email footer. | No (public) |
+| `EMAIL_FROM` | `FYStay <hello@fystay.co.uk>` - FYStay's one customer address, on every email | No |
+| `EMAIL_REPLY_TO` | Optional; defaults to `hello@fystay.co.uk`. Replies to any email, and the "write to" address in every footer | No |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | The support address shown on the website (contact page, checkout) | No (public) |
 | `DISPUTE_ALERT_EMAIL` | Optional: who gets chargeback alerts (defaults to support) | No |
 
-Resend setup: add a sending subdomain (e.g. `mail.yourdomain`), preferably
-in the EU (Ireland) region. Add the SPF, DKIM and bounce MX records it shows,
-plus a DMARC record (`_dmarc`, starting `p=none`). Wait for **Verified**
-before setting `EMAIL_FROM`. Until then Resend only delivers to the Resend
-account owner.
+Resend setup for `hello@fystay.co.uk`: the sender's domain, `fystay.co.uk`
+itself, must be verified in Resend (a verified `mail.` subdomain only covers
+addresses `@mail.fystay.co.uk`). Add the domain, preferably in the EU
+(Ireland) region, then the SPF, DKIM and bounce records it shows, plus a
+DMARC record (`_dmarc`, starting `p=none`). Wait for **Verified** before
+setting `EMAIL_FROM`. Until then Resend only delivers to the Resend account
+owner.
+
+`hello@fystay.co.uk` must also be a real mailbox (MX records on
+`fystay.co.uk` with your mail provider), because every reply and every
+"write to" link in an email goes there.
 
 ### What gets sent, and when
 

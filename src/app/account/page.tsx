@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 import { isPhoneVerificationConfigured } from "@/lib/phoneVerification";
 import { IdentityVerificationCard } from "@/components/IdentityVerificationCard";
+import { syncIdentityVerification } from "@/lib/identity";
 import { PhoneVerificationCard } from "@/components/PhoneVerificationCard";
 import { PrivacyDataCard } from "@/components/PrivacyDataCard";
 import { ProfileCard } from "@/components/ProfileCard";
@@ -23,8 +24,13 @@ export const metadata: Metadata = { title: "Account", robots: { index: false } }
 
 export default async function AccountPage({ searchParams }: PageProps<"/account">) {
   const session = await auth();
+  const { emailVerified } = await searchParams;
   if (!session?.user) {
-    redirect("/login?callbackUrl=/account");
+    // Opening the "Confirm your email" link while signed out (often on a
+    // phone) still confirms the address - keep the outcome through login so
+    // the login page and then this page can say how it went.
+    const back = typeof emailVerified === "string" ? `/account?emailVerified=${encodeURIComponent(emailVerified)}` : "/account";
+    redirect(`/login?callbackUrl=${encodeURIComponent(back)}`);
   }
 
   const user = await prisma.user.findUniqueOrThrow({
@@ -36,12 +42,19 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
       phone: true,
       phoneVerifiedAt: true,
       identityVerificationStatus: true,
+      stripeIdentitySessionId: true,
       passwordHash: true,
       twoFactorEnabledAt: true,
       emailVerifiedAt: true,
       authIdentities: { select: { provider: true, email: true }, orderBy: { createdAt: "asc" } },
     },
   });
+  // Read an unfinished ID check back from Stripe, so coming back from
+  // Stripe's page (or a missed webhook) shows the real state.
+  const stripe = getStripeClient();
+  const identity = stripe
+    ? await syncIdentityVerification(prisma, stripe, { id: session.user.id, ...user })
+    : { status: user.identityVerificationStatus, processing: false, failureReason: null };
   const identities: ConnectedIdentity[] = user.authIdentities.flatMap(({ provider, email }) =>
     isOAuthProvider(provider) ? [{ provider, email }] : [],
   );
@@ -53,7 +66,6 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
   // Google accounts - a separate, real gap, not silently worked around
   // here).
   const hasPassword = Boolean(user.passwordHash);
-  const { emailVerified } = await searchParams;
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
@@ -82,8 +94,10 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
       <div className="mt-6 flex flex-col gap-4">
         {hasPassword && <EmailChangeCard currentEmail={user.email} />}
         <IdentityVerificationCard
-          status={user.identityVerificationStatus}
-          configured={Boolean(getStripeClient())}
+          status={identity.status}
+          processing={identity.processing}
+          failureReason={identity.failureReason}
+          configured={Boolean(stripe)}
         />
         <PhoneVerificationCard
           verifiedPhone={user.phoneVerifiedAt ? user.phone : null}

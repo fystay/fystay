@@ -3,8 +3,6 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
-import { toast } from "sonner";
 import { Gift, Home, Luggage } from "lucide-react";
 import { REFERRAL_CREDIT_CENTS } from "@/lib/referral";
 import { formatPrice } from "@/lib/format";
@@ -12,11 +10,13 @@ import { Logo } from "@/components/Logo";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldHint, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 import { AuthErrorBanner, SocialSignInButtons, useOAuthErrorMessage } from "@/components/SocialSignInButtons";
 import { cn } from "@/lib/cn";
 import { SITE_NAME } from "@/lib/seo";
 import { sanitizeCallbackUrl } from "@/lib/safeRedirect";
+import { emailFormatError, suggestEmailCorrection } from "@/lib/emailValidation";
 
 const roleOptions = [
   { value: "GUEST" as const, label: "Book stays", icon: Luggage },
@@ -46,6 +46,11 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
     searchParams.get("role")?.toUpperCase() === "HOST" ? "HOST" : "GUEST",
   );
   const [termsAccepted, setTermsAccepted] = useState(false);
+  // "Did you mean …?" for a likely typo (fystay.couk, gmial.com). Never
+  // applied without the person choosing it; keeping the address as typed
+  // is sent to the server so it doesn't ask again.
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
+  const [emailConfirmedAsTyped, setEmailConfirmedAsTyped] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -66,6 +71,16 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
       setError("Password must be at least 8 characters.");
       return;
     }
+    const formatError = emailFormatError(email);
+    if (formatError) {
+      setError(formatError);
+      return;
+    }
+    const suggestion = emailConfirmedAsTyped ? null : suggestEmailCorrection(email);
+    if (suggestion) {
+      setEmailSuggestion(suggestion);
+      return;
+    }
     if (!termsAccepted) {
       setError("You must agree to the Terms and Privacy Policy.");
       return;
@@ -78,7 +93,16 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
       res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role, referralCode, termsAccepted }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role,
+          referralCode,
+          termsAccepted,
+          emailConfirmedAsTyped,
+          callbackUrl: next ?? undefined,
+        }),
       });
     } catch {
       setError("Couldn't reach FYStay - check your connection and try again.");
@@ -86,30 +110,47 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
       return;
     }
 
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      suggestion?: string;
+      emailSent?: boolean;
+      devVerifyUrl?: string;
+    };
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Something went wrong.");
+      if (res.status === 422 && data.suggestion) setEmailSuggestion(data.suggestion);
+      else setError(data.error ?? "Something went wrong.");
       setLoading(false);
       return;
     }
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    if (result?.error) {
-      setLoading(false);
-      router.push(callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login");
-      return;
+    // No sign-in yet: the account works once the link in the email is
+    // opened. The next page says whether the email actually went - a send
+    // the provider refused is never shown as sent.
+    if (data.devVerifyUrl) {
+      try {
+        sessionStorage.setItem("fystay.devVerifyUrl", data.devVerifyUrl);
+      } catch {
+        // Local development convenience only.
+      }
     }
+    const params = new URLSearchParams({ sent: data.emailSent ? "1" : "0", email: email.trim().toLowerCase() });
+    if (next) params.set("callbackUrl", next);
+    router.push(`/verify-email?${params}`);
+  }
 
-    // Stays busy until the next page is on screen (see LoginForm).
-    toast.success(`Welcome to ${SITE_NAME}! We've sent a link to ${email} - tap it to confirm your email.`);
+  // Where to land after confirming the email and logging in.
+  const next = callbackUrl ?? (role === "HOST" ? "/host/dashboard" : null);
 
-    router.push(callbackUrl ?? (role === "HOST" ? "/host/dashboard" : "/"));
-    router.refresh();
+  function applySuggestion() {
+    if (!emailSuggestion) return;
+    setEmail(emailSuggestion);
+    setEmailSuggestion(null);
+    setEmailConfirmedAsTyped(false);
+  }
+
+  function keepTypedEmail() {
+    setEmailSuggestion(null);
+    setEmailConfirmedAsTyped(true);
   }
 
   return (
@@ -184,14 +225,36 @@ function RegisterFormInner({ providers, rememberedProvider }: RegisterFormProps)
                 required
                 autoComplete="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailSuggestion(null);
+                  setEmailConfirmedAsTyped(false);
+                }}
+                onBlur={() => {
+                  if (!emailConfirmedAsTyped && !emailFormatError(email)) setEmailSuggestion(suggestEmailCorrection(email));
+                }}
+                aria-describedby={emailSuggestion ? "email-suggestion" : undefined}
               />
+              {emailSuggestion && (
+                <div id="email-suggestion" role="alert" className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                  <p>
+                    Did you mean <strong className="break-all font-semibold">{emailSuggestion}</strong>?
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button type="button" size="sm" onClick={applySuggestion}>
+                      Use {emailSuggestion}
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={keepTypedEmail}>
+                      No, keep {email.trim()}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Field>
             <Field>
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"

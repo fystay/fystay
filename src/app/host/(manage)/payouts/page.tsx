@@ -4,13 +4,14 @@ import { redirect } from "next/navigation";
 import { Check, ChevronLeft, ExternalLink, X } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { isConnectReady, refreshConnectAccountStatus } from "@/lib/stripeConnect";
+import { isConnectReady, loadConnectAccountStatus, type ConnectRequirements } from "@/lib/stripeConnect";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { StripeBadge } from "@/components/StripeBadge";
 import { getStripeClient } from "@/lib/stripe";
+import { RefreshWhileStripeFinishes } from "@/components/RefreshWhileStripeFinishes";
 
 export const metadata: Metadata = { title: "Payouts", robots: { index: false } };
 
@@ -28,13 +29,27 @@ export default async function HostPayoutsPage({
 
   let host = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
 
-  // Coming straight back from Stripe's own onboarding flow - re-read the
-  // account directly rather than waiting on the account.updated webhook,
-  // which may be slower to arrive (or, in local development, not wired up
-  // at all).
-  if (onboarding === "return" && host.stripeConnectAccountId) {
-    const refreshed = await refreshConnectAccountStatus(host.stripeConnectAccountId);
-    if (refreshed) host = { ...host, ...refreshed };
+  // Until payouts are active, every visit re-reads the account from Stripe -
+  // coming back from onboarding, refreshing, or arriving later - rather than
+  // waiting on the account.updated webhook, which may be slower to arrive
+  // (or, in local development, not wired up at all). Returning from Stripe
+  // proves nothing by itself; only what Stripe reports is shown. If Stripe
+  // can't be reached, the last stored status stands and the page says so.
+  let requirements: ConnectRequirements | null = null;
+  let statusUnavailable = false;
+  if (host.stripeConnectAccountId && (!isConnectReady(host) || onboarding === "return")) {
+    try {
+      const live = await loadConnectAccountStatus(host.stripeConnectAccountId);
+      if (live) {
+        host = { ...host, ...live.flags };
+        requirements = live.requirements;
+      }
+    } catch (error) {
+      console.error("Couldn't read Connect status for payouts page", {
+        type: error instanceof Error ? error.name : typeof error,
+      });
+      statusUnavailable = true;
+    }
   }
 
   const ready = isConnectReady(host);
@@ -61,6 +76,34 @@ export default async function HostPayoutsPage({
             Stripe keys are set up.
           </CardContent>
         </Card>
+      )}
+
+      {error === "connect_unavailable" && (
+        <Notice tone="amber" title="Payout setup isn't open yet">
+          FYStay is finishing its own setup with Stripe, so new payout accounts can&apos;t be
+          created just now. Nothing was saved and you haven&apos;t been charged. We&apos;ve been told
+          about it - please try again later.
+        </Notice>
+      )}
+
+      {error === "connect_failed" && (
+        <Notice tone="red" title="We couldn't open Stripe">
+          Something went wrong starting your payout setup. Nothing was saved. Please try again in a
+          moment - if it keeps happening, contact us.
+        </Notice>
+      )}
+
+      {error === "dashboard_failed" && (
+        <Notice tone="red" title="We couldn't open your Stripe dashboard">
+          Please try again in a moment.
+        </Notice>
+      )}
+
+      {statusUnavailable && (
+        <Notice tone="amber" title="Couldn't check with Stripe">
+          We couldn&apos;t reach Stripe to check your latest status, so this page shows what we last
+          heard. Refresh to try again.
+        </Notice>
       )}
 
       {error === "email_not_verified" && (
@@ -116,10 +159,16 @@ export default async function HostPayoutsPage({
                     </strong>{" "}
                   </>
                 )}
-                {started
+                {started && requirements?.due.length === 0
+                  ? "Almost there - Stripe is finishing setting up your account."
+                  : started
                   ? "Stripe still needs a few more details before you can be paid."
                   : "FYStay uses Stripe to pay hosts directly and securely - we never see or store your bank details."}
               </p>
+              {requirements && <RequirementsNotice requirements={requirements} />}
+              {/* Nothing left for the host to do: Stripe is just switching the
+                  account on, usually within seconds of their return. */}
+              {requirements && requirements.due.length === 0 && <RefreshWhileStripeFinishes />}
               <ul className="flex flex-col gap-1.5 text-sm text-stone-600">
                 <ChecklistItem label="Details submitted" done={host.stripeConnectDetailsSubmitted} />
                 <ChecklistItem label="Can receive booking payouts" done={host.stripeConnectChargesEnabled} />
@@ -146,5 +195,51 @@ function ChecklistItem({ label, done }: { label: string; done: boolean }) {
       )}
       {label}
     </li>
+  );
+}
+
+function Notice({ tone, title, children }: { tone: "amber" | "red"; title: string; children: React.ReactNode }) {
+  return (
+    <Card
+      role="alert"
+      className={cn("mt-6", tone === "amber" ? "border-amber-200 bg-amber-50" : "border-red-200 bg-red-50")}
+    >
+      <CardContent className={cn("pt-5 text-sm", tone === "amber" ? "text-amber-900" : "text-red-900")}>
+        <p className="font-semibold">{title}</p>
+        <p className="mt-1">{children}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** What Stripe still needs, in Stripe's own plain words - never the details already given. */
+function RequirementsNotice({ requirements }: { requirements: ConnectRequirements }) {
+  const { due, overdue, reviewing, rejected } = requirements;
+  if (due.length > 0) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <p className="font-semibold">
+          {rejected
+            ? "Stripe couldn't verify some of your details."
+            : overdue
+              ? "Stripe needs these details now:"
+              : "Stripe still needs:"}
+        </p>
+        <ul className="mt-1 list-disc pl-5">
+          {due.slice(0, 6).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <p className="mt-1.5">Use the button below to continue on Stripe.</p>
+      </div>
+    );
+  }
+  return (
+    <p role="status" className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700">
+      {reviewing
+        ? "You've sent Stripe everything it asked for. Stripe is checking your details - this usually takes a few minutes but can take a couple of days."
+        : "You've sent Stripe everything it asked for. Stripe is finishing setting up your account - this usually takes a few seconds."}{" "}
+      This page updates by itself.
+    </p>
   );
 }

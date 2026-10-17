@@ -68,7 +68,7 @@ test("guest can message a host from the listing page, and the host can reply", a
     // Host sees an unread badge, opens the conversation, and replies.
     await login(hostPage, "host@fystay.dev", "hostpass123");
     await hostPage.goto("/", { waitUntil: "networkidle" });
-    await expect(hostPage.locator("header button span.bg-red-500")).toBeVisible();
+    await expect(hostPage.locator("header button:visible span.bg-red-500")).toBeVisible();
 
     await hostPage.goto("/inbox");
     // On the conversation itself (the hosting menu shows its own unread count too).
@@ -125,6 +125,7 @@ test("a host can't start a conversation with a guest who never booked their list
       email: strangerEmail,
       passwordHash: await bcrypt.hash("strangerpass123", 10),
       role: "GUEST",
+      emailVerifiedAt: new Date(),
       referralCode: generateReferralCode(),
     },
   });

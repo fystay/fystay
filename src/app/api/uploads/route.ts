@@ -9,7 +9,9 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/g
 
 async function postHandler(request: Request) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "HOST") {
+  // Hosts for their own listings; admins when preparing one for an owner
+  // (admin-assisted onboarding). Same rate limit either way.
+  if (!session?.user || (session.user.role !== "HOST" && session.user.role !== "ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

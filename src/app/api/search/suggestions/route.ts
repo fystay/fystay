@@ -4,6 +4,7 @@ import { bookableHostWhere } from "@/lib/stripeConnect";
 import { LANDMARKS } from "@/lib/landmarks";
 import { popularDestinations, rankDestinations, rankHotels, rankLandmarks } from "@/lib/searchSuggestions";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { suggestPlaces, validSessionToken } from "@/lib/googlePlaces";
 
 // Small, fixed limits keep this fast: the client debounces keystrokes and
 // aborts stale requests, but the query itself should stay cheap regardless.
@@ -12,6 +13,9 @@ const MAX_RESULTS_PER_GROUP = 5;
 // cap than destinations/hotels keeps the dropdown from being dominated by
 // them when a query happens to match several.
 const MAX_LANDMARK_RESULTS = 4;
+// Google Places suggestions (any UK place or postcode) come after FYStay's
+// own towns and landmarks, so they never crowd those out.
+const MAX_PLACE_RESULTS = 4;
 
 async function getHandler(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -35,23 +39,30 @@ async function getHandler(request: Request) {
         popular: true,
         destinations: popularDestinations(cities, { limit: MAX_RESULTS_PER_GROUP + 1 }),
         landmarks: [],
+        places: [],
         hotels: [],
       });
     }
 
-    const [destinations, matchingListings] = await Promise.all([
+    const [destinations, matchingListings, places] = await Promise.all([
       Promise.resolve(rankDestinations(cities, query, MAX_RESULTS_PER_GROUP)),
       prisma.listing.findMany({
         where: { published: true, suspendedAt: null, ...bookableHostWhere(), title: { contains: query, mode: "insensitive" } },
         select: { id: true, title: true, city: true, country: true, photos: true },
         take: 20,
       }),
+      // Empty unless GOOGLE_MAPS_API_KEY is set; never throws.
+      suggestPlaces(query, { limit: MAX_PLACE_RESULTS, sessionToken: validSessionToken(searchParams.get("session")) }),
     ]);
 
     const landmarks = rankLandmarks(LANDMARKS, query, MAX_LANDMARK_RESULTS);
     const hotels = rankHotels(matchingListings, query, MAX_RESULTS_PER_GROUP);
+    // Drop a Google result that just repeats one of FYStay's own towns or
+    // landmarks already listed above it.
+    const shown = new Set([...destinations.map((d) => d.label), ...landmarks.map((l) => l.label)].map((l) => l.toLowerCase()));
+    const otherPlaces = places.filter((place) => !shown.has(place.label.toLowerCase()));
 
-    return NextResponse.json({ query, popular: false, destinations, landmarks, hotels });
+    return NextResponse.json({ query, popular: false, destinations, landmarks, places: otherPlaces, hotels });
   } catch {
     return NextResponse.json({ error: "Search is temporarily unavailable" }, { status: 503 });
   }

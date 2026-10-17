@@ -10,20 +10,24 @@ export type GrantAdminResult =
  * the first admin (no signup or UI grants the role, by design), so this is
  * how an operator bootstraps one - run from scripts/admin/grant-admin.ts.
  *
- * Only an existing, active account can be promoted: it never creates a user
- * (so it can't mint an admin login nobody owns) and refuses deleted or
- * suspended accounts. Bumping sessionVersion signs the account out
+ * Only an existing, active account whose owner has confirmed the email
+ * address can be promoted: it never creates a user (so it can't mint an
+ * admin login nobody owns), and it refuses an unconfirmed address (anyone
+ * can register one they don't own) and deleted or suspended accounts. Bumping sessionVersion signs the account out
  * everywhere, so the new role is picked up on a fresh login.
  */
 export async function grantAdmin(prisma: PrismaClient, rawEmail: string): Promise<GrantAdminResult> {
   const email = rawEmail.trim().toLowerCase();
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, role: true, deletedAt: true, suspendedAt: true },
+    select: { id: true, role: true, deletedAt: true, suspendedAt: true, emailVerifiedAt: true },
   });
   if (!user) return { outcome: "refused", reason: "No account exists with that email - sign up first." };
   if (user.deletedAt) return { outcome: "refused", reason: "That account has been deleted." };
   if (user.suspendedAt) return { outcome: "refused", reason: "That account is suspended." };
+  if (!user.emailVerifiedAt) {
+    return { outcome: "refused", reason: "That account hasn't confirmed its email address yet - open the confirmation link first." };
+  }
   if (user.role === "ADMIN") return { outcome: "already_admin" };
 
   await prisma.user.update({

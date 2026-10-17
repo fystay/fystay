@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, BedDouble, CalendarCheck2, ShieldCheck, Gift } from "lucide-react";
 import { auth } from "@/auth";
 import { getUserDetailForAdmin } from "@/lib/adminUserLookup";
+import { prisma } from "@/lib/prisma";
+import { UserModerationActions } from "@/components/admin/UserModerationActions";
 import { formatPrice } from "@/lib/format";
 import { SectionHeading } from "@/components/SectionHeading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -49,6 +51,12 @@ export default async function AdminUserDetailPage({
 
   const user = await getUserDetailForAdmin(id);
   if (!user) notFound();
+  const auditEvents = await prisma.adminAuditEvent.findMany({
+    where: { targetUserId: id },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: { id: true, action: true, note: true, createdAt: true, actor: { select: { name: true } } },
+  });
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
@@ -68,8 +76,37 @@ export default async function AdminUserDetailPage({
         <div className="flex gap-2">
           <Badge variant={ROLE_VARIANT[user.role] ?? "neutral"}>{user.role}</Badge>
           {user.deletedAt && <Badge variant="neutral">Deleted account</Badge>}
+          {user.suspendedAt && <Badge variant="danger">Suspended</Badge>}
         </div>
       </div>
+
+      {user.suspendedAt && (
+        <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          Suspended {dateFormatter.format(user.suspendedAt)}
+          {user.suspendedReason ? ` - ${user.suspendedReason}` : ""}
+        </p>
+      )}
+
+      {user.role !== "ADMIN" && !user.deletedAt && (
+        <div className="mt-4">
+          <UserModerationActions userId={user.id} userName={user.name} suspended={Boolean(user.suspendedAt)} />
+        </div>
+      )}
+
+      {auditEvents.length > 0 && (
+        <div className="mt-4 rounded-xl border border-border-subtle px-4 py-3 text-sm">
+          <p className="font-medium text-foreground">Admin record</p>
+          <ul className="mt-1 flex flex-col gap-1 text-stone-600">
+            {auditEvents.map((event) => (
+              <li key={event.id}>
+                {dateFormatter.format(event.createdAt)} · {event.action.replace(/_/g, " ").toLowerCase()} by{" "}
+                {event.actor?.name ?? "a former admin"}
+                {event.note ? ` - ${event.note}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">

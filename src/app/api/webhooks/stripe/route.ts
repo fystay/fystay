@@ -20,7 +20,7 @@ import { BASE_URL } from "@/lib/baseUrl";
 import { activatePaidPromotion } from "@/lib/listingPromotions";
 import { giveBackReservedDiscounts, releaseUnpaidBooking } from "@/lib/bookingLifecycle";
 import { withListingAvailabilityLock } from "@/lib/availabilityLock";
-import { notifyListingPromotionActivated } from "@/lib/listingPromotionNotifications";
+import { notifyListingPromotionActivated, notifyListingPromotionRefunded } from "@/lib/listingPromotionNotifications";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -419,17 +419,30 @@ async function upsertPaymentDispute(dispute: Stripe.Dispute): Promise<void> {
 /**
  * Activates the Spotlight placement a paid Checkout Session was for, then
  * emails the host. activatePaidPromotion only moves an unpaid placement, so
- * a redelivered event activates (and emails) nothing the second time.
+ * a redelivered event activates (and emails) nothing the second time. A
+ * placement it cancelled because the row filled up while the host was paying
+ * has its payment refunded in full - keyed by placement, so a redelivery
+ * doesn't refund twice.
  */
 async function activateListingPromotion(checkoutSession: Stripe.Checkout.Session): Promise<void> {
   const promotionId = checkoutSession.metadata?.promotionId;
   if (!promotionId) return;
-  const activated = await activatePaidPromotion(
-    prisma,
-    promotionId,
-    typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null,
-  );
-  if (activated) await notifyListingPromotionActivated(promotionId);
+  const paymentIntentId = typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null;
+  const activated = await activatePaidPromotion(prisma, promotionId, paymentIntentId);
+  if (activated) {
+    await notifyListingPromotionActivated(promotionId);
+    return;
+  }
+  const promotion = await prisma.listingPromotion.findUnique({ where: { id: promotionId }, select: { status: true } });
+  const stripe = getStripeClient();
+  if (promotion?.status === "CANCELLED" && paymentIntentId && stripe) {
+    await stripe.refunds.create(
+      { payment_intent: paymentIntentId },
+      { idempotencyKey: `spotlight-full-refund:${promotionId}` },
+    );
+    console.warn("Spotlight payment refunded: the row filled up while the host was paying", { promotionId });
+    await sendPaymentAlertOnce(`spotlight-refunded:${promotionId}`, () => notifyListingPromotionRefunded(promotionId));
+  }
 }
 
 /**
@@ -721,11 +734,13 @@ async function postHandler(request: Request) {
     }
   } else if (
     event.type === "identity.verification_session.verified" ||
-    event.type === "identity.verification_session.requires_input"
+    event.type === "identity.verification_session.requires_input" ||
+    event.type === "identity.verification_session.canceled"
   ) {
-    // The only place a user's identityVerificationStatus is ever set to
-    // VERIFIED or FAILED - see createIdentityVerificationSession's own
-    // comment for why this app never marks itself verified. Scoped to the
+    // Stripe's decision, relayed - VERIFIED comes only from here or from
+    // the same session read back from Stripe (syncIdentityVerification).
+    // requires_input is sent when a submitted check fails; canceled when
+    // the session is closed, so the person can start again. Scoped to the
     // session id, not just the userId in metadata, so a stale/superseded
     // session's event can never overwrite the outcome of a newer one.
     const verificationSession = event.data.object;
@@ -733,7 +748,14 @@ async function postHandler(request: Request) {
     if (userId) {
       await prisma.user
         .updateMany({
-          where: { id: userId, stripeIdentitySessionId: verificationSession.id },
+          where: {
+            id: userId,
+            stripeIdentitySessionId: verificationSession.id,
+            // An out-of-order event never takes a verified person back.
+            ...(event.type !== "identity.verification_session.verified" && {
+              identityVerificationStatus: { not: "VERIFIED" as const },
+            }),
+          },
           data: {
             identityVerificationStatus:
               event.type === "identity.verification_session.verified" ? "VERIFIED" : "FAILED",

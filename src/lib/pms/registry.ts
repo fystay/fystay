@@ -30,7 +30,7 @@ const PROVIDER_CONFIG_ENV: Partial<Record<PmsProvider, string[]>> = {
   CLOUDBEDS: ["CLOUDBEDS_CLIENT_ID", "CLOUDBEDS_CLIENT_SECRET"],
 };
 
-/** Whether a host can actually connect this provider here: implemented, and FYStay's own credentials for it are set. Otherwise the UI shows it as coming soon. */
+/** Whether a host can actually connect this provider here: implemented, and FYStay's own credentials for it are set. Otherwise the Channels page doesn't offer it. */
 export function isPmsProviderConnectable(provider: PmsProvider): boolean {
   if (!LIVE_PMS_PROVIDERS.includes(provider)) return false;
   return (PROVIDER_CONFIG_ENV[provider] ?? []).every((name) => Boolean(process.env[name]));

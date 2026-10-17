@@ -76,13 +76,13 @@ export function GuestMenu() {
         aria-controls="guest-menu-panel"
         aria-label="Account menu"
         className={cn(
-          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-2 pl-3 pr-1.5 text-white hover:bg-brand-700 active:bg-brand-800",
+          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-2 pl-1.5 pr-1.5 text-white lg:pl-3 hover:bg-brand-700 active:bg-brand-800",
           // Over the homepage video: the same quiet glass as the section
           // control, so the hero's one solid brand-coloured button is Search.
           isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
         )}
       >
-        <Menu className="h-4 w-4" />
+        <Menu className="hidden h-4 w-4 lg:block" aria-hidden />
         <CircleUserRound className="h-7 w-7 text-white/90" strokeWidth={1.5} />
       </button>
 
@@ -107,8 +107,8 @@ export function GuestMenu() {
           aria-hidden
         />
         <div className="max-h-[70vh] overflow-y-auto p-1.5">
-          {/* Account actions only: the four sections are the tab row under the
-              header on every page (see SectionPillsBar), so they aren't
+          {/* Account actions only: the four sections are the bottom tab bar
+              on phones and in the header on desktop (see SiteBottomNav), so they aren't
               repeated here. */}
           <Link
             href={authHref("/register")}
@@ -124,11 +124,12 @@ export function GuestMenu() {
           >
             Log in
           </Link>
-          <div className="my-1 border-t border-border-subtle" />
+          {/* Phones have this in the site menu on the left (SiteMenu). */}
+          <div className="my-1 hidden border-t border-border-subtle lg:block" />
           <Link
             href="/host"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+            className="hidden items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 lg:flex"
           >
             <Home className="h-4 w-4" aria-hidden />
             List your property

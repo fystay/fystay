@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { httpUrlSchema, listingFieldSchemas } from "@/lib/validation";
 import { lastMinuteDealInput } from "@/lib/dealValidation";
+import { PROPERTY_TYPES, type PropertyType } from "@/lib/propertyType";
+import { listingTimesError } from "@/lib/listingTimes";
 
 // One category of room within a HOTEL listing (see prisma/schema.prisma's
 // RoomType model). Every non-hotel property type has zero of these and
@@ -23,7 +25,7 @@ export const createListingSchema = z
     title: listingFieldSchemas.title,
     description: listingFieldSchemas.description,
     propertyType: z
-      .enum(["APARTMENT", "HOUSE", "HOTEL", "COTTAGE", "VILLA", "STUDIO", "OTHER"])
+      .enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]])
       .optional(),
     city: z.string().min(1).max(100),
     country: z.string().min(1).max(100),
@@ -76,6 +78,14 @@ export const createListingSchema = z
       data.maxNights >= data.minNights,
     { message: "Maximum stay can't be shorter than the minimum stay" },
   )
+  .superRefine((data, ctx) => {
+    // A new listing has no older free-text times to preserve, so every time
+    // sent must be a picker "HH:MM" and quiet hours a real range.
+    const timesError = listingTimesError(data);
+    if (timesError) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: timesError });
+    }
+  })
   .superRefine((data, ctx) => {
     if (data.propertyType === "HOTEL") {
       if (!data.roomTypes || data.roomTypes.length === 0) {

@@ -3,7 +3,8 @@
 import { useRef } from "react";
 import type { TouchEvent } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
+import { PROPERTY_TYPE_LABEL, type PropertyType } from "@/lib/propertyType";
 import { useFormattedPrice } from "@/components/CurrencyProvider";
 import { computeBookingPricing, stayRates } from "@/lib/pricing";
 import { SaveButton } from "@/components/SaveButton";
@@ -31,6 +32,8 @@ export type ListingCardData = {
   monthlyDiscountPercent?: number | null;
   photos: string[];
   amenities: string[];
+  /** Shown beside the town on large cards ("Apartment · Blackpool"), when selected. */
+  propertyType?: PropertyType | null;
   maxGuests: number;
   bedrooms: number;
   reviews: { rating: number }[];
@@ -58,6 +61,7 @@ export function ListingCard({
   promoted = false,
   checkIn,
   showLastMinutePrice = false,
+  cta,
 }: {
   listing: ListingCardData;
   isSaved?: boolean;
@@ -90,6 +94,8 @@ export function ListingCard({
    * Deals row, which only lists a deal when a night inside its window is free.
    */
   showLastMinutePrice?: boolean;
+  /** A closing action line on large cards ("View stay", "View deal"). */
+  cta?: string;
 }) {
   const isLarge = size === "large";
   const rating = computeAverageRating(listing.reviews);
@@ -341,22 +347,77 @@ export function ListingCard({
           )}
         />
       </div>
+      {isLarge ? (
+        // The homepage rails' card text, top to bottom in order of what a
+        // guest scans for: what and where, the name, how many it sleeps, a
+        // real deal's terms, then price, a rating only when guests have left
+        // one, and the way in. Every figure is the listing's own data.
+        <Link href={`/listings/${listing.id}${stayQuery}`} className="focus-ring flex flex-col rounded-xl px-1">
+          <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+            {listing.propertyType ? `${PROPERTY_TYPE_LABEL[listing.propertyType]} · ` : ""}
+            {listing.city}
+          </p>
+          <p
+            data-testid="listing-card-title"
+            className="mt-1 line-clamp-2 font-serif text-lg leading-snug text-foreground transition-colors duration-200 group-hover:text-brand-800 sm:min-h-[3.4rem] sm:text-xl"
+          >
+            {listing.title}
+          </p>
+          <p className="mt-1 flex items-center gap-1 text-[13px] text-stone-500">
+            <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Sleeps {listing.maxGuests}
+            <span aria-hidden>·</span>
+            {listing.bedrooms} bedroom{listing.bedrooms === 1 ? "" : "s"}
+          </p>
+          {deal && (deal.kind === "price_drop" || showLastMinutePrice) && (
+            <p className="mt-1 text-[13px] font-medium text-brand-700">
+              {deal.kind === "last_minute"
+                ? `Last-minute: check in within ${deal.windowDays} day${deal.windowDays === 1 ? "" : "s"}`
+                : "Price recently lowered"}
+            </p>
+          )}
+          <div className="mt-3 flex items-end justify-between gap-2 border-t border-border-subtle pt-3">
+            <div className="flex flex-col gap-0.5">
+              <p className="flex items-baseline gap-1">
+                {struckNightlyCents !== null && (
+                  <s className="text-sm tabular-nums text-stone-600">
+                    <span className="sr-only">{deal?.kind === "price_drop" ? "Was " : "Full price "}</span>
+                    {formattedWasPrice}
+                  </s>
+                )}
+                {hasWeekendRate && <span className="text-xs text-stone-500">from</span>}
+                <span className="font-serif text-xl tabular-nums text-brand-800">{formattedNightlyPrice}</span>
+                <span className="text-xs text-stone-500">/ night</span>
+              </p>
+              {rating !== null && (
+                <span className="flex items-center gap-1 text-xs font-medium text-stone-700">
+                  <Star className="h-3.5 w-3.5 fill-accent-500 text-accent-500" aria-hidden />
+                  {rating.toFixed(1)}
+                  <span className="text-stone-500">
+                    ({reviewCount} review{reviewCount === 1 ? "" : "s"})
+                  </span>
+                </span>
+              )}
+            </div>
+            {cta && (
+              <span className="inline-flex shrink-0 items-center gap-1 pb-0.5 text-sm font-medium text-brand-700 group-hover:text-brand-800">
+                {cta}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </span>
+            )}
+          </div>
+        </Link>
+      ) : (
       <Link
         href={`/listings/${listing.id}${stayQuery}`}
-        className={cn("focus-ring flex flex-col gap-2 rounded-xl", isLarge && "px-1 pt-0.5")}
+        className="focus-ring flex flex-col gap-2 rounded-xl"
       >
         {/* min-h keeps this row the same height whether the title wraps to
             one line or two, so price/rating rows still line up across a
             row of cards regardless of title length. */}
         <p
           data-testid="listing-card-title"
-          className={cn(
-            "line-clamp-2 font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800",
-            // Large cards show one at a time on phones, so the fixed
-            // two-line height (which lines prices up across a row) only
-            // applies from sm, where two or more sit side by side.
-            isLarge ? "text-base sm:min-h-[3.1rem] sm:text-lg" : "min-h-[2.75rem] text-base",
-          )}
+          className="line-clamp-2 min-h-[2.75rem] text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800"
         >
           {listing.title}
         </p>
@@ -367,15 +428,13 @@ export function ListingCard({
           </span>
         </p>
         {landmarkDistance && <EntryLocationMeta location={landmarkDistance} />}
-        {!isLarge && (
-          <p className="flex items-center gap-1 text-xs text-stone-500">
-            <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {listing.maxGuests} guest{listing.maxGuests === 1 ? "" : "s"}
-            <span aria-hidden>·</span>
-            {listing.bedrooms} bedroom{listing.bedrooms === 1 ? "" : "s"}
-          </p>
-        )}
-        {!isLarge && keyAmenities.length > 0 && (
+        <p className="flex items-center gap-1 text-xs text-stone-500">
+          <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          {listing.maxGuests} guest{listing.maxGuests === 1 ? "" : "s"}
+          <span aria-hidden>·</span>
+          {listing.bedrooms} bedroom{listing.bedrooms === 1 ? "" : "s"}
+        </p>
+        {keyAmenities.length > 0 && (
           <ul className="flex items-center gap-3">
             {keyAmenities.map((category) => (
               <li key={category.key} className="flex items-center gap-1 text-xs text-stone-500">
@@ -389,7 +448,7 @@ export function ListingCard({
             line) - the rating/New chip now aligns with the top of the
             price block, which reads correctly whether or not the second
             "total" line below it is present. */}
-        <div className={cn("flex items-start justify-between gap-2", isLarge ? "mt-1" : "mt-2.5")}>
+        <div className="mt-2.5 flex items-start justify-between gap-2">
           <div className="flex flex-col gap-0.5">
             {/* The nightly rate in the site's own display serif, the same
                 face every page heading uses (see globals.css) - a
@@ -442,6 +501,7 @@ export function ListingCard({
           )}
         </div>
       </Link>
+      )}
     </div>
   );
 }

@@ -131,6 +131,7 @@ export type SafeFetchOptions = {
   maxBytes?: number;
   maxRedirects?: number;
   accept?: string;
+  userAgent?: string;
 };
 
 export type SafeFetchResult = { status: number; ok: boolean; text: string; finalUrl: string };
@@ -140,6 +141,7 @@ function requestOnce(
   accept: string,
   maxBytes: number,
   signal: AbortSignal,
+  userAgent: string,
 ): Promise<{ status: number; location: string | null; body: string }> {
   return new Promise((resolve, reject) => {
     const client = url.protocol === "https:" ? https : http;
@@ -147,7 +149,7 @@ function requestOnce(
       url,
       {
         method: "GET",
-        headers: { Accept: accept, "User-Agent": "FYStay-CalendarSync/1.0" },
+        headers: { Accept: accept, "User-Agent": userAgent },
         lookup: publicOnlyLookup,
         signal,
       },
@@ -183,12 +185,18 @@ function requestOnce(
  * timeout, an oversized body or a network failure.
  */
 export async function safeFetchText(raw: string, options: SafeFetchOptions = {}): Promise<SafeFetchResult> {
-  const { timeoutMs = 10_000, maxBytes = 2 * 1024 * 1024, maxRedirects = 3, accept = "*/*" } = options;
+  const {
+    timeoutMs = 10_000,
+    maxBytes = 2 * 1024 * 1024,
+    maxRedirects = 3,
+    accept = "*/*",
+    userAgent = "FYStay-CalendarSync/1.0",
+  } = options;
   const signal = AbortSignal.timeout(timeoutMs);
 
   let url = assertFetchableUrl(raw);
   for (let hop = 0; ; hop++) {
-    const { status, location, body } = await requestOnce(url, accept, maxBytes, signal);
+    const { status, location, body } = await requestOnce(url, accept, maxBytes, signal, userAgent);
     if (status >= 300 && status < 400 && location) {
       if (hop >= maxRedirects) throw new UnsafeUrlError("Too many redirects");
       url = assertFetchableUrl(new URL(location, url).toString());

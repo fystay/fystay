@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { stayParams } from "./support/search";
 
 const isoInDays = (days: number) => {
   const date = new Date();
@@ -12,8 +13,9 @@ const DEAL_LISTING = "Seafront apartment overlooking Blackpool promenade";
 
 test("Last Minute Deals shows a real last-minute deal, and the quoted price includes it", async ({ page }) => {
   await page.goto("/");
-  const row = page.locator("section", { has: page.getByRole("heading", { name: "Last Minute Deals" }) });
-  await expect(row.getByText("Stays coming up soon for less")).toBeVisible();
+  const row = page.locator("section", { has: page.getByRole("heading", { name: "A little escape, closer than you think." }) });
+  await expect(row.getByText("LAST MINUTE DEALS", { exact: false })).toBeVisible();
+  await expect(row.getByRole("link", { name: "View all" })).toHaveAttribute("href", "/deals");
   // :visible - the rail also renders a hidden sizing copy of its first card.
   await expect(row.locator("span:text-is('20% off'):visible").first()).toBeVisible();
   await expect(row.getByRole("link", { name: DEAL_LISTING }).first()).toBeVisible();
@@ -23,7 +25,7 @@ test("Last Minute Deals shows a real last-minute deal, and the quoted price incl
   await expect(card.locator("s")).toContainText("£75");
   await expect(card.getByText("£60", { exact: true })).toBeVisible();
 
-  const listings = (await (await page.request.get("/api/listings?city=Blackpool")).json()).listings as {
+  const listings = (await (await page.request.get(`/api/listings?city=Blackpool&${stayParams(200)}`)).json()).listings as {
     id: string;
     title: string;
   }[];

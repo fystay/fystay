@@ -10,8 +10,12 @@ import { getStripeClient } from "@/lib/stripe";
  * are Stripe's marketplace defaults - an Express dashboard for the host, and
  * FYStay owning pricing (fees) and negative-balance liability (losses),
  * which destination charges require.
+ *
+ * Recipient-only (no card_payments) needs the platform profile set to the
+ * marketplace setup, which Stripe Support enabled for FYStay on 14 Oct.
  */
 export function hostConnectAccountParams(host: {
+  userId: string;
   email: string;
   name: string | null;
 }): Stripe.V2.Core.AccountCreateParams {
@@ -27,6 +31,8 @@ export function hostConnectAccountParams(host: {
     configuration: {
       recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
     },
+    // Lets anyone looking at the account in Stripe find the FYStay user.
+    metadata: { fystay_user_id: host.userId },
     include: ["configuration.recipient"],
   };
 }
@@ -72,20 +78,57 @@ export function connectFlagsFromV2Account(account: Stripe.V2.Core.Account) {
 }
 
 /**
- * Re-reads a connected account's status directly from Stripe and persists
- * it. Called on a host's return from onboarding (/host/payouts) - so they
- * don't wait on a webhook that may not even be configured in local
- * development - and from the account.updated webhook.
+ * What Stripe still needs before a host can be paid, from the account's
+ * requirements - only what the host needs to know, never the values they
+ * gave Stripe. `due` lists Stripe's own plain descriptions of what the
+ * host must still provide; `reviewing` means everything is in and Stripe
+ * is checking it; `rejected` means Stripe couldn't verify something the
+ * host gave and it has to be corrected.
  */
-export async function refreshConnectAccountStatus(accountId: string) {
+export type ConnectRequirements = {
+  due: string[];
+  overdue: boolean;
+  reviewing: boolean;
+  rejected: boolean;
+};
+
+export function connectRequirementsFromV2Account(account: Stripe.V2.Core.Account): ConnectRequirements {
+  const entries = account.requirements?.entries ?? [];
+  const fromHost = entries.filter((entry) => entry.awaiting_action_from === "user");
+  return {
+    due: [...new Set(fromHost.map((entry) => entry.description).filter(Boolean))],
+    overdue: fromHost.some((entry) => entry.minimum_deadline?.status === "past_due"),
+    reviewing: entries.some((entry) => entry.awaiting_action_from === "stripe"),
+    rejected: fromHost.some((entry) => entry.errors.length > 0),
+  };
+}
+
+/**
+ * Re-reads a connected account's status directly from Stripe, persists the
+ * three flags and returns them with what Stripe still needs. Readiness only
+ * ever comes from here (or the account.updated webhook, which calls it) -
+ * never from a host having clicked through or come back from Stripe.
+ */
+export async function loadConnectAccountStatus(accountId: string) {
   const stripe = getStripeClient();
   if (!stripe) return null;
   const account = await stripe.v2.core.accounts.retrieve(accountId, {
-    include: ["configuration.recipient"],
+    include: ["configuration.recipient", "requirements"],
   });
+  const requirements = connectRequirementsFromV2Account(account);
   const flags = connectFlagsFromV2Account(account);
+  // Once Stripe has nothing left to ask the host, their details are in -
+  // even in the moments before Stripe switches the account on.
+  if (account.requirements && requirements.due.length === 0) flags.stripeConnectDetailsSubmitted = true;
   await prisma.user.update({ where: { stripeConnectAccountId: accountId }, data: flags });
-  return flags;
+  return { flags, requirements };
+}
+
+/**
+ * The persisted flags alone, for the webhook and the pre-payment check.
+ */
+export async function refreshConnectAccountStatus(accountId: string) {
+  return (await loadConnectAccountStatus(accountId))?.flags ?? null;
 }
 
 export { HOST_NOT_PAYMENT_READY_MESSAGE } from "@/lib/paymentMessages";
@@ -133,9 +176,19 @@ export function hostAcceptsPaidBookings(host: {
  * same as hostAcceptsPaidBookings.
  */
 export function bookableHostWhere(): Prisma.ListingWhereInput {
-  return getStripeClient()
+  return payoutReadinessRequired()
     ? { host: { stripeConnectChargesEnabled: true, stripeConnectPayoutsEnabled: true } }
     : {};
+}
+
+/**
+ * Whether a host must be payout-ready before their listing is shown or
+ * published - the condition behind bookableHostWhere() and
+ * hostAcceptsPaidBookings(), for the publication checks in
+ * src/lib/listingReview.ts.
+ */
+export function payoutReadinessRequired(): boolean {
+  return Boolean(getStripeClient());
 }
 
 /**

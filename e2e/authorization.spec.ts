@@ -49,10 +49,10 @@ test.describe("authorization by direct URL", () => {
     const host = await prisma.user.findUniqueOrThrow({ where: { email: "host@fystay.dev" } });
     const passwordHash = await bcrypt.hash(PASSWORD, 10);
     const otherGuest = await prisma.user.create({
-      data: { email: otherGuestEmail, name: "Other Guest", passwordHash, role: "GUEST", referralCode: `AUTHG${suffix}` },
+      data: { email: otherGuestEmail, name: "Other Guest", passwordHash, role: "GUEST", emailVerifiedAt: new Date(), referralCode: `AUTHG${suffix}` },
     });
     await prisma.user.create({
-      data: { email: otherHostEmail, name: "Other Host", passwordHash, role: "HOST", referralCode: `AUTHH${suffix}` },
+      data: { email: otherHostEmail, name: "Other Host", passwordHash, role: "HOST", emailVerifiedAt: new Date(), referralCode: `AUTHH${suffix}` },
     });
     otherGuestId = otherGuest.id;
     const listing = await prisma.listing.create({

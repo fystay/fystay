@@ -41,6 +41,15 @@ const previewBaseUrl =
 const nextConfig: NextConfig = {
   ...(previewBaseUrl ? { env: { NEXT_PUBLIC_BASE_URL: previewBaseUrl } } : {}),
   images: { remotePatterns },
+  // Short addresses for the legal pages - the ones people (and Google's
+  // OAuth consent screen) expect - forwarding to where they live.
+  async redirects() {
+    return [
+      { source: "/privacy", destination: "/legal/privacy", permanent: true },
+      { source: "/terms", destination: "/legal/terms", permanent: true },
+      { source: "/cookies", destination: "/legal/cookies", permanent: true },
+    ];
+  },
   // Content-Security-Policy is set per-request (with a nonce) in src/proxy.ts;
   // these are the headers that don't need to vary per request.
   async headers() {

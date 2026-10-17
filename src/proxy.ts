@@ -6,6 +6,13 @@ import { sentryIngestOrigin } from "@/lib/sentryCsp";
 // be allowed in connect-src - only when a DSN is configured.
 const SENTRY_INGEST = sentryIngestOrigin(process.env.NEXT_PUBLIC_SENTRY_DSN);
 
+// Google Maps (the results map) loads its script, tiles, fonts and web
+// workers from Google - allowed only once its browser key is configured.
+// Its script needs nothing extra: it's added by FYStay's own nonce-trusted
+// code, which 'strict-dynamic' already allows.
+const GOOGLE_MAPS = Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY?.trim());
+const MAPS_CONNECT = GOOGLE_MAPS ? " https://*.googleapis.com https://*.gstatic.com https://*.google.com data: blob:" : "";
+
 // Nearly every page in this app calls auth() and is already dynamically
 // rendered, so a per-request nonce (which requires dynamic rendering) costs
 // us no static-generation benefit we'd otherwise have.
@@ -19,10 +26,11 @@ export function proxy(request: NextRequest) {
   const cspHeader = `
     default-src 'self';
     script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data: https:;
-    font-src 'self';
-    connect-src 'self'${SENTRY_INGEST ? ` ${SENTRY_INGEST}` : ""};
+    style-src 'self' 'unsafe-inline'${GOOGLE_MAPS ? " https://fonts.googleapis.com" : ""};
+    img-src 'self' data: https:${GOOGLE_MAPS ? " blob:" : ""};
+    font-src 'self'${GOOGLE_MAPS ? " https://fonts.gstatic.com" : ""};
+    connect-src 'self'${SENTRY_INGEST ? ` ${SENTRY_INGEST}` : ""}${MAPS_CONNECT};
+    worker-src 'self'${GOOGLE_MAPS ? " blob:" : ""};
     object-src 'none';
     base-uri 'self';
     form-action 'self';

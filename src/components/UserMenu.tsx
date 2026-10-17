@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, UserCircle } from "lucide-react";
+import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
@@ -61,11 +61,11 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
         // with the person's initials in a white disc in the logo's serif
         // where the generic person icon would be.
         className={cn(
-          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-1.5 pl-3 pr-1.5 text-white hover:bg-brand-700 active:bg-brand-800",
+          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-1.5 pl-1.5 pr-1.5 text-white lg:pl-3 hover:bg-brand-700 active:bg-brand-800",
           isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
         )}
       >
-        <Menu className="h-4 w-4" aria-hidden />
+        <Menu className="hidden h-4 w-4 lg:block" aria-hidden />
         <span className="hidden max-w-[8rem] truncate text-sm font-medium sm:inline">{name.split(" ")[0]}</span>
         <span className="relative">
           <Avatar
@@ -99,15 +99,24 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
         <div className="border-b border-border-subtle px-3 py-2">
           <p className="truncate text-sm font-medium text-foreground">{name}</p>
           <Badge variant="brand" className="mt-1">
-            {role === "HOST" ? "Host" : "Guest"}
+            {role === "ADMIN" ? "Admin" : role === "HOST" ? "Host" : "Guest"}
           </Badge>
         </div>
 
-        {/* Account actions only: the four sections are the tab row under
-            the header on every page (see SectionPillsBar), so they aren't
+        {/* Account actions only: the four sections are the bottom tab
+            bar on phones and in the header on desktop (see SiteBottomNav), so they aren't
             repeated here. */}
 
         <div className="flex flex-col py-1">
+          {role === "ADMIN" && (
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-surface-muted"
+            >
+              <ShieldCheck className="h-4 w-4" /> Admin
+            </Link>
+          )}
           {role === "HOST" && (
             <Link
               href="/host/dashboard"
@@ -157,11 +166,11 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
           >
             <UserCircle className="h-4 w-4" /> Account
           </Link>
-          {role !== "HOST" && (
+          {role === "GUEST" && (
             <Link
               href="/host"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-700 hover:bg-surface-muted"
+              className="hidden items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-700 hover:bg-surface-muted lg:flex"
             >
               <Home className="h-4 w-4" /> List your property
             </Link>

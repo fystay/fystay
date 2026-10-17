@@ -29,12 +29,14 @@ Secret = mark it **Sensitive** in Vercel. Public = safe to be seen; the
 | Variable | Used in | Type | Production |
 |---|---|---|---|
 | `RESEND_API_KEY` | `src/lib/email.ts`: every email (booking, reset, email change) | Secret | **Missing** |
-| `EMAIL_FROM` | Sender, e.g. `FYStay <bookings@mail.yourdomain>`; must be on the Resend-verified domain | Server-only | **Missing** (fallback only reaches the Resend account owner) |
+| `EMAIL_FROM` | Sender on every email: `FYStay <hello@fystay.co.uk>` (also the code default, `src/lib/email.ts`); `fystay.co.uk` must be verified in Resend | Server-only | Set on the own domain (12 Oct); **change to `FYStay <hello@fystay.co.uk>`** - `/api/health/config` warns until it is |
+| `EMAIL_REPLY_TO` | Where replies go and the address emails tell people to write to; defaults to `hello@fystay.co.uk` | Server-only | Unset (fine) |
 | `TWO_FACTOR_ENCRYPTION_KEY` | `src/lib/twoFactorCrypto.ts`: encrypts 2FA secrets (AES-256-GCM, key derived from any string). Use `openssl rand -hex 32`. **Never change once anyone uses 2FA.** | Secret | **Missing** (2FA shows "not available") |
 | `NEXT_PUBLIC_COMPANY_LEGAL_NAME` | Terms + Privacy operator disclosure (`src/lib/companyInfo.ts`) | Public | **Missing** |
 | `NEXT_PUBLIC_COMPANY_ADDRESS` | Same | Public | **Missing** |
 | `NEXT_PUBLIC_COMPANY_NUMBER` | Same; only if a limited company/LLP | Public | Leave empty if sole trader |
 | `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_LEGAL_EMAIL` | Contact addresses on the site (`src/lib/seo.ts`) | Public | Unset (default `support@` / `privacy@` / `legal@fystay.co.uk`) |
+| `ANTHROPIC_API_KEY` | Optional. Admin AI on prepared listings: "Draft the words with AI" (`src/lib/listingAiDraft.ts`) and "Import from an existing listing" (`src/lib/listingImport.ts`). Without it both are hidden. | Secret | Unset |
 | `SENTRY_DSN` | Server error reporting (`src/instrumentation.ts`, every generic 500) | Low-sensitivity | Set (Production + Preview), project `fystay/fystay-web` |
 | `NEXT_PUBLIC_SENTRY_DSN` | Browser error reporting (`src/instrumentation-client.ts`); same value as above; the CSP allows its ingest host (`src/lib/sentryCsp.ts`) | Public | Set (Production + Preview) |
 
@@ -57,6 +59,9 @@ Stripe's hosted page); it's harmless on Preview and not needed on Production.
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | Phone verification | Unset |
 | `PMS_ENCRYPTION_KEY` | Storing PMS credentials; `openssl rand -hex 32`, never change | Unset |
 | `CLOUDBEDS_CLIENT_ID`, `CLOUDBEDS_CLIENT_SECRET`, `CLOUDBEDS_WEBHOOK_SECRET`, `SITEMINDER_WEBHOOK_SECRET`, `SUPERCONTROL_WEBHOOK_SECRET` | PMS integrations | Unset |
+| `GOOGLE_MAPS_API_KEY` (secret) | Search box: Google Places suggestions for any UK place or postcode, results sorted nearest to it; also places new or edited listings on the map (address looked up once, pin blurred about 400 m). Server-side only; restrict the key to Places API (New) | Unset (FYStay towns and landmarks only; only Fylde towns get map pins) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | Results map on Google Maps. Sent to browsers: restrict by website (www.fystay.co.uk, fystay.co.uk, preview domain) and to the Maps JavaScript API only. Must be a different key from `GOOGLE_MAPS_API_KEY`. Build-time: redeploy after setting | Unset (OpenStreetMap map) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | Google Map ID for the results map (vector, JavaScript). Build-time | `DEMO_MAP_ID` |
 | `TICKETMASTER_API_KEY` | Events on destination pages | Unset |
 | `BOOKING_COM_API_KEY`, `BOOKING_COM_AFFILIATE_ID`, `BOOKING_COM_API_BASE_URL` | Hotel affiliate; also needs a code change to activate | Unset |
 | `HOTEL_PROVIDER_*`, `HOTEL_*_CACHE_TTL_MS` | Hotel affiliate tuning | Unset (defaults) |

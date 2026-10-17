@@ -25,7 +25,11 @@ export function EmailVerificationNotice({
   async function resend() {
     setSending(true);
     try {
-      const res = await fetch("/api/auth/verify-email/resend", { method: "POST" });
+      const res = await fetch("/api/auth/verify-email/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast.error(data.error ?? "We couldn't send the email just now. Please try again later.");

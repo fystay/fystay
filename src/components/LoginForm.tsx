@@ -9,9 +9,11 @@ import { SITE_NAME } from "@/lib/seo";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Field, FieldError, Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 import { AuthErrorBanner, SocialSignInButtons, useOAuthErrorMessage } from "@/components/SocialSignInButtons";
 import { safeRedirectPath } from "@/lib/safeRedirect";
+import { PRIVACY_EMAIL } from "@/lib/seo";
 
 type SocialProviders = { google: boolean; apple: boolean };
 
@@ -21,6 +23,14 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = safeRedirectPath(searchParams.get("callbackUrl"));
+  // Set when the "Confirm your email" link was opened while signed out
+  // (see the account page's redirect).
+  const emailVerifiedOutcome =
+    searchParams.get("emailConfirmed") === "1"
+      ? "verified"
+      : callbackUrl.startsWith("/account?")
+        ? new URLSearchParams(callbackUrl.slice("/account?".length)).get("emailVerified")
+        : null;
   const { message: oauthError, showHandOffError } = useOAuthErrorMessage(searchParams, rememberedProvider);
 
   const [email, setEmail] = useState("");
@@ -31,6 +41,15 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const oauthTwoFactor = searchParams.get("twoFactor");
   const [needsCode, setNeedsCode] = useState(Boolean(oauthTwoFactor));
   const [error, setError] = useState<string | null>(null);
+  // Set when the credentials were right but an admin has suspended the
+  // account: they can't sign in, but can still reach support and ask for
+  // their data.
+  const [suspended, setSuspended] = useState(false);
+  // Set when the password was right but the email isn't confirmed yet: no
+  // session until it is, so offer a new link instead.
+  const [unverified, setUnverified] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // Set once the password (and code) are accepted: the button stays busy and
   // says where it's going until the next page is on screen, rather than
@@ -40,6 +59,8 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuspended(false);
+    setUnverified(false);
     setLoading(true);
 
     let result: Awaited<ReturnType<typeof signIn>>;
@@ -72,7 +93,15 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
     // See auth.ts's AccountSuspendedError - the credentials (and 2FA code,
     // if enabled) were correct, but an admin has suspended this account.
     if (result?.code === "AccountSuspended") {
-      setError("Your account has been suspended. Contact support.");
+      setSuspended(true);
+      return;
+    }
+
+    // See auth.ts's EmailUnverifiedError.
+    if (result?.code === "EmailUnverified") {
+      setUnverified(true);
+      setResendState("idle");
+      setResendMessage(null);
       return;
     }
 
@@ -102,6 +131,33 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
     router.refresh();
   }
 
+  async function resendConfirmation() {
+    setResendState("sending");
+    try {
+      const res = await fetch("/api/auth/verify-email/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, ...(callbackUrl !== "/" && { callbackUrl }) }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; devUrl?: string };
+      if (!res.ok) {
+        setResendState("error");
+        setResendMessage(
+          res.status === 429
+            ? "You've asked for several links in a row. Please wait a few minutes and try again."
+            : (data.error ?? "We couldn't send the email just now. Please try again in a few minutes."),
+        );
+        return;
+      }
+      if (data.devUrl) console.info("Confirmation link (local development only):", data.devUrl);
+      setResendState("sent");
+      setResendMessage(`We've sent a new link to ${email}. Open it, then log in here.`);
+    } catch {
+      setResendState("error");
+      setResendMessage("Couldn't reach FYStay - check your connection and try again.");
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
       <div className="mb-8 flex flex-col items-center text-center">
@@ -111,7 +167,11 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
           {/* Arriving from "Log in to book": say the stay is waiting for them. */}
           {callbackUrl.startsWith("/listings/")
             ? "Log in to book your stay - your dates are saved."
-            : `Log in to continue to ${SITE_NAME}`}
+            : emailVerifiedOutcome === "verified" || emailVerifiedOutcome === "already_verified"
+              ? "Your email is confirmed. Log in to continue."
+              : emailVerifiedOutcome === "invalid"
+                ? "That email link has expired or was already used. Log in to send a new one."
+                : `Log in to continue to ${SITE_NAME}`}
         </p>
       </div>
 
@@ -172,9 +232,8 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
                       Forgot password?
                     </Link>
                   </div>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     autoComplete="current-password"
                     required
                     invalid={Boolean(error)}
@@ -184,6 +243,44 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
                   <FieldError>{error}</FieldError>
                 </Field>
               </>
+            )}
+
+            {suspended && (
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <p className="font-medium">Your account has been suspended.</p>
+                <p className="mt-1">
+                  To ask why or appeal, <Link href="/contact" className="font-medium underline">contact support</Link>.
+                  For a copy of your account data, email{" "}
+                  <a href={`mailto:${PRIVACY_EMAIL}`} className="font-medium underline">
+                    {PRIVACY_EMAIL}
+                  </a>
+                  .
+                </p>
+              </div>
+            )}
+
+            {unverified && (
+              <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-medium">Please confirm your email first.</p>
+                <p className="mt-1">
+                  Open the link we sent to <strong className="break-all">{email}</strong> when you signed up, then log in.
+                </p>
+                {resendMessage && (
+                  <p className={resendState === "error" ? "mt-2 text-red-700" : "mt-2 text-emerald-800"}>{resendMessage}</p>
+                )}
+                {resendState !== "sent" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    loading={resendState === "sending"}
+                    onClick={resendConfirmation}
+                  >
+                    Send a new link
+                  </Button>
+                )}
+              </div>
             )}
 
             <Button type="submit" loading={loading} className="w-full">

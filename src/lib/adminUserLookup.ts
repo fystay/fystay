@@ -41,6 +41,8 @@ export async function getUserDetailForAdmin(id: string) {
       role: true,
       createdAt: true,
       deletedAt: true,
+      suspendedAt: true,
+      suspendedReason: true,
       phone: true,
       phoneVerifiedAt: true,
       identityVerificationStatus: true,

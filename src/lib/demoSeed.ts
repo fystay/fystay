@@ -665,6 +665,9 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
       email: "host@fystay.dev",
       passwordHash: hostPassword,
       role: "HOST",
+      // A fictional demo account: treated as verified so its listings pass
+      // the same publication checks as a real host's (publicationBlockers).
+      emailVerifiedAt: new Date(),
       referralCode: generateReferralCode(),
     },
   });
@@ -677,6 +680,8 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedDemoDataSu
       email: "guest@fystay.dev",
       passwordHash: guestPassword,
       role: "GUEST",
+      // Sign-in needs a confirmed email; this fictional demo login has none to confirm.
+      emailVerifiedAt: new Date(),
       referralCode: generateReferralCode(),
     },
   });

@@ -9,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 import { cn } from "@/lib/cn";
 import { Field, FieldError, Label } from "@/components/ui/Label";
-import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 const BLOCK_MESSAGES: Record<string, string> = {
   upcoming_bookings_as_guest: "You have an upcoming or in-progress booking - cancel it first.",
@@ -120,9 +120,8 @@ export function PrivacyDataCard({ hasPassword }: { hasPassword: boolean }) {
         {hasPassword && (
           <Field className="mt-4">
             <Label htmlFor="delete-account-password">Your password</Label>
-            <Input
+            <PasswordInput
               id="delete-account-password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => {
