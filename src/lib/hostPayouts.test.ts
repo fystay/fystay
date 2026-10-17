@@ -9,18 +9,13 @@ vi.mock("@/lib/stripe", () => ({ getStripeClient: () => null }));
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
 describe("hostPayoutReleaseAt", () => {
-  it("releases the day after check-out", () => {
-    expect(hostPayoutReleaseAt({ checkOut: day("2026-11-03"), paidAt: day("2026-10-16") })).toEqual(day("2026-11-04"));
-  });
-
-  it("never holds longer than 89 days after payment (Stripe's 90-day limit)", () => {
-    expect(hostPayoutReleaseAt({ checkOut: day("2027-08-01"), paidAt: day("2026-10-16") })).toEqual(day("2027-01-13"));
+  it("releases 89 days after payment, just inside Stripe's 90-day limit", () => {
+    expect(hostPayoutReleaseAt({ paidAt: day("2026-10-16") })).toEqual(day("2027-01-13"));
   });
 });
 
 describe("heldHostShareCents", () => {
   const booking = {
-    checkOut: day("2026-11-03"),
     paidAt: day("2026-10-16"),
     totalPriceCents: 50_000,
     applicationFeeCents: 5_000,
@@ -28,11 +23,11 @@ describe("heldHostShareCents", () => {
   };
 
   it("holds the host's share of an unreleased stay, net of FYStay's fees", () => {
-    expect(heldHostShareCents([booking], day("2026-11-03"))).toBe(44_000);
+    expect(heldHostShareCents([booking], day("2027-01-12"))).toBe(44_000);
   });
 
   it("holds nothing once the stay is released", () => {
-    expect(heldHostShareCents([booking], day("2026-11-04"))).toBe(0);
+    expect(heldHostShareCents([booking], day("2027-01-13"))).toBe(0);
   });
 
   it("ignores unpaid bookings", () => {
@@ -59,7 +54,7 @@ describe("runHostPayouts", () => {
       },
       booking: {
         findMany: vi.fn().mockResolvedValue([
-          { checkOut: day("2026-11-03"), paidAt: day("2026-10-16"), totalPriceCents: 50_000, applicationFeeCents: 5_000, changeRequests: [] },
+          { paidAt: day("2026-10-16"), totalPriceCents: 50_000, applicationFeeCents: 5_000, changeRequests: [] },
         ]),
       },
     };

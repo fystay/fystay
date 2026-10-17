@@ -114,7 +114,7 @@ export default async function HostEarningsPage({
             </li>
             <li>
               <strong className="font-semibold text-foreground">Paid automatically.</strong> Each booking goes to your
-              Stripe account when the guest pays, then on to your bank the day after check-out.
+              Stripe account when the guest pays, then on to your bank 89 days (about 3 months) after they paid.
             </li>
           </ul>
         </HostPageEmpty>
@@ -337,8 +337,8 @@ export default async function HostEarningsPage({
 
       <Panel className="mt-4" bodyClassName="flex flex-wrap items-center gap-3 py-4">
         <p className="flex-1 text-sm text-stone-600">
-          FYStay pays each booking into your bank the day after the guest checks out. Statements, payout dates and
-          tax documents are in your Stripe dashboard.
+          FYStay pays each booking into your bank 89 days (about 3 months) after the guest paid. Statements, payout
+          dates and tax documents are in your Stripe dashboard.
         </p>
         {host.stripeConnectAccountId && (
           <a href="/api/host/stripe/dashboard" className={buttonVariants({ variant: "outline", size: "sm" })}>

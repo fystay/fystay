@@ -76,9 +76,9 @@ set as Vercel variables (see `environment-variables.md`), not edited into code:
 > **3. Payment and payouts.** Payments are taken through Stripe. To accept
 > bookings you must connect a Stripe account. You must accept Stripe's
 > Connected Account terms. Your share of each booking is transferred to your
-> Stripe account as part of the payment and held there until the stay ends.
-> FYStay pays it out to your bank the day after check-out, or 89 days after
-> the guest paid if that is sooner (Stripe's limit on held funds). Refunds
+> Stripe account as part of the payment and held there. FYStay pays it out
+> to your bank 89 days after the guest paid (just inside Stripe's 90-day
+> limit on held funds), which may be before or after the stay. Refunds
 > under the cancellation policy come out of the held amount. You can't accept a paid booking until your
 > Stripe account is able to receive payouts. [SOLICITOR: wording depends on
 > the final Stripe structure, currently parked.]
