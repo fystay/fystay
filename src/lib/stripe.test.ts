@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getStripeClient, stripeKeyMatchesEnvironment } from "./stripe";
+import { getStripeClient, getStripeClientForNewCharge, stripeKeyMatchesEnvironment } from "./stripe";
 
 describe("stripeKeyMatchesEnvironment", () => {
   const production = { VERCEL_ENV: "production" };
@@ -57,5 +57,63 @@ describe("stripeDashboardPaymentUrl", () => {
     expect(stripeDashboardPaymentUrl("pi_1", { STRIPE_SECRET_KEY: "sk_live_x" } as never)).toBe(
       "https://dashboard.stripe.com/payments/pi_1",
     );
+  });
+});
+
+describe("getStripeClientForNewCharge", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  function production(company: { name?: string; address?: string; number?: string; registeredIn?: string }) {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_abc");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_LEGAL_NAME", company.name ?? "");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_ADDRESS", company.address ?? "");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_NUMBER", company.number ?? "");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_REGISTERED_IN", company.registeredIn ?? "");
+  }
+
+  it("refuses new live payments on Production without the trader's legal name", () => {
+    production({ address: "1 High Street, Blackpool FY1 1AA" });
+    expect(getStripeClientForNewCharge()).toBeNull();
+  });
+
+  it("refuses new live payments on Production without the trader's address, blank counting as missing", () => {
+    production({ name: "FYStay Ltd", address: "   " });
+    expect(getStripeClientForNewCharge()).toBeNull();
+  });
+
+  it("never logs the configured values", () => {
+    production({ name: "Secret Name Ltd" });
+    getStripeClientForNewCharge();
+    const logged = vi.mocked(console.error).mock.calls.flat().join(" ");
+    expect(logged).toContain("NEXT_PUBLIC_COMPANY_ADDRESS");
+    expect(logged).not.toContain("Secret Name");
+    expect(logged).not.toContain("sk_live_abc");
+  });
+
+  it("refuses them for a limited company without its number and place of registration", () => {
+    production({ name: "FYStay Ltd", address: "1 High Street, Blackpool FY1 1AA" });
+    expect(getStripeClientForNewCharge()).toBeNull();
+  });
+
+  it("allows them on Production once the identity is complete", () => {
+    production({ name: "FYStay Ltd", address: "1 High Street, Blackpool FY1 1AA", number: "12345678", registeredIn: "England and Wales" });
+    expect(getStripeClientForNewCharge()).not.toBeNull();
+    production({ name: "Jane Smith", address: "1 High Street, Blackpool FY1 1AA" });
+    expect(getStripeClientForNewCharge()).not.toBeNull();
+  });
+
+  it("is unchanged on Preview and locally: no trader identity needed", () => {
+    for (const env of ["preview", ""]) {
+      vi.stubEnv("VERCEL_ENV", env);
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_abc");
+      vi.stubEnv("NEXT_PUBLIC_COMPANY_LEGAL_NAME", "");
+      vi.stubEnv("NEXT_PUBLIC_COMPANY_ADDRESS", "");
+      expect(getStripeClientForNewCharge()).not.toBeNull();
+    }
   });
 });

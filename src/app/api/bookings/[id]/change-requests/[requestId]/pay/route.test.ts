@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { state, mocks } = vi.hoisted(() => ({
   state: {
@@ -8,6 +8,10 @@ const { state, mocks } = vi.hoisted(() => ({
     // Off: a production deployment with no usable Stripe client.
     stripeConfigured: true,
     log: [] as string[],
+    // Route the new-charge gate and the unpaid fallback through the real
+    // @/lib/stripe, to prove a live date-change payment is refused on
+    // Production without the trader's identity.
+    realStripeGate: false,
   },
   mocks: {
     refundAcrossPayments: vi.fn(),
@@ -18,17 +22,22 @@ const { state, mocks } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/auth", () => ({ auth: async () => ({ user: { id: "guest_1" } }) }));
-vi.mock("@/lib/stripe", () => ({
-  allowsUnpaidConfirmation: () => state.stripeConfigured,
-  getStripeClient: () =>
+vi.mock("@/lib/stripe", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/stripe")>();
+  const client = () =>
     state.stripeConfigured
       ? {
           checkout: {
             sessions: { create: mocks.sessionsCreate, retrieve: mocks.sessionsRetrieve, expire: mocks.sessionsExpire },
           },
         }
-      : null,
-}));
+      : null;
+  return {
+    allowsUnpaidConfirmation: () => (state.realStripeGate ? actual.allowsUnpaidConfirmation() : state.stripeConfigured),
+    getStripeClient: client,
+    getStripeClientForNewCharge: () => (state.realStripeGate ? actual.getStripeClientForNewCharge() : client()),
+  };
+});
 vi.mock("@/lib/stripeConnect", async (importOriginal) => ({
   // The real destination-charge shape; only the live readiness check is faked.
   destinationChargeData: (await importOriginal<typeof import("@/lib/stripeConnect")>()).destinationChargeData,
@@ -100,6 +109,7 @@ beforeEach(() => {
   state.available = true;
   state.stripeConfigured = true;
   state.log = [];
+  state.realStripeGate = false;
   state.booking = {
     id: "bk_1",
     guestId: "guest_1",
@@ -135,6 +145,8 @@ beforeEach(() => {
     originalTotalPriceCents: 33_000,
   };
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe("paying for a date change", () => {
   it("hands back the still-open payment page instead of creating a second one", async () => {
@@ -177,6 +189,22 @@ describe("paying for a date change", () => {
     });
     expect((await pay()).status).toBe(409);
     expect(state.request.status).toBe("APPROVED");
+  });
+
+  it("refuses a live payment on Production until the trader's legal name and address are set", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    state.realStripeGate = true;
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_abc");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_LEGAL_NAME", "");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_ADDRESS", "");
+    const response = await pay();
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toMatch(/date change can't be paid for yet/);
+    expect(mocks.sessionsCreate).not.toHaveBeenCalled();
+    // Neither charged nor applied for free: the approved change still waits.
+    expect(state.request.status).toBe("APPROVED");
+    expect(state.request.paidAt).toBeNull();
   });
 
   it("explains that the booking is unchanged when payments aren't available on Production", async () => {

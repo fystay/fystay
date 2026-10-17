@@ -1,3 +1,5 @@
+import { hasTraderIdentity } from "@/lib/companyInfo";
+
 /**
  * What production needs configured before real guests and money arrive,
  * checked from the environment without ever reading out a value. Behind
@@ -55,7 +57,27 @@ export function configReadiness(env: Env = process.env): ConfigCheck[] {
     { key: "SENTRY_DSN", ok: set(env, "SENTRY_DSN"), severity: live ? "blocker" : "warning", why: "Server errors and refused emails go unreported." },
     { key: "NEXT_PUBLIC_SENTRY_DSN", ok: set(env, "NEXT_PUBLIC_SENTRY_DSN"), severity: live ? "blocker" : "warning", why: "Errors in guests' browsers go unreported." },
     { key: "DISPUTE_ALERT_EMAIL", ok: set(env, "DISPUTE_ALERT_EMAIL"), severity: "warning", why: "Payment alerts (disputes, failed refunds, unpaid deposit claims) go to the public support inbox." },
-    { key: "NEXT_PUBLIC_COMPANY_LEGAL_NAME", ok: set(env, "NEXT_PUBLIC_COMPANY_LEGAL_NAME"), severity: "warning", why: "Terms, receipts and the footer don't name the company guests are dealing with." },
+    // The trader's identity must be shown before a customer pays (see
+    // hasTraderIdentity), so the live site refuses new payments without it.
+    {
+      key: "NEXT_PUBLIC_COMPANY_LEGAL_NAME",
+      ok: set(env, "NEXT_PUBLIC_COMPANY_LEGAL_NAME"),
+      severity: live ? "blocker" : "warning",
+      why: "Guests aren't told who they're dealing with, so new payments are refused on the live site.",
+    },
+    {
+      key: "NEXT_PUBLIC_COMPANY_ADDRESS",
+      ok: set(env, "NEXT_PUBLIC_COMPANY_ADDRESS"),
+      severity: live ? "blocker" : "warning",
+      why: "Guests aren't given the trader's address, so new payments are refused on the live site.",
+    },
+    {
+      key: "NEXT_PUBLIC_COMPANY_NUMBER and NEXT_PUBLIC_COMPANY_REGISTERED_IN",
+      // Only reported once name and address are set; hasTraderIdentity has the full rule.
+      ok: hasTraderIdentity(env) || !set(env, "NEXT_PUBLIC_COMPANY_LEGAL_NAME") || !set(env, "NEXT_PUBLIC_COMPANY_ADDRESS"),
+      severity: live ? "blocker" : "warning",
+      why: "A limited company must show its company number and where it's registered, so new payments are refused on the live site.",
+    },
   ];
 }
 

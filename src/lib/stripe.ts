@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { isProductionDeployment, type EnvSource } from "@/lib/deploymentEnvironment";
+import { hasTraderIdentity } from "@/lib/companyInfo";
 
 /**
  * Whether a Stripe secret key belongs on this deployment: live keys
@@ -25,6 +26,26 @@ export function getStripeClient(): Stripe | null {
     return null;
   }
   return new Stripe(key);
+}
+
+/**
+ * The Stripe client for starting a new payment (a booking, a date change,
+ * an extra, a Spotlight purchase). On Production it's also withheld until
+ * the trader's legal name and address are set: UK law requires a trader to
+ * identify themselves to the customer before taking payment, so a live
+ * charge without them is refused like any other unavailable payment - the
+ * caller's existing "no Stripe" branch answers 503. Refunds, cancellations,
+ * webhooks and payouts keep using getStripeClient(), so existing bookings
+ * can always be managed.
+ */
+export function getStripeClientForNewCharge(): Stripe | null {
+  if (isProductionDeployment() && !hasTraderIdentity()) {
+    console.error(
+      "NEXT_PUBLIC_COMPANY_LEGAL_NAME and NEXT_PUBLIC_COMPANY_ADDRESS (and, for a limited company, NEXT_PUBLIC_COMPANY_NUMBER and NEXT_PUBLIC_COMPANY_REGISTERED_IN) must be set on Production - new payments are refused until they are.",
+    );
+    return null;
+  }
+  return getStripeClient();
 }
 
 /**

@@ -34,7 +34,8 @@ Secret = mark it **Sensitive** in Vercel. Public = safe to be seen; the
 | `TWO_FACTOR_ENCRYPTION_KEY` | `src/lib/twoFactorCrypto.ts`: encrypts 2FA secrets (AES-256-GCM, key derived from any string). Use `openssl rand -hex 32`. **Never change once anyone uses 2FA.** | Secret | **Missing** (2FA shows "not available") |
 | `NEXT_PUBLIC_COMPANY_LEGAL_NAME` | Terms + Privacy operator disclosure (`src/lib/companyInfo.ts`) | Public | **Missing** |
 | `NEXT_PUBLIC_COMPANY_ADDRESS` | Same | Public | **Missing** |
-| `NEXT_PUBLIC_COMPANY_NUMBER` | Same; only if a limited company/LLP | Public | Leave empty if sole trader |
+| `NEXT_PUBLIC_COMPANY_NUMBER` | Same; required for a limited company/LLP | Public | **Missing** - set once the company is incorporated |
+| `NEXT_PUBLIC_COMPANY_REGISTERED_IN` | Same; where the company is registered, e.g. `England and Wales` | Public | **Missing** - set with the number |
 | `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_LEGAL_EMAIL` | Contact addresses on the site (`src/lib/seo.ts`) | Public | Unset (default `support@` / `privacy@` / `legal@fystay.co.uk`) |
 | `ANTHROPIC_API_KEY` | Optional. Admin AI on prepared listings: "Draft the words with AI" (`src/lib/listingAiDraft.ts`) and "Import from an existing listing" (`src/lib/listingImport.ts`). Without it both are hidden. | Secret | Unset |
 | `SENTRY_DSN` | Server error reporting (`src/instrumentation.ts`, every generic 500) | Low-sensitivity | Set (Production + Preview), project `fystay/fystay-web` |

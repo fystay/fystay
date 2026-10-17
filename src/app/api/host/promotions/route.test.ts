@@ -46,7 +46,10 @@ beforeEach(() => {
   vi.stubEnv("STRIPE_SECRET_KEY", "");
   vi.stubEnv("VERCEL_ENV", "");
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
 
 describe("POST /api/host/promotions", () => {
   it("requires a signed-in host", async () => {
@@ -75,6 +78,18 @@ describe("POST /api/host/promotions", () => {
 
   it("refuses on a production deployment without Stripe and never activates anything", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
+    const res = await call({ listingId: "listing_1", plan: "WEEK" });
+    expect(res.status).toBe(503);
+    expect(promotionCreate).not.toHaveBeenCalled();
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it("refuses on Production with a live key until the trader's legal name and address are set", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_abc");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_LEGAL_NAME", "");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_ADDRESS", "1 High Street, Blackpool FY1 1AA");
     const res = await call({ listingId: "listing_1", plan: "WEEK" });
     expect(res.status).toBe(503);
     expect(promotionCreate).not.toHaveBeenCalled();
