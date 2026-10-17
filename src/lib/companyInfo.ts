@@ -5,8 +5,9 @@
  * trader) requires this to be disclosed on a site taking real bookings and
  * payments, and this codebase has no way to know it on its own.
  *
- * Name and address are required together; the company number is optional,
- * since a sole trader or partnership has none.
+ * Name and address are required together. A limited company (or any
+ * record with a company number) also needs its number and where it's
+ * registered; a sole trader or partnership has neither.
  *
  * Deliberately env-driven rather than a hardcoded
  * placeholder: this app deploys straight to production on every push (see
@@ -24,31 +25,68 @@ export type CompanyInfo = {
   legalName: string;
   /** Only a limited company or LLP has one - a sole trader or partnership leaves it unset. */
   companyNumber: string | null;
+  /** Where a company is registered ("England and Wales", "Scotland"); set together with the number. */
+  registeredIn: string | null;
   registeredAddress: string;
 };
 
-export function getCompanyInfo(): CompanyInfo | null {
-  const legalName = process.env.NEXT_PUBLIC_COMPANY_LEGAL_NAME?.trim();
-  const companyNumber = process.env.NEXT_PUBLIC_COMPANY_NUMBER?.trim() || null;
-  const registeredAddress = process.env.NEXT_PUBLIC_COMPANY_ADDRESS?.trim();
+/**
+ * A name ending "Limited", "Ltd", "LLP" or "PLC" is a registered company,
+ * which must also disclose its number and where it's registered (Company,
+ * LLP and Business (Names and Trading Disclosures) Regulations 2015).
+ */
+const INCORPORATED_NAME = /\b(limited|ltd\.?|llp|plc)$/i;
+
+function companyFrom(fields: {
+  legalName?: string;
+  companyNumber?: string;
+  registeredIn?: string;
+  registeredAddress?: string;
+}): CompanyInfo | null {
+  const legalName = fields.legalName?.trim();
+  const companyNumber = fields.companyNumber?.trim() || null;
+  const registeredIn = fields.registeredIn?.trim() || null;
+  const registeredAddress = fields.registeredAddress?.trim();
 
   if (!legalName || !registeredAddress) return null;
-  return { legalName, companyNumber, registeredAddress };
+  if ((INCORPORATED_NAME.test(legalName) || companyNumber) && (!companyNumber || !registeredIn)) return null;
+  return { legalName, companyNumber, registeredIn, registeredAddress };
 }
 
-/** "Example Ltd (company number 123), registered office at ..." or, with no company number, "Jane Smith, of ...". */
-export function describeOperator(company: CompanyInfo): string {
-  return company.companyNumber
-    ? `${company.legalName} (company number ${company.companyNumber}), registered office at ${company.registeredAddress}`
-    : `${company.legalName}, of ${company.registeredAddress}`;
+export function getCompanyInfo(): CompanyInfo | null {
+  // process.env.NEXT_PUBLIC_* read directly so Next can inline them.
+  return companyFrom({
+    legalName: process.env.NEXT_PUBLIC_COMPANY_LEGAL_NAME,
+    companyNumber: process.env.NEXT_PUBLIC_COMPANY_NUMBER,
+    registeredIn: process.env.NEXT_PUBLIC_COMPANY_REGISTERED_IN,
+    registeredAddress: process.env.NEXT_PUBLIC_COMPANY_ADDRESS,
+  });
 }
 
 /**
- * Whether the trader's name and address - the two fields getCompanyInfo()
- * needs - are both set, for server-side checks that take an env (readiness,
- * the live-payment gate in src/lib/stripe.ts). getCompanyInfo() itself keeps
- * reading process.env.NEXT_PUBLIC_* directly so Next can inline them.
+ * "Example Limited, trading as FYStay, a company registered in England and
+ * Wales (company number 123), registered office at ..." or, with no company
+ * number, "Jane Smith, trading as FYStay, of ...".
+ */
+export function describeOperator(company: CompanyInfo): string {
+  const name = /\bFYStay\b/i.test(company.legalName) ? company.legalName : `${company.legalName}, trading as FYStay`;
+  return company.companyNumber
+    ? `${name}, a company registered in ${company.registeredIn} (company number ${company.companyNumber}), registered office at ${company.registeredAddress}`
+    : `${name}, of ${company.registeredAddress}`;
+}
+
+/**
+ * Whether the trader's identity is complete - the same rule getCompanyInfo()
+ * applies - for server-side checks that take an env (readiness, the
+ * live-payment gate in src/lib/stripe.ts).
  */
 export function hasTraderIdentity(env: EnvSource = process.env): boolean {
-  return Boolean(env.NEXT_PUBLIC_COMPANY_LEGAL_NAME?.trim() && env.NEXT_PUBLIC_COMPANY_ADDRESS?.trim());
+  return (
+    companyFrom({
+      legalName: env.NEXT_PUBLIC_COMPANY_LEGAL_NAME,
+      companyNumber: env.NEXT_PUBLIC_COMPANY_NUMBER,
+      registeredIn: env.NEXT_PUBLIC_COMPANY_REGISTERED_IN,
+      registeredAddress: env.NEXT_PUBLIC_COMPANY_ADDRESS,
+    }) !== null
+  );
 }

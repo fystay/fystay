@@ -1,3 +1,5 @@
+import { hasTraderIdentity } from "@/lib/companyInfo";
+
 /**
  * What production needs configured before real guests and money arrive,
  * checked from the environment without ever reading out a value. Behind
@@ -68,6 +70,13 @@ export function configReadiness(env: Env = process.env): ConfigCheck[] {
       ok: set(env, "NEXT_PUBLIC_COMPANY_ADDRESS"),
       severity: live ? "blocker" : "warning",
       why: "Guests aren't given the trader's address, so new payments are refused on the live site.",
+    },
+    {
+      key: "NEXT_PUBLIC_COMPANY_NUMBER and NEXT_PUBLIC_COMPANY_REGISTERED_IN",
+      // Only reported once name and address are set; hasTraderIdentity has the full rule.
+      ok: hasTraderIdentity(env) || !set(env, "NEXT_PUBLIC_COMPANY_LEGAL_NAME") || !set(env, "NEXT_PUBLIC_COMPANY_ADDRESS"),
+      severity: live ? "blocker" : "warning",
+      why: "A limited company must show its company number and where it's registered, so new payments are refused on the live site.",
     },
   ];
 }

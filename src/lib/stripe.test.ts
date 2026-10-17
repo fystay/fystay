@@ -66,12 +66,14 @@ describe("getStripeClientForNewCharge", () => {
     vi.restoreAllMocks();
   });
 
-  function production(company: { name?: string; address?: string }) {
+  function production(company: { name?: string; address?: string; number?: string; registeredIn?: string }) {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_abc");
     vi.stubEnv("NEXT_PUBLIC_COMPANY_LEGAL_NAME", company.name ?? "");
     vi.stubEnv("NEXT_PUBLIC_COMPANY_ADDRESS", company.address ?? "");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_NUMBER", company.number ?? "");
+    vi.stubEnv("NEXT_PUBLIC_COMPANY_REGISTERED_IN", company.registeredIn ?? "");
   }
 
   it("refuses new live payments on Production without the trader's legal name", () => {
@@ -93,8 +95,15 @@ describe("getStripeClientForNewCharge", () => {
     expect(logged).not.toContain("sk_live_abc");
   });
 
-  it("allows them on Production once both are set", () => {
+  it("refuses them for a limited company without its number and place of registration", () => {
     production({ name: "FYStay Ltd", address: "1 High Street, Blackpool FY1 1AA" });
+    expect(getStripeClientForNewCharge()).toBeNull();
+  });
+
+  it("allows them on Production once the identity is complete", () => {
+    production({ name: "FYStay Ltd", address: "1 High Street, Blackpool FY1 1AA", number: "12345678", registeredIn: "England and Wales" });
+    expect(getStripeClientForNewCharge()).not.toBeNull();
+    production({ name: "Jane Smith", address: "1 High Street, Blackpool FY1 1AA" });
     expect(getStripeClientForNewCharge()).not.toBeNull();
   });
 

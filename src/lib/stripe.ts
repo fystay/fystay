@@ -41,7 +41,7 @@ export function getStripeClient(): Stripe | null {
 export function getStripeClientForNewCharge(): Stripe | null {
   if (isProductionDeployment() && !hasTraderIdentity()) {
     console.error(
-      "NEXT_PUBLIC_COMPANY_LEGAL_NAME and NEXT_PUBLIC_COMPANY_ADDRESS must both be set on Production - new payments are refused until they are.",
+      "NEXT_PUBLIC_COMPANY_LEGAL_NAME and NEXT_PUBLIC_COMPANY_ADDRESS (and, for a limited company, NEXT_PUBLIC_COMPANY_NUMBER and NEXT_PUBLIC_COMPANY_REGISTERED_IN) must be set on Production - new payments are refused until they are.",
     );
     return null;
   }
