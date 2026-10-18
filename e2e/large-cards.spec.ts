@@ -30,13 +30,20 @@ async function slotBoxes(page: Page, label: string) {
 test.describe("phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("each rail shows one full card and about half of the next, without widening the page", async ({ page }) => {
+  test("each rail shows its cards at phone size (Spotlight one per screen, others peeking), without widening the page", async ({ page }) => {
     await page.goto("/");
     for (const label of RAILS) {
       await rail(page, label).scrollIntoViewIfNeeded();
       const [first, second] = await slotBoxes(page, label);
       expect(first.left).toBeGreaterThanOrEqual(0);
       expect(first.right).toBeLessThanOrEqual(390);
+      // Spotlight (paid placements) fills the page width, one stay per screen.
+      if (label === "Spotlight stays") {
+        expect(first.left, "Spotlight: card starts at the page margin").toBeCloseTo(24, 0);
+        expect(first.right, "Spotlight: card ends at the page margin").toBeCloseTo(366, 0);
+        expect(second.left, "Spotlight: next card starts off-screen").toBeGreaterThanOrEqual(390);
+        continue;
+      }
       const peek = (390 - second.left) / second.width;
       expect(peek, `${label}: share of the next card visible`).toBeGreaterThan(0.3);
       expect(peek).toBeLessThan(0.65);
