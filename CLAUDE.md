@@ -45,3 +45,9 @@ location search.
   resolved safely without them.
 - **Progress updates:** brief, plain English, phone-friendly: what was built,
   whether the normal checks passed, and any genuine blocker.
+- **Owner actions as a copy-paste block (owner, 18 Oct):** whenever the owner
+  has something to do (a setting, an account, a decision), end the update with
+  one fenced code block they can paste straight into ChatGPT to get
+  step-by-step help. Make it self-contained: what FYStay is, the goal, the
+  exact service and page, current state and any error text, and what "done"
+  looks like. Never put passwords, keys or other secrets in it.
