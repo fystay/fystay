@@ -185,6 +185,11 @@ export function SearchBar({
   // stays out of the way on a fresh page shows what's still missing.
   const [attempted, setAttempted] = useState(false);
   const nothingEntered = !city.trim() && !range?.from;
+  // On the results page, a place chosen but no dates yet (e.g. arriving from
+  // a hero slide) is the next step, which the page itself prompts for - so,
+  // like an empty form, the bar stays quiet. The homepage still lists it.
+  const awaitingDates = liveUpdate && whereSelected && !range?.from;
+  const quiet = (nothingEntered || awaitingDates) && !attempted;
   const statusId = variant === "hero" ? "search-status-hero" : "search-status";
 
   // On the results page, search live as fields change, debounced, so
@@ -505,13 +510,13 @@ export function SearchBar({
           isHero ? "text-white/85" : "text-stone-600",
           // Hidden but still read out; positioned only when shown, since
           // "relative" would override sr-only's absolute positioning.
-          searchValid || (nothingEntered && !attempted) ? "sr-only" : "relative z-10",
+          searchValid || quiet ? "sr-only" : "relative z-10",
         )}
       >
         {searchValid ? (
           "Ready to search."
-        ) : nothingEntered && !attempted ? (
-          "Choose where from the suggestions and pick your dates to search."
+        ) : quiet ? (
+          awaitingDates ? "Pick your dates to search." : "Choose where from the suggestions and pick your dates to search."
         ) : (
           <ul className="flex flex-wrap gap-x-4 gap-y-0.5" data-testid="search-bar-issues">
             {(["where", "checkIn", "checkOut"] as const)

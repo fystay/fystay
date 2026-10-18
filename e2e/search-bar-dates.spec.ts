@@ -98,8 +98,12 @@ test("the results page runs no search without where and valid dates, and says wh
   await expect(page.getByText("Where and when are you going?")).toBeVisible();
   await expect(page.locator('main [data-testid="listing-card-title"]')).toHaveCount(0);
 
+  // A place without dates yet is the next step, not an error.
+  await page.goto("/search?city=Blackpool");
+  await expect(page.getByText("When are you going?")).toBeVisible();
+  await expect(page.getByTestId("search-validation")).toHaveCount(0);
+
   const cases: [string, string][] = [
-    ["/search?city=Blackpool", "Check-in: Add a check-in date."],
     ["/search?city=Blackpool&checkIn=2020-01-01&checkOut=2020-01-04", "Check-in: Check-in can't be in the past."],
     [`/search?city=Blackpool&checkIn=${isoInDays(30)}&checkOut=${isoInDays(30)}`, "Check-out: Check-out must be after check-in."],
     [`/search?city=Blackpool&checkIn=${isoInDays(30)}&checkOut=${isoInDays(28)}`, "Check-out: Check-out must be after check-in."],
