@@ -119,7 +119,7 @@ export async function SpotlightStays() {
         }
         link={empty ? undefined : { href: "/search", label: "View all" }}
       />
-      <LargeCardRail label="Spotlight stays">
+      <LargeCardRail label="Spotlight stays" fullBleed>
         {empty
           ? FYLDE_COAST_DESTINATIONS.filter((destination) => COMING_SOON_TOWNS.includes(destination.slug))
               .sort((a, b) => COMING_SOON_TOWNS.indexOf(a.slug) - COMING_SOON_TOWNS.indexOf(b.slug))
