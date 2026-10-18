@@ -106,6 +106,10 @@ function parseLocation(params: Params): { location: SearchLocation | null; error
   return { location: null, error: given ? pick : "Choose where you're going.", given };
 }
 
+/** No dates given yet - a next step rather than a mistake (see the results page's prompt). */
+export const MISSING_CHECK_IN = "Add a check-in date.";
+export const MISSING_CHECK_OUT = "Add a check-out date.";
+
 export function parseSearchRequest(params: Params, now: Date = new Date()): SearchRequest {
   const errors: Partial<Record<SearchField, string>> = {};
   const { location, error: whereError, given: whereGiven } = parseLocation(params);
@@ -117,12 +121,12 @@ export function parseSearchRequest(params: Params, now: Date = new Date()): Sear
   const checkIn = checkInParam ? parseStayDate(checkInParam) : null;
   const checkOut = checkOutParam ? parseStayDate(checkOutParam) : null;
 
-  if (!checkInParam) errors.checkIn = "Add a check-in date.";
+  if (!checkInParam) errors.checkIn = MISSING_CHECK_IN;
   else if (!checkIn) errors.checkIn = "Check-in isn't a valid date.";
   else if (checkIn < today) errors.checkIn = "Check-in can't be in the past.";
   else if (checkIn.getTime() - today.getTime() > MAX_DAYS_AHEAD * DAY_MS) errors.checkIn = "Check-in is too far ahead.";
 
-  if (!checkOutParam) errors.checkOut = "Add a check-out date.";
+  if (!checkOutParam) errors.checkOut = MISSING_CHECK_OUT;
   else if (!checkOut) errors.checkOut = "Check-out isn't a valid date.";
   else if (checkIn && checkOut <= checkIn) errors.checkOut = "Check-out must be after check-in.";
   else if (checkIn && checkOut.getTime() - checkIn.getTime() > MAX_NIGHTS * DAY_MS) errors.checkOut = `Stays can be up to ${MAX_NIGHTS} nights.`;

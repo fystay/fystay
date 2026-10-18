@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, SearchX, X } from "lucide-react";
+import { CalendarDays, Search, SearchX, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { prisma } from "@/lib/prisma";
 import { smartPricingMode } from "@/lib/smartPricingMode";
@@ -15,7 +15,15 @@ import {
 } from "@/lib/availability";
 import { isPetFriendly, parseGuestParam, totalOccupants } from "@/lib/search";
 import { isKnownTown } from "@/lib/searchTown";
-import { locationWhere, matchesLocation, parseSearchRequest, searchArea, type SearchField } from "@/lib/searchRequest";
+import {
+  locationWhere,
+  matchesLocation,
+  MISSING_CHECK_IN,
+  MISSING_CHECK_OUT,
+  parseSearchRequest,
+  searchArea,
+  type SearchField,
+} from "@/lib/searchRequest";
 import { auth } from "@/auth";
 import { ListingsCarousel } from "@/components/ListingsCarousel";
 import { ListingCard } from "@/components/ListingCard";
@@ -459,6 +467,17 @@ const FIELD_LABEL: Record<SearchField, string> = { where: "Where", checkIn: "Che
 
 /** What the results page shows instead of results when the search isn't complete or valid. */
 function SearchPrompt({ errors, empty }: { errors: Partial<Record<SearchField, string>>; empty: boolean }) {
+  // A place chosen but no dates yet (e.g. from a homepage hero slide) is a
+  // next step, not a mistake.
+  if (!errors.where && errors.checkIn === MISSING_CHECK_IN && errors.checkOut === MISSING_CHECK_OUT) {
+    return (
+      <div className="mt-8 flex flex-col items-center gap-3 text-center">
+        <CalendarDays className="h-8 w-8 text-stone-300" aria-hidden />
+        <p className="font-medium text-foreground">When are you going?</p>
+        <p className="max-w-sm text-sm text-stone-500">Pick your check-in and check-out dates above to see stays.</p>
+      </div>
+    );
+  }
   return (
     <div className="mt-8 flex flex-col items-center gap-3 text-center" role={empty ? undefined : "alert"}>
       <Search className="h-8 w-8 text-stone-300" aria-hidden />

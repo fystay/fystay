@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /**
@@ -12,6 +14,11 @@ import { cn } from "@/lib/cn";
  * moves under prefers-reduced-motion. The dots choose a slide by hand, and
  * choosing one stops the rotation, so anyone who wants it still can have it
  * still (WCAG 2.2.2).
+ *
+ * Each slide links to its place's stays: the search page with "Where"
+ * already filled in, the same way a guest would pick it from the
+ * suggestions (FYStay's own town for Blackpool, Google's place - id, point
+ * and area - for the others), leaving only the dates to choose.
  */
 const SLIDES = [
   {
@@ -20,6 +27,7 @@ const SLIDES = [
     lead: "Popular in",
     place: "Blackpool",
     line: "Holiday homes, apartments and guest houses from local hosts.",
+    search: "city=Blackpool",
     // Keeps the Tower in frame on a narrow screen.
     position: "object-[82%_center]",
   },
@@ -29,6 +37,8 @@ const SLIDES = [
     lead: "Popular in",
     place: "Windermere",
     line: "Lakeside cottages, lodges and guest houses from local hosts.",
+    search:
+      "place=ChIJOQG-dEWTfEgReVu7ERYcf9E&placeLabel=Windermere&lat=54.380685&lng=-2.906785&bbox=54.360443,-2.923883,54.39041,-2.889561",
     position: "object-[62%_center]",
   },
   {
@@ -37,6 +47,8 @@ const SLIDES = [
     lead: "Popular in",
     place: "Liverpool",
     line: "Waterfront apartments and city townhouses from local hosts.",
+    search:
+      "place=ChIJt2BwZIrfekgRAW4XP28E3EI&placeLabel=Liverpool&lat=53.408371&lng=-2.991573&bbox=53.311542,-3.01918,53.486211,-2.818",
     position: "object-[58%_center]",
   },
   {
@@ -45,6 +57,8 @@ const SLIDES = [
     lead: "Popular in",
     place: "Manchester",
     line: "City-centre apartments and canal-side lofts from local hosts.",
+    search:
+      "place=ChIJ2_UmUkxNekgRqmv-BDgUvtk&placeLabel=Manchester&lat=53.480759&lng=-2.24263&bbox=53.365651,-2.300097,53.544588,-2.146828",
     position: "object-[72%_center]",
   },
 ] as const;
@@ -64,6 +78,7 @@ export function HeroSlides() {
   }, [stopped]);
 
   const slide = SLIDES[index];
+  const href = `/search?${slide.search}`;
 
   return (
     <>
@@ -88,11 +103,18 @@ export function HeroSlides() {
         </div>
         {/* A cream wash where the text sits keeps the dark headline readable
             on every photo. */}
+        {/* The whole photo goes to the place's stays; the copy below is the
+            keyboard and screen-reader link, so this one stays out of tab order. */}
+        <Link href={href} aria-hidden tabIndex={-1} className="absolute inset-0" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(246,243,236,0.85)_0%,rgba(246,243,236,0.72)_40%,rgba(246,243,236,0.35)_62%,rgba(246,243,236,0)_78%)] sm:bg-[linear-gradient(90deg,rgba(246,243,236,0.86)_0%,rgba(246,243,236,0.55)_38%,rgba(246,243,236,0)_62%)]" />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pt-7 sm:pt-12 lg:pt-20">
-        <div key={slide.key} className="max-w-[18rem] animate-[hero-copy-in_700ms_ease-out] motion-reduce:animate-none min-[400px]:max-w-[19.5rem] sm:max-w-md lg:max-w-xl">
+      <div className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl px-6 pt-7 sm:pt-12 lg:pt-20">
+        <Link
+          key={slide.key}
+          href={href}
+          className="focus-ring pointer-events-auto block max-w-[18rem] rounded-lg animate-[hero-copy-in_700ms_ease-out] motion-reduce:animate-none min-[400px]:max-w-[19.5rem] sm:max-w-md lg:max-w-xl"
+        >
           <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
             <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
             {slide.eyebrow}
@@ -103,8 +125,12 @@ export function HeroSlides() {
           <p className="mt-2.5 max-w-[16.5rem] text-pretty text-[13.5px] font-medium leading-snug text-foreground/85 sm:mt-4 sm:max-w-sm sm:text-base">
             {slide.line}
           </p>
-        </div>
-        <div className="mt-3 flex gap-1.5 sm:mt-5" role="group" aria-label="Choose a place">
+          <span className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 sm:mt-3 sm:text-sm">
+            See stays in {slide.place}
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </span>
+        </Link>
+        <div className="pointer-events-auto mt-3 flex w-fit gap-1.5 sm:mt-5" role="group" aria-label="Choose a place">
           {SLIDES.map((s, i) => (
             <button
               key={s.key}
