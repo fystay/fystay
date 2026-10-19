@@ -28,7 +28,8 @@ async function slotBoxes(page: Page, label: string) {
 }
 
 test.describe("phone", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+  // Spotlight auto-advances; hold it still while card positions are measured.
+  test.use({ viewport: { width: 390, height: 844 }, contextOptions: { reducedMotion: "reduce" } });
 
   test("each rail shows its cards at phone size (Spotlight one per screen, others peeking), without widening the page", async ({ page }) => {
     await page.goto("/");

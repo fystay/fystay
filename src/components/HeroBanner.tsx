@@ -7,7 +7,8 @@ import { cn } from "@/lib/cn";
 
 /**
  * The homepage hero: a slow crossfade through four places, each with its
- * own label, headline and line underneath in the same layout. Photos are
+ * own label, headline and line - written for that place (what it's known
+ * for, the kind of stay it suits), not a template - in the same layout. Photos are
  * the owner's own (public/images/hero/), with a 960px file for phones.
  *
  * It moves on every SLIDE_MS, pauses while the tab is hidden, and never
@@ -24,9 +25,9 @@ const SLIDES = [
   {
     key: "blackpool",
     eyebrow: "The Fylde Coast",
-    lead: "Popular in",
+    lead: "Seaside nights in",
     place: "Blackpool",
-    line: "Holiday homes, apartments and guest houses from local hosts.",
+    line: "Steps from the Tower, the piers and the Illuminations, in homes run by locals.",
     search: "city=Blackpool",
     // Keeps the Tower in frame on a narrow screen.
     position: "object-[82%_center]",
@@ -34,9 +35,9 @@ const SLIDES = [
   {
     key: "windermere",
     eyebrow: "The Lake District",
-    lead: "Popular in",
+    lead: "Slow mornings in",
     place: "Windermere",
-    line: "Lakeside cottages, lodges and guest houses from local hosts.",
+    line: "Cottages and lodges close to the water, the lake steamers and the fells.",
     search:
       "place=ChIJOQG-dEWTfEgReVu7ERYcf9E&placeLabel=Windermere&lat=54.380685&lng=-2.906785&bbox=54.360443,-2.923883,54.39041,-2.889561",
     position: "object-[62%_center]",
@@ -44,9 +45,9 @@ const SLIDES = [
   {
     key: "liverpool",
     eyebrow: "Merseyside",
-    lead: "Popular in",
+    lead: "Weekends in",
     place: "Liverpool",
-    line: "Waterfront apartments and city townhouses from local hosts.",
+    line: "Waterfront apartments and Georgian townhouses near the docks, the music and the match.",
     search:
       "place=ChIJt2BwZIrfekgRAW4XP28E3EI&placeLabel=Liverpool&lat=53.408371&lng=-2.991573&bbox=53.311542,-3.01918,53.486211,-2.818",
     position: "object-[58%_center]",
@@ -54,9 +55,9 @@ const SLIDES = [
   {
     key: "manchester",
     eyebrow: "Greater Manchester",
-    lead: "Popular in",
+    lead: "City breaks in",
     place: "Manchester",
-    line: "City-centre apartments and canal-side lofts from local hosts.",
+    line: "Apartments and canal-side lofts in the Northern Quarter, Ancoats and beyond.",
     search:
       "place=ChIJ2_UmUkxNekgRqmv-BDgUvtk&placeLabel=Manchester&lat=53.480759&lng=-2.24263&bbox=53.365651,-2.300097,53.544588,-2.146828",
     position: "object-[72%_center]",
