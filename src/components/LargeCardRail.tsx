@@ -1,7 +1,7 @@
 "use client";
 
 import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { LARGE_CARD_SLOT_CLASS } from "@/components/LargeCard";
 
@@ -22,7 +22,15 @@ import { LARGE_CARD_SLOT_CLASS } from "@/components/LargeCard";
  * fills the page's width - one stay per screen, no half-card peeking, with
  * dots showing there are more. On desktop the rail runs to both screen edges
  * while its first card stays lined up with the content column.
+ *
+ * autoAdvanceMs (Spotlight again, so every paid stay gets its turn in view):
+ * moves on one card at that interval and back to the start after the last.
+ * It holds while the row is hovered, focused or off-screen, while the tab is
+ * hidden, and for a while after someone swipes or uses the arrows; it never
+ * moves under prefers-reduced-motion, and a pause button stops it (WCAG 2.2.2).
  */
+/** How long a swipe, wheel or arrow press holds the auto-advance off. */
+const INTERACTION_HOLD_MS = 8000;
 const RAIL_ROW_CLASS = "-mx-6 flex gap-4 px-6 pb-4 pt-1 lg:mx-0 lg:gap-6 lg:px-0";
 // The space between the screen edge and the content column (max-w-6xl + px-6).
 const FULL_BLEED_CLASS =
@@ -34,13 +42,17 @@ const FULL_BLEED_SLOT_CLASS = "w-[calc(100vw-3rem)] max-w-none sm:w-[44vw] sm:ma
 export function LargeCardRail({
   label,
   fullBleed = false,
+  autoAdvanceMs,
   children,
 }: {
   label: string;
   fullBleed?: boolean;
+  autoAdvanceMs?: number;
   children: ReactNode;
 }) {
   const railRef = useRef<HTMLUListElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
+  const [userPaused, setUserPaused] = useState(false);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
   const [active, setActive] = useState(0);
@@ -68,6 +80,49 @@ export function LargeCardRail({
     };
   }, [updateArrows]);
 
+  useEffect(() => {
+    const rail = railRef.current;
+    const region = regionRef.current;
+    if (!autoAdvanceMs || userPaused || items.length < 2 || !rail || !region) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let inView = false;
+    let engaged = 0; // hover and keyboard focus inside the row
+    let holdUntil = 0;
+    const observer = new IntersectionObserver(([entry]) => (inView = entry.isIntersecting), { threshold: 0.5 });
+    observer.observe(rail);
+    const hold = () => (holdUntil = Date.now() + INTERACTION_HOLD_MS);
+    const enter = (event: PointerEvent) => event.pointerType === "mouse" && engaged++;
+    const leave = (event: PointerEvent) => event.pointerType === "mouse" && (engaged = Math.max(0, engaged - 1));
+    const focusIn = () => engaged++;
+    const focusOut = () => (engaged = Math.max(0, engaged - 1));
+    region.addEventListener("pointerenter", enter);
+    region.addEventListener("pointerleave", leave);
+    region.addEventListener("focusin", focusIn);
+    region.addEventListener("focusout", focusOut);
+    region.addEventListener("pointerdown", hold);
+    rail.addEventListener("touchstart", hold, { passive: true });
+    rail.addEventListener("wheel", hold, { passive: true });
+
+    const timer = window.setInterval(() => {
+      if (!inView || engaged > 0 || document.hidden || Date.now() < holdUntil) return;
+      if (rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 4) rail.scrollTo({ left: 0, behavior: "smooth" });
+      else scrollByCard(1);
+    }, autoAdvanceMs);
+
+    return () => {
+      window.clearInterval(timer);
+      observer.disconnect();
+      region.removeEventListener("pointerenter", enter);
+      region.removeEventListener("pointerleave", leave);
+      region.removeEventListener("focusin", focusIn);
+      region.removeEventListener("focusout", focusOut);
+      region.removeEventListener("pointerdown", hold);
+      rail.removeEventListener("touchstart", hold);
+      rail.removeEventListener("wheel", hold);
+    };
+  }, [autoAdvanceMs, userPaused, items.length]);
+
   function scrollByCard(direction: 1 | -1) {
     const rail = railRef.current;
     const slot = rail?.querySelector("li");
@@ -77,6 +132,7 @@ export function LargeCardRail({
 
   return (
     <div
+      ref={regionRef}
       className={cn("relative", fullBleed && FULL_BLEED_CLASS)}
       role="region"
       aria-roledescription="carousel"
@@ -105,14 +161,29 @@ export function LargeCardRail({
         ))}
       </ul>
 
-      {fullBleed && items.length > 1 && (
-        <div className="mt-1 flex justify-center gap-1.5 sm:hidden" aria-hidden>
-          {items.map((_, i) => (
-            <span
-              key={i}
-              className={cn("h-1.5 rounded-full transition-all", i === active ? "w-4 bg-foreground" : "w-1.5 bg-stone-300")}
-            />
-          ))}
+      {(fullBleed || autoAdvanceMs) && items.length > 1 && (
+        <div className={cn("mt-1 flex items-center justify-center gap-3", fullBleed && "lg:justify-start lg:px-[var(--rail-gutter)]")}>
+          {fullBleed && (
+            <div className="flex gap-1.5 sm:hidden" aria-hidden>
+              {items.map((_, i) => (
+                <span
+                  key={i}
+                  className={cn("h-1.5 rounded-full transition-all", i === active ? "w-4 bg-foreground" : "w-1.5 bg-stone-300")}
+                />
+              ))}
+            </div>
+          )}
+          {autoAdvanceMs && (
+            // Nothing moves under reduced motion, so there's nothing to pause.
+            <button
+              type="button"
+              onClick={() => setUserPaused((paused) => !paused)}
+              aria-label={userPaused ? `Play ${label}` : `Pause ${label}`}
+              className="focus-ring -m-2 rounded-full p-2 text-stone-500 hover:text-foreground motion-reduce:hidden"
+            >
+              {userPaused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
+            </button>
+          )}
         </div>
       )}
 

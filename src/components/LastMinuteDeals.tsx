@@ -7,7 +7,8 @@ import { activePriceDrop, hasLastMinuteDeal, possibleDealWhere } from "@/lib/dea
 import { todayStayDate } from "@/lib/stayDates";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { ListingCard } from "@/components/ListingCard";
-import { HomeSectionEmpty } from "@/components/HomeSectionEmpty";
+import { ComingSoonStayCard } from "@/components/ComingSoonStayCard";
+import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { EditorialHeader } from "@/components/EditorialHeader";
 
 const MAX_DEALS = 12;
@@ -99,16 +100,28 @@ export async function loadLastMinuteDeals(limit?: number) {
   return { deals: deals.map((deal) => deal.card), savedListingIds, isLoggedIn: Boolean(session?.user) };
 }
 
+const COMING_SOON_DEAL_TOWNS = ["fleetwood", "st-annes", "thornton-cleveleys", "poulton-le-fylde"];
+
 export async function LastMinuteDeals() {
   const { deals, savedListingIds, isLoggedIn } = await loadLastMinuteDeals(MAX_DEALS);
 
+  // No deals yet: clearly-labelled town cards hold the row (different towns
+  // from Spotlight's), never an invented property or price.
   if (deals.length === 0) {
     return (
       <LastMinuteDealsSection>
-        <HomeSectionEmpty
-          message="No last-minute deals today. Deals from local hosts show here as soon as they're added."
-          link={{ href: "/search", label: "Browse all stays" }}
-        />
+        <LargeCardRail label="Last Minute Deals stays">
+          {COMING_SOON_DEAL_TOWNS.flatMap((slug) => FYLDE_COAST_DESTINATIONS.filter((town) => town.slug === slug)).map(
+            (destination) => (
+              <ComingSoonStayCard
+                key={destination.slug}
+                destination={destination}
+                badge="Deals coming soon"
+                text={`Last-minute offers from ${destination.name} hosts will show here.`}
+              />
+            ),
+          )}
+        </LargeCardRail>
       </LastMinuteDealsSection>
     );
   }

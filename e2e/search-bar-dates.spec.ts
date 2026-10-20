@@ -76,7 +76,7 @@ test("homepage search's date picker sets checkIn/checkOut and filters results", 
 
 test("Search stays off until where, check-in and check-out are all set, then opens the results page", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Popular in Blackpool", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Blackpool/, level: 1 })).toBeVisible();
   await page.waitForLoadState("networkidle");
   const search = page.getByRole("button", { name: "Search", exact: true });
 

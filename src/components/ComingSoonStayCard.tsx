@@ -10,8 +10,17 @@ import { cn } from "@/lib/cn";
  * A clearly-labelled placeholder in a stays carousel while a town has no
  * stays live yet: the town's real photo (or its art), "Coming soon", and a
  * link to the town's own page - never an invented property or price.
+ * badge and text let another row word it for itself (Last Minute Deals).
  */
-export function ComingSoonStayCard({ destination }: { destination: FyldeCoastDestination }) {
+export function ComingSoonStayCard({
+  destination,
+  badge = "Coming soon",
+  text = "Local hosts are joining FYStay - meanwhile, see the town\u2019s Local Guide.",
+}: {
+  destination: FyldeCoastDestination;
+  badge?: string;
+  text?: string;
+}) {
   const photo = DESTINATION_PHOTOS[destination.slug]?.tile;
   const art = DESTINATION_ART[destination.slug] ?? FALLBACK_ART;
   const Icon = art.icon;
@@ -25,12 +34,12 @@ export function ComingSoonStayCard({ destination }: { destination: FyldeCoastDes
           <Icon className="absolute -right-4 -top-4 h-36 w-36 text-white/15" aria-hidden />
         )}
         <span className="absolute left-3 top-3 z-10 rounded-md bg-surface/90 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-800">
-          Coming soon
+          {badge}
         </span>
       </div>
       <div className="flex flex-col gap-1.5 px-1">
         <p className="text-base font-semibold leading-snug text-foreground sm:text-lg">Stays in {destination.name}</p>
-        <p className="text-sm text-stone-500">Local hosts are joining FYStay - meanwhile, see the town&rsquo;s Local Guide.</p>
+        <p className="text-sm text-stone-500">{text}</p>
         <span className="mt-0.5 inline-flex items-center gap-1 text-sm font-medium text-brand-700 group-hover:text-brand-800">
           Explore {destination.name}
           <ArrowRight className="h-4 w-4" aria-hidden />

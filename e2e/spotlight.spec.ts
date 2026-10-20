@@ -33,6 +33,9 @@ function spotlight(page: Page) {
   return page.locator("section", { has: page.getByRole("heading", { name: "Stays worth the trip" }) });
 }
 
+// Spotlight auto-advances; hold it still so the first card stays put.
+test.use({ contextOptions: { reducedMotion: "reduce" } });
+
 test("a featured listing leads the Spotlight carousel, labelled Promoted, and its host sees views and clicks", async ({
   page,
 }) => {

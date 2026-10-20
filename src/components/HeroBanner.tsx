@@ -6,8 +6,10 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /**
- * The homepage hero: a slow crossfade through four places, each with its
- * own label, headline and line underneath in the same layout. Photos are
+ * The homepage hero: a slow crossfade through four places, each sold on its
+ * own terms - a headline and a line of what you'd actually do there, true to
+ * the place, never a template. The place name leads the heading (for search
+ * engines and screen readers as much as for the eye). Photos are
  * the owner's own (public/images/hero/), with a 960px file for phones.
  *
  * It moves on every SLIDE_MS, pauses while the tab is hidden, and never
@@ -23,40 +25,44 @@ import { cn } from "@/lib/cn";
 const SLIDES = [
   {
     key: "blackpool",
-    eyebrow: "The Fylde Coast",
-    lead: "Popular in",
     place: "Blackpool",
-    line: "Holiday homes, apartments and guest houses from local hosts.",
+    region: "The Fylde Coast",
+    lead: "Sand, sea",
+    accent: "and that Tower.",
+    line: "Seven miles of promenade, the Pleasure Beach, a show at the Winter Gardens and, every autumn, the Illuminations.",
     search: "city=Blackpool",
     // Keeps the Tower in frame on a narrow screen.
     position: "object-[82%_center]",
   },
   {
     key: "windermere",
-    eyebrow: "The Lake District",
-    lead: "Popular in",
     place: "Windermere",
-    line: "Lakeside cottages, lodges and guest houses from local hosts.",
+    region: "The Lake District",
+    lead: "Wake up",
+    accent: "to the lake.",
+    line: "England's largest lake: the steamer to Ambleside, a fell walk before lunch and a pub by the water to end the day.",
     search:
       "place=ChIJOQG-dEWTfEgReVu7ERYcf9E&placeLabel=Windermere&lat=54.380685&lng=-2.906785&bbox=54.360443,-2.923883,54.39041,-2.889561",
     position: "object-[62%_center]",
   },
   {
     key: "liverpool",
-    eyebrow: "Merseyside",
-    lead: "Popular in",
     place: "Liverpool",
-    line: "Waterfront apartments and city townhouses from local hosts.",
+    region: "Merseyside",
+    lead: "A waterfront",
+    accent: "made for weekends.",
+    line: "The Albert Dock, a night at the Cavern Club, match day at Anfield and the ferry across the Mersey.",
     search:
       "place=ChIJt2BwZIrfekgRAW4XP28E3EI&placeLabel=Liverpool&lat=53.408371&lng=-2.991573&bbox=53.311542,-3.01918,53.486211,-2.818",
     position: "object-[58%_center]",
   },
   {
     key: "manchester",
-    eyebrow: "Greater Manchester",
-    lead: "Popular in",
     place: "Manchester",
-    line: "City-centre apartments and canal-side lofts from local hosts.",
+    region: "Greater Manchester",
+    lead: "Where the North",
+    accent: "comes alive.",
+    line: "Northern Quarter bars, Ancoats kitchens, gigs at the AO Arena and match day at Old Trafford or the Etihad.",
     search:
       "place=ChIJ2_UmUkxNekgRqmv-BDgUvtk&placeLabel=Manchester&lat=53.480759&lng=-2.24263&bbox=53.365651,-2.300097,53.544588,-2.146828",
     position: "object-[72%_center]",
@@ -115,12 +121,17 @@ export function HeroSlides() {
           href={href}
           className="focus-ring pointer-events-auto block max-w-[18rem] rounded-lg animate-[hero-copy-in_700ms_ease-out] motion-reduce:animate-none min-[400px]:max-w-[19.5rem] sm:max-w-md lg:max-w-xl"
         >
-          <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
-            <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
-            {slide.eyebrow}
-          </p>
-          <h1 className="mt-2.5 text-[2.05rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground min-[400px]:text-[2.3rem] sm:mt-3 sm:text-[2.85rem] lg:text-[4.1rem]">
-            {slide.lead} <span className="block text-brand-600">{slide.place}</span>
+          <h1>
+            <span className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
+              <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
+              {slide.place}
+              {/* The region would wrap on a phone; the place says enough there. */}
+              <span aria-hidden className="hidden text-brand-700/60 sm:inline">·</span>
+              <span className="hidden font-medium sm:inline">{slide.region}</span>
+            </span>
+            <span className="mt-2.5 block text-[2.05rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground min-[400px]:text-[2.3rem] sm:mt-3 sm:text-[2.85rem] lg:text-[4.1rem]">
+              {slide.lead} <span className="block text-brand-600">{slide.accent}</span>
+            </span>
           </h1>
           <p className="mt-2.5 max-w-[16.5rem] text-pretty text-[13.5px] font-medium leading-snug text-foreground/85 sm:mt-4 sm:max-w-sm sm:text-base">
             {slide.line}

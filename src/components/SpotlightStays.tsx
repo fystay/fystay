@@ -15,6 +15,9 @@ import { ComingSoonStayCard } from "@/components/ComingSoonStayCard";
 /** The towns whose "Coming soon" cards hold the row before any stay is live (owner's choice). */
 const COMING_SOON_TOWNS = ["blackpool", "lytham", "thornton-cleveleys", "fleetwood"];
 
+/** Spotlight moves on one card at this pace: long enough to take in a card, quick enough that every paid stay comes round. */
+const SPOTLIGHT_ADVANCE_MS = 5000;
+
 /** How many stays the carousel holds at most. */
 const MAX_STAYS = 10;
 
@@ -119,7 +122,7 @@ export async function SpotlightStays() {
         }
         link={empty ? undefined : { href: "/search", label: "View all" }}
       />
-      <LargeCardRail label="Spotlight stays" fullBleed>
+      <LargeCardRail label="Spotlight stays" fullBleed autoAdvanceMs={SPOTLIGHT_ADVANCE_MS}>
         {empty
           ? FYLDE_COAST_DESTINATIONS.filter((destination) => COMING_SOON_TOWNS.includes(destination.slug))
               .sort((a, b) => COMING_SOON_TOWNS.indexOf(a.slug) - COMING_SOON_TOWNS.indexOf(b.slug))
