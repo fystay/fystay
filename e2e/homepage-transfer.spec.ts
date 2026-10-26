@@ -29,9 +29,8 @@ test("Services leads with EV Exec as a FYStay service partner, booked through th
 
 test("the other services each open a working page", async ({ page }) => {
   for (const [name, url] of [
-    ["Local attractions", /\/destinations$/],
-    ["Things to do", /\/destinations\/blackpool#quick-discovery$/],
-    ["Guest essentials", /\/help$/],
+    ["Local Guides", /\/destinations$/],
+    ["Help & support", /\/help$/],
   ] as const) {
     await page.goto("/");
     await services(page).scrollIntoViewIfNeeded();
