@@ -23,7 +23,7 @@ Five directions were tried with the real brand typeface (DM Serif Display):
 | Direction | Verdict |
 | --- | --- |
 | A. Two-tone wordmark only ("FY" terracotta, "Stay" ink) | Kept as the core. Already recognisable, legible at every size, no clichés. |
-| **B. Wordmark + "FOR YOUR STAY" descriptor** | **Chosen** for the header, footer, emails and share images. It explains the name the first time someone sees it, and the descriptor works anywhere in the UK. |
+| **B. Wordmark + "FOR YOUR STAY" descriptor** | **Chosen** for the footer, emails and share images. The header uses the wordmark alone (27 Oct 2026): the descriptor was too small to read there. It explains the name the first time someone sees it, and the descriptor works anywhere in the UK. |
 | C. Roofline drawn over "FY" | Rejected: generic holiday-let imagery, and it crowds the letters at small sizes. |
 | **D. "FY" monogram on a terracotta tile** | **Chosen** for the favicon, app icons and any square avatar. Readable down to 24px. |
 | E. Location dot under the "S" | Rejected: ties the brand to a single place, against the expansion plan. |

@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CircleUserRound, Home, Menu } from "lucide-react";
+import { Home, UserRound } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useNavTone } from "@/components/NavTone";
+import { SiteInfoLinks } from "@/components/SiteInfoLinks";
 
 /**
- * A single trigger that opens a dropdown with Log in / Sign up, replacing
- * two separate top-right links - one control reads as calmer and more
- * considered than a permanently-visible pair of competing CTAs.
+ * The signed-out account button: one quiet outlined circle (Search is the
+ * page's one filled call to action) opening Sign up / Log in, then the
+ * site's own pages (Help, About, Contact) under "FYStay".
  */
 /** Pages that are themselves the login/sign-up flow - never sent back to. */
 const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
@@ -18,7 +18,6 @@ const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"
 export function GuestMenu() {
   const pathname = usePathname();
   const router = useRouter();
-  const isHero = useNavTone() === "hero";
   // Logging in or signing up from the menu returns the guest to the page
   // they were on (with its query, e.g. a listing's selected dates) rather
   // than the homepage. The href carries the path for no-JS/new-tab use;
@@ -75,15 +74,9 @@ export function GuestMenu() {
         aria-expanded={open}
         aria-controls="guest-menu-panel"
         aria-label="Account menu"
-        className={cn(
-          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-2 pl-1.5 pr-1.5 text-white lg:pl-3 hover:bg-brand-700 active:bg-brand-800",
-          // Over the homepage video: the same quiet glass as the section
-          // control, so the hero's one solid brand-coloured button is Search.
-          isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
-        )}
+        className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-border-subtle bg-surface text-foreground transition-colors hover:border-brand-300 hover:bg-brand-50 active:bg-brand-100"
       >
-        <Menu className="hidden h-4 w-4 lg:block" aria-hidden />
-        <CircleUserRound className="h-7 w-7 text-white/90" strokeWidth={1.5} />
+        <UserRound className="h-5 w-5" strokeWidth={1.75} aria-hidden />
       </button>
 
       <div
@@ -98,14 +91,6 @@ export function GuestMenu() {
           open ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0",
         )}
       >
-        {/* Same brand-terracotta-to-amber gradient already used as the
-            decorative top bar on BookingWidget/CheckoutForm - a thin
-            accent here ties this menu into that same visual language
-            instead of reading as a plain, unbranded system dropdown. */}
-        <div
-          className="h-1 w-full bg-gradient-to-r from-brand-600 via-brand-400 to-accent-400"
-          aria-hidden
-        />
         <div className="max-h-[70vh] overflow-y-auto p-1.5">
           {/* Account actions only: the four sections are the bottom tab bar
               on phones and in the header on desktop (see SiteBottomNav), so they aren't
@@ -124,16 +109,17 @@ export function GuestMenu() {
           >
             Log in
           </Link>
-          {/* Phones have this in the site menu on the left (SiteMenu). */}
-          <div className="my-1 hidden border-t border-border-subtle lg:block" />
+          {/* Also here for phones, where the header's own host link gives
+              way to the search pill once the page's search scrolls away. */}
           <Link
             href="/host"
             onClick={() => setOpen(false)}
-            className="hidden items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 lg:flex"
+            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
           >
             <Home className="h-4 w-4" aria-hidden />
             List your property
           </Link>
+          <SiteInfoLinks onNavigate={() => setOpen(false)} />
         </div>
       </div>
     </div>

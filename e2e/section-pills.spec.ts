@@ -40,8 +40,10 @@ test("on desktop the sections sit in the header, each offered once", async ({ pa
     await page.goto(path);
     const header = page.locator("header");
     await expect(header.getByRole("navigation", { name: "Sections" })).toBeVisible();
-    // exact: the logo link's name includes its "Apartments · B&Bs · Lodges" descriptor.
-    await expect(header.getByRole("link", { name: "About", exact: true })).toBeVisible();
+    // Beside the sections only the host link and the account button; About
+    // and the rest are in the account menu and the footer.
+    await expect(header.getByRole("link", { name: "List your property", exact: true }).first()).toBeVisible();
+    await expect(header.getByRole("link", { name: "About", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Stays", exact: true })).toHaveCount(1);
     // One set of names: no competing "Hotels" or "Destinations" link.
     await expect(header.getByRole("link", { name: "Hotels", exact: true })).toHaveCount(0);
@@ -89,7 +91,7 @@ test("on desktop there's no bottom bar and nothing reserved for one", async ({ p
   expect(padding).toBe("0px");
 });
 
-test("on phones the bottom bar is on every page, and the account menu holds only account actions", async ({ page }) => {
+test("on phones the bottom bar is on every page, and the account menu holds account actions and the site's own pages", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/about");
   // Outside the four sections: the same tabs, none selected.
@@ -103,8 +105,25 @@ test("on phones the bottom bar is on every page, and the account menu holds only
     await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 1000 });
   }).toPass({ timeout: 10_000 });
   await expect(menu.getByRole("link", { name: "Log in" })).toBeVisible();
-  for (const label of ["Stays", "Experiences", "Services", "Saved", "About"]) {
+  for (const label of ["Help centre", "About FYStay", "Contact"]) {
+    await expect(menu.getByRole("link", { name: label, exact: true })).toBeVisible();
+  }
+  for (const label of ["Stays", "Experiences", "Services", "Saved"]) {
     await expect(menu.getByRole("link", { name: label, exact: true })).toHaveCount(0);
+  }
+});
+
+test("once the page's search scrolls away, a search pill in the header brings it back", async ({ page }) => {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    const pill = page.locator("header").getByRole("button", { name: /^Search stays/ });
+    await expect(pill).toHaveCount(0);
+    await page.mouse.wheel(0, 1600);
+    await expect(pill.first()).toBeVisible();
+    await pill.first().click();
+    await expect(page.getByPlaceholder("Town, city or postcode")).toBeFocused();
+    await expect(pill).toHaveCount(0);
   }
 });
 

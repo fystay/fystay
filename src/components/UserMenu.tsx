@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
+import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
 import { cn } from "@/lib/cn";
-import { useNavTone } from "@/components/NavTone";
+import { SiteInfoLinks } from "@/components/SiteInfoLinks";
 
 type Props = {
   name: string;
@@ -18,7 +18,6 @@ type Props = {
 
 export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
   const [open, setOpen] = useState(false);
-  const isHero = useNavTone() === "hero";
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -57,22 +56,12 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
         aria-expanded={open}
         aria-controls="user-menu-panel"
         aria-label={`Account menu for ${name}`}
-        // Same terracotta pill as the signed-out account button (GuestMenu),
-        // with the person's initials in a white disc in the logo's serif
-        // where the generic person icon would be.
-        className={cn(
-          "focus-ring flex items-center gap-2 rounded-xl border border-transparent bg-brand-600 py-1.5 pl-1.5 pr-1.5 text-white lg:pl-3 hover:bg-brand-700 active:bg-brand-800",
-          isHero && "border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20 active:bg-white/25",
-        )}
+        // The same quiet outlined circle as the signed-out button (GuestMenu),
+        // with the person's initials in the logo's serif.
+        className="focus-ring flex h-11 w-11 items-center justify-center rounded-full border border-border-subtle bg-surface transition-colors hover:border-brand-300 hover:bg-brand-50 active:bg-brand-100"
       >
-        <Menu className="hidden h-4 w-4 lg:block" aria-hidden />
-        <span className="hidden max-w-[8rem] truncate text-sm font-medium sm:inline">{name.split(" ")[0]}</span>
         <span className="relative">
-          <Avatar
-            name={name}
-            size={32}
-            className="bg-white font-serif font-bold tracking-wide text-brand-700 shadow-sm ring-2 ring-white/40"
-          />
+          <Avatar name={name} size={34} className="bg-brand-50 font-serif font-bold tracking-wide text-brand-700" />
           {unreadMessageCount > 0 && (
             <span
               aria-hidden
@@ -166,16 +155,20 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
           >
             <UserCircle className="h-4 w-4" /> Account
           </Link>
+          {/* Also here for phones, where the header's host link gives way
+              to the search pill once the page's search scrolls away. */}
           {role === "GUEST" && (
             <Link
               href="/host"
               onClick={() => setOpen(false)}
-              className="hidden items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-700 hover:bg-surface-muted lg:flex"
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-700 hover:bg-surface-muted"
             >
               <Home className="h-4 w-4" /> List your property
             </Link>
           )}
         </div>
+
+        <SiteInfoLinks onNavigate={() => setOpen(false)} />
 
         <div className="border-t border-border-subtle pt-1">
           <form action={signOutAction}>
