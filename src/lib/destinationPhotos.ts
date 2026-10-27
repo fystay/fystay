@@ -16,8 +16,7 @@
  * to `st-annes` too: the photo itself (the green and the windmill) is
  * genuinely a Lytham shot, and presenting it as "real photography" for St
  * Annes as well would be the kind of small dishonesty this file's own
- * fallback rule exists to avoid. St Annes uses TownHeroArt's generated
- * scene instead, same as any other town without a real photo yet.
+ * fallback rule exists to avoid. St Annes has its own photo (its pier).
  */
 // `hero` is optional: a town whose only real photo is too small for a
 // full-width banner (Fleetwood's, 612px wide) uses it on cards only and
@@ -37,5 +36,13 @@ export const DESTINATION_PHOTOS: Partial<Record<string, { hero?: string; tile: s
   "thornton-cleveleys": {
     hero: "/images/destinations/cleveleys.jpg",
     tile: "/images/destinations/cleveleys.jpg",
+  },
+  // Supplied by the owner (27 Oct): St Annes Pier, and Poulton's Market
+  // Place. Cards only - too small for a full-width banner.
+  "st-annes": {
+    tile: "/images/destinations/st-annes.jpg",
+  },
+  "poulton-le-fylde": {
+    tile: "/images/destinations/poulton-le-fylde.jpg",
   },
 };

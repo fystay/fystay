@@ -3,10 +3,9 @@ import type { LucideIcon } from "lucide-react";
 /**
  * The small icon-badge + heading pairing used across the listing detail
  * page's content sections (About, Amenities, Getting around, Cancellation
- * policy, Reviews) - the same "icon in a soft brand circle" language the
- * homepage's "Why FYStay" cards use, so a guest sees one consistent visual
- * vocabulary for "here's a labelled block of information" across the site
- * rather than a plain-text heading here and an icon badge there.
+ * policy, Reviews) - one "icon in a soft brand circle" language, so a guest
+ * sees one consistent visual vocabulary for "here's a labelled block of
+ * information" rather than a plain-text heading here and an icon badge there.
  */
 export function SectionHeading({
   icon: Icon,

@@ -5,7 +5,6 @@ import { HeroSlides } from "@/components/HeroBanner";
 import { LargeCardRailSkeleton } from "@/components/LargeCard";
 import { HomeTowns } from "@/components/HomeTowns";
 import { HomeServices } from "@/components/HomeServices";
-import { BrandStatement } from "@/components/BrandStatement";
 import { SpotlightStays } from "@/components/SpotlightStays";
 import { LastMinuteDeals } from "@/components/LastMinuteDeals";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
@@ -124,7 +123,6 @@ export default function Home() {
 
           <HomeTowns />
           <HomeServices />
-          <BrandStatement />
         </div>
       </div>
     </>
