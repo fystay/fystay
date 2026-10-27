@@ -27,7 +27,6 @@ export async function HomeServices() {
       <EditorialHeader
         id="services-heading"
         name="Services near you"
-        tagline="Everything around your stay"
         link={{ href: "/services", label: "View all" }}
       />
       {transferOffer ? (

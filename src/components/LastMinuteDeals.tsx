@@ -152,7 +152,6 @@ function LastMinuteDealsSection({ hasDeals = false, children }: { hasDeals?: boo
       <EditorialHeader
         id="last-minute-deals-heading"
         name="Last-minute deals"
-        tagline="A little escape, closer than you think."
         link={hasDeals ? { href: "/deals", label: "View all" } : undefined}
       />
       {children}

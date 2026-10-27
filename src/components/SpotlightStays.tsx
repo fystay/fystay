@@ -112,7 +112,6 @@ export async function SpotlightStays() {
       <EditorialHeader
         id="spotlight-heading"
         name="Spotlight stays"
-        tagline="Stays worth the trip"
         link={empty ? undefined : { href: "/search", label: "View all" }}
       />
       <LargeCardRail label="Spotlight stays" fullBleed autoAdvanceMs={SPOTLIGHT_ADVANCE_MS}>

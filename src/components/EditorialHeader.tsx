@@ -4,22 +4,18 @@ import { ScrollUnderline } from "@/components/ScrollUnderline";
 
 /**
  * The homepage's one section header: the section's name as the big,
- * underlined serif heading ("Spotlight stays"), its line of character
- * smaller beneath it in terracotta ("Stays worth the trip") - with a
- * "View all" style link on the right where the section has a full page.
+ * underlined serif heading ("Spotlight stays"), with a "View all" style
+ * link on the right where the section has a full page.
  */
 export function EditorialHeader({
   id,
   name,
-  tagline,
   link,
 }: {
   /** The heading's id, for the section's aria-labelledby. */
   id: string;
   /** The section's name: the big heading. */
   name: string;
-  /** Its line of character, beneath. */
-  tagline: string;
   link?: { href: string; label: string };
 }) {
   return (
@@ -43,7 +39,6 @@ export function EditorialHeader({
           </Link>
         )}
       </div>
-      <p className="mt-2 font-serif text-lg leading-snug text-brand-700 sm:text-xl">{tagline}</p>
     </div>
   );
 }

@@ -33,7 +33,6 @@ export function HomeTowns() {
       <EditorialHeader
         id="experiences-heading"
         name="Experiences near you"
-        tagline="Things to do, town by town"
         link={{ href: "/destinations", label: "View all" }}
       />
 

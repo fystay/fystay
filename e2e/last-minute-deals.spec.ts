@@ -14,7 +14,6 @@ const DEAL_LISTING = "Seafront apartment overlooking Blackpool promenade";
 test("Last Minute Deals shows a real last-minute deal, and the quoted price includes it", async ({ page }) => {
   await page.goto("/");
   const row = page.locator("section", { has: page.getByRole("heading", { name: "Last-minute deals" }) });
-  await expect(row.getByText("A little escape, closer than you think.")).toBeVisible();
   await expect(row.getByRole("link", { name: "View all" })).toHaveAttribute("href", "/deals");
   // :visible - the rail also renders a hidden sizing copy of its first card.
   await expect(row.locator("span:text-is('20% off'):visible").first()).toBeVisible();
