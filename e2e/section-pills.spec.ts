@@ -75,8 +75,10 @@ test("on phones the sections are a bottom tab bar: four equal, thumb-sized tabs 
 
     // The page reserves the bar's height, so the end of the page (the footer)
     // scrolls clear of it.
-    const padding = await page.evaluate(() => parseFloat(getComputedStyle(document.body).paddingBottom));
-    expect(padding).toBeGreaterThanOrEqual(Math.floor(box!.height));
+    // Polled: the bar reserves it once the page is interactive.
+    await expect
+      .poll(() => page.evaluate(() => parseFloat(getComputedStyle(document.body).paddingBottom)))
+      .toBeGreaterThanOrEqual(Math.floor(box!.height));
     // Not repeated at the top: the header has no section links on phones.
     await expect(page.locator("header").getByRole("link", { name: "Stays", exact: true })).toHaveCount(0);
   }
