@@ -63,6 +63,18 @@ Contrast rules (WCAG AA):
 - Small brand marks (favicon, monogram) use `brand-600`.
 - Headings stay DM Serif Display; body and UI stay Geist.
 
+## Card frames
+
+Two frames (owner, 27 Oct 2026), so cards don't read as a copy of other
+booking sites. Classes in `src/components/LargeCard.tsx`.
+
+- **Arch** (stays: Spotlight, search results, saved): the photo has an
+  arched top, like a pier or seaside window, with rounded bottom corners.
+  Badges and the heart sit along the bottom edge, clear of the curve.
+  Paid Spotlight stays add a sage frame and the "Promoted" label.
+- **Editorial** (everything else: deals, towns, services, placeholders):
+  square corners and a 3px terracotta rule between photo and text.
+
 ## Tagline
 
 **Primary: "For Your Stay."** It is the name's own meaning, so it builds

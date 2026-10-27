@@ -41,9 +41,9 @@ export function LargeCard({
   onClick?: () => void;
 }) {
   return (
-    <Link href={href} onClick={onClick} className="focus-ring group block rounded-[22px]">
+    <Link href={href} onClick={onClick} className="focus-ring group block">
       <LargeCardImageArea image={image} />
-      <div className="px-1 pt-4">
+      <div className={EDITORIAL_RULE_CLASS}>
         {eyebrow && (
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">{eyebrow}</p>
         )}
@@ -70,7 +70,7 @@ export function LargeCard({
  */
 export function PartnerServiceCard({ service, onClick }: { service: PartnerService; onClick?: () => void }) {
   return (
-    <Link href={service.href} onClick={onClick} className="focus-ring group block rounded-[22px]">
+    <Link href={service.href} onClick={onClick} className="focus-ring group block">
       <div className={cn(LARGE_CARD_IMAGE_CLASS, !service.image && cn("bg-gradient-to-br", service.backdrop))}>
         {service.image ? (
           <Image
@@ -105,7 +105,7 @@ export function PartnerServiceCard({ service, onClick }: { service: PartnerServi
           </div>
         </div>
       </div>
-      <div className="px-1 pt-4">
+      <div className={EDITORIAL_RULE_CLASS}>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">{service.category}</p>
         <p className="mt-1 text-base font-semibold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-brand-800 sm:text-lg">
           {service.title}
@@ -140,7 +140,8 @@ export const LARGE_CARD_SLOT_CLASS = "w-[60vw] max-w-[340px] shrink-0 sm:w-[44vw
 export function LargeCardRailSkeleton() {
   const slot = (key: number) => (
     <div key={key} className={LARGE_CARD_SLOT_CLASS}>
-      <div className="skeleton-shimmer aspect-square w-full rounded-[22px] sm:aspect-[4/3]" />
+      {/* Only the Spotlight row loads with this placeholder, so it takes the stay cards' arch. */}
+      <div className={cn("skeleton-shimmer w-full", ARCH_SHAPE_CLASS)} />
       <div className="skeleton-shimmer mt-4 h-5 w-2/3 rounded-full" />
       <div className="skeleton-shimmer mt-2 h-4 w-1/2 rounded-full" />
     </div>
@@ -156,9 +157,29 @@ export function LargeCardRailSkeleton() {
   );
 }
 
-/** Shared with ListingCard size="large" so both card types have the same corner radius, shadow and hover. */
-export const LARGE_CARD_IMAGE_CLASS =
-  "relative aspect-square w-full overflow-hidden rounded-[22px] shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] sm:aspect-[4/3]";
+const CARD_IMAGE_EFFECTS =
+  "relative w-full overflow-hidden shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)]";
+
+/**
+ * FYStay's two card frames (docs/brand/fystay-brand.md). The editorial
+ * frame - square corners, like a magazine page - is for everything that
+ * isn't a stay: towns, services, deals and placeholders. Shared with
+ * ListingCard's editorial frame.
+ */
+export const LARGE_CARD_IMAGE_CLASS = cn(CARD_IMAGE_EFFECTS, "aspect-square sm:aspect-[4/3]");
+
+/** The terracotta rule between an editorial card's photo and its text. */
+export const EDITORIAL_RULE_CLASS = "mt-2.5 border-t-[3px] border-brand-500 pt-3";
+
+/**
+ * The arch frame, FYStay's stay card: an arched top, like a pier or a
+ * seaside window. The top radii make a true semicircle at each aspect
+ * (4:5 on phones, where half the width is 40% of the height; square
+ * from sm).
+ */
+export const ARCH_SHAPE_CLASS =
+  "aspect-[4/5] rounded-b-2xl [border-top-left-radius:50%_40%] [border-top-right-radius:50%_40%] sm:aspect-square sm:[border-top-left-radius:50%] sm:[border-top-right-radius:50%]";
+export const ARCH_IMAGE_CLASS = cn(CARD_IMAGE_EFFECTS, ARCH_SHAPE_CLASS);
 
 function LargeCardImageArea({ image }: { image: LargeCardImage }) {
   if ("photoSrc" in image) {

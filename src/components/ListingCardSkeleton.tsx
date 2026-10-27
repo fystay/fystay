@@ -1,9 +1,11 @@
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ARCH_SHAPE_CLASS } from "@/components/LargeCard";
+import { cn } from "@/lib/cn";
 
 export function ListingCardSkeleton() {
   return (
     <div className="flex flex-col gap-3">
-      <Skeleton className="aspect-[4/3] w-full rounded-2xl" />
+      <Skeleton className={cn("w-full", ARCH_SHAPE_CLASS)} />
       <div className="flex flex-col gap-1.5">
         <Skeleton className="h-[2.5rem] w-3/4" />
         <Skeleton className="h-3.5 w-1/2" />

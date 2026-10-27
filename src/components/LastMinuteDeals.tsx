@@ -118,6 +118,7 @@ export async function LastMinuteDeals() {
                 destination={destination}
                 badge="Deals coming soon"
                 text={`Last-minute offers from ${destination.name} hosts will show here.`}
+                frame="editorial"
               />
             ),
           )}
@@ -138,6 +139,7 @@ export async function LastMinuteDeals() {
             size="large"
             showLastMinutePrice
             cta="View deal"
+            frame="editorial"
           />
         ))}
       </LargeCardRail>

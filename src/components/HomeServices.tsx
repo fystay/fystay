@@ -40,7 +40,7 @@ export async function HomeServices() {
         title="Everything around your stay"
         link={{ href: "/services", label: "View all" }}
       />
-      <div className="grid gap-6 rounded-[28px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-card)] sm:p-6 lg:grid-cols-[minmax(0,340px)_1fr] lg:items-center lg:gap-12 lg:p-8">
+      <div className="grid gap-6 border border-border-subtle bg-surface p-4 shadow-[var(--shadow-card)] sm:p-6 lg:grid-cols-[minmax(0,340px)_1fr] lg:items-center lg:gap-12 lg:p-8">
         {transferOffer ? <TravelAddonCard offering={transferOffer} /> : <TransfersCard service={AIRPORT_TRANSFERS} />}
         <div>
           <h3 className="font-serif text-xl font-bold leading-tight text-foreground sm:text-2xl">
@@ -83,7 +83,7 @@ function TransfersCard({ service }: { service: FyStayService }) {
   return (
     <Link
       href={href}
-      className={`focus-ring group relative flex min-h-[180px] flex-col justify-end overflow-hidden rounded-[22px] bg-gradient-to-br ${gradient} p-5 text-white shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:aspect-[4/3]`}
+      className={`focus-ring group relative flex min-h-[180px] flex-col justify-end overflow-hidden bg-gradient-to-br ${gradient} p-5 text-white shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:aspect-[4/3]`}
     >
       <Icon className="absolute -right-4 -top-4 h-32 w-32 text-white/10" aria-hidden />
       <Icon className="relative mb-3 h-6 w-6" aria-hidden />

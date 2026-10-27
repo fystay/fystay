@@ -16,7 +16,7 @@ import { distanceMiles, estimateDriveMinutes, estimateWalkMinutes } from "@/lib/
 import { EntryLocationMeta } from "@/components/EntryLocationMeta";
 import { CrossfadeImages } from "@/components/CrossfadeImages";
 import { useAutoRotate } from "@/hooks/useAutoRotate";
-import { LARGE_CARD_IMAGE_CLASS } from "@/components/LargeCard";
+import { ARCH_IMAGE_CLASS, EDITORIAL_RULE_CLASS, LARGE_CARD_IMAGE_CLASS } from "@/components/LargeCard";
 import { dealNightlyPriceCents, lastMinuteDiscountFor, listingDeal } from "@/lib/deals";
 import { parseStayDate } from "@/lib/stayDates";
 
@@ -68,6 +68,7 @@ export function ListingCard({
   checkIn,
   showLastMinutePrice = false,
   cta,
+  frame = "arch",
 }: {
   listing: ListingCardData;
   isSaved?: boolean;
@@ -102,8 +103,15 @@ export function ListingCard({
   showLastMinutePrice?: boolean;
   /** A closing action line on large cards ("View stay", "View deal"). */
   cta?: string;
+  /**
+   * "arch" (default): FYStay's stay card, arched top. "editorial": square
+   * corners and a terracotta rule, for rows that sit among the editorial
+   * cards (Last Minute Deals) - see LARGE_CARD_IMAGE_CLASS.
+   */
+  frame?: "arch" | "editorial";
 }) {
   const isLarge = size === "large";
+  const isArch = frame === "arch";
   const rating = computeAverageRating(listing.reviews);
   const landmarkDistance =
     nearLandmark && listing.latitude != null && listing.longitude != null
@@ -250,17 +258,17 @@ export function ListingCard({
         ref={observePhotos}
         {...rotationHandlers}
         className={cn(
-          isLarge
-            ? cn(LARGE_CARD_IMAGE_CLASS, "bg-brand-50")
-            : "relative aspect-[5/4] w-full overflow-hidden rounded-2xl bg-brand-50 shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] group-hover:ring-brand-200",
+          "bg-brand-50",
+          isArch ? ARCH_IMAGE_CLASS : LARGE_CARD_IMAGE_CLASS,
+          !isLarge && "group-hover:ring-brand-200",
           // A paid placement is framed in the accent colour so it stands out
           // from the stays around it - always with its "Promoted" label.
-          promoted && "ring-2 ring-accent-400 group-hover:ring-accent-500",
+          promoted && "ring-[3px] ring-accent-500 group-hover:ring-accent-600",
         )}
       >
         <Link
           href={`/listings/${listing.id}${stayQuery}`}
-          className={cn("focus-ring absolute inset-0 block", isLarge ? "rounded-[22px]" : "rounded-2xl")}
+          className="focus-ring absolute inset-0 block"
           onTouchStart={showPhotoControls ? handleTouchStart : undefined}
           onTouchEnd={showPhotoControls ? handleTouchEnd : undefined}
         >
@@ -296,7 +304,7 @@ export function ListingCard({
               type="button"
               onClick={() => goToPhoto(photoIndex - 1)}
               aria-label="Previous photo"
-              className="absolute left-1.5 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/80 p-1 text-foreground opacity-0 shadow-[var(--shadow-card)] backdrop-blur-sm transition hover:bg-white group-hover:opacity-100 sm:flex"
+              className="absolute left-1.5 top-[60%] z-10 hidden -translate-y-1/2 rounded-full bg-white/80 p-1 text-foreground opacity-0 shadow-[var(--shadow-card)] backdrop-blur-sm transition hover:bg-white group-hover:opacity-100 sm:flex"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -304,12 +312,13 @@ export function ListingCard({
               type="button"
               onClick={() => goToPhoto(photoIndex + 1)}
               aria-label="Next photo"
-              className="absolute right-1.5 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/80 p-1 text-foreground opacity-0 shadow-[var(--shadow-card)] backdrop-blur-sm transition hover:bg-white group-hover:opacity-100 sm:flex"
+              className="absolute right-1.5 top-[60%] z-10 hidden -translate-y-1/2 rounded-full bg-white/80 p-1 text-foreground opacity-0 shadow-[var(--shadow-card)] backdrop-blur-sm transition hover:bg-white group-hover:opacity-100 sm:flex"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
 
-            <div className="absolute inset-x-0 bottom-2 z-10 flex justify-center gap-1">
+            {/* At the top: the bottom edge holds the badges and the heart. */}
+            <div className="absolute inset-x-0 top-3 z-10 flex justify-center gap-1">
               {listing.photos.map((_, i) => (
                 <span
                   key={i}
@@ -324,37 +333,29 @@ export function ListingCard({
           </>
         )}
 
-        {dealLabel && (
-          <span
-            className={cn(
-              "absolute z-10 rounded-full bg-accent-500 px-2.5 py-1 text-xs font-semibold text-ink shadow-[var(--shadow-card)]",
-              isLarge ? "left-3 top-3" : "left-2.5 top-2.5",
+        {/* Along the bottom edge, clear of the arch: the offer and the paid
+            label on the left, the heart on the right. */}
+        {(dealLabel || promoted) && (
+          <div className="pointer-events-none absolute bottom-3 left-3 right-16 z-10 flex flex-wrap items-center gap-1.5">
+            {dealLabel && (
+              <span className="rounded-full bg-accent-500 px-2.5 py-1 text-xs font-semibold text-ink shadow-[var(--shadow-card)]">
+                {dealLabel}
+              </span>
             )}
-          >
-            {dealLabel}
-          </span>
-        )}
-
-        {promoted && (
-          <span
-            className={cn(
-              "absolute z-10 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-800 shadow-[var(--shadow-card)] backdrop-blur-sm",
-              isLarge ? "bottom-3 left-3" : "bottom-2.5 left-2.5",
+            {promoted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-800 shadow-[var(--shadow-card)] backdrop-blur-sm">
+                <Sparkles className="h-3 w-3 text-accent-600" aria-hidden />
+                Promoted
+              </span>
             )}
-          >
-            <Sparkles className="h-3 w-3 text-accent-600" aria-hidden />
-            Promoted
-          </span>
+          </div>
         )}
 
         <SaveButton
           listingId={listing.id}
           initialSaved={isSaved}
           isLoggedIn={isLoggedIn}
-          className={cn(
-            "absolute z-10 h-10 w-10 bg-white/80 shadow-[var(--shadow-card)] backdrop-blur-sm hover:bg-white active:scale-90",
-            isLarge ? "right-3 top-3" : "right-2.5 top-2.5",
-          )}
+          className="absolute bottom-2 right-2.5 z-10 h-10 w-10 bg-white/80 shadow-[var(--shadow-card)] backdrop-blur-sm hover:bg-white active:scale-90"
         />
       </div>
       {isLarge ? (
@@ -362,7 +363,10 @@ export function ListingCard({
         // guest scans for: what and where, the name, how many it sleeps, a
         // real deal's terms, then price, a rating only when guests have left
         // one, and the way in. Every figure is the listing's own data.
-        <Link href={`/listings/${listing.id}${stayQuery}`} className="focus-ring flex flex-col rounded-xl px-1">
+        <Link
+          href={`/listings/${listing.id}${stayQuery}`}
+          className={cn("focus-ring flex flex-col", isArch ? "rounded-xl px-1" : cn(EDITORIAL_RULE_CLASS, "mt-0"))}
+        >
           <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
             {listing.propertyType ? `${PROPERTY_TYPE_LABEL[listing.propertyType]} · ` : ""}
             {listing.city}

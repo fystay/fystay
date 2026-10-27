@@ -49,7 +49,7 @@ export function HomeTowns() {
                 <Link
                   href={`/destinations/${destination.slug}#quick-discovery`}
                   className={cn(
-                    "focus-ring group relative flex h-[180px] flex-col justify-end overflow-hidden rounded-2xl bg-gradient-to-br p-3 shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 hover:shadow-[var(--shadow-card-hover)] min-[400px]:h-[190px] sm:h-[200px] sm:p-4 lg:h-auto lg:aspect-[16/10] lg:p-5",
+                    "focus-ring group relative flex h-[180px] flex-col justify-end overflow-hidden border-b-[3px] border-brand-500 bg-gradient-to-br p-3 shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 hover:shadow-[var(--shadow-card-hover)] min-[400px]:h-[190px] sm:h-[200px] sm:p-4 lg:h-auto lg:aspect-[16/10] lg:p-5",
                     art.gradient,
                   )}
                 >

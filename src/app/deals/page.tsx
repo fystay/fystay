@@ -47,6 +47,7 @@ export default async function DealsPage() {
                 size="large"
                 showLastMinutePrice
                 cta="View deal"
+                frame="editorial"
               />
             </li>
           ))}
