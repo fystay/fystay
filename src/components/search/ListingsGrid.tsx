@@ -307,13 +307,14 @@ export async function ListingsGrid({
     <div
       className={cn("flex flex-col gap-5", showResultsView && "animate-search-reveal-in")}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* The heading above already names the place. */}
-          <p className="text-sm font-medium text-stone-500">
-            {results.length} stay{results.length === 1 ? "" : "s"}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
+      {/* Phones: the count, then one row of controls. From sm, one row. */}
+      <div className="flex flex-col gap-2.5 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:gap-3">
+        {/* The heading above already names the place. */}
+        <p className="text-sm font-medium text-stone-500">
+          {results.length} stay{results.length === 1 ? "" : "s"}
+        </p>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none sm:flex-wrap">
             {PAGE_ONLY_FILTERS.filter(({ param }) => searchParams[param] === "1").map(({ param, label }) => (
               <Link
                 key={param}
@@ -326,10 +327,14 @@ export async function ListingsGrid({
               </Link>
             ))}
             <FilterSheet />
-            <SortDropdown />
+            <div className="min-w-0 flex-1 sm:flex-none">
+              <SortDropdown />
+            </div>
+          </div>
+          <div className="ml-auto">
+            <ResultsViewToggle />
           </div>
         </div>
-        <ResultsViewToggle />
       </div>
 
       {browse && results.length > 0 && (

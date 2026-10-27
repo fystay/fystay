@@ -9,6 +9,10 @@ import { SpotlightStays } from "@/components/SpotlightStays";
 import { LastMinuteDeals } from "@/components/LastMinuteDeals";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/seo";
+import { HERO_SLIDES, type HeroSlideKey } from "@/lib/heroSlides";
+import { locationWhere, matchesLocation, parseBrowseRequest } from "@/lib/searchRequest";
+import { bookableHostWhere } from "@/lib/stripeConnect";
+import { prisma } from "@/lib/prisma";
 
 // Brand first on the homepage alone (absolute, so the "· FYStay" template
 // doesn't repeat it), then the regional searches it should answer - see
@@ -31,7 +35,30 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title, description },
 };
 
-export default function Home() {
+/**
+ * The hero's places that have at least one live stay, found the same way
+ * the search its slide links to would find them - so a slide never leads
+ * to an empty page. If none has, HeroSlides shows the first (Blackpool).
+ */
+async function liveHeroSlideKeys(): Promise<HeroSlideKey[]> {
+  const live = await Promise.all(
+    HERO_SLIDES.map(async (slide) => {
+      const location = parseBrowseRequest(new URLSearchParams(slide.search))?.location;
+      if (!location) return false;
+      const listings = await prisma.listing
+        .findMany({
+          where: { published: true, suspendedAt: null, ...bookableHostWhere(), ...locationWhere(location) },
+          select: { latitude: true, longitude: true, city: true },
+        })
+        .catch(() => []);
+      return listings.some((listing) => matchesLocation(location, listing));
+    }),
+  );
+  return HERO_SLIDES.filter((_, i) => live[i]).map((slide) => slide.key);
+}
+
+export default async function Home() {
+  const heroSlideKeys = await liveHeroSlideKeys();
   // WebSite + SearchAction tells Google this site has an internal search it
   // can offer directly in results (a "sitelinks search box"), targeting the
   // real /search?city= URL the homepage's own search bar already uses -
@@ -88,12 +115,12 @@ export default function Home() {
           straddling its foot.
 
           The hero runs edge to edge and dissolves into the cream page at
-          the bottom (a mask on the photos only), crossfading through four
-          places (HeroSlides). isolate keeps its layers' z-indexes inside
+          the bottom (a mask on the photos only), crossfading through the
+          places with live stays (HeroSlides). isolate keeps its layers' z-indexes inside
           the hero. */}
       <div className="flex min-h-[calc(100svh-88px-58px-env(safe-area-inset-bottom))] flex-col lg:block lg:min-h-0">
         <section className="relative isolate flex min-h-[230px] w-full flex-1 flex-col lg:h-[64svh] lg:max-h-[660px] lg:min-h-[520px] lg:flex-none">
-          <HeroSlides />
+          <HeroSlides slideKeys={heroSlideKeys} />
         </section>
 
         {/* The search card - the page's main control - rising a little into

@@ -178,8 +178,9 @@ export function FilterSheet() {
   return (
     <>
       <Button variant="outline" onClick={openPanel} className="gap-2">
-        <SlidersHorizontal className="h-4 w-4" />
-        Filters
+        <SlidersHorizontal className="h-4 w-4" aria-hidden />
+        {/* Icon only on phones, so the results toolbar fits one row. */}
+        <span className="sr-only sm:not-sr-only">Filters</span>
         {activeCount > 0 && (
           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-700 px-1 text-xs font-semibold text-white">
             {activeCount}

@@ -59,7 +59,7 @@ export function PhotoGallery({
 
   if (photos.length === 0) {
     return (
-      <div className="relative mt-4 flex aspect-[16/9] w-full items-center justify-center rounded-2xl bg-brand-50 text-brand-300 sm:aspect-[21/9]">
+      <div className="relative mt-4 flex aspect-[16/9] w-full items-center justify-center bg-brand-50 text-brand-300 sm:aspect-[21/9]">
         <ImageOff className="h-8 w-8" />
         {listingId && (
           <SaveButton
@@ -78,6 +78,7 @@ export function PhotoGallery({
 
   return (
     <>
+      {/* Editorial frame (docs/brand/fystay-brand.md): square-cornered photos. */}
       <div className="relative mt-4 flex flex-col gap-2 sm:h-[420px] sm:flex-row lg:h-[480px]">
         <div className="relative w-full sm:h-full sm:flex-[2]">
           <button
@@ -86,7 +87,7 @@ export function PhotoGallery({
             onClick={() => setLightboxIndex(heroIndex)}
             onTouchStart={photos.length > 1 ? handleTouchStart : undefined}
             onTouchEnd={photos.length > 1 ? handleTouchEnd : undefined}
-            className="focus-ring relative block aspect-[4/3] w-full overflow-hidden rounded-2xl bg-surface-muted transition hover:brightness-95 sm:aspect-auto sm:h-full"
+            className="focus-ring relative block aspect-[4/3] w-full overflow-hidden bg-surface-muted transition hover:brightness-95 sm:aspect-auto sm:h-full"
           >
             <div
               className="flex h-full w-full transition-transform duration-300 ease-out"
@@ -146,7 +147,7 @@ export function PhotoGallery({
                   type="button"
                   data-testid="gallery-tile"
                   onClick={() => setLightboxIndex(photoIndex)}
-                  className="focus-ring relative flex-1 overflow-hidden rounded-2xl bg-surface-muted"
+                  className="focus-ring relative flex-1 overflow-hidden bg-surface-muted"
                 >
                   <Image
                     src={photo}

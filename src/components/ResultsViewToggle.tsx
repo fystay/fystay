@@ -42,8 +42,9 @@ export function ResultsViewToggle() {
               : "text-stone-600 hover:bg-surface-muted",
           )}
         >
-          <Icon className="h-4 w-4" />
-          {label}
+          <Icon className="h-4 w-4" aria-hidden />
+          {/* Icon only on phones, so the results toolbar fits one row. */}
+          <span className="sr-only sm:not-sr-only">{label}</span>
         </button>
       ))}
     </div>

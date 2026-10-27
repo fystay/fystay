@@ -147,11 +147,8 @@ export function HotelBookingWidget({
   const cheapestPrice = Math.min(...roomTypes.map((rt) => rt.pricePerNightCents));
 
   return (
-    <Card className="p-0 shadow-[var(--shadow-popover)] lg:sticky lg:top-24">
-      <div
-        className="h-1.5 w-full rounded-t-2xl bg-gradient-to-r from-brand-600 via-brand-400 to-accent-400"
-        aria-hidden
-      />
+    // Editorial frame, like BookingWidget: square corners, terracotta rule on top.
+    <Card className="rounded-none border-t-[3px] border-t-brand-500 p-0 shadow-[var(--shadow-popover)] lg:sticky lg:top-24">
       <CardContent className="p-5 sm:p-6">
         <p className="text-2xl font-bold text-brand-800">
           {formatPrice(cheapestPrice)}

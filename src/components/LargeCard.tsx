@@ -173,12 +173,11 @@ export const EDITORIAL_RULE_CLASS = "mt-2.5 border-t-[3px] border-brand-500 pt-3
 
 /**
  * The arch frame, FYStay's stay card: an arched top, like a pier or a
- * seaside window. The top radii make a true semicircle at each aspect
- * (4:5 on phones, where half the width is 40% of the height; square
- * from sm).
+ * seaside window - a square photo whose top corners make a semicircle.
+ * Square rather than taller, so a phone shows more than one card a screen.
  */
 export const ARCH_SHAPE_CLASS =
-  "aspect-[4/5] rounded-b-2xl [border-top-left-radius:50%_40%] [border-top-right-radius:50%_40%] sm:aspect-square sm:[border-top-left-radius:50%] sm:[border-top-right-radius:50%]";
+  "aspect-square rounded-b-2xl [border-top-left-radius:50%] [border-top-right-radius:50%]";
 export const ARCH_IMAGE_CLASS = cn(CARD_IMAGE_EFFECTS, ARCH_SHAPE_CLASS);
 
 function LargeCardImageArea({ image }: { image: LargeCardImage }) {

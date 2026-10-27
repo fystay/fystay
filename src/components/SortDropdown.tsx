@@ -28,7 +28,7 @@ export function SortDropdown() {
       aria-label="Sort results"
       value={currentSort}
       onChange={(e) => handleChange(e.target.value)}
-      className="w-auto"
+      className="w-full min-w-0 sm:w-auto"
     >
       {SORT_OPTIONS.map((option) => (
         <option key={option.key} value={option.key}>

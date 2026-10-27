@@ -4,93 +4,43 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { HERO_SLIDES, type HeroSlideKey } from "@/lib/heroSlides";
+
+const SLIDE_MS = 6500;
 
 /**
- * The homepage hero: a slow crossfade through four places, each sold on its
- * own terms - a headline and a line of what you'd actually do there, true to
- * the place, never a template. The place name leads the heading (for search
- * engines and screen readers as much as for the eye). Photos are
- * the owner's own (public/images/hero/), with a 960px file for phones.
+ * The homepage hero: a slow crossfade through the places in slideKeys (those
+ * with live stays - see src/lib/heroSlides.ts), the first slide alone if
+ * none. The place name leads the heading (for search engines and screen
+ * readers as much as for the eye), with a 960px photo for phones.
  *
  * It moves on every SLIDE_MS, pauses while the tab is hidden, and never
  * moves under prefers-reduced-motion. The dots choose a slide by hand, and
  * choosing one stops the rotation, so anyone who wants it still can have it
- * still (WCAG 2.2.2).
- *
- * Each slide links to its place's stays: the search page with "Where"
- * already filled in, the same way a guest would pick it from the
- * suggestions (FYStay's own town for Blackpool, Google's place - id, point
- * and area - for the others), leaving only the dates to choose.
+ * still (WCAG 2.2.2). One place: no rotation and no dots.
  */
-const SLIDES = [
-  {
-    key: "blackpool",
-    place: "Blackpool",
-    region: "The Fylde Coast",
-    lead: "Sand, sea",
-    accent: "and that Tower.",
-    line: "Seven miles of promenade, the Pleasure Beach, a show at the Winter Gardens and, every autumn, the Illuminations.",
-    search: "city=Blackpool",
-    // Keeps the Tower in frame on a narrow screen.
-    position: "object-[82%_center]",
-  },
-  {
-    key: "windermere",
-    place: "Windermere",
-    region: "The Lake District",
-    lead: "Wake up",
-    accent: "to the lake.",
-    line: "England's largest lake: the steamer to Ambleside, a fell walk before lunch and a pub by the water to end the day.",
-    search:
-      "place=ChIJOQG-dEWTfEgReVu7ERYcf9E&placeLabel=Windermere&lat=54.380685&lng=-2.906785&bbox=54.360443,-2.923883,54.39041,-2.889561",
-    position: "object-[62%_center]",
-  },
-  {
-    key: "liverpool",
-    place: "Liverpool",
-    region: "Merseyside",
-    lead: "A waterfront",
-    accent: "made for weekends.",
-    line: "The Albert Dock, a night at the Cavern Club, match day at Anfield and the ferry across the Mersey.",
-    search:
-      "place=ChIJt2BwZIrfekgRAW4XP28E3EI&placeLabel=Liverpool&lat=53.408371&lng=-2.991573&bbox=53.311542,-3.01918,53.486211,-2.818",
-    position: "object-[58%_center]",
-  },
-  {
-    key: "manchester",
-    place: "Manchester",
-    region: "Greater Manchester",
-    lead: "Where the North",
-    accent: "comes alive.",
-    line: "Northern Quarter bars, Ancoats kitchens, gigs at the AO Arena and match day at Old Trafford or the Etihad.",
-    search:
-      "place=ChIJ2_UmUkxNekgRqmv-BDgUvtk&placeLabel=Manchester&lat=53.480759&lng=-2.24263&bbox=53.365651,-2.300097,53.544588,-2.146828",
-    position: "object-[72%_center]",
-  },
-] as const;
-
-const SLIDE_MS = 6500;
-
-export function HeroSlides() {
+export function HeroSlides({ slideKeys }: { slideKeys: HeroSlideKey[] }) {
+  const shown = HERO_SLIDES.filter((s) => slideKeys.includes(s.key));
+  const slides = shown.length > 0 ? shown : HERO_SLIDES.slice(0, 1);
   const [index, setIndex] = useState(0);
   const [stopped, setStopped] = useState(false);
 
   useEffect(() => {
-    if (stopped || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (stopped || slides.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(() => {
-      if (!document.hidden) setIndex((i) => (i + 1) % SLIDES.length);
+      if (!document.hidden) setIndex((i) => (i + 1) % slides.length);
     }, SLIDE_MS);
     return () => window.clearInterval(timer);
-  }, [stopped]);
+  }, [stopped, slides.length]);
 
-  const slide = SLIDES[index];
+  const slide = slides[index];
   const href = `/search?${slide.search}`;
 
   return (
     <>
       <div className="absolute inset-0 overflow-hidden [mask-image:linear-gradient(to_top,transparent_0,#000_90px)] lg:[mask-image:linear-gradient(to_top,transparent_0,#000_180px)]">
         <div className="absolute inset-0 bg-ink" aria-hidden>
-          {SLIDES.map((s, i) => (
+          {slides.map((s, i) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={s.key}
@@ -141,29 +91,31 @@ export function HeroSlides() {
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </span>
         </Link>
-        <div className="pointer-events-auto mt-3 flex w-fit gap-1.5 sm:mt-5" role="group" aria-label="Choose a place">
-          {SLIDES.map((s, i) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => {
-                setStopped(true);
-                setIndex(i);
-              }}
-              aria-label={s.place}
-              aria-pressed={i === index}
-              className="focus-ring -m-2 rounded-full p-2"
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  "block h-1.5 rounded-full transition-all duration-300",
-                  i === index ? "w-5 bg-brand-600" : "w-1.5 bg-foreground/45",
-                )}
-              />
-            </button>
-          ))}
-        </div>
+        {slides.length > 1 && (
+          <div className="pointer-events-auto mt-3 flex w-fit gap-1.5 sm:mt-5" role="group" aria-label="Choose a place">
+            {slides.map((s, i) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => {
+                  setStopped(true);
+                  setIndex(i);
+                }}
+                aria-label={s.place}
+                aria-pressed={i === index}
+                className="focus-ring -m-2 rounded-full p-2"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "block h-1.5 rounded-full transition-all duration-300",
+                    i === index ? "w-5 bg-brand-600" : "w-1.5 bg-foreground/45",
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
