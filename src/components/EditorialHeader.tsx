@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { ScrollUnderline } from "@/components/ScrollUnderline";
 
 /**
  * The homepage's one section header: the section's name as the big,
@@ -29,10 +30,10 @@ export function EditorialHeader({
       <div className="flex items-end justify-between gap-4">
         <h2 id={id} className="text-[2rem] font-bold leading-[1.05] text-foreground sm:text-[2.6rem]">
           {/* The terracotta underline draws across as the heading scrolls
-              into view (.heading-underline in globals.css). */}
+              up the screen (ScrollUnderline). */}
           <span className="relative inline-block pb-2">
             {name}
-            <span aria-hidden className="heading-underline absolute bottom-0 left-0 h-[3px] w-full rounded-full bg-brand-500" />
+            <ScrollUnderline />
           </span>
         </h2>
         {link && (

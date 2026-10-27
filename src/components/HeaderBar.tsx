@@ -74,14 +74,14 @@ function SearchPill({ className }: { className?: string }) {
 }
 
 /**
- * The header's contents. Logo on the left; on the right one plain link for
- * hosts ("List your property", or the host's dashboard) and the account
- * button. Desktop: the four sections in the centre. Once the page's main
- * search has scrolled away, a search pill takes the centre (desktop) or the
- * host link's place (phones), so a guest can search from anywhere on the
- * page - the only filled terracotta control up here, as Search is below.
+ * The header's contents: the logo on the left, the account button on the
+ * right (it also holds "List your property"). Desktop: the four sections in
+ * the centre. Once the page's main search has scrolled away, a search pill
+ * takes the centre (desktop) or the space beside the logo (phones), so a
+ * guest can search from anywhere on the page - the only filled terracotta
+ * control up here, as Search is below.
  */
-export function HeaderBar({ host, account }: { host: { href: string; label: string }; account: ReactNode }) {
+export function HeaderBar({ account }: { account: ReactNode }) {
   const pill = usePageSearchScrolledAway();
 
   return (
@@ -108,18 +108,7 @@ export function HeaderBar({ host, account }: { host: { href: string; label: stri
         )}
       </div>
 
-      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-4">
-        <Link
-          href={host.href}
-          className={cn(
-            "focus-ring whitespace-nowrap rounded-sm text-sm font-semibold text-brand-700 hover:text-brand-800",
-            pill && "hidden lg:inline",
-          )}
-        >
-          {host.label}
-        </Link>
-        {account}
-      </div>
+      <div className="relative z-10 ml-auto shrink-0">{account}</div>
     </div>
   );
 }

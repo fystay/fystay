@@ -17,17 +17,9 @@ export async function Navbar() {
       })
     : 0;
 
-  // The header's one host link: where new hosts start, or a host's own
-  // dashboard. Admins get the guest link like anyone else.
-  const host =
-    session?.user?.role === "HOST"
-      ? { href: "/host/dashboard", label: "Host dashboard" }
-      : { href: "/host", label: "List your property" };
-
   return (
     <NavbarChrome>
       <HeaderBar
-        host={host}
         account={
           <nav aria-label="Account">
             {session?.user ? (

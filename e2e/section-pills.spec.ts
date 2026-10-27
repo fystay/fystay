@@ -40,9 +40,9 @@ test("on desktop the sections sit in the header, each offered once", async ({ pa
     await page.goto(path);
     const header = page.locator("header");
     await expect(header.getByRole("navigation", { name: "Sections" })).toBeVisible();
-    // Beside the sections only the host link and the account button; About
-    // and the rest are in the account menu and the footer.
-    await expect(header.getByRole("link", { name: "List your property", exact: true }).first()).toBeVisible();
+    // Beside the sections only the account button; About, List your
+    // property and the rest are in the account menu and the footer.
+    await expect(header.getByRole("button", { name: "Account menu" })).toBeVisible();
     await expect(header.getByRole("link", { name: "About", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Stays", exact: true })).toHaveCount(1);
     // One set of names: no competing "Hotels" or "Destinations" link.

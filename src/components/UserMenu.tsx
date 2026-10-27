@@ -155,8 +155,7 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
           >
             <UserCircle className="h-4 w-4" /> Account
           </Link>
-          {/* Also here for phones, where the header's host link gives way
-              to the search pill once the page's search scrolls away. */}
+          {/* Where new hosts start (also in the footer). */}
           {role === "GUEST" && (
             <Link
               href="/host"

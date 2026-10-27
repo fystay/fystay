@@ -109,8 +109,7 @@ export function GuestMenu() {
           >
             Log in
           </Link>
-          {/* Also here for phones, where the header's own host link gives
-              way to the search pill once the page's search scrolls away. */}
+          {/* Where new hosts start (also in the footer). */}
           <Link
             href="/host"
             onClick={() => setOpen(false)}
