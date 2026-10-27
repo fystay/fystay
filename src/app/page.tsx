@@ -109,7 +109,7 @@ export default async function Home() {
       />
       {/* Phones: the first screen is the header, the hero and the search
           card, which sits just above the bottom tab bar - the wrapper fills
-          the screen between the header (69px) and the tab bar (57px plus
+          the screen between the header (77px) and the tab bar (57px plus
           the home-indicator area), the card keeps 16px clear above the bar,
           and the hero takes whatever the card leaves, so the photo stays visible behind the headline. From
           lg the hero is a fixed share of the window with the search bar
@@ -119,7 +119,7 @@ export default async function Home() {
           the bottom (a mask on the photos only), crossfading through the
           places with live stays (HeroSlides). isolate keeps its layers' z-indexes inside
           the hero. */}
-      <div className="flex min-h-[calc(100svh-70px-58px-env(safe-area-inset-bottom))] flex-col lg:block lg:min-h-0">
+      <div className="flex min-h-[calc(100svh-77px-58px-env(safe-area-inset-bottom))] flex-col lg:block lg:min-h-0">
         <section className="relative isolate flex min-h-[230px] w-full flex-1 flex-col lg:h-[64svh] lg:max-h-[660px] lg:min-h-[520px] lg:flex-none">
           <HeroSlides slideKeys={heroSlideKeys} />
         </section>

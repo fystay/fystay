@@ -87,7 +87,7 @@ export function HeaderBar({ account }: { account: ReactNode }) {
   return (
     <div className="relative mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6 lg:py-4">
       <Link href="/" aria-label="FYStay home" className="focus-ring relative z-10 shrink-0 rounded-md">
-        <Logo size="md" />
+        <Logo size="lg" withTagline />
       </Link>
 
       {/* Suspense: the pill reads the search params; the rest of the bar
