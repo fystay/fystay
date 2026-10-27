@@ -3,7 +3,7 @@
 import { useFormattedPrice } from "@/components/CurrencyProvider";
 import { trackAddonEvent } from "@/lib/analytics";
 import { useViewOnce } from "@/hooks/useViewOnce";
-import { PartnerServiceCard } from "@/components/LargeCard";
+import { PartnerServiceCard, ServiceBanner } from "@/components/LargeCard";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { partnerServiceForOffering } from "@/lib/partnerServices";
 import { travelAddonHref, type TravelAddonOffering } from "@/lib/travelAddons";
@@ -29,9 +29,10 @@ export function TravelAddonsSection({ offerings }: { offerings: TravelAddonOffer
  * One travel add-on as a partner service card (see src/lib/partnerServices.ts):
  * the provider - EV Exec, for airport transfers - presented as the
  * independent business providing it, booked through FYStay's own
- * /travel-extras flow. Also leads the homepage's Services section.
+ * /travel-extras flow. "banner": the homepage's Services section, as one
+ * wide photo banner (ServiceBanner).
  */
-export function TravelAddonCard({ offering }: { offering: TravelAddonOffering }) {
+export function TravelAddonCard({ offering, variant = "card" }: { offering: TravelAddonOffering; variant?: "card" | "banner" }) {
   const price = useFormattedPrice(offering.priceCents);
   const viewRef = useViewOnce<HTMLDivElement>(() => {
     trackAddonEvent({
@@ -51,15 +52,17 @@ export function TravelAddonCard({ offering }: { offering: TravelAddonOffering })
     });
   }
 
+  const service = {
+    ...partnerServiceForOffering(offering, travelAddonHref(offering.category)),
+    price: { label: price, detail: offering.name },
+  };
   return (
     <div ref={viewRef}>
-      <PartnerServiceCard
-        service={{
-          ...partnerServiceForOffering(offering, travelAddonHref(offering.category)),
-          price: { label: price, detail: offering.name },
-        }}
-        onClick={handleCtaClick}
-      />
+      {variant === "banner" ? (
+        <ServiceBanner service={service} onClick={handleCtaClick} />
+      ) : (
+        <PartnerServiceCard service={service} onClick={handleCtaClick} />
+      )}
     </div>
   );
 }

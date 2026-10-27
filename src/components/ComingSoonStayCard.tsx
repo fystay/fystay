@@ -10,18 +10,16 @@ import { cn } from "@/lib/cn";
  * A clearly-labelled placeholder in a stays carousel while a town has no
  * stays live yet: the town's real photo (or its art), "Coming soon", and a
  * link to the town's own page - never an invented property or price.
- * badge and text let another row word it for itself (Last Minute Deals);
+ * badge lets another row word it for itself (Last Minute Deals);
  * frame matches the row's own cards (arch for stays, editorial for deals).
  */
 export function ComingSoonStayCard({
   destination,
   badge = "Coming soon",
-  text = "Local hosts are joining FYStay - meanwhile, see the town\u2019s Local Guide.",
   frame = "arch",
 }: {
   destination: FyldeCoastDestination;
   badge?: string;
-  text?: string;
   frame?: "arch" | "editorial";
 }) {
   const photo = DESTINATION_PHOTOS[destination.slug]?.tile;
@@ -42,7 +40,6 @@ export function ComingSoonStayCard({
       </div>
       <div className={cn("flex flex-col gap-1.5", frame === "arch" ? "px-1" : cn(EDITORIAL_RULE_CLASS, "mt-0"))}>
         <p className="text-base font-semibold leading-snug text-foreground sm:text-lg">Stays in {destination.name}</p>
-        <p className="text-sm text-stone-500">{text}</p>
         <span className="mt-0.5 inline-flex items-center gap-1 text-sm font-medium text-brand-700 group-hover:text-brand-800">
           Explore {destination.name}
           <ArrowRight className="h-4 w-4" aria-hidden />

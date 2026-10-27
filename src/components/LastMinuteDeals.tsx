@@ -117,7 +117,6 @@ export async function LastMinuteDeals() {
                 key={destination.slug}
                 destination={destination}
                 badge="Deals coming soon"
-                text={`Last-minute offers from ${destination.name} hosts will show here.`}
                 frame="editorial"
               />
             ),
@@ -154,7 +153,6 @@ function LastMinuteDealsSection({ hasDeals = false, children }: { hasDeals?: boo
         id="last-minute-deals-heading"
         name="Last-minute deals"
         tagline="A little escape, closer than you think."
-        subtitle="Stays with nights free in the coming days, for less - only genuine offers from local hosts."
         link={hasDeals ? { href: "/deals", label: "View all" } : undefined}
       />
       {children}

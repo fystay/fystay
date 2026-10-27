@@ -83,10 +83,7 @@ export function HeroSlides({ slideKeys }: { slideKeys: HeroSlideKey[] }) {
               {slide.lead} <span className="block text-brand-600">{slide.accent}</span>
             </span>
           </h1>
-          <p className="mt-2.5 max-w-[16.5rem] text-pretty text-[13.5px] font-medium leading-snug text-foreground/85 sm:mt-4 sm:max-w-sm sm:text-base">
-            {slide.line}
-          </p>
-          <span className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 sm:mt-3 sm:text-sm">
+          <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-700 sm:mt-5 sm:text-base">
             See stays in {slide.place}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </span>

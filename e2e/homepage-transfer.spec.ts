@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/test";
 
 // The demo seed makes EV Exec's return airport transfer a live offering, so
-// the homepage's Services section leads with it as a partner service
-// (PartnerServiceCard, src/lib/partnerServices.ts).
+// the homepage's Services section shows it as a partner service banner
+// (ServiceBanner, src/lib/partnerServices.ts).
 
 function services(page: import("@playwright/test").Page) {
   return page.locator("section", { has: page.getByRole("heading", { name: "Services near you" }) });
 }
 
-test("Services leads with EV Exec as a FYStay service partner, booked through the transfer flow", async ({ page }) => {
+test("Services shows EV Exec as a FYStay service partner, booked through the transfer flow", async ({ page }) => {
   await page.goto("/");
   const row = services(page);
   await row.scrollIntoViewIfNeeded();
@@ -25,16 +25,4 @@ test("Services leads with EV Exec as a FYStay service partner, booked through th
   await card.click();
   await expect(page).toHaveURL(/\/travel-extras\?category=AIRPORT_TRANSFER/);
   await expect(page.getByText("EV Exec").first()).toBeVisible();
-});
-
-test("the other services each open a working page", async ({ page }) => {
-  for (const [name, url] of [
-    ["Local Guides", /\/destinations$/],
-    ["Help & support", /\/help$/],
-  ] as const) {
-    await page.goto("/");
-    await services(page).scrollIntoViewIfNeeded();
-    await services(page).getByRole("link", { name: new RegExp(name) }).click();
-    await expect(page).toHaveURL(url);
-  }
 });

@@ -6,14 +6,12 @@ export type FyStayService = {
   description: string;
   href: string;
   cta: string;
-  /** Brand-gradient art for the homepage's large Services card (no real photography yet). */
+  /** Brand-gradient art where a service has no photo (the homepage's Services banner). */
   gradient: string;
-  /** Shown in the homepage's "More from FYStay" row - guest services only; hosting has its own card further down the page. */
-  onHomepage: boolean;
 };
 
 // Only services that already exist in the app, each linking to its real
-// page. Shared by the /services hub and the homepage's Services rail; new
+// page. Shared by the /services hub and the homepage's Services banner; new
 // services (see src/lib/siteSections.ts) get added here as they launch.
 export const FYSTAY_SERVICES: FyStayService[] = [
   {
@@ -23,7 +21,6 @@ export const FYSTAY_SERVICES: FyStayService[] = [
     href: "/travel-extras",
     cta: "See transfers",
     gradient: "from-brand-600 via-brand-800 to-ink",
-    onHomepage: true,
   },
   {
     icon: Compass,
@@ -32,7 +29,6 @@ export const FYSTAY_SERVICES: FyStayService[] = [
     href: "/destinations",
     cta: "Explore the towns",
     gradient: "from-brand-500 via-brand-800 to-ink",
-    onHomepage: true,
   },
   {
     icon: Home,
@@ -41,7 +37,6 @@ export const FYSTAY_SERVICES: FyStayService[] = [
     href: "/host-guide",
     cta: "Read the host guide",
     gradient: "from-amber-700 via-brand-800 to-ink",
-    onHomepage: false,
   },
   {
     icon: LifeBuoy,
@@ -50,6 +45,5 @@ export const FYSTAY_SERVICES: FyStayService[] = [
     href: "/help",
     cta: "Go to the help centre",
     gradient: "from-brand-500 via-brand-700 to-brand-950",
-    onHomepage: true,
   },
 ];

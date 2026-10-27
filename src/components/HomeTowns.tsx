@@ -34,7 +34,6 @@ export function HomeTowns() {
         id="experiences-heading"
         name="Experiences near you"
         tagline="Things to do, town by town"
-        subtitle="Attractions, days out and places to eat in each town's Local Guide."
         link={{ href: "/destinations", label: "View all" }}
       />
 

@@ -128,6 +128,78 @@ export function PartnerServiceCard({ service, onClick }: { service: PartnerServi
   );
 }
 
+/** What ServiceBanner shows: a PartnerService, or FYStay's own service (no provider). */
+export type BannerService = Pick<PartnerService, "category" | "cta" | "href" | "price" | "image" | "backdrop" | "logoSrc"> & {
+  provider?: string;
+  providerLabel?: string;
+};
+
+/**
+ * A service as one wide photo banner (the homepage's Services): the photo
+ * edge to edge, and over it only the provider's identity, what it is, the
+ * price and the call to action - the photo does the selling. Square
+ * corners, like every editorial card.
+ */
+export function ServiceBanner({ service, onClick }: { service: BannerService; onClick?: () => void }) {
+  return (
+    <Link href={service.href} onClick={onClick} className="focus-ring group block">
+      <div
+        className={cn(
+          CARD_IMAGE_EFFECTS,
+          "aspect-[4/5] sm:aspect-[16/7]",
+          !service.image && cn("bg-gradient-to-br", service.backdrop),
+        )}
+      >
+        {service.image && (
+          <Image
+            src={service.image.src}
+            alt={service.image.alt}
+            fill
+            sizes="(min-width: 1152px) 1152px, 100vw"
+            unoptimized={!isOptimizableImage(service.image.src)}
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
+            style={service.image.position ? { objectPosition: service.image.position } : undefined}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" aria-hidden />
+        <div className="absolute inset-x-5 bottom-5 flex flex-col gap-4 text-white sm:inset-x-8 sm:bottom-8 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            {service.provider && (
+              <div className="flex items-center gap-3">
+                {service.logoSrc && (
+                  <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg ring-1 ring-white/25">
+                    <Image src={service.logoSrc} alt="" fill sizes="44px" className="object-cover" />
+                  </span>
+                )}
+                <div className="min-w-0 [text-shadow:0_1px_10px_rgba(0,0,0,0.35)]">
+                  <p className="text-lg font-semibold leading-tight">{service.provider}</p>
+                  {service.providerLabel && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-white/85">
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {service.providerLabel}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            <p className="mt-3 font-serif text-3xl leading-tight sm:text-4xl">{service.category}</p>
+            {service.price && (
+              <p className="mt-1 text-sm text-white/85">
+                <span className="font-serif text-xl text-white">{service.price.label}</span>{" "}
+                {service.price.detail.toLowerCase()}
+              </p>
+            )}
+          </div>
+          <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-surface px-5 py-2.5 text-sm font-semibold text-brand-800 transition-colors group-hover:bg-white">
+            {service.cta}
+            <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 /**
  * Width of one card slot in a LargeCardRail, shared with the skeleton so the
  * two can't drift apart. Phones: 60vw - with the 24px page gutter and a

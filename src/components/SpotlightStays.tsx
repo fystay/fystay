@@ -113,13 +113,6 @@ export async function SpotlightStays() {
         id="spotlight-heading"
         name="Spotlight stays"
         tagline="Stays worth the trip"
-        subtitle={
-          empty
-            ? "The first stays from local hosts are on their way."
-            : promoted.length > 0
-              ? "Guests' favourites from local hosts. Stays marked Promoted are featured by their hosts."
-              : "Guests' favourites from local hosts across the Fylde Coast."
-        }
         link={empty ? undefined : { href: "/search", label: "View all" }}
       />
       <LargeCardRail label="Spotlight stays" fullBleed autoAdvanceMs={SPOTLIGHT_ADVANCE_MS}>
@@ -154,6 +147,11 @@ export async function SpotlightStays() {
               )),
             ]}
       </LargeCardRail>
+      {/* The paid-placement disclosure, kept to one small line under the row
+          (each paid card also carries its own "Promoted" label). */}
+      {promoted.length > 0 && (
+        <p className="mt-1 text-xs text-stone-500">Stays marked Promoted are featured by their hosts.</p>
+      )}
     </section>
   );
 }
