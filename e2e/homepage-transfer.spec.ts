@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
 // (PartnerServiceCard, src/lib/partnerServices.ts).
 
 function services(page: import("@playwright/test").Page) {
-  return page.locator("section", { has: page.getByRole("heading", { name: "Services", exact: true }) });
+  return page.locator("section", { has: page.getByRole("heading", { name: "Services near you" }) });
 }
 
 test("Services leads with EV Exec as a FYStay service partner, booked through the transfer flow", async ({ page }) => {
