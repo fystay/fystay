@@ -137,6 +137,20 @@ export function parseSearchRequest(params: Params, now: Date = new Date()): Sear
   return { ok: false, errors, empty: !whereGiven && !checkInParam && !checkOutParam };
 }
 
+/**
+ * A browse rather than a search: no dates yet, and either a valid place or
+ * nothing at all. The results page lists stays with their nightly prices
+ * (no availability check) and asks for dates; null when the request has
+ * dates or an invalid place, which parseSearchRequest handles. The API
+ * stays strict.
+ */
+export function parseBrowseRequest(params: Params): { location: SearchLocation | null } | null {
+  if (read(params, "checkIn") || read(params, "checkOut")) return null;
+  const { location, given } = parseLocation(params);
+  if (!given) return { location: null };
+  return location ? { location } : null;
+}
+
 // --- Where results may be ------------------------------------------------
 
 /** Around a picked place or landmark. A place also covers its own Google viewport (a whole town), but an address or postcode's viewport is only a few streets. */

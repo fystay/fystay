@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { locationWhere, matchesLocation, parseBounds, parseSearchRequest, searchArea, type SearchLocation } from "./searchRequest";
+import { locationWhere, matchesLocation, parseBounds, parseBrowseRequest, parseSearchRequest, searchArea, type SearchLocation } from "./searchRequest";
 
 const NOW = new Date("2026-10-12T10:00:00Z");
 const ok = { checkIn: "2026-10-20", checkOut: "2026-10-23" };
@@ -143,5 +143,19 @@ describe("geospatial area", () => {
   it("matches a town by name, with no area", () => {
     expect(searchArea({ kind: "town", city: "Lytham" })).toBeNull();
     expect(locationWhere({ kind: "town", city: "Lytham" })).toMatchObject({ OR: [{ city: { contains: "Lytham" } }, { country: { contains: "Lytham" } }] });
+  });
+});
+
+describe("parseBrowseRequest", () => {
+  it("browses every stay when nothing is given, or a valid place's without dates", () => {
+    expect(parseBrowseRequest({})).toEqual({ location: null });
+    expect(parseBrowseRequest({ city: "Blackpool" })).toEqual({ location: { kind: "town", city: "Blackpool" } });
+    expect(parseBrowseRequest(place)?.location).toMatchObject({ kind: "place", label: "Blackpool" });
+  });
+
+  it("leaves dated or invalid requests to parseSearchRequest", () => {
+    expect(parseBrowseRequest({ city: "Blackpool", checkIn: "2026-10-20" })).toBeNull();
+    expect(parseBrowseRequest({ ...place, lat: "999" })).toBeNull();
+    expect(parseBrowseRequest({ near: "Nowhere special" })).toBeNull();
   });
 });

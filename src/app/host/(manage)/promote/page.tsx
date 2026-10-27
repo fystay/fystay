@@ -34,7 +34,7 @@ const formatCount = (n: number) => n.toLocaleString("en-GB");
 
 /**
  * How a listing's Spotlight placements have done: times its stay was shown
- * in the homepage Spotlight carousel and clicks through to it (src/lib/spotlightStats.ts).
+ * in the homepage Spotlight carousel or search results, and clicks through to it (src/lib/spotlightStats.ts).
  */
 function SpotlightStatsLine({ stats }: { stats: SpotlightStats }) {
   const clickRate = stats.impressions > 0 ? (stats.clicks / stats.impressions) * 100 : null;
@@ -136,7 +136,8 @@ export default async function HostPromotePage({
           <p className="mt-1 max-w-xl text-sm leading-relaxed text-stone-600">
             Feature a listing in <strong className="font-semibold text-foreground">Spotlight stays</strong>, the
             carousel directly under the search on the FYStay homepage, where featured stays come first, ahead of
-            guests&rsquo; favourites.
+            guests&rsquo; favourites. It also comes first in search results it matches, unless the guest picks
+            their own sort.
             Spots are limited to {SPOTLIGHT_SLOTS} at a time, featured stays are labelled &ldquo;Promoted&rdquo;,
             and you can see how many times yours is seen and clicked.
           </p>

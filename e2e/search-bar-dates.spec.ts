@@ -92,15 +92,17 @@ test("Search stays off until where, check-in and check-out are all set, then ope
   expect(page.url()).toContain("/search");
 });
 
-test("the results page runs no search without where and valid dates, and says what's needed", async ({ page }) => {
-  // Browsing to Stays without searching: a prompt, no results.
+test("without dates the results page lists stays to browse; invalid searches say what's needed", async ({ page }) => {
+  // Browsing to Stays without searching: every stay, and a nudge to add dates.
   await page.goto("/search");
-  await expect(page.getByText("Where and when are you going?")).toBeVisible();
-  await expect(page.locator('main [data-testid="listing-card-title"]')).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "All stays" })).toBeVisible();
+  await expect(page.getByText("Add your dates above")).toBeVisible();
+  await expect(page.locator('main [data-testid="listing-card-title"]').first()).toBeVisible();
 
-  // A place without dates yet is the next step, not an error.
+  // A place without dates yet: that place's stays, no error.
   await page.goto("/search?city=Blackpool");
-  await expect(page.getByText("When are you going?")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Stays in Blackpool" })).toBeVisible();
+  await expect(page.locator('main [data-testid="listing-card-title"]').first()).toBeVisible();
   await expect(page.getByTestId("search-validation")).toHaveCount(0);
 
   const cases: [string, string][] = [

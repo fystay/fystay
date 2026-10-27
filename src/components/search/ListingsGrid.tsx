@@ -18,8 +18,7 @@ import { isKnownTown } from "@/lib/searchTown";
 import {
   locationWhere,
   matchesLocation,
-  MISSING_CHECK_IN,
-  MISSING_CHECK_OUT,
+  parseBrowseRequest,
   parseSearchRequest,
   searchArea,
   type SearchField,
@@ -47,6 +46,8 @@ import {
 import { PROPERTY_TYPES } from "@/lib/propertyType";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { Pagination } from "@/components/Pagination";
+import { SpotlightTracker } from "@/components/SpotlightTracker";
+import { liveSpotlightWhere } from "@/lib/listingPromotions";
 
 // The homepage's Explore filters that the filter panel doesn't cover, shown
 // as chips beside the result count so a guest arriving from "See all
@@ -100,10 +101,13 @@ export async function ListingsGrid({
   // from the suggestions, check-in (not past) and check-out (after it).
   // The homepage carousel is a browse list, not a search, so it skips this.
   const request = showResultsView ? parseSearchRequest(searchParams) : null;
-  if (request && !request.ok) return <SearchPrompt errors={request.errors} empty={request.empty} />;
-  const location = request?.ok ? request.location : null;
+  // No dates yet (from Stays, a hero slide or "View all"): list the stays to
+  // browse, nightly prices only, and ask for dates rather than show nothing.
+  const browse = request && !request.ok ? parseBrowseRequest(searchParams) : null;
+  if (request && !request.ok && !browse) return <SearchPrompt errors={request.errors} />;
+  const location = request?.ok ? request.location : (browse?.location ?? null);
   if (location?.kind === "town" && !(await isKnownTown(location.city))) {
-    return <SearchPrompt errors={{ where: "Choose a place from the suggestions." }} empty={false} />;
+    return <SearchPrompt errors={{ where: "Choose a place from the suggestions." }} />;
   }
   const city = location?.kind === "town" ? location.city : "";
   const area = location ? searchArea(location) : null;
@@ -252,7 +256,28 @@ export async function ListingsGrid({
     landmark && !searchParams.sort ? "distance_asc" : parseSortParam(searchParams.sort);
   const view = parseViewParam(searchParams.view);
 
-  const results = sortListings(applyListingFilters(petFiltered, filters), sort, { near: landmark });
+  const sorted = sortListings(applyListingFilters(petFiltered, filters), sort, { near: landmark });
+  // Paid Spotlight stays that match the search lead the default order,
+  // labelled Promoted and counted for their hosts; a sort the guest picks
+  // always wins.
+  const promotionByListing = new Map(
+    sort === "recommended" && sorted.length > 0
+      ? (
+          await prisma.listingPromotion
+            .findMany({
+              where: { ...liveSpotlightWhere(new Date()), listingId: { in: sorted.map((l) => l.id) } },
+              orderBy: { startsAt: "asc" },
+              distinct: ["listingId"],
+              select: { id: true, listingId: true },
+            })
+            .catch(() => [])
+        ).map((promotion) => [promotion.listingId, promotion.id] as const)
+      : [],
+  );
+  const results = [
+    ...sorted.filter((l) => promotionByListing.has(l.id)),
+    ...sorted.filter((l) => !promotionByListing.has(l.id)),
+  ];
   const page = parsePageParam(searchParams.page);
   const pageOfListings = paginateListings(results, page, LISTINGS_PAGE_SIZE);
   // Which of these hosts' stays are smart-priced for guests right now, so
@@ -284,8 +309,8 @@ export async function ListingsGrid({
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="flex flex-wrap items-center gap-3">
+          {/* The heading above already names the place. */}
           <p className="text-sm font-medium text-stone-500">
-            {city && <span className="text-foreground">{city} · </span>}
             {results.length} stay{results.length === 1 ? "" : "s"}
           </p>
           <div className="flex flex-wrap items-center gap-2">
@@ -306,6 +331,13 @@ export async function ListingsGrid({
         </div>
         <ResultsViewToggle />
       </div>
+
+      {browse && results.length > 0 && (
+        <p className="flex items-center gap-2.5 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
+          <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
+          Add your dates above to see which stays are free and your total price.
+        </p>
+      )}
 
       {results.length === 0 ? (
         <NoResults
@@ -360,18 +392,29 @@ export async function ListingsGrid({
         // unchanged from before.
         <>
           <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4">
-            {paginated.items.map((listing) => (
-              <ListingCard
-                key={listing.id}
-                listing={listing}
-                isSaved={savedListingIds.has(listing.id)}
-                isLoggedIn={Boolean(session?.user)}
-                nights={nights}
-                checkIn={checkInParam || undefined}
-                nearLandmark={landmark}
-                stayQuery={stayQuery}
-              />
-            ))}
+            {paginated.items.map((listing) => {
+              const promotionId = promotionByListing.get(listing.id);
+              const card = (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  isSaved={savedListingIds.has(listing.id)}
+                  isLoggedIn={Boolean(session?.user)}
+                  nights={nights}
+                  checkIn={checkInParam || undefined}
+                  nearLandmark={landmark}
+                  stayQuery={stayQuery}
+                  promoted={Boolean(promotionId)}
+                />
+              );
+              return promotionId ? (
+                <SpotlightTracker key={listing.id} promotionId={promotionId}>
+                  {card}
+                </SpotlightTracker>
+              ) : (
+                card
+              );
+            })}
           </div>
           <Pagination page={paginated.page} totalPages={paginated.totalPages} />
         </>
@@ -466,39 +509,20 @@ async function NoResults({
 const FIELD_LABEL: Record<SearchField, string> = { where: "Where", checkIn: "Check-in", checkOut: "Check-out" };
 
 /** What the results page shows instead of results when the search isn't complete or valid. */
-function SearchPrompt({ errors, empty }: { errors: Partial<Record<SearchField, string>>; empty: boolean }) {
-  // A place chosen but no dates yet (e.g. from a homepage hero slide) is a
-  // next step, not a mistake.
-  if (!errors.where && errors.checkIn === MISSING_CHECK_IN && errors.checkOut === MISSING_CHECK_OUT) {
-    return (
-      <div className="mt-8 flex flex-col items-center gap-3 text-center">
-        <CalendarDays className="h-8 w-8 text-stone-300" aria-hidden />
-        <p className="font-medium text-foreground">When are you going?</p>
-        <p className="max-w-sm text-sm text-stone-500">Pick your check-in and check-out dates above to see stays.</p>
-      </div>
-    );
-  }
+function SearchPrompt({ errors }: { errors: Partial<Record<SearchField, string>> }) {
   return (
-    <div className="mt-8 flex flex-col items-center gap-3 text-center" role={empty ? undefined : "alert"}>
+    <div className="mt-8 flex flex-col items-center gap-3 text-center" role="alert">
       <Search className="h-8 w-8 text-stone-300" aria-hidden />
-      <p className="font-medium text-foreground">
-        {empty ? "Where and when are you going?" : "Finish your search to see stays"}
-      </p>
-      {empty ? (
-        <p className="max-w-sm text-sm text-stone-500">
-          Choose a place from the suggestions and pick your check-in and check-out dates above.
-        </p>
-      ) : (
-        <ul className="flex max-w-sm flex-col gap-1 text-sm text-stone-600" data-testid="search-validation">
-          {(Object.keys(FIELD_LABEL) as SearchField[])
-            .filter((field) => errors[field])
-            .map((field) => (
-              <li key={field}>
-                <span className="font-medium text-foreground">{FIELD_LABEL[field]}:</span> {errors[field]}
-              </li>
-            ))}
-        </ul>
-      )}
+      <p className="font-medium text-foreground">Finish your search to see stays</p>
+      <ul className="flex max-w-sm flex-col gap-1 text-sm text-stone-600" data-testid="search-validation">
+        {(Object.keys(FIELD_LABEL) as SearchField[])
+          .filter((field) => errors[field])
+          .map((field) => (
+            <li key={field}>
+              <span className="font-medium text-foreground">{FIELD_LABEL[field]}:</span> {errors[field]}
+            </li>
+          ))}
+      </ul>
     </div>
   );
 }

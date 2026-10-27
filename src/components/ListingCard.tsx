@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import type { TouchEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, ImageOff, MapPin, Star, Users } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, ImageOff, MapPin, Sparkles, Star, Users } from "lucide-react";
 import { PROPERTY_TYPE_LABEL, type PropertyType } from "@/lib/propertyType";
 import { useFormattedPrice } from "@/components/CurrencyProvider";
 import { computeBookingPricing, stayRates } from "@/lib/pricing";
@@ -253,6 +253,9 @@ export function ListingCard({
           isLarge
             ? cn(LARGE_CARD_IMAGE_CLASS, "bg-brand-50")
             : "relative aspect-[5/4] w-full overflow-hidden rounded-2xl bg-brand-50 shadow-[var(--shadow-card)] ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[var(--shadow-card-hover)] group-hover:ring-brand-200",
+          // A paid placement is framed in the accent colour so it stands out
+          // from the stays around it - always with its "Promoted" label.
+          promoted && "ring-2 ring-accent-400 group-hover:ring-accent-500",
         )}
       >
         <Link
@@ -335,10 +338,11 @@ export function ListingCard({
         {promoted && (
           <span
             className={cn(
-              "absolute z-10 rounded-md bg-ink/70 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-white backdrop-blur-sm",
+              "absolute z-10 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-800 shadow-[var(--shadow-card)] backdrop-blur-sm",
               isLarge ? "bottom-3 left-3" : "bottom-2.5 left-2.5",
             )}
           >
+            <Sparkles className="h-3 w-3 text-accent-600" aria-hidden />
             Promoted
           </span>
         )}
