@@ -43,7 +43,6 @@ import { ListingsMap } from "@/components/ListingsMap";
 import { ReviewSummary } from "@/components/ReviewSummary";
 import { ReviewList } from "@/components/ReviewList";
 import { SectionHeading } from "@/components/SectionHeading";
-import { Badge } from "@/components/ui/Badge";
 import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { LOCAL_GUIDES } from "@/lib/localGuide";
 import { SITE_NAME, SITE_URL, withCity } from "@/lib/seo";
@@ -365,43 +364,46 @@ export default async function ListingDetailPage({
         isLoggedIn={Boolean(session?.user)}
       />
 
-      <div className="mt-6 flex flex-col gap-3">
-        <p className="flex items-center gap-1.5 text-sm text-stone-500">
-          <MapPin className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />
-          {listing.city}, {listing.country}
-        </p>
-        <Badge variant="brand" className="w-fit">
-          {PROPERTY_TYPE_LABEL[listing.propertyType]}
-        </Badge>
-        <h1 className="text-[26px] font-bold leading-tight tracking-tight text-foreground sm:text-3xl">
-          {listing.title}
-        </h1>
-        <TrustLine rating={rating} reviewCount={reviewCount} />
-        <div className="mt-1 flex flex-wrap gap-x-5 gap-y-2 text-stone-700">
-          {stats.map(({ icon: Icon, label }) => (
-            <span key={label} className="flex items-center gap-2">
-              <Icon className="h-4.5 w-4.5 text-brand-600" />
-              {label}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-3">
+      {/* The title sits in the left column, so on desktop the booking box
+          (right column) starts beside it, its price and button on the first
+          screen. */}
+      <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <HostCard
-            hostName={listing.host.name}
-            hostImage={listing.host.image}
-            hostingSinceYear={listing.host.createdAt.getFullYear()}
-            reviewCount={hostReviewCount}
-            responseRate={responseRate}
-            medianResponseMinutes={medianResponseMinutes}
-            isGreatHost={hostIsGreat}
-            isIdentityVerified={listing.host.identityVerificationStatus === "VERIFIED"}
-            listingId={listing.id}
-            isLoggedIn={Boolean(session?.user)}
-            isOwnListing={isOwnListing}
-          />
+          <div className="flex flex-col gap-3">
+            {/* What and where in one line, the same eyebrow as the cards. */}
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">
+              <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {PROPERTY_TYPE_LABEL[listing.propertyType]} · {listing.city}, {listing.country}
+            </p>
+            <h1 className="text-[26px] font-bold leading-tight tracking-tight text-foreground sm:text-3xl">
+              {listing.title}
+            </h1>
+            <TrustLine rating={rating} reviewCount={reviewCount} />
+            <div className="mt-1 flex flex-wrap gap-x-5 gap-y-2 text-stone-700">
+              {stats.map(({ icon: Icon, label }) => (
+                <span key={label} className="flex items-center gap-2">
+                  <Icon className="h-4.5 w-4.5 text-brand-600" />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <HostCard
+              hostName={listing.host.name}
+              hostImage={listing.host.image}
+              hostingSinceYear={listing.host.createdAt.getFullYear()}
+              reviewCount={hostReviewCount}
+              responseRate={responseRate}
+              medianResponseMinutes={medianResponseMinutes}
+              isGreatHost={hostIsGreat}
+              isIdentityVerified={listing.host.identityVerificationStatus === "VERIFIED"}
+              listingId={listing.id}
+              isLoggedIn={Boolean(session?.user)}
+              isOwnListing={isOwnListing}
+            />
+          </div>
 
           <div className="mt-10 border-t border-border-subtle pt-8">
             <SectionHeading icon={Home}>About this stay</SectionHeading>

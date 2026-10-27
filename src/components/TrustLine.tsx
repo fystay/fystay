@@ -22,7 +22,7 @@ export function TrustLine({
       <a
         href="#reviews"
         className={cn(
-          "inline-flex items-center gap-1.5 font-medium text-foreground hover:underline",
+          "inline-flex w-fit self-start items-center gap-1.5 font-medium text-foreground hover:underline",
           size === "sm" ? "text-sm" : "text-base",
         )}
       >
@@ -38,7 +38,8 @@ export function TrustLine({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 font-semibold uppercase tracking-wide text-brand-800",
+        // w-fit/self-start: a tag, never stretched across a flex column.
+        "inline-flex w-fit self-start items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 font-semibold uppercase tracking-wide text-brand-800",
         size === "sm" ? "text-[11px]" : "text-xs",
       )}
     >
