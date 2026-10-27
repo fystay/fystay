@@ -20,18 +20,17 @@
 }
 
 :root {
-  /* Surface & text: a warm parchment/ivory pairing (the same idea as
-     Anthropic's own "warm paper" canvas) rather than clinical white -
-     --background is the page's own warm-tinted ground, --surface a
-     slightly brighter ivory for cards/panels that sit on top of it, so
-     elevation still reads even though neither is stark white. */
-  --background: #f6f3ec;
+  /* Surface & text (owner's palette, 27 Oct): warm cream (#f0eee6) is the
+     page's ground, --surface a slightly brighter cream for cards/panels
+     on top of it, so elevation still reads without stark white, and oat
+     (#e3dacc) the secondary backgrounds. */
+  --background: #f0eee6;
   /* Text: the logo's "Stay" espresso (--color-ink), so headings and copy
      share the wordmark's warm dark brown rather than a neutral near-black. */
   --foreground: #2b1712;
-  --surface: #fdfbf7;
-  --surface-muted: #efe9dc;
-  --border-subtle: #e3ddce;
+  --surface: #f8f7f2;
+  --surface-muted: #e3dacc;
+  --border-subtle: #dcd3c3;
 
   /* Live height of whichever page-specific fixed bottom bar is currently
      mounted (MobileBookingBar, CheckoutForm's pay bar) - see
@@ -40,10 +39,10 @@
      than needing to know which bar, if any, is on screen. */
   --fixed-bottom-bar-height: 0px;
 
-  /* Brand: warm terracotta/clay, matching Anthropic's own accent color
-     (#d97757, pinned here at 500). Distinct from the teal/pink clichès of
-     other travel sites, reads as warm and considered; pairs with the
-     existing amber accent for ratings/highlights without competing. */
+  /* Brand: clay/terracotta, the owner's primary accent (#d97757, pinned
+     here at 500). Distinct from the teal/pink clichés of other travel
+     sites; pairs with the sage accent below. 500 is under 4.5:1 on cream,
+     so text and small marks use 600 or darker. */
   --color-brand-50: #faf6f4;
   --color-brand-100: #f6e9e5;
   --color-brand-200: #edcfc5;
@@ -56,10 +55,13 @@
   --color-brand-900: #50281b;
   --color-brand-950: #2b1712;
 
-  /* Accent: warm amber, used sparingly for highlights (ratings, badges) */
-  --color-accent-400: #fbbf24;
-  --color-accent-500: #f59e0b;
-  --color-accent-600: #d97706;
+  /* Accent: sage green (#788c5d, the owner's supporting accent), used
+     sparingly for highlights (ratings, deal badges, Spotlight frames).
+     500 is for fills and icons (ink text on it is 4.6:1); 600 for any
+     sage text on cream (4.6:1); 400 on dark grounds. */
+  --color-accent-400: #94a57c;
+  --color-accent-500: #788c5d;
+  --color-accent-600: #5f7049;
 
   /* Ink: deep espresso-brown used in the logotype's second half ("stay") -
      the same terracotta family as "FY" (it's brand-950, the ramp's own
@@ -99,11 +101,10 @@
   --color-ink: var(--color-ink);
 
   /* Secondary text. Tailwind's own stone-500 (#79716b) was chosen against
-     white, where it reads at 4.8:1; on the warm grounds above it drops to
-     4.3:1 (--background) and 4.0:1 (--surface-muted), below WCAG AA's 4.5:1
-     for body text. The same hue and saturation, slightly darker, clears
-     both: 5.1:1 and 4.7:1. */
-  --color-stone-500: #6d6661;
+     white; on the warm grounds above it falls below WCAG AA's 4.5:1 for
+     body text. The same hue, darker, clears all three: 5.7:1 on
+     --background, 4.8:1 on the oat --surface-muted, 6.2:1 on --surface. */
+  --color-stone-500: #625b56;
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

@@ -11,7 +11,7 @@ import { join } from "node:path";
 export const BRAND_COLORS = {
   terracotta: "#bc522f", // brand-600: the "FY" and the monogram tile
   ink: "#2b1712", // "Stay" and descriptor text
-  cream: "#f6f3ec", // page background, monogram letters
+  cream: "#f0eee6", // page background, monogram letters
 } as const;
 
 export const BRAND_FONT_NAME = "DM Serif Display";

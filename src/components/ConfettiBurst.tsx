@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 
 // Brand terracotta/clay + accent gold, plus white for contrast against both -
 // no pink, deliberately (see the brand-color comment in globals.css).
-const COLORS = ["#bc522f", "#dd9278", "#fbbf24", "#f59e0b", "#ffffff"];
+const COLORS = ["#bc522f", "#dd9278", "#94a57c", "#788c5d", "#ffffff"];
 const PARTICLE_COUNT = 46;
 const DURATION_MS = 1500;
 const GRAVITY = 0.12;

@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
       "Book independent holiday homes, apartments and guest houses from local hosts in Blackpool and on the Fylde Coast.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f6f3ec",
+    background_color: "#f0eee6",
     theme_color: "#bc522f",
     icons: [
       { src: "/icon", sizes: "32x32", type: "image/png" },

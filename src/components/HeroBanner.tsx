@@ -112,7 +112,7 @@ export function HeroSlides() {
         {/* The whole photo goes to the place's stays; the copy below is the
             keyboard and screen-reader link, so this one stays out of tab order. */}
         <Link href={href} aria-hidden tabIndex={-1} className="absolute inset-0" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(246,243,236,0.85)_0%,rgba(246,243,236,0.72)_40%,rgba(246,243,236,0.35)_62%,rgba(246,243,236,0)_78%)] sm:bg-[linear-gradient(90deg,rgba(246,243,236,0.86)_0%,rgba(246,243,236,0.55)_38%,rgba(246,243,236,0)_62%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(240,238,230,0.85)_0%,rgba(240,238,230,0.72)_40%,rgba(240,238,230,0.35)_62%,rgba(240,238,230,0)_78%)] sm:bg-[linear-gradient(90deg,rgba(240,238,230,0.86)_0%,rgba(240,238,230,0.55)_38%,rgba(240,238,230,0)_62%)]" />
       </div>
 
       <div className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl px-6 pt-7 sm:pt-12 lg:pt-20">

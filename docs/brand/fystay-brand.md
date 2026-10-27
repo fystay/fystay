@@ -34,19 +34,33 @@ Rules:
   `#bc522f` (`brand-600`), "Stay" in ink `#301a13` (white on dark photos).
 - Descriptor: "FOR YOUR STAY", spaced capitals, ink, beneath the wordmark
   and no wider than it.
-- Monogram: cream "FY" (`#f6f3ec`) on `#bc522f`, corner radius about 22% of
+- Monogram: cream "FY" (`#f0eee6`) on `#bc522f`, corner radius about 22% of
   the tile. White on `#bc522f` passes WCAG AA for large text (4.6:1).
 - Icons and share images use the same typeface (bundled in
   `assets/fonts`, SIL Open Font License), never a substitute sans-serif.
 
 ## Colour and type
 
-No palette change: the terracotta and warm-ink palette on cream already
-reads welcoming and distinctive, and changing it would make the familiar
-site feel new for no gain. Two adjustments:
+Palette (owner, 27 Oct 2026), tokens in `src/app/globals.css`:
 
-- Small brand marks (favicon, monogram) use `brand-600` rather than the
-  lighter `brand-500`, which was under 3:1 on white.
+| Colour | Hex | Role | Token |
+| --- | --- | --- | --- |
+| Clay / Terracotta | `#D97757` | Primary accent | `brand-500` (ramp `brand-50`-`950`) |
+| Warm cream | `#F0EEE6` | Main light background | `--background` (cards `--surface` `#F8F7F2`) |
+| Oat / Beige | `#E3DACC` | Secondary backgrounds | `--surface-muted` |
+| Olive / Sage green | `#788C5D` | Supporting accent: ratings, deal badges, Spotlight frames | `accent-500` (`400`/`600` either side) |
+
+Text stays the warm espresso ink (`#2B1712`), not black.
+
+Contrast rules (WCAG AA):
+
+- Terracotta `#D97757` is a fill and large-display colour only: under
+  4.5:1 on cream. Text, links and small marks use `brand-600` (`#BC522F`)
+  or darker; body links `brand-700`.
+- Sage `#788C5D` is for fills and icons (ink text on it, 4.6:1). Sage text
+  on cream uses `accent-600` (`#5F7049`, 4.6:1).
+- Secondary text is `stone-500` (`#625B56`), which passes on cream and oat.
+- Small brand marks (favicon, monogram) use `brand-600`.
 - Headings stay DM Serif Display; body and UI stay Geist.
 
 ## Tagline
