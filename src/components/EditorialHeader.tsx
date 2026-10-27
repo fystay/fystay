@@ -2,11 +2,11 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 /**
- * The homepage's one section header: the section's name as the big serif
- * heading ("Spotlight stays"), its line of character smaller beneath it in
- * terracotta ("Stays worth the trip"), then an optional supporting line -
- * with a "View all" style link on the right where the section has a full
- * page.
+ * The homepage's one section header: the section's name as the big,
+ * underlined serif heading ("Spotlight stays"), its line of character
+ * smaller beneath it in terracotta ("Stays worth the trip"), then an
+ * optional supporting line - with a "View all" style link on the right
+ * where the section has a full page.
  */
 export function EditorialHeader({
   id,
@@ -28,7 +28,12 @@ export function EditorialHeader({
     <div className="mb-5 sm:mb-6">
       <div className="flex items-end justify-between gap-4">
         <h2 id={id} className="text-[2rem] font-bold leading-[1.05] text-foreground sm:text-[2.6rem]">
-          {name}
+          {/* The terracotta underline draws across as the heading scrolls
+              into view (.heading-underline in globals.css). */}
+          <span className="relative inline-block pb-2">
+            {name}
+            <span aria-hidden className="heading-underline absolute bottom-0 left-0 h-[3px] w-full rounded-full bg-brand-500" />
+          </span>
         </h2>
         {link && (
           <Link
@@ -40,7 +45,7 @@ export function EditorialHeader({
           </Link>
         )}
       </div>
-      <p className="mt-1.5 font-serif text-lg leading-snug text-brand-700 sm:text-xl">{tagline}</p>
+      <p className="mt-2 font-serif text-lg leading-snug text-brand-700 sm:text-xl">{tagline}</p>
       {subtitle && <p className="mt-1 max-w-xl text-sm leading-relaxed text-stone-500">{subtitle}</p>}
     </div>
   );
