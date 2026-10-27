@@ -40,8 +40,8 @@ test("on desktop the sections sit in the header, each offered once", async ({ pa
     await page.goto(path);
     const header = page.locator("header");
     await expect(header.getByRole("navigation", { name: "Sections" })).toBeVisible();
-    // Beside the sections only the account button; About, List your
-    // property and the rest are in the account menu and the footer.
+    // Beside the sections only the account button; List your property is
+    // in its menu, About and the rest in the footer.
     await expect(header.getByRole("button", { name: "Account menu" })).toBeVisible();
     await expect(header.getByRole("link", { name: "About", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Stays", exact: true })).toHaveCount(1);
@@ -91,7 +91,7 @@ test("on desktop there's no bottom bar and nothing reserved for one", async ({ p
   expect(padding).toBe("0px");
 });
 
-test("on phones the bottom bar is on every page, and the account menu holds account actions and the site's own pages", async ({ page }) => {
+test("on phones the bottom bar is on every page, and the account menu holds only account actions", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/about");
   // Outside the four sections: the same tabs, none selected.
@@ -105,10 +105,7 @@ test("on phones the bottom bar is on every page, and the account menu holds acco
     await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 1000 });
   }).toPass({ timeout: 10_000 });
   await expect(menu.getByRole("link", { name: "Log in" })).toBeVisible();
-  for (const label of ["Help centre", "About FYStay", "Contact"]) {
-    await expect(menu.getByRole("link", { name: label, exact: true })).toBeVisible();
-  }
-  for (const label of ["Stays", "Experiences", "Services", "Saved"]) {
+  for (const label of ["Stays", "Experiences", "Services", "Saved", "Help centre", "About FYStay", "Contact"]) {
     await expect(menu.getByRole("link", { name: label, exact: true })).toHaveCount(0);
   }
 });

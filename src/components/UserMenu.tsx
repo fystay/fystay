@@ -8,7 +8,6 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
 import { cn } from "@/lib/cn";
-import { SiteInfoLinks } from "@/components/SiteInfoLinks";
 
 type Props = {
   name: string;
@@ -166,8 +165,6 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
             </Link>
           )}
         </div>
-
-        <SiteInfoLinks onNavigate={() => setOpen(false)} />
 
         <div className="border-t border-border-subtle pt-1">
           <form action={signOutAction}>

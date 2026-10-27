@@ -5,12 +5,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, UserRound } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { SiteInfoLinks } from "@/components/SiteInfoLinks";
 
 /**
  * The signed-out account button: one quiet outlined circle (Search is the
- * page's one filled call to action) opening Sign up / Log in, then the
- * site's own pages (Help, About, Contact) under "FYStay".
+ * page's one filled call to action) opening Sign up / Log in and List your
+ * property. Help, About and Contact are in the footer.
  */
 /** Pages that are themselves the login/sign-up flow - never sent back to. */
 const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
@@ -118,7 +117,6 @@ export function GuestMenu() {
             <Home className="h-4 w-4" aria-hidden />
             List your property
           </Link>
-          <SiteInfoLinks onNavigate={() => setOpen(false)} />
         </div>
       </div>
     </div>
