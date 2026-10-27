@@ -2,34 +2,33 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 /**
- * The homepage's one section header: a short terracotta line, a small
- * uppercase label, a serif heading and an optional supporting line - the
- * hero's "THE FYLDE COAST" treatment carried through every section - with
- * a "View all" style link on the right where the section has a full page.
+ * The homepage's one section header: the section's name as the big serif
+ * heading ("Spotlight stays"), its line of character smaller beneath it in
+ * terracotta ("Stays worth the trip"), then an optional supporting line -
+ * with a "View all" style link on the right where the section has a full
+ * page.
  */
 export function EditorialHeader({
   id,
-  eyebrow,
-  title,
+  name,
+  tagline,
   subtitle,
   link,
 }: {
   /** The heading's id, for the section's aria-labelledby. */
   id: string;
-  eyebrow: string;
-  title: string;
+  /** The section's name: the big heading. */
+  name: string;
+  /** Its line of character, beneath. */
+  tagline: string;
   subtitle?: string;
   link?: { href: string; label: string };
 }) {
   return (
     <div className="mb-5 sm:mb-6">
-      <p className="flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">
-        <span aria-hidden className="h-[2px] w-6 rounded-full bg-brand-600" />
-        {eyebrow}
-      </p>
-      <div className="mt-2 flex items-end justify-between gap-4">
-        <h2 id={id} className="text-[1.6rem] font-bold leading-tight text-foreground sm:text-3xl">
-          {title}
+      <div className="flex items-end justify-between gap-4">
+        <h2 id={id} className="text-[2rem] font-bold leading-[1.05] text-foreground sm:text-[2.6rem]">
+          {name}
         </h2>
         {link && (
           <Link
@@ -41,7 +40,8 @@ export function EditorialHeader({
           </Link>
         )}
       </div>
-      {subtitle && <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-stone-500">{subtitle}</p>}
+      <p className="mt-1.5 font-serif text-lg leading-snug text-brand-700 sm:text-xl">{tagline}</p>
+      {subtitle && <p className="mt-1 max-w-xl text-sm leading-relaxed text-stone-500">{subtitle}</p>}
     </div>
   );
 }

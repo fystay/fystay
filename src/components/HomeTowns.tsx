@@ -32,8 +32,8 @@ export function HomeTowns() {
     <section className="mt-12 sm:mt-16" aria-labelledby="experiences-heading">
       <EditorialHeader
         id="experiences-heading"
-        eyebrow="Experiences near you"
-        title="Things to do, town by town"
+        name="Experiences near you"
+        tagline="Things to do, town by town"
         subtitle="Attractions, days out and places to eat in each town's Local Guide."
         link={{ href: "/destinations", label: "View all" }}
       />

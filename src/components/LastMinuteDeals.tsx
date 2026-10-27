@@ -152,8 +152,8 @@ function LastMinuteDealsSection({ hasDeals = false, children }: { hasDeals?: boo
     <section className="mt-12 sm:mt-16" aria-labelledby="last-minute-deals-heading">
       <EditorialHeader
         id="last-minute-deals-heading"
-        eyebrow="Last minute deals"
-        title="A little escape, closer than you think."
+        name="Last-minute deals"
+        tagline="A little escape, closer than you think."
         subtitle="Stays with nights free in the coming days, for less - only genuine offers from local hosts."
         link={hasDeals ? { href: "/deals", label: "View all" } : undefined}
       />

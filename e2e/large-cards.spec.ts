@@ -31,18 +31,19 @@ test.describe("phone", () => {
   // Spotlight auto-advances; hold it still while card positions are measured.
   test.use({ viewport: { width: 390, height: 844 }, contextOptions: { reducedMotion: "reduce" } });
 
-  test("each rail shows its cards at phone size (Spotlight one per screen, others peeking), without widening the page", async ({ page }) => {
+  test("each rail shows its cards at phone size (Spotlight's wider, every rail with the next card peeking), without widening the page", async ({ page }) => {
     await page.goto("/");
     for (const label of RAILS) {
       await rail(page, label).scrollIntoViewIfNeeded();
       const [first, second] = await slotBoxes(page, label);
       expect(first.left).toBeGreaterThanOrEqual(0);
       expect(first.right).toBeLessThanOrEqual(390);
-      // Spotlight (paid placements) fills the page width, one stay per screen.
+      // Spotlight (paid placements): wider cards (78vw) from the page
+      // margin, with the next one just peeking in.
       if (label === "Spotlight stays") {
         expect(first.left, "Spotlight: card starts at the page margin").toBeCloseTo(24, 0);
-        expect(first.right, "Spotlight: card ends at the page margin").toBeCloseTo(366, 0);
-        expect(second.left, "Spotlight: next card starts off-screen").toBeGreaterThanOrEqual(390);
+        expect(first.width, "Spotlight: 78% of the screen").toBeCloseTo(390 * 0.78, 0);
+        expect(second.left, "Spotlight: next card peeks in").toBeLessThan(390);
         continue;
       }
       const peek = (390 - second.left) / second.width;

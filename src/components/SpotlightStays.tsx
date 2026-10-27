@@ -111,8 +111,8 @@ export async function SpotlightStays() {
     <section className="mt-10 sm:mt-14" aria-labelledby="spotlight-heading">
       <EditorialHeader
         id="spotlight-heading"
-        eyebrow="Spotlight stays"
-        title="Stays worth the trip"
+        name="Spotlight stays"
+        tagline="Stays worth the trip"
         subtitle={
           empty
             ? "The first stays from local hosts are on their way."

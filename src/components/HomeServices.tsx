@@ -36,8 +36,8 @@ export async function HomeServices() {
     <section className="mt-12 sm:mt-16" aria-labelledby="services-heading">
       <EditorialHeader
         id="services-heading"
-        eyebrow="Services"
-        title="Everything around your stay"
+        name="Services"
+        tagline="Everything around your stay"
         link={{ href: "/services", label: "View all" }}
       />
       <div className="grid gap-6 border border-border-subtle bg-surface p-4 shadow-[var(--shadow-card)] sm:p-6 lg:grid-cols-[minmax(0,340px)_1fr] lg:items-center lg:gap-12 lg:p-8">
