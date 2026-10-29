@@ -35,7 +35,7 @@ export function SupportWidget() {
   // knows the screen size - so it never flashes over a phone's first screen
   // before hiding. Measured a frame after mount, not during hydration: a
   // state change in the hydration commit itself was found to drop clicks
-  // made while the page was still becoming interactive (see SectionPills).
+  // made while the page was still becoming interactive.
   const [launcherShown, setLauncherShown] = useState(false);
   const visible = launcherShown || open;
 

@@ -12,7 +12,7 @@ export type FyStayService = {
 
 // Only services that already exist in the app, each linking to its real
 // page. Shared by the /services hub and the homepage's Services banner; new
-// services (see src/lib/siteSections.ts) get added here as they launch.
+// services get added here as they launch.
 export const FYSTAY_SERVICES: FyStayService[] = [
   {
     icon: Car,
