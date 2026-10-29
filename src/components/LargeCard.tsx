@@ -146,23 +146,28 @@ export function ServiceBanner({ service, onClick }: { service: BannerService; on
       <div
         className={cn(
           CARD_IMAGE_EFFECTS,
-          "aspect-[4/5] sm:aspect-[16/7]",
-          !service.image && cn("bg-gradient-to-br", service.backdrop),
+          "sm:aspect-[16/7]",
+          service.image ? "bg-neutral-950" : cn("bg-gradient-to-br", service.backdrop),
         )}
       >
+        {/* Phones: the photo on its own, the text on a dark panel beneath it,
+            so nothing is written across the subject (a car's number plate,
+            say). From sm up the text sits over the photo's lower edge. */}
         {service.image && (
-          <Image
-            src={service.image.src}
-            alt={service.image.alt}
-            fill
-            sizes="(min-width: 1152px) 1152px, 100vw"
-            unoptimized={!isOptimizableImage(service.image.src)}
-            className="object-cover transition-transform duration-700 group-hover:scale-105"
-            style={service.image.position ? { objectPosition: service.image.position } : undefined}
-          />
+          <div className="relative aspect-[4/3] sm:absolute sm:inset-0 sm:aspect-auto">
+            <Image
+              src={service.image.src}
+              alt={service.image.alt}
+              fill
+              sizes="(min-width: 1152px) 1152px, 100vw"
+              unoptimized={!isOptimizableImage(service.image.src)}
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
+              style={service.image.position ? { objectPosition: service.image.position } : undefined}
+            />
+          </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" aria-hidden />
-        <div className="absolute inset-x-5 bottom-5 flex flex-col gap-4 text-white sm:inset-x-8 sm:bottom-8 sm:flex-row sm:items-end sm:justify-between">
+        <div className="absolute inset-0 hidden bg-gradient-to-t from-black/80 via-black/25 to-transparent sm:block" aria-hidden />
+        <div className="relative flex flex-col gap-4 p-5 text-white sm:absolute sm:inset-x-8 sm:bottom-8 sm:flex-row sm:items-end sm:justify-between sm:p-0">
           <div className="min-w-0">
             {service.provider && (
               <div className="flex items-center gap-3">
@@ -190,7 +195,7 @@ export function ServiceBanner({ service, onClick }: { service: BannerService; on
               </p>
             )}
           </div>
-          <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-surface px-5 py-2.5 text-sm font-semibold text-brand-800 transition-colors group-hover:bg-white">
+          <span className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-surface px-5 py-3 sm:w-fit sm:justify-start sm:py-2.5 text-sm font-semibold text-brand-800 transition-colors group-hover:bg-white">
             {service.cta}
             <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
           </span>
