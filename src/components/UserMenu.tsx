@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { Gift, Heart, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
+import { Gift, Home, LayoutDashboard, Loader2, LogOut, Luggage, Menu, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
@@ -103,9 +103,7 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
           </Badge>
         </div>
 
-        {/* Account actions only: the four sections are the bottom tab
-            bar on phones and in the header on desktop (see SiteBottomNav), so they aren't
-            repeated here. */}
+        {/* Account actions only: Saved sits in the header beside this menu. */}
 
         <div className="flex flex-col py-1">
           {role === "ADMIN" && (
@@ -144,13 +142,6 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
             className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-surface-muted"
           >
             <Luggage className="h-4 w-4" /> My trips
-          </Link>
-          <Link
-            href="/wishlist"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-surface-muted"
-          >
-            <Heart className="h-4 w-4" /> Wishlist
           </Link>
           <Link
             href="/refer"
