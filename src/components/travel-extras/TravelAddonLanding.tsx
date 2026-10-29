@@ -100,16 +100,16 @@ export function TravelAddonLanding({
           )}
 
           <Link
-            href={eligibleBookingId ? `/bookings/${eligibleBookingId}#trip-extras` : "/"}
+            href={eligibleBookingId ? `/bookings/${eligibleBookingId}#trip-extras` : "/search"}
             onClick={handleCtaClick}
             className={cn(buttonVariants({ size: "lg" }), "mt-2 justify-center")}
           >
-            {eligibleBookingId ? "Add to my upcoming stay" : "Find your FYStay"}
+            {eligibleBookingId ? "Add to my upcoming stay" : "Choose a stay to add this to"}
           </Link>
           <p className="text-center text-xs text-stone-500">
             {eligibleBookingId
               ? "Booked and paid for alongside your stay, on your booking page."
-              : "Book your FYStay accommodation first, then add this from your booking page."}
+              : "This is added to a FYStay booking, so choose your stay first - then add it from your booking page."}
           </p>
         </CardContent>
       </Card>
