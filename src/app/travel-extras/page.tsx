@@ -65,6 +65,9 @@ export default async function TravelExtrasPage({
   }
 
   const session = await auth();
+  const guest = session?.user
+    ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true, phone: true } })
+    : null;
   // The guest's next stay - a transfer for a trip that's already happened
   // is no use to anyone.
   const eligibleBooking = session?.user
@@ -100,6 +103,9 @@ export default async function TravelExtrasPage({
       offering={offering}
       eligibleBookingId={eligibleBooking?.id ?? null}
       tripContext={tripContext}
+      signedIn={Boolean(session?.user)}
+      defaultName={guest?.name ?? ""}
+      defaultPhone={guest?.phone ?? ""}
     />
   );
 }

@@ -511,15 +511,35 @@ export type TripExtraEmailContext = {
   guestName: string | null;
   guestEmail: string | null;
   guestNotes: string | null;
-  listingTitle: string;
-  checkIn: Date;
-  checkOut: Date;
+  /** Null for a standalone purchase (no stay): then travelAt/contactPhone say when and how to reach the guest. */
+  listingTitle: string | null;
+  checkIn: Date | null;
+  checkOut: Date | null;
+  travelAt?: Date | null;
+  contactPhone?: string | null;
   offeringName: string;
   priceCents: number;
   providerName: string;
   providerEmail: string;
   bookingUrl: string;
 };
+
+const travelAtFormatter = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "full",
+  timeStyle: "short",
+  timeZone: "Europe/London",
+});
+
+/** What the provider needs to know about when/where this lands: the stay, or the pickup time. */
+function tripExtraWhen(ctx: TripExtraEmailContext): EmailDetail[] {
+  if (ctx.listingTitle && ctx.checkIn && ctx.checkOut) {
+    return [
+      { label: "Staying at", value: ctx.listingTitle },
+      { label: "Dates", value: dateRange(ctx.checkIn, ctx.checkOut) },
+    ];
+  }
+  return ctx.travelAt ? [{ label: "Pickup time (UK)", value: travelAtFormatter.format(ctx.travelAt) }] : [];
+}
 
 /**
  * Phase 1 fulfillment (see the roadmap's "Fulfillment" section): rather
@@ -538,14 +558,16 @@ export async function sendTripExtraProviderEmail(ctx: TripExtraEmailContext): Pr
     subject: `New booking request: ${ctx.offeringName}`,
     html: renderEmail({
       audience: "partner",
-      preheader: `${ctx.guestName ?? "A guest"} · ${dateRange(ctx.checkIn, ctx.checkOut)} · already paid`,
+      preheader: `${ctx.guestName ?? "A guest"} · ${
+        ctx.checkIn && ctx.checkOut ? dateRange(ctx.checkIn, ctx.checkOut) : ctx.travelAt ? travelAtFormatter.format(ctx.travelAt) : "paid"
+      } · already paid`,
       heading: `New ${ctx.offeringName} booking`,
       intro: `Hi ${escapeHtml(ctx.providerName)}, a FYStay guest has booked and paid for <strong>${escapeHtml(ctx.offeringName)}</strong> (${formatPrice(ctx.priceCents)}).`,
       details: [
         { label: "Guest", value: ctx.guestName ?? "Not given" },
         { label: "Contact", value: ctx.guestEmail ?? "Not given" },
-        { label: "Staying at", value: ctx.listingTitle },
-        { label: "Dates", value: dateRange(ctx.checkIn, ctx.checkOut) },
+        ...(ctx.contactPhone ? [{ label: "Phone", value: ctx.contactPhone }] : []),
+        ...tripExtraWhen(ctx),
       ],
       paragraphs: [
         ...(ctx.guestNotes ? [`<strong>Guest notes:</strong> ${escapeHtml(ctx.guestNotes)}`] : []),
@@ -573,16 +595,20 @@ export async function sendTripExtraGuestConfirmationEmail(ctx: TripExtraEmailCon
     html: renderEmail({
       preheader: `${ctx.providerName} will be in touch to confirm the details`,
       heading: `Your ${ctx.offeringName} is booked`,
-      intro: `${greeting(ctx.guestName)} your <strong>${escapeHtml(ctx.offeringName)}</strong> is booked and paid for, as part of your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong>.`,
+      intro: ctx.listingTitle
+        ? `${greeting(ctx.guestName)} your <strong>${escapeHtml(ctx.offeringName)}</strong> is booked and paid for, as part of your stay at <strong>${escapeHtml(ctx.listingTitle)}</strong>.`
+        : `${greeting(ctx.guestName)} your <strong>${escapeHtml(ctx.offeringName)}</strong> is booked and paid for.`,
       details: [
         { label: "Provided by", value: ctx.providerName },
-        { label: "Your stay", value: dateRange(ctx.checkIn, ctx.checkOut) },
+        ...(ctx.listingTitle && ctx.checkIn && ctx.checkOut
+          ? [{ label: "Your stay", value: dateRange(ctx.checkIn, ctx.checkOut) }]
+          : tripExtraWhen(ctx)),
         { label: "Paid", value: formatPrice(ctx.priceCents) },
       ],
       paragraphs: [
         `${escapeHtml(ctx.providerName)} has your booking and will contact you directly to confirm pickup times. It's listed on your FYStay booking too.`,
       ],
-      cta: { label: "View your booking", url: ctx.bookingUrl },
+      cta: { label: ctx.listingTitle ? "View your booking" : "View your trips", url: ctx.bookingUrl },
     }),
   });
 }

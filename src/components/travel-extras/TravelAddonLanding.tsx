@@ -8,6 +8,7 @@ import { trackAddonEvent } from "@/lib/analytics";
 import { useViewOnce } from "@/hooks/useViewOnce";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/format";
+import { StandaloneTransferForm } from "@/components/travel-extras/StandaloneTransferForm";
 import { PARTNER_LABEL } from "@/lib/partnerServices";
 import { travelAddonContextSummary, type TravelAddonContext, type TravelAddonOffering } from "@/lib/travelAddons";
 
@@ -21,21 +22,31 @@ const CATEGORY_ICONS: Record<TravelAddonOffering["category"], LucideIcon> = {
  * The generic landing page every cross-sell CTA across the site links to
  * (see travelAddons.travelAddonHref) - one component reused for whichever
  * ExtraCategory is passed in, not a bespoke page per add-on (see item 7 of
- * the cross-sell brief). This page never takes payment directly: buying a
- * Trip Extra requires an existing confirmed stay (see
- * tripExtraPurchaseError in src/lib/tripExtras.ts), so the honest next
- * step is either straight to that stay's own "Complete your trip" card
- * (when the guest already has one) or to find a stay first.
+ * the cross-sell brief). Buying a Trip Extra normally requires an existing
+ * confirmed stay (see tripExtraPurchaseError in src/lib/tripExtras.ts), so
+ * the next step is either straight to that stay's own "Complete your trip"
+ * card or to find a stay first. The exception is the airport transfer,
+ * which has its own form here (StandaloneTransferForm) and can be bought
+ * with no stay at all.
  */
 export function TravelAddonLanding({
   offering,
   eligibleBookingId,
   tripContext,
+  signedIn = false,
+  defaultName = "",
+  defaultPhone = "",
 }: {
   offering: TravelAddonOffering;
   eligibleBookingId: string | null;
   tripContext?: TravelAddonContext | null;
+  signedIn?: boolean;
+  defaultName?: string;
+  defaultPhone?: string;
 }) {
+  // An airport transfer can be booked on its own; the other add-ons still
+  // need a stay (see tripExtraPurchaseError).
+  const standalone = offering.category === "AIRPORT_TRANSFER";
   const Icon = CATEGORY_ICONS[offering.category];
   const contextSummary = tripContext ? travelAddonContextSummary(tripContext) : null;
   const viewRef = useViewOnce<HTMLDivElement>(() => {
@@ -99,18 +110,52 @@ export function TravelAddonLanding({
             </ul>
           )}
 
-          <Link
-            href={eligibleBookingId ? `/bookings/${eligibleBookingId}#trip-extras` : "/search"}
-            onClick={handleCtaClick}
-            className={cn(buttonVariants({ size: "lg" }), "mt-2 justify-center")}
-          >
-            {eligibleBookingId ? "Add to my upcoming stay" : "Choose a stay to add this to"}
-          </Link>
-          <p className="text-center text-xs text-stone-500">
-            {eligibleBookingId
-              ? "Booked and paid for alongside your stay, on your booking page."
-              : "This is added to a FYStay booking, so choose your stay first - then add it from your booking page."}
-          </p>
+          {standalone ? (
+            <>
+              <div className="mt-2 border-t border-border-subtle pt-5">
+                <h2 className="mb-4 text-lg font-semibold text-foreground">Book your transfer</h2>
+                <StandaloneTransferForm
+                  offering={{
+                    id: offering.id,
+                    name: offering.name,
+                    priceCents: offering.priceCents,
+                    providerName: offering.providerName,
+                  }}
+                  signedIn={signedIn}
+                  defaultName={defaultName}
+                  defaultPhone={defaultPhone}
+                />
+              </div>
+              {eligibleBookingId && (
+                <p className="text-center text-xs text-stone-500">
+                  Staying with FYStay?{" "}
+                  <Link
+                    href={`/bookings/${eligibleBookingId}#trip-extras`}
+                    onClick={handleCtaClick}
+                    className="font-medium text-brand-700 underline underline-offset-2"
+                  >
+                    Add it to your upcoming stay instead
+                  </Link>
+                  .
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <Link
+                href={eligibleBookingId ? `/bookings/${eligibleBookingId}#trip-extras` : "/search"}
+                onClick={handleCtaClick}
+                className={cn(buttonVariants({ size: "lg" }), "mt-2 justify-center")}
+              >
+                {eligibleBookingId ? "Add to my upcoming stay" : "Choose a stay to add this to"}
+              </Link>
+              <p className="text-center text-xs text-stone-500">
+                {eligibleBookingId
+                  ? "Booked and paid for alongside your stay, on your booking page."
+                  : "This is added to a FYStay booking, so choose your stay first - then add it from your booking page."}
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -121,13 +166,20 @@ export function TravelAddonLanding({
           How it works
         </h2>
         <ol className="mt-3 flex flex-col gap-3">
-          {[
-            eligibleBookingId
-              ? "Open your upcoming FYStay booking."
-              : "Book your stay on FYStay - you'll need a confirmed booking first.",
-            `Add the ${offering.name.toLowerCase()} from your booking page and pay with your FYStay account - no separate sign-up.`,
-            `${offering.providerName} gets your booking straight away and contacts you directly to confirm the details. It shows on your FYStay booking too.`,
-          ].map((step, i) => (
+          {(standalone
+            ? [
+                "Tell us where and when you need picking up.",
+                "Pay by card with your FYStay account - no stay needed and no separate sign-up.",
+                `${offering.providerName} gets your booking straight away and contacts you directly to confirm the details. It shows in My trips too.`,
+              ]
+            : [
+                eligibleBookingId
+                  ? "Open your upcoming FYStay booking."
+                  : "Book your stay on FYStay - you'll need a confirmed booking first.",
+                `Add the ${offering.name.toLowerCase()} from your booking page and pay with your FYStay account - no separate sign-up.`,
+                `${offering.providerName} gets your booking straight away and contacts you directly to confirm the details. It shows on your FYStay booking too.`,
+              ]
+          ).map((step, i) => (
             <li key={step} className="flex gap-3 text-sm text-stone-600">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
                 {i + 1}

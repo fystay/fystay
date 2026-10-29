@@ -22,9 +22,12 @@ export type FulfillmentOrder = {
   guestName: string | null;
   guestEmail: string | null;
   guestNotes: string | null;
-  listingTitle: string;
-  checkIn: Date;
-  checkOut: Date;
+  /** Null for a standalone purchase (no stay): then travelAt/contactPhone say when and how to reach the guest. */
+  listingTitle: string | null;
+  checkIn: Date | null;
+  checkOut: Date | null;
+  travelAt: Date | null;
+  contactPhone: string | null;
   bookingUrl: string;
   provider: {
     name: string;
@@ -60,6 +63,8 @@ export const emailFulfillmentAdapter: TripExtraFulfillmentAdapter = {
       listingTitle: order.listingTitle,
       checkIn: order.checkIn,
       checkOut: order.checkOut,
+      travelAt: order.travelAt,
+      contactPhone: order.contactPhone,
       offeringName: order.offeringName,
       priceCents: order.priceCents,
       providerName: order.provider.name,
@@ -139,7 +144,7 @@ export async function fulfillBookingExtra(
   // cancellation - see settleTripExtrasOnCancellation - never handed to a
   // provider for a trip that isn't happening. Re-checked in the claim
   // itself, so a cancellation landing in between still stops it.
-  if (!FULFILLABLE_BOOKING_STATUSES.includes(extra.booking.status)) {
+  if (extra.booking && !FULFILLABLE_BOOKING_STATUSES.includes(extra.booking.status)) {
     return { kind: "skipped", reason: "booking_not_active" };
   }
 
@@ -147,7 +152,8 @@ export async function fulfillBookingExtra(
     where: {
       id: bookingExtraId,
       status: "PAID",
-      booking: { status: { in: FULFILLABLE_BOOKING_STATUSES } },
+      // A standalone purchase has no stay to be cancelled.
+      AND: [{ OR: [{ bookingId: null }, { booking: { status: { in: FULFILLABLE_BOOKING_STATUSES } } }] }],
       OR: retry
         ? [
             { fulfillmentStatus: { in: ["PENDING", "FAILED"] } },
@@ -176,13 +182,15 @@ export async function fulfillBookingExtra(
         offeringName: extra.offering.name,
         category: extra.offering.category,
         priceCents: extra.priceCents,
-        guestName: extra.booking.guestName,
-        guestEmail: extra.booking.guestEmail,
+        guestName: extra.booking?.guestName ?? extra.contactName,
+        guestEmail: extra.booking?.guestEmail ?? extra.contactEmail,
         guestNotes: extra.guestNotes,
-        listingTitle: extra.booking.listing.title,
-        checkIn: extra.booking.checkIn,
-        checkOut: extra.booking.checkOut,
-        bookingUrl: `${baseUrl}/bookings/${extra.bookingId}`,
+        listingTitle: extra.booking?.listing.title ?? null,
+        checkIn: extra.booking?.checkIn ?? null,
+        checkOut: extra.booking?.checkOut ?? null,
+        travelAt: extra.travelAt,
+        contactPhone: extra.contactPhone,
+        bookingUrl: extra.bookingId ? `${baseUrl}/bookings/${extra.bookingId}` : `${baseUrl}/bookings`,
         provider: {
           name: provider.name,
           notificationEmail: provider.notificationEmail,

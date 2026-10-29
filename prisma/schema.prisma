@@ -270,6 +270,8 @@ model User {
 
   listings            Listing[]
   bookings            Booking[]
+  // Trip extras bought on their own, with no stay (see BookingExtra.guestId).
+  standaloneExtras    BookingExtra[]
   reviews             Review[]
   savedListings       SavedListing[]
   savedPlaces         SavedPlace[]
@@ -1777,8 +1779,20 @@ model BookingExtra {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bookingId String
-  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  // Null for a standalone purchase (a transfer bought without a stay): then
+  // guestId, the contact fields and travelAt describe who and when instead.
+  // Exactly one of bookingId / guestId is set (a CHECK in the migration).
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  guestId      String?
+  guest        User?     @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  // Who the provider contacts, and when the service happens (e.g. the pickup
+  // time) - standalone purchases only; the journey itself is in guestNotes.
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  travelAt     DateTime?
 
   offeringId String
   offering   ExtraOffering @relation(fields: [offeringId], references: [id], onDelete: Restrict)
@@ -1786,6 +1800,7 @@ model BookingExtra {
   disputes PaymentDispute[]
 
   @@index([bookingId])
+  @@index([guestId])
   @@index([offeringId])
   @@index([fulfillmentStatus])
 }

@@ -94,8 +94,11 @@ vi.mock("@/lib/prisma", async () => {
         const extra = state.extra!;
         const status = where.status as string | { in: string[] };
         const statusOk = typeof status === "string" ? extra.status === status : status.in.includes(extra.status as string);
-        const bookingWhere = where.booking as { status: string } | undefined;
-        const bookingOk = !bookingWhere || state.booking!.status === bookingWhere.status;
+        const stayWhere = (where.OR as { booking?: { status: string } }[] | undefined)?.find(
+          (clause) => clause.booking,
+        )?.booking;
+        // A standalone extra (bookingId null) has no stay to check.
+        const bookingOk = !stayWhere || extra.bookingId === null || state.booking!.status === stayWhere.status;
         const priceOk = where.priceCents === undefined || where.priceCents === extra.priceCents;
         if (!statusOk || !bookingOk || !priceOk) return { count: 0 };
         Object.assign(extra, data);
@@ -344,6 +347,15 @@ describe("trip extra payments", () => {
     const delivered = event("checkout.session.completed", extraSession(), "evt_extra");
     await POST(signedRequest(delivered));
     await POST(signedRequest(delivered));
+    expect(state.extra).toMatchObject({ status: "PAID", stripePaymentIntentId: "pi_1" });
+    expect(mocks.notifyTripExtraPaid).toHaveBeenCalledTimes(1);
+    expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();
+  });
+
+  it("records a standalone purchase (no stay) as paid", async () => {
+    state.extra = { ...state.extra!, bookingId: null };
+    state.booking!.status = "CANCELLED"; // an unrelated stay must make no difference
+    await POST(signedRequest(event("checkout.session.completed", extraSession())));
     expect(state.extra).toMatchObject({ status: "PAID", stripePaymentIntentId: "pi_1" });
     expect(mocks.notifyTripExtraPaid).toHaveBeenCalledTimes(1);
     expect(mocks.refundAcrossPayments).not.toHaveBeenCalled();

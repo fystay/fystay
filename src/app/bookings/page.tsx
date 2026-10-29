@@ -9,6 +9,7 @@ import { completePastBookings, expireAbandonedCheckouts, isAbandonedReservation 
 import { Card } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { BookingsTabs } from "@/components/BookingsTabs";
+import { StandaloneTransferCard } from "@/components/StandaloneTransferCard";
 import { getActiveOfferingByCategory } from "@/lib/travelAddons";
 import { cn } from "@/lib/cn";
 
@@ -29,7 +30,12 @@ function EmptySection({ message, hint, showCta }: { message: string; hint: strin
   );
 }
 
-export default async function BookingsPage() {
+export default async function BookingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ transfer_success?: string }>;
+}) {
+  const { transfer_success: transferSuccess } = await searchParams;
   const session = await auth();
   if (!session?.user) {
     redirect("/login?callbackUrl=/bookings");
@@ -79,17 +85,61 @@ export default async function BookingsPage() {
       )
     : new Set<string>();
 
+  // Transfers bought on their own, with no stay.
+  const standaloneTransfers = await prisma.bookingExtra.findMany({
+    where: { guestId: session.user.id, status: { in: ["PAID", "REFUNDED", "CANCELLED"] } },
+    include: { offering: { select: { name: true, provider: { select: { name: true } } } } },
+    orderBy: [{ travelAt: "asc" }, { createdAt: "desc" }],
+  });
+  const transfersSection = (
+    <>
+      {transferSuccess && (
+        <p role="status" className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Thanks - your payment is in. Your transfer will appear below as soon as it&apos;s confirmed, and we&apos;ll email
+          you a receipt.
+        </p>
+      )}
+      {standaloneTransfers.length > 0 && (
+        <section aria-labelledby="transfers-heading" className="mt-6">
+          <h2 id="transfers-heading" className="text-lg font-semibold text-foreground">
+            Transfers
+          </h2>
+          <div className="mt-3 flex flex-col gap-3">
+            {standaloneTransfers.map((transfer) => (
+              <StandaloneTransferCard
+                key={transfer.id}
+                transfer={{
+                  id: transfer.id,
+                  offeringName: transfer.offering.name,
+                  providerName: transfer.offering.provider.name,
+                  priceCents: transfer.priceCents,
+                  status: transfer.status,
+                  fulfillmentStatus: transfer.fulfillmentStatus,
+                  travelAt: transfer.travelAt,
+                  guestNotes: transfer.guestNotes,
+                }}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
+
   if (bookings.length === 0) {
     return (
       <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
         <h1 className="text-2xl font-bold">My trips</h1>
-        <div className="mt-8">
-          <EmptySection
-            message="No trips booked yet"
-            hint="Time to dust off your bags and start planning your next adventure."
-            showCta
-          />
-        </div>
+        {transfersSection}
+        {standaloneTransfers.length === 0 && (
+          <div className="mt-8">
+            <EmptySection
+              message="No trips booked yet"
+              hint="Time to dust off your bags and start planning your next adventure."
+              showCta
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -114,6 +164,7 @@ export default async function BookingsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       <h1 className="text-2xl font-bold">My trips</h1>
+      {transfersSection}
 
       <BookingsTabs
         upcoming={upcoming}

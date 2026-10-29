@@ -358,17 +358,19 @@ export async function notifyTripExtraPaid(bookingExtraId: string): Promise<void>
 
   const baseUrl = BASE_URL;
   const ctx = {
-    guestName: bookingExtra.booking.guestName,
-    guestEmail: bookingExtra.booking.guestEmail,
+    guestName: bookingExtra.booking?.guestName ?? bookingExtra.contactName,
+    guestEmail: bookingExtra.booking?.guestEmail ?? bookingExtra.contactEmail,
     guestNotes: bookingExtra.guestNotes,
-    listingTitle: bookingExtra.booking.listing.title,
-    checkIn: bookingExtra.booking.checkIn,
-    checkOut: bookingExtra.booking.checkOut,
+    listingTitle: bookingExtra.booking?.listing.title ?? null,
+    checkIn: bookingExtra.booking?.checkIn ?? null,
+    checkOut: bookingExtra.booking?.checkOut ?? null,
+    travelAt: bookingExtra.travelAt,
+    contactPhone: bookingExtra.contactPhone,
     offeringName: bookingExtra.offering.name,
     priceCents: bookingExtra.priceCents,
     providerName: bookingExtra.offering.provider.name,
     providerEmail: bookingExtra.offering.provider.notificationEmail,
-    bookingUrl: `${baseUrl}/bookings/${bookingExtra.bookingId}`,
+    bookingUrl: bookingExtra.bookingId ? `${baseUrl}/bookings/${bookingExtra.bookingId}` : `${baseUrl}/bookings`,
   };
 
   // The provider handoff goes through the fulfillment adapter for this
