@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { SectionPills } from "@/components/SectionPills";
+import { SavedLink } from "@/components/SavedLink";
 import { PAGE_SEARCH_ID, searchSummary } from "@/lib/searchSummary";
 import { cn } from "@/lib/cn";
 
@@ -75,8 +75,8 @@ function SearchPill({ className }: { className?: string }) {
 
 /**
  * The header's contents: the logo on the left, the account button on the
- * right (it also holds "List your property"). Desktop: the four sections in
- * the centre. Once the page's main search has scrolled away, a search pill
+ * right (it also holds "List your property"), with Saved just left of it.
+ * Once the page's main search has scrolled away, a search pill
  * takes the centre (desktop) or the space beside the logo (phones), so a
  * guest can search from anywhere on the page - the only filled terracotta
  * control up here, as Search is below.
@@ -98,17 +98,18 @@ export function HeaderBar({ account }: { account: ReactNode }) {
         </Suspense>
       )}
 
-      <div className="pointer-events-none absolute inset-0 hidden items-center justify-center lg:flex">
-        {pill ? (
+      {pill && (
+        <div className="pointer-events-none absolute inset-0 hidden items-center justify-center lg:flex">
           <Suspense>
             <SearchPill className="pointer-events-auto max-w-md" />
           </Suspense>
-        ) : (
-          <SectionPills variant="header" className="pointer-events-auto" />
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="relative z-10 ml-auto shrink-0">{account}</div>
+      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-4">
+        <SavedLink />
+        {account}
+      </div>
     </div>
   );
 }
