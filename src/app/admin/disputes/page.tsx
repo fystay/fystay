@@ -65,7 +65,7 @@ export default async function AdminDisputesPage() {
   const now = new Date();
 
   return (
-    <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
+    <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Disputes</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
         Bank-initiated chargebacks against payments FYStay has taken. Respond to these in the{" "}

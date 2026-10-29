@@ -23,7 +23,7 @@ export function StatCard({
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
         <p className="mt-0.5 truncate text-xl font-bold text-foreground">{value}</p>
-        {sublabel && <p className="mt-0.5 truncate text-xs text-stone-500">{sublabel}</p>}
+        {sublabel && <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{sublabel}</p>}
       </div>
     </Card>
   );

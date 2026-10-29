@@ -94,7 +94,7 @@ export default async function AdminOverviewPage() {
     (bookingsByStatus.find((b) => b.status === "CONFIRMED")?._count ?? 0);
 
   return (
-    <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
+    <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Admin overview</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
         Platform-wide numbers - not any one host&apos;s or guest&apos;s own view.
@@ -104,7 +104,7 @@ export default async function AdminOverviewPage() {
         <AdminNav active="/admin" />
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard
           icon={PoundSterling}
           label="Gross booking value"
@@ -134,6 +134,7 @@ export default async function AdminOverviewPage() {
           label="Listings"
           value={totalListings.toLocaleString()}
           sublabel={`${listingCounts._count} published · ${hotelListingCount} hotels`}
+          className="col-span-2 sm:col-span-1"
         />
       </div>
 

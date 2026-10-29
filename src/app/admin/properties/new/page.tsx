@@ -39,7 +39,7 @@ export default async function AddPropertyPage({
     : [];
 
   return (
-    <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
+    <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6">
       <Link href="/admin/properties" className="text-sm font-medium text-brand-700 hover:underline">
         ← Properties
       </Link>

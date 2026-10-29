@@ -82,7 +82,7 @@ export default async function LocalDataAdminPage() {
   const failingSources = summary.sources.filter((s) => s.status === "FAILING").length;
 
   return (
-    <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
+    <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Local data platform</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
         Operational status for the Local Guide&apos;s live data - weather, places and events feeding the

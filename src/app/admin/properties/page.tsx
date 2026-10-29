@@ -37,7 +37,7 @@ export default async function AdminPropertiesPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
+    <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Properties FYStay is preparing</h1>

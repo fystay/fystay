@@ -90,7 +90,7 @@ export default async function AdminReviewReportsPage({
   });
 
   return (
-    <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
+    <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Review reports</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
         Reviews guests have flagged for moderation attention. Dismiss a report to leave the

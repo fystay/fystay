@@ -55,7 +55,7 @@ export default async function AdminPromotionsPage() {
   const revenueCents = paid.reduce((sum, p) => sum + p.priceCents, 0);
 
   return (
-    <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
+    <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Spotlight</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
         Paid placements in the homepage&apos;s Spotlight stays showcase, bought by hosts, with how often each was

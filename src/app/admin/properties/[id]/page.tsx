@@ -61,7 +61,7 @@ export default async function AdminPropertyPage({ params }: { params: Promise<{ 
         : "Yes - the host created this listing themselves.";
 
   return (
-    <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
+    <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">
       <Link href="/admin/properties" className="text-sm font-medium text-brand-700 hover:underline">
         ← Properties
       </Link>
