@@ -61,12 +61,12 @@ export function Footer() {
         ))}
       </div>
       <div className="border-t border-border-subtle px-6 py-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <p className="text-xs text-stone-500">© {new Date().getFullYear()} FYStay</p>
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+            <p className="pt-2 text-xs text-stone-500">© {new Date().getFullYear()} FYStay</p>
             <CurrencySelector />
           </div>
-          <ul className="flex flex-wrap gap-x-4 gap-y-2">
+          <ul className="flex flex-wrap gap-x-4 gap-y-2 sm:pt-2">
             {legalLinks.map((link) => (
               <li key={link.label}>
                 <Link
