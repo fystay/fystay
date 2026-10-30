@@ -38,11 +38,11 @@ test.describe("phone", () => {
       const [first, second] = await slotBoxes(page, label);
       expect(first.left).toBeGreaterThanOrEqual(0);
       expect(first.right).toBeLessThanOrEqual(390);
-      // Spotlight (paid placements): wider cards (78vw) from the page
-      // margin, with the next one just peeking in.
+      // Spotlight (paid placements): cards nearly the screen's full width
+      // (12px either side), with a sliver of the next one peeking in.
       if (label === "Spotlight stays") {
-        expect(first.left, "Spotlight: card starts at the page margin").toBeCloseTo(24, 0);
-        expect(first.width, "Spotlight: 78% of the screen").toBeCloseTo(390 * 0.78, 0);
+        expect(first.left, "Spotlight: card starts 12px from the edge").toBeCloseTo(12, 0);
+        expect(first.width, "Spotlight: the screen less 28px").toBeCloseTo(390 - 28, 0);
         expect(second.left, "Spotlight: next card peeks in").toBeLessThan(390);
         continue;
       }
