@@ -100,7 +100,7 @@ export function ListingShowcase({
 
       {/* The facts, at a glance. */}
       <section aria-label="At a glance" className="border-y border-border-subtle bg-surface-muted">
-        <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-y-5 px-6 py-6 sm:grid-cols-4">
+        <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-y-4 px-6 py-5 sm:grid-cols-4">
           {content.facts.map((fact) => (
             <div key={fact.label} className="text-center sm:border-l sm:border-border-subtle sm:first:border-l-0">
               <dt className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">{fact.label}</dt>
@@ -111,24 +111,25 @@ export function ListingShowcase({
       </section>
 
       {content.inside && (
-        <section id="inside" className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-14 sm:py-20">
+        <section id="inside" className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-10 sm:py-14">
           <SectionTitle kicker={content.inside.kicker} title={content.inside.title} />
-          <p className="mt-4 max-w-2xl text-stone-700">{content.inside.body}</p>
-          <ShowcasePhotoGrid photos={content.inside.photos} className="mt-8" />
+          <p className="mt-3 max-w-2xl text-stone-700">{content.inside.body}</p>
+          <ShowcasePhotoGrid photos={content.inside.photos} more={content.inside.more} className="mt-6" />
         </section>
       )}
 
       {content.sleeping && (
         <section className="bg-surface-muted">
-          <div className="mx-auto w-full max-w-6xl px-6 py-14 sm:py-20">
+          <div className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
             <SectionTitle kicker={content.sleeping.kicker} title={content.sleeping.title} />
-            <ul className="mt-10 grid gap-10 sm:grid-cols-3">
+            {/* A swipeable row on a phone, three across from sm. */}
+            <ul className="-mx-6 mt-6 flex scroll-px-6 snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
               {content.sleeping.rooms.map((room) => (
-                <li key={room.name}>
+                <li key={room.name} className="w-[72vw] max-w-xs shrink-0 snap-start sm:w-auto sm:max-w-none">
                   <div className="relative aspect-[4/3] w-full overflow-hidden border-b-[3px] border-brand-500 shadow-[var(--shadow-card)] ring-1 ring-black/5">
                     <Image src={room.photo.src} alt={room.photo.alt} fill sizes="(min-width: 640px) 360px, 90vw" className="object-cover" />
                   </div>
-                  <h3 className="mt-4 font-serif text-xl text-foreground">{room.name}</h3>
+                  <h3 className="mt-3 font-serif text-lg text-foreground">{room.name}</h3>
                   <p className="mt-1 flex items-center gap-2 text-sm text-stone-600">
                     <BedDouble className="h-4 w-4 text-brand-600" aria-hidden />
                     {room.beds}
@@ -142,14 +143,14 @@ export function ListingShowcase({
 
       {content.afterDark && (
         <section className="bg-ink text-white">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-14 sm:py-20 lg:grid-cols-2 lg:gap-16">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-6 py-10 sm:py-14 lg:grid-cols-2 lg:gap-16">
             <div>
               <SectionTitle kicker={content.afterDark.kicker} title={content.afterDark.title} light />
               <p className="mt-5 max-w-md text-white/80">{content.afterDark.body}</p>
             </div>
             <div className="grid grid-cols-2 items-start gap-4">
               {content.afterDark.photos.map((p, i) => (
-                <div key={p.src} className={cn("relative aspect-[3/4] w-full overflow-hidden border-b-[3px] border-brand-500 ring-1 ring-white/10", i === 1 && "mt-10")}>
+                <div key={p.src} className={cn("relative aspect-[3/4] w-full overflow-hidden border-b-[3px] border-brand-500 ring-1 ring-white/10", i === 1 && "sm:mt-10")}>
                   <Image src={p.src} alt={p.alt} fill sizes="(min-width: 1024px) 280px, 45vw" className="object-cover" />
                 </div>
               ))}
@@ -159,10 +160,10 @@ export function ListingShowcase({
       )}
 
       {content.setting && (
-        <section className="mx-auto w-full max-w-6xl px-6 py-14 sm:py-20">
+        <section className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
           <SectionTitle kicker={content.setting.kicker} title={content.setting.title} />
-          <p className="mt-4 max-w-2xl text-stone-700">{content.setting.body}</p>
-          <ul className="mt-8 grid gap-6 sm:grid-cols-3">
+          <p className="mt-3 max-w-2xl text-stone-700">{content.setting.body}</p>
+          <ul className="mt-6 grid gap-5 sm:grid-cols-3">
             {content.setting.points.map((point) => (
               <li key={point.title} className="border-t-[3px] border-brand-500 pt-4">
                 <h3 className="font-serif text-xl text-foreground">{point.title}</h3>
@@ -174,10 +175,10 @@ export function ListingShowcase({
       )}
 
       <section className="border-t border-border-subtle bg-surface-muted">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-14 sm:py-16 lg:grid-cols-2 lg:gap-16">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-10 sm:py-12 lg:grid-cols-2 lg:gap-16">
           <div>
             <h2 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">What&apos;s here</h2>
-            <ul className="mt-5 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm sm:text-base">
               {content.amenities.map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-stone-700">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />
@@ -188,7 +189,7 @@ export function ListingShowcase({
           </div>
           <div>
             <h2 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">Good to know</h2>
-            <ul className="mt-5 flex flex-col gap-3">
+            <ul className="mt-4 flex flex-col gap-2.5 text-sm sm:text-base">
               {[...content.goodToKnow, price.cancellation].map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-stone-700">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />
@@ -202,7 +203,7 @@ export function ListingShowcase({
 
       {/* The way in: the people who look after it, and the dates. */}
       <section id="book" className="scroll-mt-20 bg-brand-900 text-white">
-        <div className="mx-auto grid w-full max-w-6xl items-start gap-10 px-6 py-14 sm:py-20 lg:grid-cols-5 lg:gap-14">
+        <div className="mx-auto grid w-full max-w-6xl items-start gap-8 px-6 py-10 sm:py-14 lg:grid-cols-5 lg:gap-14">
           <div className="lg:col-span-2">
             <h2 className="font-serif text-[1.9rem] font-bold leading-[1.1] sm:text-[2.4rem]">Book with the people who look after {content.title}</h2>
             <p className="mt-4 text-white/80">

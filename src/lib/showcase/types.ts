@@ -23,7 +23,7 @@ export type ShowcaseContent = {
   /** The hero's rotating photos, best first. */
   hero: ShowcasePhoto[];
   facts: { label: string; value: string }[];
-  inside?: { kicker: string; title: string; body: string; photos: ShowcasePhoto[] };
+  inside?: { kicker: string; title: string; body: string; photos: ShowcasePhoto[]; /** Opened by "View all photos", not shown on the page. */ more?: ShowcasePhoto[] };
   sleeping?: { kicker: string; title: string; rooms: { name: string; beds: string; photo: ShowcasePhoto }[] };
   afterDark?: { kicker: string; title: string; body: string; photos: ShowcasePhoto[] };
   setting?: { kicker: string; title: string; body: string; points: { title: string; body: string }[] };

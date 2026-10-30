@@ -19,6 +19,7 @@ const ISLAND = photo("kitchen-island", "Kitchen island with open shelving and gr
 const KITCHEN = photo("kitchen", "Kitchen with white cabinets, an island with two bar stools, and patio doors");
 const MAIN_BEDROOM = photo("main-bedroom", "Main bedroom with white bedding, a grey throw and three framed peony prints above the bed", "Main bedroom", "object-[50%_60%]");
 const MAIN_ART = photo("main-bedroom-art", "The main bed dressed with pink velvet cushions beneath peony prints");
+const SECOND_BEDROOM_DETAIL = photo("second-bedroom-detail", "The second bed with peacock-print cushions");
 const SECOND_BEDROOM = photo("second-bedroom", "Second bedroom with a tall grey upholstered headboard and matching bedside lamps");
 const TWIN = photo("twin-bedroom", "Twin bedroom with two single beds either side of a bedside table");
 const BATHROOM = photo("bathroom", "Bathroom with a basin in a wood-effect vanity and a large mirror");
@@ -45,7 +46,8 @@ export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
     kicker: "Inside the lodge",
     title: "Light, warm and made for gathering",
     body: "An open-plan living and dining room arranged around an electric feature fire, a kitchen island for morning coffee, and patio doors that fill the room with light.",
-    photos: [LOUNGE, ISLAND, FIRE, KITCHEN, BATHROOM, UTILITY, WARDROBE, NEIGHBOURS],
+    photos: [LOUNGE, ISLAND, FIRE, KITCHEN, NEIGHBOURS],
+    more: [BATHROOM, UTILITY, WARDROBE, MAIN_ART, SECOND_BEDROOM_DETAIL, GAZEBO],
   },
   sleeping: {
     kicker: "Sleeping",

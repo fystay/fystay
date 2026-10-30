@@ -11,7 +11,8 @@ import type { ShowcasePhoto } from "@/lib/showcase/types";
  * corners, terracotta rule). Tapping one opens it large, with the owner's
  * description of it, arrows and the keyboard to move along.
  */
-export function ShowcasePhotoGrid({ photos, className }: { photos: ShowcasePhoto[]; className?: string }) {
+export function ShowcasePhotoGrid({ photos: shown, more = [], className }: { photos: ShowcasePhoto[]; more?: ShowcasePhoto[]; className?: string }) {
+  const photos = [...shown, ...more];
   const [open, setOpen] = useState<number | null>(null);
   const close = useCallback(() => setOpen(null), []);
   const step = useCallback((by: number) => setOpen((i) => (i === null ? i : (i + by + photos.length) % photos.length)), [photos.length]);
@@ -34,7 +35,7 @@ export function ShowcasePhotoGrid({ photos, className }: { photos: ShowcasePhoto
   return (
     <>
       <ul className={cn("grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4", className)}>
-        {photos.map((p, i) => (
+        {shown.map((p, i) => (
           <li key={p.src} className={cn(i === 0 && "col-span-2 row-span-2")}>
             <button
               type="button"
@@ -55,6 +56,16 @@ export function ShowcasePhotoGrid({ photos, className }: { photos: ShowcasePhoto
           </li>
         ))}
       </ul>
+
+      {more.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setOpen(0)}
+          className="focus-ring mt-5 inline-flex h-11 items-center rounded-xl border border-border-subtle px-5 text-sm font-semibold text-foreground hover:bg-surface-muted"
+        >
+          View all {photos.length} photos
+        </button>
+      )}
 
       {open !== null && (
         <div
