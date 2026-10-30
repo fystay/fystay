@@ -26,7 +26,7 @@ export async function HomeServices() {
     <section className="mt-12 sm:mt-16" aria-labelledby="services-heading">
       <EditorialHeader
         id="services-heading"
-        name="Services near you"
+        name="Airport transfers"
         link={{ href: "/services", label: "View all" }}
       />
       {transferOffer ? (

@@ -108,10 +108,10 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {/* Phones: the first screen is the header, the hero and the search
-          card, which sits just above the bottom tab bar - the wrapper fills
-          the screen between the header (77px) and the tab bar (57px plus
-          the home-indicator area), the card keeps 16px clear above the bar,
-          and the hero takes whatever the card leaves, so the photo stays visible behind the headline. From
+          card - the wrapper fills the screen below the header (77px) and
+          above any fixed bar (the cookie notice, until it is dismissed), the
+          card keeps 16px clear of the bottom edge, and the hero takes
+          whatever the card leaves, so the photo stays visible behind the headline. From
           lg the hero is a fixed share of the window with the search bar
           straddling its foot.
 
@@ -119,17 +119,17 @@ export default async function Home() {
           the bottom (a mask on the photos only), crossfading through the
           places with live stays (HeroSlides). isolate keeps its layers' z-indexes inside
           the hero. */}
-      <div className="flex min-h-[calc(100svh-77px-58px-env(safe-area-inset-bottom))] flex-col lg:block lg:min-h-0">
+      <div className="flex min-h-[calc(100svh-77px-var(--fixed-bottom-bar-height,0px))] flex-col lg:block lg:min-h-0">
         <section className="relative isolate flex min-h-[230px] w-full flex-1 flex-col lg:h-[64svh] lg:max-h-[660px] lg:min-h-[520px] lg:flex-none">
           <HeroSlides slideKeys={heroSlideKeys} />
         </section>
 
         {/* The search card - the page's main control - rising a little into
-            the hero's faded foot, 16px clear of the tab bar. Sticky below lg
-            so it's never under the bar when something above takes more room
+            the hero's faded foot, 16px clear of the bottom edge. Sticky below lg
+            so it's never under a bar when something above takes more room
             than the wrapper allows for (the Preview banner, larger text): it
             rises over the hero instead, and scrolls away normally. */}
-        <div className="sticky bottom-[calc(57px+env(safe-area-inset-bottom))] z-10 mx-auto w-full max-w-6xl px-4 pb-4 sm:px-6 lg:relative lg:bottom-auto lg:pb-0">
+        <div className="sticky bottom-[calc(var(--fixed-bottom-bar-height,0px)+env(safe-area-inset-bottom))] z-10 mx-auto w-full max-w-6xl px-4 pb-4 sm:px-6 lg:relative lg:bottom-auto lg:pb-0">
           <div id={PAGE_SEARCH_ID} className="-mt-14 sm:-mt-20 lg:-mt-[112px]">
             <Suspense>
               <SearchBar liveUpdate={false} className="max-w-none shadow-[var(--shadow-popover)]" />

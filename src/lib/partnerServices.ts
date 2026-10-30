@@ -18,7 +18,7 @@ export type PartnerService = {
   description: string;
   /** How the card states the relationship, e.g. "FYStay service partner". */
   providerLabel: string;
-  /** e.g. "Book with EV Exec". */
+  /** e.g. "Book your transfer". */
   cta: string;
   /** What it costs, already formatted for the visitor's currency, and what that buys - e.g. "£45" / "Return airport transfer". */
   price?: { label: string; detail: string };
@@ -86,7 +86,7 @@ export function partnerServiceForOffering(offering: TravelAddonOffering, href: s
     provider: offering.providerName,
     ...presentation,
     providerLabel: PARTNER_LABEL,
-    cta: `Book with ${offering.providerName}`,
+    cta: "Book your transfer",
     href,
     ...PROVIDER_ASSETS[offering.providerName],
   };

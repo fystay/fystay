@@ -17,7 +17,7 @@ const TOWN_TAGLINES: Record<string, string> = {
 };
 
 /**
- * The homepage's "Experiences near you": a card per town, each opening the
+ * The homepage's "Explore the Fylde Coast": a card per town, each opening the
  * things-to-do buttons of that town's Local Guide. Real photography where FYStay has it (DESTINATION_PHOTOS),
  * otherwise the same icon-and-gradient art as /destinations - never a
  * stand-in stock photo of another place. A swipeable row on phones and
@@ -32,7 +32,7 @@ export function HomeTowns() {
     <section className="mt-12 sm:mt-16" aria-labelledby="experiences-heading">
       <EditorialHeader
         id="experiences-heading"
-        name="Experiences near you"
+        name="Explore the Fylde Coast"
         link={{ href: "/destinations", label: "View all" }}
       />
 

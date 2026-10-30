@@ -5,14 +5,14 @@ import { test, expect } from "@playwright/test";
 // (ServiceBanner, src/lib/partnerServices.ts).
 
 function services(page: import("@playwright/test").Page) {
-  return page.locator("section", { has: page.getByRole("heading", { name: "Services near you" }) });
+  return page.locator("section", { has: page.getByRole("heading", { name: "Airport transfers" }) });
 }
 
 test("Services shows EV Exec as a FYStay service partner, booked through the transfer flow", async ({ page }) => {
   await page.goto("/");
   const row = services(page);
   await row.scrollIntoViewIfNeeded();
-  const card = row.locator("a", { hasText: "Book with EV Exec" }).first();
+  const card = row.locator("a", { hasText: "Book your transfer" }).first();
   await expect(card).toBeVisible();
   await expect(card.getByText("EV Exec", { exact: true })).toBeVisible();
   await expect(card.getByText("FYStay service partner")).toBeVisible();

@@ -5,15 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { bookableHostWhere } from "@/lib/stripeConnect";
 import { liveSpotlightWhere, SPOTLIGHT_SLOTS } from "@/lib/listingPromotions";
 import { rankByPopularity } from "@/lib/marketplace";
-import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { EditorialHeader } from "@/components/EditorialHeader";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { ListingCard } from "@/components/ListingCard";
 import { SpotlightTracker } from "@/components/SpotlightTracker";
-import { ComingSoonStayCard } from "@/components/ComingSoonStayCard";
 
-/** The towns whose "Coming soon" cards hold the row before any stay is live (owner's choice). */
-const COMING_SOON_TOWNS = ["blackpool", "lytham", "thornton-cleveleys", "fleetwood"];
 
 /** Spotlight moves on one card at this pace: long enough to take in a card, quick enough that every paid stay comes round. */
 const SPOTLIGHT_ADVANCE_MS = 5000;
@@ -55,8 +51,8 @@ function rotate<T>(items: T[]): T[] {
  * paid placement require, with its views and clicks counted for the host),
  * then the most popular real stays (see rankByPopularity). Only real,
  * published, bookable stays with their real prices and verified reviews.
- * Before any stay is live, clearly-labelled "Coming soon" town cards hold
- * the row - never an invented property.
+ * Before any stay is live the section isn't shown at all - never an
+ * invented property or a placeholder row.
  */
 export async function SpotlightStays() {
   const now = new Date();
@@ -105,23 +101,15 @@ export async function SpotlightStays() {
         )
       : new Set<string>();
   const isLoggedIn = Boolean(session?.user);
-  const empty = shownIds.length === 0;
+  // Nothing to show means no section: the page never fills a row with
+  // "coming soon" placeholders (the towns row below covers browsing).
+  if (shownIds.length === 0) return null;
 
   return (
     <section className="mt-10 sm:mt-14" aria-labelledby="spotlight-heading">
-      <EditorialHeader
-        id="spotlight-heading"
-        name="Spotlight stays"
-        link={empty ? undefined : { href: "/search", label: "View all" }}
-      />
+      <EditorialHeader id="spotlight-heading" name="Spotlight stays" link={{ href: "/search", label: "View all" }} />
       <LargeCardRail label="Spotlight stays" fullBleed autoAdvanceMs={SPOTLIGHT_ADVANCE_MS}>
-        {empty
-          ? FYLDE_COAST_DESTINATIONS.filter((destination) => COMING_SOON_TOWNS.includes(destination.slug))
-              .sort((a, b) => COMING_SOON_TOWNS.indexOf(a.slug) - COMING_SOON_TOWNS.indexOf(b.slug))
-              .map((destination) => (
-              <ComingSoonStayCard key={destination.slug} destination={destination} />
-            ))
-          : [
+        {[
               ...promoted.map(({ id, listing }) => (
                 <SpotlightTracker key={listing.id} promotionId={id}>
                   <ListingCard

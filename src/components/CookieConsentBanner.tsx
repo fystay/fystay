@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { useReserveBottomSpace } from "@/hooks/useReserveBottomSpace";
 
 const DISMISSED_KEY = "fystay:cookie-notice-dismissed";
 
@@ -40,28 +41,35 @@ export function CookieConsentBanner() {
   }
 
   if (!visible) return null;
+  return <CookieBar onDismiss={dismiss} />;
+}
+
+/**
+ * A slim bar along the bottom edge that reserves its own height (the same
+ * way a page's booking bar does), so the page's content, the search card and
+ * the support button all sit above it instead of underneath. It can only be
+ * shown once the browser has checked whether it was dismissed; reserving
+ * space at the bottom means that moment never pushes the page down.
+ */
+function CookieBar({ onDismiss }: { onDismiss: () => void }) {
+  const barRef = useRef<HTMLDivElement>(null);
+  useReserveBottomSpace(barRef, { pageBar: false });
 
   return (
-    // A floating card over the page, not a bar above it: the notice can only
-    // be shown once the browser has checked whether it was dismissed, and a
-    // bar inserted at that point pushed every page down (on phones by
-    // ~130px) just after it appeared. Sits above any fixed bottom bar.
     <div
+      ref={barRef}
       role="region"
       aria-label="Cookie notice"
-      className="animate-host-page-in fixed inset-x-3 z-50 rounded-2xl border border-border-subtle bg-surface px-4 py-3 shadow-[var(--shadow-popover)] sm:inset-x-auto sm:left-4 sm:max-w-md"
-      style={{ bottom: "calc(var(--fixed-bottom-bar-height, 0px) + 0.75rem)" }}
+      className="animate-host-page-in fixed inset-x-0 bottom-0 z-50 border-t border-border-subtle bg-surface/95 px-4 pb-[calc(0.625rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur"
     >
-      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-stone-600">
-          We only use strictly necessary cookies to keep you signed in and run the site - no
-          tracking or advertising cookies. See our{" "}
-          <Link href="/legal/cookies" className="text-brand-700 underline underline-offset-2 hover:text-brand-800">
+      <div className="mx-auto flex max-w-6xl items-center gap-3">
+        <p className="min-w-0 flex-1 text-xs leading-snug text-stone-600 sm:text-sm">
+          Strictly necessary cookies only - no tracking or advertising.{" "}
+          <Link href="/legal/cookies" className="whitespace-nowrap text-brand-700 underline underline-offset-2 hover:text-brand-800">
             Cookie Policy
-          </Link>{" "}
-          for details.
+          </Link>
         </p>
-        <Button onClick={dismiss} size="sm" className="shrink-0">
+        <Button onClick={onDismiss} size="sm" className="shrink-0">
           Got it
         </Button>
       </div>

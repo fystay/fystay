@@ -33,7 +33,11 @@ test.describe("phone", () => {
 
   test("each rail shows its cards at phone size (Spotlight's wider, every rail with the next card peeking), without widening the page", async ({ page }) => {
     await page.goto("/");
+    // Spotlight always has the seeded stays; Last-minute deals only appears
+    // when there is a real deal (a section with nothing to show is left out).
+    await expect(rail(page, "Spotlight stays")).toHaveCount(1);
     for (const label of RAILS) {
+      if ((await rail(page, label).count()) === 0) continue;
       await rail(page, label).scrollIntoViewIfNeeded();
       const [first, second] = await slotBoxes(page, label);
       expect(first.left).toBeGreaterThanOrEqual(0);

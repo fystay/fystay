@@ -32,7 +32,7 @@ export function EditorialHeader({
         {link && (
           <Link
             href={link.href}
-            className="focus-ring -my-2 flex shrink-0 items-center gap-1 rounded-sm py-2 text-sm font-medium text-brand-700 hover:text-brand-800"
+            className="focus-ring -my-2 mb-0 flex shrink-0 items-center gap-1 rounded-sm py-2 pb-4 text-sm font-medium text-brand-700 hover:text-brand-800"
           >
             {link.label}
             <ArrowRight className="h-4 w-4" aria-hidden />

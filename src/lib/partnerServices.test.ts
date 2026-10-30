@@ -21,7 +21,7 @@ describe("partnerServiceForOffering", () => {
       title: "Premium electric airport transfers",
       description: "Travel door-to-door in a Tesla, with your journey arranged around your FYStay.",
       providerLabel: PARTNER_LABEL,
-      cta: "Book with EV Exec",
+      cta: "Book your transfer",
       href: "/travel-extras?category=AIRPORT_TRANSFER",
     });
     expect(PARTNER_LABEL).toBe("FYStay service partner");
@@ -30,7 +30,7 @@ describe("partnerServiceForOffering", () => {
   it("names whichever provider the offering belongs to, never a hard-coded one", () => {
     const service = partnerServiceForOffering({ ...evExec, providerName: "Coastline Cars" }, "/x");
     expect(service.provider).toBe("Coastline Cars");
-    expect(service.cta).toBe("Book with Coastline Cars");
+    expect(service.cta).toBe("Book your transfer");
   });
 
   it("uses a provider's own logo and photo when it has supplied them, and no stand-in otherwise", () => {

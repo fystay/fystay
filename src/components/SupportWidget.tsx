@@ -7,14 +7,11 @@ import { cn } from "@/lib/cn";
 import { SUPPORT_EMAIL } from "@/lib/seo";
 
 
-// On phones the launcher sits over the corner of the first screen - on the
-// homepage, right over the benefits under the search - so there it waits
-// until the visitor has scrolled a little (or the page can't scroll at all).
-const PHONE_QUERY = "(max-width: 639px)";
+// The launcher sits over the corner of the first screen, so it waits until
+// the visitor has scrolled a little (or the page can't scroll at all).
 const PHONE_REVEAL_SCROLL_PX = 240;
 
 function launcherVisible(): boolean {
-  if (!window.matchMedia(PHONE_QUERY).matches) return true;
   const canScroll = document.documentElement.scrollHeight - window.innerHeight > PHONE_REVEAL_SCROLL_PX;
   return !canScroll || window.scrollY > PHONE_REVEAL_SCROLL_PX;
 }

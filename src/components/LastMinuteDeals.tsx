@@ -7,8 +7,6 @@ import { activePriceDrop, hasLastMinuteDeal, possibleDealWhere } from "@/lib/dea
 import { todayStayDate } from "@/lib/stayDates";
 import { LargeCardRail } from "@/components/LargeCardRail";
 import { ListingCard } from "@/components/ListingCard";
-import { ComingSoonStayCard } from "@/components/ComingSoonStayCard";
-import { FYLDE_COAST_DESTINATIONS } from "@/lib/destinations";
 import { EditorialHeader } from "@/components/EditorialHeader";
 
 const MAX_DEALS = 12;
@@ -100,34 +98,14 @@ export async function loadLastMinuteDeals(limit?: number) {
   return { deals: deals.map((deal) => deal.card), savedListingIds, isLoggedIn: Boolean(session?.user) };
 }
 
-const COMING_SOON_DEAL_TOWNS = ["fleetwood", "st-annes", "thornton-cleveleys", "poulton-le-fylde"];
-
 export async function LastMinuteDeals() {
   const { deals, savedListingIds, isLoggedIn } = await loadLastMinuteDeals(MAX_DEALS);
 
-  // No deals yet: clearly-labelled town cards hold the row (different towns
-  // from Spotlight's), never an invented property or price.
-  if (deals.length === 0) {
-    return (
-      <LastMinuteDealsSection>
-        <LargeCardRail label="Last Minute Deals stays">
-          {COMING_SOON_DEAL_TOWNS.flatMap((slug) => FYLDE_COAST_DESTINATIONS.filter((town) => town.slug === slug)).map(
-            (destination) => (
-              <ComingSoonStayCard
-                key={destination.slug}
-                destination={destination}
-                badge="Deals coming soon"
-                frame="editorial"
-              />
-            ),
-          )}
-        </LargeCardRail>
-      </LastMinuteDealsSection>
-    );
-  }
+  // No deals means no section - never a row of "coming soon" placeholders.
+  if (deals.length === 0) return null;
 
   return (
-    <LastMinuteDealsSection hasDeals>
+    <LastMinuteDealsSection>
       <LargeCardRail label="Last Minute Deals stays">
         {deals.map((card) => (
           <ListingCard
@@ -146,13 +124,13 @@ export async function LastMinuteDeals() {
   );
 }
 
-function LastMinuteDealsSection({ hasDeals = false, children }: { hasDeals?: boolean; children: React.ReactNode }) {
+function LastMinuteDealsSection({ children }: { children: React.ReactNode }) {
   return (
     <section className="mt-12 sm:mt-16" aria-labelledby="last-minute-deals-heading">
       <EditorialHeader
         id="last-minute-deals-heading"
         name="Last-minute deals"
-        link={hasDeals ? { href: "/deals", label: "View all" } : undefined}
+        link={{ href: "/deals", label: "View all" }}
       />
       {children}
     </section>

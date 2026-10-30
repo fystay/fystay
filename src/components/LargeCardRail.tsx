@@ -179,7 +179,7 @@ export function LargeCardRail({
               type="button"
               onClick={() => setUserPaused((paused) => !paused)}
               aria-label={userPaused ? `Play ${label}` : `Pause ${label}`}
-              className="focus-ring -m-2 rounded-full p-2 text-stone-500 hover:text-foreground motion-reduce:hidden"
+              className="focus-ring -m-3 rounded-full p-3 text-stone-500 hover:text-foreground motion-reduce:hidden"
             >
               {userPaused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
             </button>

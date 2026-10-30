@@ -41,7 +41,6 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-6 py-12 sm:grid-cols-4">
         <div className="col-span-2 flex flex-col gap-6 sm:col-span-1">
           <Logo size="md" withTagline />
-          <CurrencySelector />
         </div>
         {columns.map((col) => (
           <div key={col.heading}>
@@ -63,7 +62,10 @@ export function Footer() {
       </div>
       <div className="border-t border-border-subtle px-6 py-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-stone-500">© {new Date().getFullYear()} FYStay</p>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <p className="text-xs text-stone-500">© {new Date().getFullYear()} FYStay</p>
+            <CurrencySelector />
+          </div>
           <ul className="flex flex-wrap gap-x-4 gap-y-2">
             {legalLinks.map((link) => (
               <li key={link.label}>
