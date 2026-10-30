@@ -50,8 +50,6 @@ export function ListingShowcase({
   heroWide = true,
   corner,
   bookingHref = "#book",
-  taglinePlacement = "below-card",
-  afterFacts,
   bookingOnPhone = false,
   bookTitle,
   children,
@@ -72,10 +70,6 @@ export function ListingShowcase({
   /** Show the booking panel on a phone too (a live listing's widget is the only place dates are chosen). */
   bookingOnPhone?: boolean;
   bookTitle?: string;
-  /** Where the host's first line sits on a phone: under the booking card, over the photo, or not at all (it's shown elsewhere). */
-  taglinePlacement?: "below-card" | "photo" | "none";
-  /** Shown straight after the facts (a host's quote, say). */
-  afterFacts?: ReactNode;
   /** More of the page - description, host, map, reviews - between the facts and the booking panel. */
   children?: ReactNode;
 }) {
@@ -94,22 +88,12 @@ export function ListingShowcase({
       <section id="showcase-top" className={cn(heroWide && "sm:hidden")}>
         <ShowcaseMobileHero
           photos={content.carousel}
-          title={{ name: content.title, place: content.place, tagline: taglinePlacement === "photo" ? content.headline.before : undefined }} corner={corner} allSizes={!heroWide} />
+          title={{ name: content.title, place: content.place, tagline: [headline.before, headline.accent, headline.after].join("").trim() || undefined }} corner={corner} allSizes={!heroWide} />
         <div id="availability" className={cn("relative z-10 -mt-14 scroll-mt-4 px-4", !heroWide && "sm:mx-auto sm:max-w-md")}>
           {heroCard}
         </div>
-        <div className={cn("px-6 pt-7", taglinePlacement === "below-card" ? "pb-6" : "pb-1", !heroWide && "sm:mx-auto sm:max-w-4xl")}>
-          {/* The name, over the photo, is the page's h1; this line is its tagline. */}
-          <h1 className="sr-only">{content.title}</h1>
-          {taglinePlacement === "below-card" && (headline.before || headline.accent) && (
-            <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] text-foreground">
-              {headline.before}
-              <span className="text-brand-600">{headline.accent}</span>
-              {headline.after}
-            </h2>
-          )}
-          {taglinePlacement === "below-card" && content.intro && <p className="mt-3 text-stone-700">{content.intro}</p>}
-        </div>
+        {/* The name, over the photo, is the page's h1; the host's line sits under it there. */}
+        <h1 className="sr-only">{content.title}</h1>
       </section>
 
       {/* A bigger screen: as on the homepage, the photo edge to edge behind the headline. */}
@@ -167,8 +151,6 @@ export function ListingShowcase({
           })}
         </dl>
       </section>
-
-      {afterFacts}
 
       {content.sleeping && (
         <section className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
