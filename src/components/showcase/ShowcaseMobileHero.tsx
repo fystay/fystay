@@ -10,6 +10,7 @@ import {
 import Image from "next/image";
 import { Pause, Play } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { isOptimizableImage } from "@/lib/image";
 import type { ShowcasePhoto } from "@/lib/showcase/types";
 
 const SLIDE_MS = 5000;
@@ -102,7 +103,7 @@ export function ShowcaseMobileHero({
             allSizes && "sm:aspect-[16/10] sm:rounded-2xl",
           )}
           aria-label="Photos of the property"
-        tabIndex={0}
+          tabIndex={0}
         >
           {photos.map((p, i) => (
             <li
@@ -113,6 +114,7 @@ export function ShowcaseMobileHero({
                 src={p.src}
                 alt={p.alt}
                 fill
+                unoptimized={!isOptimizableImage(p.src)}
                 priority={i === 0}
                 sizes="100vw"
                 className={cn("object-cover", p.position)}
@@ -152,7 +154,11 @@ export function ShowcaseMobileHero({
               <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/85">
                 {title.place}
               </p>
-              {title.tagline && <p className="mt-2 line-clamp-2 text-[15px] leading-snug text-white/95">{title.tagline}</p>}
+              {title.tagline && (
+                <p className="mt-2 line-clamp-2 text-[15px] leading-snug text-white/95">
+                  {title.tagline}
+                </p>
+              )}
             </div>
           </>
         )}

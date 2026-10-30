@@ -9,7 +9,15 @@ import { cn } from "@/lib/cn";
  * one, otherwise a copied link. The address is the host's page - its name in
  * the link - so it reads as theirs wherever it's pasted.
  */
-export function ShowcaseShareButton({ url, title, className }: { url: string; title: string; className?: string }) {
+export function ShowcaseShareButton({
+  url,
+  title,
+  className,
+}: {
+  url: string;
+  title: string;
+  className?: string;
+}) {
   async function share() {
     try {
       if (navigator.share) {
@@ -21,7 +29,9 @@ export function ShowcaseShareButton({ url, title, className }: { url: string; ti
     } catch (error) {
       // Closing the share sheet is not a failure.
       if (error instanceof DOMException && error.name === "AbortError") return;
-      toast.error("Couldn't share this page. Copy the address from your browser instead.");
+      toast.error(
+        "Couldn't share this page. Copy the address from your browser instead.",
+      );
     }
   }
 
