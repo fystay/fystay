@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CalendarDays } from "lucide-react";
 import { ListingShowcase } from "@/components/showcase/ListingShowcase";
 import { LODGE_ON_THE_LAKE_SHOWCASE } from "@/lib/showcase/lodgeOnTheLake";
-import { PreviewHeroCard, type PriceStyle } from "./PreviewHeroCard";
+import { PreviewHeroCard } from "./PreviewHeroCard";
 import { formatPrice } from "@/lib/format";
 
 // A design preview, not a live listing: kept out of search results.
@@ -54,21 +54,11 @@ function PreviewBookingPanel() {
   );
 }
 
-const PRICE_STYLES: PriceStyle[] = ["tag", "banner", "ticket"];
-
-// ?price=tag|banner|ticket lets the price-card options be compared on the
-// preview (see ./compare); it defaults to the first.
-export default async function LodgeOnTheLakeShowcasePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ price?: string }>;
-}) {
-  const { price } = await searchParams;
-  const priceStyle = PRICE_STYLES.find((style) => style === price) ?? "tag";
+export default function LodgeOnTheLakeShowcasePage() {
   return (
     <ListingShowcase
       content={LODGE_ON_THE_LAKE_SHOWCASE}
-      heroCard={<PreviewHeroCard priceStyle={priceStyle} />}
+      heroCard={<PreviewHeroCard />}
       booking={<PreviewBookingPanel />}
       contactHref="/contact"
       previewNote="Design preview, made from Lodge on the Lake's own details. Booking isn't open yet."
