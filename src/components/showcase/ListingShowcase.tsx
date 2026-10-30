@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/Button";
 import { ShowcaseGalleryStrip } from "@/components/showcase/ShowcaseGalleryStrip";
 import { ShowcaseHeroImage } from "@/components/showcase/ShowcaseHeroImage";
 import { ShowcaseMobileHero } from "@/components/showcase/ShowcaseMobileHero";
-import { ShowcaseStickyBar } from "@/components/showcase/ShowcaseStickyBar";
+import { HeaderBookingPill } from "@/components/showcase/HeaderBookingPill";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/format";
 import type { ShowcaseContent } from "@/lib/showcase/types";
@@ -49,7 +49,9 @@ export function ListingShowcase({
   previewNote,
   heroWide = true,
   corner,
-  stickyBar = true,
+  bookingHref = "#book",
+  taglinePlacement = "below-card",
+  afterFacts,
   bookingOnPhone = false,
   bookTitle,
   children,
@@ -65,11 +67,15 @@ export function ListingShowcase({
   heroWide?: boolean;
   /** Save and share buttons, over the photo. */
   corner?: ReactNode;
-  /** The page's own price bar; a live listing's booking widget has its own. */
-  stickyBar?: boolean;
+  /** Where "Check dates" in the header goes: the booking panel. */
+  bookingHref?: string;
   /** Show the booking panel on a phone too (a live listing's widget is the only place dates are chosen). */
   bookingOnPhone?: boolean;
   bookTitle?: string;
+  /** Where the host's first line sits on a phone: under the booking card, over the photo, or not at all (it's shown elsewhere). */
+  taglinePlacement?: "below-card" | "photo" | "none";
+  /** Shown straight after the facts (a host's quote, say). */
+  afterFacts?: ReactNode;
   /** More of the page - description, host, map, reviews - between the facts and the booking panel. */
   children?: ReactNode;
 }) {
@@ -86,21 +92,23 @@ export function ListingShowcase({
 
       {/* A phone: the photo first, the booking card over its foot, then the name. */}
       <section id="showcase-top" className={cn(heroWide && "sm:hidden")}>
-        <ShowcaseMobileHero photos={content.carousel} title={{ name: content.title, place: content.place }} corner={corner} allSizes={!heroWide} />
+        <ShowcaseMobileHero
+          photos={content.carousel}
+          title={{ name: content.title, place: content.place, tagline: taglinePlacement === "photo" ? content.headline.before : undefined }} corner={corner} allSizes={!heroWide} />
         <div id="availability" className={cn("relative z-10 -mt-14 scroll-mt-4 px-4", !heroWide && "sm:mx-auto sm:max-w-md")}>
           {heroCard}
         </div>
-        <div className={cn("px-6 pb-6 pt-7", !heroWide && "sm:mx-auto sm:max-w-4xl")}>
+        <div className={cn("px-6 pt-7", taglinePlacement === "below-card" ? "pb-6" : "pb-1", !heroWide && "sm:mx-auto sm:max-w-4xl")}>
           {/* The name, over the photo, is the page's h1; this line is its tagline. */}
           <h1 className="sr-only">{content.title}</h1>
-          {(headline.before || headline.accent) && (
+          {taglinePlacement === "below-card" && (headline.before || headline.accent) && (
             <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] text-foreground">
               {headline.before}
               <span className="text-brand-600">{headline.accent}</span>
               {headline.after}
             </h2>
           )}
-          {content.intro && <p className="mt-3 text-stone-700">{content.intro}</p>}
+          {taglinePlacement === "below-card" && content.intro && <p className="mt-3 text-stone-700">{content.intro}</p>}
         </div>
       </section>
 
@@ -124,7 +132,7 @@ export function ListingShowcase({
               </h2>
             )}
             {content.intro && <p className="mt-5 max-w-lg text-lg leading-relaxed text-stone-800">{content.intro}</p>}
-            <div className="mt-7 flex flex-wrap items-center gap-3">
+            <div id="hero-cta" className="mt-7 flex flex-wrap items-center gap-3">
               <a href="#book" className={cn(buttonVariants({ size: "lg" }), "px-7")}>
                 Check availability
                 <ArrowRight className="h-4 w-4" aria-hidden />
@@ -159,6 +167,8 @@ export function ListingShowcase({
           })}
         </dl>
       </section>
+
+      {afterFacts}
 
       {content.sleeping && (
         <section className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
@@ -263,17 +273,10 @@ export function ListingShowcase({
         </div>
       </section>
 
-      {stickyBar && (
-        <ShowcaseStickyBar
-          watchId="showcase-top"
-          watchIdWide="showcase-top-wide"
-          title={content.title}
-          priceLabel={priceLabel}
-          ctaLabel="Check availability"
-          ctaHref="#book"
-          ctaHrefPhone="#availability"
-        />
-      )}
+      <HeaderBookingPill
+        watchIds={["availability", "hero-cta"]}
+        pill={{ title: priceLabel, subtitle: content.title, cta: "Check dates", href: bookingHref }}
+      />
     </div>
   );
 }

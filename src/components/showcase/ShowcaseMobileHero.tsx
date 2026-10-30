@@ -32,7 +32,7 @@ export function ShowcaseMobileHero({
   /** Keep this layout on a bigger screen too (a property whose photos aren't big enough to fill a wide hero). */
   allSizes?: boolean;
   /** Shown over the foot of the photo (above the booking card that rises over it). */
-  title?: { name: string; place: string };
+  title?: { name: string; place: string; tagline?: string };
 }) {
   const trackRef = useRef<HTMLUListElement>(null);
   const [index, setIndex] = useState(0);
@@ -152,6 +152,7 @@ export function ShowcaseMobileHero({
               <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/85">
                 {title.place}
               </p>
+              {title.tagline && <p className="mt-2 line-clamp-2 text-[15px] leading-snug text-white/95">{title.tagline}</p>}
             </div>
           </>
         )}

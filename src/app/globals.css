@@ -557,3 +557,16 @@ html .rdp-root {
     transform: scaleX(0.6);
   }
 }
+
+/* A header pill (the listing's price and dates, see HeaderBookingPill) drops
+   in from just above its place as the page's own card scrolls away. */
+@keyframes pill-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -148,7 +148,8 @@ export default async function ListingDetailPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const staySelection = parseStaySelection(await searchParams);
+  const rawSearchParams = await searchParams;
+  const staySelection = parseStaySelection(rawSearchParams);
   const [listing, session, featuredAddonOffering] = await Promise.all([
     getListing(id),
     auth(),
@@ -385,14 +386,16 @@ export default async function ListingDetailPage({
     </div>
   );
 
-  const lowerSections = (
-    <>
+  const aboutSection = (
       <div className="mt-10 border-t border-border-subtle pt-8">
         <SectionHeading icon={Home}>About this stay</SectionHeading>
         <ReadMoreText text={listing.description} className="mt-3 whitespace-pre-line text-stone-700" />
         <WhatGuestsLove categoryAverages={ratingBreakdown.categoryAverages} reviewCount={reviewCount} />
       </div>
+  );
 
+  const lowerSections = (
+    <>
       {listing.amenities.length > 0 && (
         <div className="mt-10 border-t border-border-subtle pt-8">
           <SectionHeading icon={Sparkles}>What this place offers</SectionHeading>
@@ -568,6 +571,29 @@ export default async function ListingDetailPage({
     const content = showcaseFromListing(listing);
     const heroWide = await isWidePhoto(listing.photos[0]);
     const stayUrl = listingStayUrl(listing);
+    // ?desc= lets the places the host's description can sit be compared:
+    // over the photo (default), as the first thing under the facts, or as a
+    // quote from the host.
+    const descParam = Array.isArray(rawSearchParams.desc) ? rawSearchParams.desc[0] : rawSearchParams.desc;
+    const descPlacement = descParam === "about" || descParam === "quote" ? descParam : "photo";
+    const hostQuote = (
+      <figure className="mx-auto w-full max-w-4xl px-6 pt-8">
+        <blockquote className="border-l-[3px] border-brand-500 pl-5 font-serif text-[1.5rem] font-bold leading-snug text-foreground sm:text-[1.9rem]">
+          &ldquo;{content.headline.before}&rdquo;
+        </blockquote>
+        <figcaption className="mt-3 flex items-center gap-3 pl-5 text-sm text-stone-600">
+          {listing.host.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={listing.host.image} alt="" className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800">
+              {listing.host.name.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          {listing.host.name}, your host
+        </figcaption>
+      </figure>
+    );
     return (
       <>
         {previewBanner && <div className="mx-auto w-full max-w-6xl px-6 pt-6">{previewBanner}</div>}
@@ -575,7 +601,9 @@ export default async function ListingDetailPage({
         <ListingShowcase
           content={content}
           heroWide={heroWide}
-          stickyBar={false}
+          bookingHref="#booking-widget"
+          taglinePlacement={descPlacement === "photo" ? "photo" : "none"}
+          afterFacts={descPlacement === "quote" ? hostQuote : undefined}
           bookingOnPhone
           bookTitle={`Book ${listing.title}`}
           heroCard={
@@ -604,7 +632,17 @@ export default async function ListingDetailPage({
         >
           <div className="mx-auto w-full max-w-4xl px-6 pb-4 pt-2">
             {isOwnListing && listing.published && <HostPageLink url={stayUrl} />}
-            {hostCard}
+            {descPlacement === "about" ? (
+              <>
+                {aboutSection}
+                {hostCard}
+              </>
+            ) : (
+              <>
+                {hostCard}
+                {aboutSection}
+              </>
+            )}
             {lowerSections}
           </div>
         </ListingShowcase>
@@ -651,6 +689,8 @@ export default async function ListingDetailPage({
           </div>
 
           {hostCard}
+
+          {aboutSection}
 
           {lowerSections}
         </div>

@@ -8,6 +8,7 @@ import { Logo } from "@/components/Logo";
 import { SavedLink } from "@/components/SavedLink";
 import { PAGE_SEARCH_ID, searchSummary } from "@/lib/searchSummary";
 import { cn } from "@/lib/cn";
+import { useHeaderPill } from "@/lib/headerPill";
 
 /**
  * True once the page's main search (PAGE_SEARCH_ID) has scrolled up out of
@@ -73,6 +74,33 @@ function SearchPill({ className }: { className?: string }) {
   );
 }
 
+/** The listing page's price and dates, dropped into the header while its own booking card is off screen. */
+function BookingPill({ className }: { className?: string }) {
+  const pill = useHeaderPill();
+  if (!pill) return null;
+  return (
+    <a
+      href={pill.href}
+      className={cn(
+        "focus-ring flex min-w-0 items-center gap-2 rounded-full border border-border-subtle bg-surface py-1.5 pl-3.5 pr-1.5 text-left shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)] animate-[pill-drop_280ms_cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:animate-none",
+        className,
+      )}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-foreground">
+          <span className="min-[480px]:hidden">{pill.title.replace(/^From\s+/i, "").replace(" a night", "/night")}</span>
+          <span className="hidden min-[480px]:inline">{pill.title}</span>
+        </span>
+        <span className="hidden truncate text-xs text-stone-500 min-[480px]:block">{pill.subtitle}</span>
+      </span>
+      <span className="flex h-8 shrink-0 items-center rounded-full bg-brand-600 px-3.5 text-sm font-semibold text-white">
+        <span className="min-[480px]:hidden">Dates</span>
+        <span className="hidden min-[480px]:inline">{pill.cta}</span>
+      </span>
+    </a>
+  );
+}
+
 /**
  * The header's contents: the logo on the left, the account button on the
  * right (it also holds "List your property"), with Saved just left of it.
@@ -83,6 +111,7 @@ function SearchPill({ className }: { className?: string }) {
  */
 export function HeaderBar({ account }: { account: ReactNode }) {
   const pill = usePageSearchScrolledAway();
+  const bookingPill = useHeaderPill();
 
   return (
     <div className="relative mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6 lg:py-4">
@@ -92,22 +121,36 @@ export function HeaderBar({ account }: { account: ReactNode }) {
 
       {/* Suspense: the pill reads the search params; the rest of the bar
           never waits for them. */}
-      {pill && (
-        <Suspense>
-          <SearchPill className="flex-1 lg:hidden" />
-        </Suspense>
-      )}
+      {bookingPill ? (
+        <>
+          <BookingPill className="flex-1 lg:hidden" />
+          <div className="pointer-events-none absolute inset-0 hidden items-center justify-center lg:flex">
+            <BookingPill className="pointer-events-auto max-w-md" />
+          </div>
+        </>
+      ) : (
+        <>
+          {pill && (
+            <Suspense>
+              <SearchPill className="flex-1 lg:hidden" />
+            </Suspense>
+          )}
 
-      {pill && (
-        <div className="pointer-events-none absolute inset-0 hidden items-center justify-center lg:flex">
-          <Suspense>
-            <SearchPill className="pointer-events-auto max-w-md" />
-          </Suspense>
-        </div>
+          {pill && (
+            <div className="pointer-events-none absolute inset-0 hidden items-center justify-center lg:flex">
+              <Suspense>
+                <SearchPill className="pointer-events-auto max-w-md" />
+              </Suspense>
+            </div>
+          )}
+        </>
       )}
 
       <div className="relative z-10 ml-auto flex shrink-0 items-center gap-4">
-        <SavedLink />
+        {/* The pill needs the room on a phone; Saved is in the account menu's reach again once it's gone. */}
+        <div className={cn(bookingPill && "max-[479px]:hidden")}>
+          <SavedLink />
+        </div>
         {account}
       </div>
     </div>
