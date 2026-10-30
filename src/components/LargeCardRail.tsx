@@ -19,7 +19,7 @@ import { LARGE_CARD_SLOT_CLASS } from "@/components/LargeCard";
  * and only while there's somewhere to scroll to.
  *
  * fullBleed (Spotlight, whose hosts pay to stand out): on phones each card
- * is wider than in other rows (78vw), with the next one peeking in and dots
+ * is nearly the screen's full width, with a sliver of the next one peeking in and dots
  * showing there are more. On desktop the rail runs to both screen edges
  * while its first card stays lined up with the content column.
  *
@@ -35,9 +35,9 @@ const RAIL_ROW_CLASS = "-mx-6 flex gap-4 px-6 pb-4 pt-1 lg:mx-0 lg:gap-6 lg:px-0
 // The space between the screen edge and the content column (max-w-6xl + px-6).
 const FULL_BLEED_CLASS =
   "lg:[--rail-gutter:calc((100vw-min(100vw,72rem))/2+1.5rem)] lg:-mx-[var(--rail-gutter)]";
-// gap-6 on phones matches the page's px-6, so the next card starts just off-screen.
-const FULL_BLEED_ROW_CLASS = "gap-6 sm:gap-4 lg:gap-6 lg:px-[var(--rail-gutter)]";
-const FULL_BLEED_SLOT_CLASS = "w-[78vw] max-w-none sm:w-[44vw] sm:max-w-[340px] lg:w-[30%] lg:max-w-none";
+// Phones: a card nearly as wide as the screen (12px either side), with a sliver of the next one showing.
+const FULL_BLEED_ROW_CLASS = "gap-2 px-3 sm:gap-4 sm:px-6 lg:gap-6 lg:px-[var(--rail-gutter)]";
+const FULL_BLEED_SLOT_CLASS = "w-[calc(100vw-1.75rem)] max-w-none sm:w-[60vw] lg:w-[34%]";
 
 export function LargeCardRail({
   label,
@@ -151,7 +151,7 @@ export function LargeCardRail({
         className={cn(
           RAIL_ROW_CLASS,
           "absolute inset-x-0 top-0 snap-x snap-mandatory scroll-px-6 overflow-x-auto overscroll-x-contain [scrollbar-width:none] lg:scroll-px-0 [&::-webkit-scrollbar]:hidden",
-          fullBleed && cn(FULL_BLEED_ROW_CLASS, "lg:scroll-px-[var(--rail-gutter)]"),
+          fullBleed && cn(FULL_BLEED_ROW_CLASS, "scroll-px-3 sm:scroll-px-6 lg:scroll-px-[var(--rail-gutter)]"),
         )}
       >
         {items.map((item, i) => (
