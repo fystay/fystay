@@ -9,6 +9,8 @@ export type ShowcasePhoto = {
   alt: string;
   /** A short label shown over the photo, e.g. "The lounge". */
   label?: string;
+  /** Where the photo is anchored when cropped to fill the hero, as a Tailwind class, e.g. "object-[50%_30%]". */
+  position?: string;
 };
 
 export type ShowcaseContent = {

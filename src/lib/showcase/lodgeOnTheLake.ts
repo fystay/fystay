@@ -9,15 +9,15 @@ import type { ShowcaseContent, ShowcasePhoto } from "@/lib/showcase/types";
  * left out.
  */
 const dir = "/images/showcase/lodge-on-the-lake";
-const photo = (file: string, alt: string, label?: string): ShowcasePhoto => ({ src: `${dir}/${file}.jpg`, alt, label });
+const photo = (file: string, alt: string, label?: string, position?: string): ShowcasePhoto => ({ src: `${dir}/${file}.jpg`, alt, label, position });
 
-const ACROSS_WATER = photo("lodge-across-water", "The lodge seen across the water on a sunny day, its decking and seating reflected in the lake", "From across the water");
-const DECK = photo("deck-view-fountain", "Wicker chairs and a glass-topped table on the decking, looking over a glass balustrade to the lake and its fountain", "The deck");
-const LOUNGE = photo("living-room-media-wall", "Living room with a grey sofa facing a long electric fire, and a dining table by the patio doors", "The lounge");
+const ACROSS_WATER = photo("lodge-across-water", "The lodge seen across the water on a sunny day, its decking and seating reflected in the lake", "From across the water", "object-[50%_62%]");
+const DECK = photo("deck-view-fountain", "Wicker chairs and a glass-topped table on the decking, looking over a glass balustrade to the lake and its fountain", "The deck", "object-[50%_32%]");
+const LOUNGE = photo("living-room-media-wall", "Living room with a grey sofa facing a long electric fire, and a dining table by the patio doors", "The lounge", "object-[50%_55%]");
 const FIRE = photo("media-wall-fire", "A wide electric fire framed by lit shelves and slatted wood panels");
 const ISLAND = photo("kitchen-island", "Kitchen island with open shelving and grey bar stools, white cabinets and a built-in oven");
 const KITCHEN = photo("kitchen", "Kitchen with white cabinets, an island with two bar stools, and patio doors");
-const MAIN_BEDROOM = photo("main-bedroom", "Main bedroom with white bedding, a grey throw and three framed peony prints above the bed", "Main bedroom");
+const MAIN_BEDROOM = photo("main-bedroom", "Main bedroom with white bedding, a grey throw and three framed peony prints above the bed", "Main bedroom", "object-[50%_60%]");
 const MAIN_ART = photo("main-bedroom-art", "The main bed dressed with pink velvet cushions beneath peony prints");
 const SECOND_BEDROOM = photo("second-bedroom", "Second bedroom with a tall grey upholstered headboard and matching bedside lamps");
 const TWIN = photo("twin-bedroom", "Twin bedroom with two single beds either side of a bedside table");
@@ -34,7 +34,7 @@ export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
   headline: { before: "Slow mornings, ", accent: "lake light", after: ", and room to breathe." },
   intro:
     "A three-bedroom lodge with its own deck right over the water, between the southern Lake District, the Yorkshire Dales and the Morecambe Bay coast. Coffee on the deck, evenings under the lights, and nowhere you need to be.",
-  hero: [ACROSS_WATER, DECK, LOUNGE, MAIN_BEDROOM, EVENING],
+  hero: [DECK, ACROSS_WATER, LOUNGE, MAIN_BEDROOM],
   facts: [
     { label: "Sleeps", value: "Up to 6" },
     { label: "Bedrooms", value: "3" },

@@ -4,14 +4,12 @@ import Link from "next/link";
 import { ArrowRight, BedDouble, Check, MessageCircle, ShieldCheck } from "lucide-react";
 import { ScrollUnderline } from "@/components/ScrollUnderline";
 import { buttonVariants } from "@/components/ui/Button";
-import { ShowcaseHeroGallery } from "@/components/showcase/ShowcaseHeroGallery";
+import { ShowcaseHeroBackdrop } from "@/components/showcase/ShowcaseHeroBackdrop";
 import { ShowcasePhotoGrid } from "@/components/showcase/ShowcasePhotoGrid";
 import { ShowcaseStickyBar } from "@/components/showcase/ShowcaseStickyBar";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/format";
 import type { ShowcaseContent } from "@/lib/showcase/types";
-
-const ARCH = "[border-top-left-radius:50%] [border-top-right-radius:50%] rounded-b-2xl";
 
 function SectionTitle({ kicker, title, light = false }: { kicker: string; title: string; light?: boolean }) {
   return (
@@ -32,7 +30,7 @@ function SectionTitle({ kicker, title, light = false }: { kicker: string; title:
  * property - its headline, its photos told as a story (arriving, inside,
  * sleeping, after dark), the place around it, the people who look after it,
  * and one clear way to choose dates. FYStay's look throughout (cream and
- * terracotta, the arch, editorial frames); the property supplies the
+ * terracotta, editorial frames); the property supplies the
  * content. `booking` is where the dates are chosen: the real booking widget
  * on a live listing.
  */
@@ -58,45 +56,45 @@ export function ListingShowcase({
         </p>
       )}
 
-      {/* The first screen: who and where, the headline, one way in. */}
-      <section id="showcase-top" className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 pb-12 pt-8 sm:pt-12 lg:grid-cols-12 lg:gap-14 lg:pb-16 lg:pt-14">
-        <div className="lg:col-span-7">
-          <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
-            <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
-            {content.place}
-          </p>
-          <h1 className="mt-4 font-serif text-[2.4rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground sm:text-[3.4rem] lg:text-[4.3rem]">
-            {headline.before}
-            <span className="text-brand-600">{headline.accent}</span>
-            {headline.after}
-          </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-stone-700 sm:text-lg">{content.intro}</p>
+      {/* The first screen, as on the homepage: the property's own photo edge
+          to edge behind the headline, one way in. */}
+      <section id="showcase-top" className="relative isolate">
+        <ShowcaseHeroBackdrop photos={content.hero} />
+        <div className="mx-auto w-full max-w-6xl px-6 pb-60 pt-10 sm:pb-24 sm:pt-16 lg:pb-28 lg:pt-20">
+          <div className="max-w-xl lg:max-w-2xl">
+            <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
+              <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
+              {content.place}
+            </p>
+            <h1 className="mt-4 font-serif text-[2.4rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground sm:text-[3.2rem] lg:text-[4.1rem]">
+              {headline.before}
+              <span className="text-brand-600">{headline.accent}</span>
+              {headline.after}
+            </h1>
+            <p className="mt-5 max-w-lg text-base leading-relaxed text-stone-800 sm:text-lg">{content.intro}</p>
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            <a href="#book" className={cn(buttonVariants({ size: "lg" }), "px-7")}>
-              Check availability
-              <ArrowRight className="h-4 w-4" aria-hidden />
-            </a>
-            <a href="#inside" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "px-7")}>
-              Take a look inside
-            </a>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <a href="#book" className={cn(buttonVariants({ size: "lg" }), "px-7")}>
+                Check availability
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
+              <a href="#inside" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "hidden bg-surface/70 px-7 backdrop-blur sm:inline-flex")}>
+                Take a look inside
+              </a>
+            </div>
+            <p className="mt-4 text-sm text-stone-700">
+              <span className="font-serif text-xl text-brand-800">{formatPrice(price.fromCents)}</span> a night
+              {price.weekendCents ? ` · ${formatPrice(price.weekendCents)} Fri & Sat` : ""} · {price.minNights}-night minimum
+            </p>
+            <ul className="mt-4 hidden flex-col gap-2 text-sm text-stone-700 sm:flex">
+              {["No booking fees", "Full price shown before you pay", content.hostNote].map((line) => (
+                <li key={line} className="flex items-center gap-1.5">
+                  <Check className="h-4 w-4 text-brand-600" aria-hidden />
+                  {line}
+                </li>
+              ))}
+            </ul>
           </div>
-          <p className="mt-4 text-sm text-stone-600">
-            <span className="font-serif text-xl text-brand-800">{formatPrice(price.fromCents)}</span> a night
-            {price.weekendCents ? ` · ${formatPrice(price.weekendCents)} Fri & Sat` : ""} · {price.minNights}-night minimum
-          </p>
-          <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-stone-600">
-            {["No booking fees", "Full price shown before you pay", content.hostNote].map((line) => (
-              <li key={line} className="flex items-center gap-1.5">
-                <Check className="h-4 w-4 text-brand-600" aria-hidden />
-                {line}
-              </li>
-            ))}
-          </ul>
-        </div>
-        {/* Photo first on a phone: the first thing seen is the place. */}
-        <div className="order-first mx-auto w-full max-w-[17rem] sm:max-w-sm lg:order-none lg:col-span-5 lg:max-w-none">
-          <ShowcaseHeroGallery photos={content.hero} />
         </div>
       </section>
 
@@ -127,7 +125,7 @@ export function ListingShowcase({
             <ul className="mt-10 grid gap-10 sm:grid-cols-3">
               {content.sleeping.rooms.map((room) => (
                 <li key={room.name}>
-                  <div className={cn("relative aspect-[4/5] w-full overflow-hidden shadow-[var(--shadow-card)] ring-1 ring-black/5", ARCH)}>
+                  <div className="relative aspect-[4/3] w-full overflow-hidden border-b-[3px] border-brand-500 shadow-[var(--shadow-card)] ring-1 ring-black/5">
                     <Image src={room.photo.src} alt={room.photo.alt} fill sizes="(min-width: 640px) 360px, 90vw" className="object-cover" />
                   </div>
                   <h3 className="mt-4 font-serif text-xl text-foreground">{room.name}</h3>
@@ -151,7 +149,7 @@ export function ListingShowcase({
             </div>
             <div className="grid grid-cols-2 items-start gap-4">
               {content.afterDark.photos.map((p, i) => (
-                <div key={p.src} className={cn("relative aspect-[3/4] w-full overflow-hidden ring-1 ring-white/10", ARCH, i === 1 && "mt-10")}>
+                <div key={p.src} className={cn("relative aspect-[3/4] w-full overflow-hidden border-b-[3px] border-brand-500 ring-1 ring-white/10", i === 1 && "mt-10")}>
                   <Image src={p.src} alt={p.alt} fill sizes="(min-width: 1024px) 280px, 45vw" className="object-cover" />
                 </div>
               ))}
