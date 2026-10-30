@@ -198,16 +198,17 @@ function HeroStays({ stays }: { stays: HeroStay[] }) {
           <h1>
             <span className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
               <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
-              Promoted
+              Spotlight stay
               <span aria-hidden className="text-brand-700/60">·</span>
-              <span className="font-medium">{stay.city}</span>
+              {/* The paid-placement label, quiet but always there. */}
+              <span className="font-medium">Promoted</span>
             </span>
             <span className="mt-2.5 block line-clamp-3 text-[2.05rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground min-[400px]:text-[2.3rem] sm:mt-3 sm:text-[2.85rem] lg:text-[3.6rem]">
               {stay.title}
             </span>
           </h1>
           <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-700 sm:mt-5 sm:text-base">
-            From {formatPrice(stay.priceFromCents)} a night · View this stay
+            {stay.city} · From {formatPrice(stay.priceFromCents)} a night
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </span>
         </Link>
