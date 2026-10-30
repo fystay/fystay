@@ -7,6 +7,7 @@ import { Gift, Home, LayoutDashboard, Loader2, LogOut, Luggage, MessageCircle, S
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { signOutAction } from "@/actions/auth";
+import { useAuthTransition } from "@/components/AuthTransition";
 import { cn } from "@/lib/cn";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
+  const startAuthTransition = useAuthTransition();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -158,7 +160,7 @@ export function UserMenu({ name, role, unreadMessageCount = 0 }: Props) {
         </div>
 
         <div className="border-t border-border-subtle pt-1">
-          <form action={signOutAction}>
+          <form action={signOutAction} onSubmit={() => startAuthTransition("out")}>
             <LogOutButton />
           </form>
         </div>

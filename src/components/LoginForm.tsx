@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { useAuthTransition } from "@/components/AuthTransition";
 import { Logo } from "@/components/Logo";
 import { SITE_NAME } from "@/lib/seo";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -21,6 +22,7 @@ type LoginFormProps = { providers: SocialProviders; rememberedProvider: string |
 
 function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
   const router = useRouter();
+  const startAuthTransition = useAuthTransition();
   const searchParams = useSearchParams();
   const callbackUrl = safeRedirectPath(searchParams.get("callbackUrl"));
   // Set when the "Confirm your email" link was opened while signed out
@@ -127,6 +129,7 @@ function LoginFormInner({ providers, rememberedProvider }: LoginFormProps) {
     }
     setSignedInTo(destination.startsWith("/host") ? "your dashboard" : destination.startsWith("/listings/") ? "your stay" : "FYStay");
     setLoading(true);
+    startAuthTransition("in");
     router.push(destination);
     router.refresh();
   }

@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { PreviewSiteBanner } from "@/components/PreviewSiteBanner";
 import { CurrencyProvider } from "@/components/CurrencyProvider";
+import { AuthTransitionProvider } from "@/components/AuthTransition";
 import { SupportWidget } from "@/components/SupportWidget";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
@@ -92,15 +93,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to main content
         </a>
         <CurrencyProvider>
-          <CookieConsentBanner />
-          <PreviewSiteBanner />
-          <Navbar />
-          <main id="main-content" className="flex flex-1 flex-col">
-            {children}
-          </main>
-          <Footer />
-          <SupportWidget />
-          <Toaster position="top-center" richColors closeButton />
+          <AuthTransitionProvider>
+            <CookieConsentBanner />
+            <PreviewSiteBanner />
+            <Navbar />
+            <main id="main-content" className="flex flex-1 flex-col">
+              {children}
+            </main>
+            <Footer />
+            <SupportWidget />
+            <Toaster position="top-center" richColors closeButton />
+          </AuthTransitionProvider>
         </CurrencyProvider>
       </body>
     </html>

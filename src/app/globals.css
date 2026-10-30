@@ -534,3 +534,26 @@ html .rdp-root {
     transform: none;
   }
 }
+
+/* Signing in or out (AuthTransition): a cream screen with the wordmark and a
+   thin terracotta bar that fills while the next page loads - the bar eases
+   toward 90% and waits there, so it never promises to finish before the page
+   has. Reduced motion shows the bar full and still. */
+@keyframes auth-progress {
+  from {
+    transform: scaleX(0.04);
+  }
+  to {
+    transform: scaleX(0.9);
+  }
+}
+.animate-auth-progress {
+  transform-origin: left;
+  animation: auth-progress 3.5s cubic-bezier(0.1, 0.6, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-auth-progress {
+    animation: none;
+    transform: scaleX(0.6);
+  }
+}
