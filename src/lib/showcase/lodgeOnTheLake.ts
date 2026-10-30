@@ -11,11 +11,11 @@ import type { ShowcaseContent, ShowcasePhoto } from "@/lib/showcase/types";
 const dir = "/images/showcase/lodge-on-the-lake";
 const photo = (file: string, alt: string, label?: string, position?: string): ShowcasePhoto => ({ src: `${dir}/${file}.jpg`, alt, label, position });
 
-const ACROSS_WATER = photo("lodge-across-water", "The lodge seen across the water on a sunny day, its decking and seating reflected in the lake", "From across the water", "object-[50%_62%]");
+const ACROSS_WATER = photo("lodge-across-water", "The lodge seen across the water on a sunny day, its decking and seating reflected in the lake", "The lodge", "object-[50%_62%]");
 const DECK = photo("deck-view-fountain", "Wicker chairs and a glass-topped table on the decking, looking over a glass balustrade to the lake and its fountain", "The deck", "object-[50%_32%]");
 const LOUNGE = photo("living-room-media-wall", "Living room with a grey sofa facing a long electric fire, and a dining table by the patio doors", "The lounge", "object-[50%_55%]");
 const FIRE = photo("media-wall-fire", "A wide electric fire framed by lit shelves and slatted wood panels");
-const ISLAND = photo("kitchen-island", "Kitchen island with open shelving and grey bar stools, white cabinets and a built-in oven");
+const ISLAND = photo("kitchen-island", "Kitchen island with open shelving and grey bar stools, white cabinets and a built-in oven", "The kitchen");
 const KITCHEN = photo("kitchen", "Kitchen with white cabinets, an island with two bar stools, and patio doors");
 const MAIN_BEDROOM = photo("main-bedroom", "Main bedroom with white bedding, a grey throw and three framed peony prints above the bed", "Main bedroom", "object-[50%_60%]");
 const MAIN_ART = photo("main-bedroom-art", "The main bed dressed with pink velvet cushions beneath peony prints");
@@ -26,16 +26,16 @@ const BATHROOM = photo("bathroom", "Bathroom with a basin in a wood-effect vanit
 const WARDROBE = photo("walk-in-wardrobe", "Walk-in wardrobe with a hanging rail, shelving and drawers");
 const UTILITY = photo("utility-room", "Utility room with a second sink and white cupboards");
 const NEIGHBOURS = photo("lodge-and-neighbours", "The lodge among its neighbours, behind a lawn at the water's edge");
-const EVENING = photo("deck-evening", "The decking at dusk, lit by post lights, with the lit windows of lodges across the water", "Evening on the deck");
+const EVENING = photo("deck-evening", "The decking at dusk, lit by post lights, with the lit windows of lodges across the water", "After dark");
 const GAZEBO = photo("deck-gazebo-evening", "A covered seating area on the decking after dark, lit by small deck lights");
 
 export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
   title: "Lodge on the Lake",
   place: "South Lakeland Leisure Village, Carnforth",
   headline: { before: "Slow mornings, ", accent: "lake light", after: ", and room to breathe." },
-  intro:
-    "A three-bedroom lodge with its own deck right over the water, between the southern Lake District, the Yorkshire Dales and the Morecambe Bay coast. Coffee on the deck, evenings under the lights, and nowhere you need to be.",
+  intro: "A three-bedroom lodge with its own deck right over the water, near the Lake District.",
   hero: DECK,
+  carousel: [ACROSS_WATER, DECK, LOUNGE, ISLAND, MAIN_BEDROOM, EVENING],
   gallery: [ACROSS_WATER, LOUNGE, ISLAND, MAIN_BEDROOM, EVENING, FIRE, KITCHEN, MAIN_ART, SECOND_BEDROOM, SECOND_BEDROOM_DETAIL, TWIN, BATHROOM, WARDROBE, UTILITY, NEIGHBOURS, GAZEBO],
   facts: [
     { label: "Sleeps", value: "Up to 6" },
@@ -43,14 +43,9 @@ export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
     { label: "Bathrooms", value: "2" },
     { label: "Outside", value: "Deck on the water" },
   ],
-  inside: {
-    kicker: "Inside the lodge",
-    title: "Light, warm and made for gathering",
-    body: "An open-plan living and dining room arranged around an electric feature fire, a kitchen island for morning coffee, and patio doors that fill the room with light.",
-  },
   sleeping: {
     kicker: "Sleeping",
-    title: "Three bedrooms, each with its own character",
+    title: "Three bedrooms",
     rooms: [
       { name: "Main bedroom", beds: "King-size bed", photo: MAIN_ART },
       { name: "Second bedroom", beds: "King-size bed", photo: SECOND_BEDROOM },
@@ -60,25 +55,24 @@ export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
   afterDark: {
     kicker: "After dark",
     title: "Evenings on the deck",
-    body: "As the light fades, the deck lights come on and the lodges across the water glow. Pull up a chair, take a blanket outside and stay out a little longer.",
+    body: "The deck lights come on and the lodges across the water glow.",
     photos: [EVENING, GAZEBO],
   },
   setting: {
     kicker: "The setting",
-    title: "On the water, on the edge of the Lake District",
-    body: "The lodge sits at the water's edge within South Lakeland Leisure Village, set back from the village's main road, with parking for two cars.",
+    title: "On the edge of the Lake District",
     points: [
       {
         title: "The leisure village",
-        body: "A pool, gym and spa, and an on-site bar and restaurant. Leisure passes aren't included in your stay: they're bought by the day or the week at the leisure centre.",
+        body: "Pool, gym, spa, bar and restaurant on site. Passes are bought separately.",
       },
       {
         title: "Fishing",
-        body: "Available on the village's lakes, subject to the village's rules. You'll need a valid rod licence.",
+        body: "On the village's lakes. You'll need a rod licence.",
       },
       {
         title: "Getting out",
-        body: "The southern Lake District, the Yorkshire Dales and the Morecambe Bay coastline are all within driving distance. The Dales National Park is about an hour away by car.",
+        body: "The southern Lakes, the Dales and Morecambe Bay are all a drive away.",
       },
     ],
   },
@@ -95,8 +89,7 @@ export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
   ],
   goodToKnow: [
     "Two nights minimum.",
-    "No smoking, and no parties, events or stag and hen groups.",
-    "Leisure passes for the village's pool, gym and spa are bought separately.",
+    "No smoking, parties, events or stag and hen groups.",
   ],
   hostNote: "Looked after by the people who own it.",
   price: {

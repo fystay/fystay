@@ -32,13 +32,13 @@ export function ShowcaseGalleryStrip({ photos }: { photos: ShowcasePhoto[] }) {
     };
   }, [open, close, step]);
 
-  // Four photos and a "view all" tile on a screen with room; three and the tile on a phone.
+  // Four photos and a "view all" tile on a screen with room; three and the tile (a 2x2) on a phone.
   const tiles = photos.slice(0, 5);
   const hiddenOnPhone = 3;
 
   return (
-    <section id="photos" aria-label="Photos" className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 pb-2 pt-4 sm:pt-6">
-      <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3">
+    <section id="photos" aria-label="Photos" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 pt-2 sm:px-6 sm:pt-6">
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
         {tiles.map((p, i) => {
           const last = i === tiles.length - 1;
           return (
@@ -49,8 +49,8 @@ export function ShowcaseGalleryStrip({ photos }: { photos: ShowcasePhoto[] }) {
                 aria-label={last ? `View all ${photos.length} photos` : `Open photo: ${p.alt}`}
                 className="focus-ring group relative block w-full overflow-hidden border-b-[3px] border-brand-500 bg-surface-muted shadow-[var(--shadow-card)] ring-1 ring-black/5"
               >
-                <div className="relative aspect-square w-full sm:aspect-[4/3]">
-                  <Image src={p.src} alt={last ? "" : p.alt} fill sizes="(min-width: 1024px) 220px, 25vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                <div className="relative aspect-[4/3] w-full">
+                  <Image src={p.src} alt={last ? "" : p.alt} fill sizes="(min-width: 1024px) 220px, 50vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
                   {last && (
                     <span className="absolute inset-0 flex items-center justify-center bg-ink/60 px-1 text-center text-xs font-semibold leading-tight text-white backdrop-blur-[1px] sm:text-sm">
                       View all {photos.length} photos

@@ -53,10 +53,41 @@ function PreviewBookingPanel() {
   );
 }
 
+/** The card that rises over a phone's first photo: the price, the dates, one button. */
+function PreviewHeroCard() {
+  const { price } = LODGE_ON_THE_LAKE_SHOWCASE;
+  return (
+    <div className="rounded-3xl border border-border-subtle bg-surface p-4 text-foreground shadow-[var(--shadow-popover)]">
+      <p className="font-serif text-2xl text-brand-800">
+        {formatPrice(price.fromCents)} <span className="font-sans text-sm text-stone-600">a night</span>
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {["Check-in", "Check-out"].map((label) => (
+          <div key={label} className="flex items-center gap-2 rounded-xl border border-border-subtle px-3 py-2">
+            <CalendarDays className="h-4 w-4 text-brand-600" aria-hidden />
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">{label}</p>
+              <p className="text-sm text-stone-500">Add date</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <a href="#book" className="mt-3 flex h-12 w-full items-center justify-center rounded-xl bg-brand-700 text-base font-semibold text-white shadow-sm hover:bg-brand-800">
+        Check availability
+      </a>
+      <p className="mt-2 text-center text-xs text-stone-500">
+        {price.weekendCents ? `${formatPrice(price.weekendCents)} Fri & Sat · ` : ""}
+        {price.minNights}-night minimum
+      </p>
+    </div>
+  );
+}
+
 export default function LodgeOnTheLakeShowcasePage() {
   return (
     <ListingShowcase
       content={LODGE_ON_THE_LAKE_SHOWCASE}
+      heroCard={<PreviewHeroCard />}
       booking={<PreviewBookingPanel />}
       contactHref="/contact"
       previewNote="Design preview, made from Lodge on the Lake's own details. Booking isn't open yet."

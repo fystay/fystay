@@ -1,21 +1,24 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BedDouble, Check, MessageCircle, ShieldCheck } from "lucide-react";
+import { ArrowRight, Bath, BedDouble, Check, DoorOpen, MessageCircle, ShieldCheck, Users, Waves } from "lucide-react";
 import { ScrollUnderline } from "@/components/ScrollUnderline";
 import { buttonVariants } from "@/components/ui/Button";
-import { ShowcaseHeroImage, ShowcaseHeroPhotoMobile } from "@/components/showcase/ShowcaseHeroImage";
 import { ShowcaseGalleryStrip } from "@/components/showcase/ShowcaseGalleryStrip";
+import { ShowcaseHeroImage } from "@/components/showcase/ShowcaseHeroImage";
+import { ShowcaseMobileHero } from "@/components/showcase/ShowcaseMobileHero";
 import { ShowcaseStickyBar } from "@/components/showcase/ShowcaseStickyBar";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/format";
 import type { ShowcaseContent } from "@/lib/showcase/types";
 
+const FACT_ICONS = [Users, DoorOpen, Bath, Waves];
+
 function SectionTitle({ kicker, title, light = false }: { kicker: string; title: string; light?: boolean }) {
   return (
     <div>
       <p className={cn("text-xs font-semibold uppercase tracking-[0.2em]", light ? "text-brand-300" : "text-brand-700")}>{kicker}</p>
-      <h2 className={cn("mt-2 max-w-2xl font-serif text-[1.9rem] font-bold leading-[1.1] sm:text-[2.4rem]", light ? "text-white" : "text-foreground")}>
+      <h2 className={cn("mt-2 max-w-2xl font-serif text-[1.8rem] font-bold leading-[1.1] sm:text-[2.3rem]", light ? "text-white" : "text-foreground")}>
         <span className="relative inline-block pb-2">
           {title}
           <ScrollUnderline />
@@ -26,21 +29,27 @@ function SectionTitle({ kicker, title, light = false }: { kicker: string; title:
 }
 
 /**
- * A listing's own page: not a row in a list, but a page made for this
- * property - its headline, its photos told as a story (arriving, inside,
- * sleeping, after dark), the place around it, the people who look after it,
- * and one clear way to choose dates. FYStay's look throughout (cream and
- * terracotta, editorial frames); the property supplies the
- * content. `booking` is where the dates are chosen: the real booking widget
- * on a live listing.
+ * A listing's own page, built to sell the place by what it looks like: the
+ * photos lead (a big swipeable photo with the booking card over its foot on a
+ * phone, the photo behind the headline on a bigger screen), the words are few
+ * and plain, and the rest of the page is the property's photos told as a
+ * story - the gallery, the bedrooms, after dark - then the place around it.
+ * FYStay's look throughout (cream and terracotta, editorial frames); the
+ * property supplies the content.
+ *
+ * `heroCard` is the dates-and-price card that rises over the phone photo;
+ * `booking` is the full booking panel on a bigger screen. On a live listing
+ * these are the real booking widget.
  */
 export function ListingShowcase({
   content,
+  heroCard,
   booking,
   contactHref,
   previewNote,
 }: {
   content: ShowcaseContent;
+  heroCard: ReactNode;
   booking: ReactNode;
   contactHref: string;
   previewNote?: string;
@@ -51,107 +60,107 @@ export function ListingShowcase({
   return (
     <div className="flex-1">
       {previewNote && (
-        <p role="status" className="bg-brand-50 px-6 py-2.5 text-center text-sm text-brand-900">
+        <p role="status" className="bg-brand-50 px-6 py-2 text-center text-sm text-brand-900">
           {previewNote}
         </p>
       )}
 
-      {/* The first screen, as on the homepage: the property's own photo edge
-          to edge behind the headline, one way in. */}
-      <section id="showcase-top" className="relative isolate">
+      {/* A phone: the photo first, the booking card over its foot, then the name. */}
+      <section id="showcase-top" className="sm:hidden">
+        <ShowcaseMobileHero photos={content.carousel} />
+        <div id="availability" className="relative z-10 -mt-14 scroll-mt-4 px-4">
+          {heroCard}
+        </div>
+        <div className="px-6 pb-6 pt-7">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">{content.place}</p>
+          <h1 className="mt-2 font-serif text-[2rem] font-bold leading-[1.06] text-foreground">
+            {headline.before}
+            <span className="text-brand-600">{headline.accent}</span>
+            {headline.after}
+          </h1>
+          <p className="mt-3 text-stone-700">{content.intro}</p>
+        </div>
+      </section>
+
+      {/* A bigger screen: as on the homepage, the photo edge to edge behind the headline. */}
+      <section id="showcase-top-wide" className="relative isolate hidden sm:block">
         <ShowcaseHeroImage photo={content.hero} />
-        <div className="mx-auto w-full max-w-6xl px-6 pb-8 pt-10 sm:pb-20 sm:pt-16 lg:pb-28 lg:pt-20">
+        <div className="mx-auto w-full max-w-6xl px-6 pb-20 pt-16 lg:pb-28 lg:pt-20">
           <div className="max-w-xl lg:max-w-2xl">
-            <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
+            <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.22em] text-brand-700">
               <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
               {content.place}
             </p>
-            <h1 className="mt-4 font-serif text-[2.4rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground sm:text-[3.2rem] lg:text-[4.1rem]">
+            <h1 className="mt-4 font-serif text-[3.2rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground lg:text-[4.1rem]">
               {headline.before}
               <span className="text-brand-600">{headline.accent}</span>
               {headline.after}
             </h1>
-            <p className="mt-5 max-w-lg text-base leading-relaxed text-stone-800 sm:text-lg">{content.intro}</p>
-
+            <p className="mt-5 max-w-lg text-lg leading-relaxed text-stone-800">{content.intro}</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <a href="#book" className={cn(buttonVariants({ size: "lg" }), "px-7")}>
                 Check availability
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </a>
-              <a href="#photos" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "hidden bg-surface/70 px-7 backdrop-blur sm:inline-flex")}>
-                Take a look inside
+              <a href="#photos" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "bg-surface/70 px-7 backdrop-blur")}>
+                See the photos
               </a>
             </div>
             <p className="mt-4 text-sm text-stone-700">
               <span className="font-serif text-xl text-brand-800">{formatPrice(price.fromCents)}</span> a night
               {price.weekendCents ? ` · ${formatPrice(price.weekendCents)} Fri & Sat` : ""} · {price.minNights}-night minimum
             </p>
-            <ul className="mt-4 hidden flex-col gap-2 text-sm text-stone-700 sm:flex">
-              {["No booking fees", "Full price shown before you pay", content.hostNote].map((line) => (
-                <li key={line} className="flex items-center gap-1.5">
-                  <Check className="h-4 w-4 text-brand-600" aria-hidden />
-                  {line}
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
-        <ShowcaseHeroPhotoMobile photo={content.hero} />
       </section>
 
-      {/* The rest of the photos, right under the hero. */}
       <ShowcaseGalleryStrip photos={content.gallery} />
 
       {/* The facts, at a glance. */}
-      <section aria-label="At a glance" className="border-y border-border-subtle bg-surface-muted">
-        <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-y-4 px-6 py-5 sm:grid-cols-4">
-          {content.facts.map((fact) => (
-            <div key={fact.label} className="text-center sm:border-l sm:border-border-subtle sm:first:border-l-0">
-              <dt className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">{fact.label}</dt>
-              <dd className="mt-1 font-serif text-xl text-foreground sm:text-2xl">{fact.value}</dd>
-            </div>
-          ))}
+      <section aria-label="At a glance" className="mt-4 border-y border-border-subtle bg-surface-muted">
+        <dl className="mx-auto grid max-w-6xl grid-cols-4 gap-2 px-4 py-4 sm:px-6 sm:py-5">
+          {content.facts.map((fact, i) => {
+            const Icon = FACT_ICONS[i] ?? Check;
+            return (
+              <div key={fact.label} className="flex flex-col items-center text-center">
+                <Icon className="h-5 w-5 text-brand-600" aria-hidden />
+                <dd className="mt-1 font-serif text-base leading-tight text-foreground sm:text-xl">{fact.value}</dd>
+                <dt className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">{fact.label}</dt>
+              </div>
+            );
+          })}
         </dl>
       </section>
 
-      {content.inside && (
-        <section id="inside" className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-10 sm:py-14">
-          <SectionTitle kicker={content.inside.kicker} title={content.inside.title} />
-          <p className="mt-3 max-w-2xl text-stone-700">{content.inside.body}</p>
-        </section>
-      )}
-
       {content.sleeping && (
-        <section className="bg-surface-muted">
-          <div className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
-            <SectionTitle kicker={content.sleeping.kicker} title={content.sleeping.title} />
-            {/* A swipeable row on a phone, three across from sm. */}
-            <ul className="-mx-6 mt-6 flex scroll-px-6 snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
-              {content.sleeping.rooms.map((room) => (
-                <li key={room.name} className="w-[72vw] max-w-xs shrink-0 snap-start sm:w-auto sm:max-w-none">
-                  <div className="relative aspect-[4/3] w-full overflow-hidden border-b-[3px] border-brand-500 shadow-[var(--shadow-card)] ring-1 ring-black/5">
-                    <Image src={room.photo.src} alt={room.photo.alt} fill sizes="(min-width: 640px) 360px, 90vw" className="object-cover" />
-                  </div>
-                  <h3 className="mt-3 font-serif text-lg text-foreground">{room.name}</h3>
-                  <p className="mt-1 flex items-center gap-2 text-sm text-stone-600">
-                    <BedDouble className="h-4 w-4 text-brand-600" aria-hidden />
-                    {room.beds}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <section className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
+          <SectionTitle kicker={content.sleeping.kicker} title={content.sleeping.title} />
+          {/* A swipeable row on a phone, three across from sm. */}
+          <ul className="-mx-6 mt-6 flex scroll-px-6 snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
+            {content.sleeping.rooms.map((room) => (
+              <li key={room.name} className="w-[78vw] max-w-xs shrink-0 snap-start sm:w-auto sm:max-w-none">
+                <div className="relative aspect-[4/3] w-full overflow-hidden border-b-[3px] border-brand-500 shadow-[var(--shadow-card)] ring-1 ring-black/5">
+                  <Image src={room.photo.src} alt={room.photo.alt} fill sizes="(min-width: 640px) 360px, 78vw" className="object-cover" />
+                </div>
+                <h3 className="mt-3 font-serif text-lg text-foreground">{room.name}</h3>
+                <p className="mt-0.5 flex items-center gap-2 text-sm text-stone-600">
+                  <BedDouble className="h-4 w-4 text-brand-600" aria-hidden />
+                  {room.beds}
+                </p>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
       {content.afterDark && (
         <section className="bg-ink text-white">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-6 py-10 sm:py-14 lg:grid-cols-2 lg:gap-16">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-6 px-6 py-10 sm:py-14 lg:grid-cols-2 lg:gap-16">
             <div>
               <SectionTitle kicker={content.afterDark.kicker} title={content.afterDark.title} light />
-              <p className="mt-5 max-w-md text-white/80">{content.afterDark.body}</p>
+              <p className="mt-3 max-w-md text-white/80">{content.afterDark.body}</p>
             </div>
-            <div className="grid grid-cols-2 items-start gap-4">
+            <div className="grid grid-cols-2 items-start gap-3 sm:gap-4">
               {content.afterDark.photos.map((p, i) => (
                 <div key={p.src} className={cn("relative aspect-[3/4] w-full overflow-hidden border-b-[3px] border-brand-500 ring-1 ring-white/10", i === 1 && "sm:mt-10")}>
                   <Image src={p.src} alt={p.alt} fill sizes="(min-width: 1024px) 280px, 45vw" className="object-cover" />
@@ -165,12 +174,11 @@ export function ListingShowcase({
       {content.setting && (
         <section className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
           <SectionTitle kicker={content.setting.kicker} title={content.setting.title} />
-          <p className="mt-3 max-w-2xl text-stone-700">{content.setting.body}</p>
           <ul className="mt-6 grid gap-5 sm:grid-cols-3">
             {content.setting.points.map((point) => (
-              <li key={point.title} className="border-t-[3px] border-brand-500 pt-4">
-                <h3 className="font-serif text-xl text-foreground">{point.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-stone-600">{point.body}</p>
+              <li key={point.title} className="border-t-[3px] border-brand-500 pt-3">
+                <h3 className="font-serif text-lg text-foreground">{point.title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-stone-600">{point.body}</p>
               </li>
             ))}
           </ul>
@@ -178,23 +186,22 @@ export function ListingShowcase({
       )}
 
       <section className="border-t border-border-subtle bg-surface-muted">
-        <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-10 sm:py-12 lg:grid-cols-2 lg:gap-16">
+        <div className="mx-auto grid w-full max-w-6xl gap-6 px-6 py-8 sm:py-10 lg:grid-cols-2 lg:gap-16">
           <div>
-            <h2 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">What&apos;s here</h2>
-            <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm sm:text-base">
+            <h2 className="font-serif text-xl font-bold text-foreground sm:text-2xl">What&apos;s here</h2>
+            <ul className="mt-3 flex flex-wrap gap-2">
               {content.amenities.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-stone-700">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />
+                <li key={item} className="rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-sm text-stone-700">
                   {item}
                 </li>
               ))}
             </ul>
           </div>
           <div>
-            <h2 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">Good to know</h2>
-            <ul className="mt-4 flex flex-col gap-2.5 text-sm sm:text-base">
+            <h2 className="font-serif text-xl font-bold text-foreground sm:text-2xl">Good to know</h2>
+            <ul className="mt-3 flex flex-col gap-2 text-sm text-stone-700 sm:text-base">
               {[...content.goodToKnow, price.cancellation].map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-stone-700">
+                <li key={item} className="flex items-start gap-2.5">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />
                   {item}
                 </li>
@@ -204,27 +211,33 @@ export function ListingShowcase({
         </div>
       </section>
 
-      {/* The way in: the people who look after it, and the dates. */}
+      {/* The way in. On a phone the card at the top is the booking; here, a bigger screen has the full panel. */}
       <section id="book" className="scroll-mt-20 bg-brand-900 text-white">
-        <div className="mx-auto grid w-full max-w-6xl items-start gap-8 px-6 py-10 sm:py-14 lg:grid-cols-5 lg:gap-14">
+        <div className="mx-auto grid w-full max-w-6xl items-start gap-6 px-6 py-10 sm:py-14 lg:grid-cols-5 lg:gap-14">
           <div className="lg:col-span-2">
-            <h2 className="font-serif text-[1.9rem] font-bold leading-[1.1] sm:text-[2.4rem]">Book with the people who look after {content.title}</h2>
-            <p className="mt-4 text-white/80">
-              Choose your dates to see the full price, including every fee, and the payment schedule before you pay anything. Questions first? Ask the owners directly.
-            </p>
+            <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] sm:text-[2.2rem]">Book with the people who look after {content.title}</h2>
+            <p className="mt-3 text-white/80">See the full price before you pay anything. Questions first? Ask the owners directly.</p>
             <Link
               href={contactHref}
-              className="focus-ring mt-6 inline-flex h-12 items-center gap-2 rounded-xl border border-white/40 px-6 text-base font-semibold text-white hover:bg-white/10"
+              className="focus-ring mt-5 inline-flex h-12 items-center gap-2 rounded-xl border border-white/40 px-6 text-base font-semibold text-white hover:bg-white/10"
             >
               <MessageCircle className="h-4 w-4" aria-hidden />
               Message the owners
             </Link>
           </div>
-          <div className="lg:col-span-3">{booking}</div>
+          <div className="hidden sm:block lg:col-span-3">{booking}</div>
         </div>
       </section>
 
-      <ShowcaseStickyBar watchId="showcase-top" title={content.title} priceLabel={priceLabel} ctaLabel="Check availability" ctaHref="#book" />
+      <ShowcaseStickyBar
+        watchId="showcase-top"
+        watchIdWide="showcase-top-wide"
+        title={content.title}
+        priceLabel={priceLabel}
+        ctaLabel="Check availability"
+        ctaHref="#book"
+        ctaHrefPhone="#availability"
+      />
     </div>
   );
 }

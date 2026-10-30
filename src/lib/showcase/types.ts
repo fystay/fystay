@@ -22,13 +22,14 @@ export type ShowcaseContent = {
   intro: string;
   /** The one photo behind the headline: the sharpest, widest the property has. */
   hero: ShowcasePhoto;
+  /** The photos a phone opens on: a few of the best, each labelled, swiped through. */
+  carousel: ShowcasePhoto[];
   /** Every photo in display order; the first few sit under the hero, the rest open from "View all". */
   gallery: ShowcasePhoto[];
   facts: { label: string; value: string }[];
-  inside?: { kicker: string; title: string; body: string };
-  sleeping?: { kicker: string; title: string; rooms: { name: string; beds: string; photo: ShowcasePhoto }[] };
+    sleeping?: { kicker: string; title: string; rooms: { name: string; beds: string; photo: ShowcasePhoto }[] };
   afterDark?: { kicker: string; title: string; body: string; photos: ShowcasePhoto[] };
-  setting?: { kicker: string; title: string; body: string; points: { title: string; body: string }[] };
+  setting?: { kicker: string; title: string; points: { title: string; body: string }[] };
   amenities: string[];
   /** Plain-English terms a guest should see before choosing dates. */
   goodToKnow: string[];
