@@ -56,6 +56,14 @@ import { parseStaySelection } from "@/lib/stayQuery";
 import { hostAcceptsPaidBookings } from "@/lib/stripeConnect";
 import { activePriceDrop } from "@/lib/deals";
 import { guestsSeeSmartPrices } from "@/lib/stayQuote";
+import { SaveButton } from "@/components/SaveButton";
+import { ListingShowcase } from "@/components/showcase/ListingShowcase";
+import { LiveHeroCard } from "@/components/showcase/LiveHeroCard";
+import { ShowcaseShareButton } from "@/components/showcase/ShowcaseShareButton";
+import { HostPageLink } from "@/components/showcase/HostPageLink";
+import { showcaseFromListing } from "@/lib/showcase/fromListing";
+import { isWidePhoto } from "@/lib/heroStays";
+import { listingStayUrl } from "@/lib/listingLinks";
 
 const getListing = cache(async (id: string) => {
   return prisma.listing.findUnique({
@@ -329,24 +337,25 @@ export default async function ListingDetailPage({
   const localGuide = cityDestination ? LOCAL_GUIDES[cityDestination.slug] : undefined;
   const isOwnListing = session?.user?.id === listing.hostId;
 
-  return (
-    <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
-      {isPreview && (
-        <div role="status" className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-950">
-          <p className="font-semibold">Preview - guests can&apos;t see this listing yet</p>
-          <p className="mt-1">
-            This is exactly how the page will look once it&apos;s live. Booking is switched off in the preview.
-            {listing.preparedById && session?.user?.id === listing.hostId && (
-              <>
-                {" "}
-                <Link href={`/host/listings/${listing.id}/review`} className="font-medium underline">
-                  Back to your review
-                </Link>
-              </>
-            )}
-          </p>
-        </div>
-      )}
+  const previewBanner = isPreview ? (
+    <div role="status" className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+      <p className="font-semibold">Preview - guests can&apos;t see this listing yet</p>
+      <p className="mt-1">
+        This is exactly how the page will look once it&apos;s live. Booking is switched off in the preview.
+        {listing.preparedById && session?.user?.id === listing.hostId && (
+          <>
+            {" "}
+            <Link href={`/host/listings/${listing.id}/review`} className="font-medium underline">
+              Back to your review
+            </Link>
+          </>
+        )}
+      </p>
+    </div>
+  ) : null;
+
+  const jsonLdScripts = (
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
@@ -355,6 +364,258 @@ export default async function ListingDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c") }}
       />
+    </>
+  );
+
+  const hostCard = (
+    <div className="mt-8">
+      <HostCard
+        hostName={listing.host.name}
+        hostImage={listing.host.image}
+        hostingSinceYear={listing.host.createdAt.getFullYear()}
+        reviewCount={hostReviewCount}
+        responseRate={responseRate}
+        medianResponseMinutes={medianResponseMinutes}
+        isGreatHost={hostIsGreat}
+        isIdentityVerified={listing.host.identityVerificationStatus === "VERIFIED"}
+        listingId={listing.id}
+        isLoggedIn={Boolean(session?.user)}
+        isOwnListing={isOwnListing}
+      />
+    </div>
+  );
+
+  const lowerSections = (
+    <>
+      <div className="mt-10 border-t border-border-subtle pt-8">
+        <SectionHeading icon={Home}>About this stay</SectionHeading>
+        <ReadMoreText text={listing.description} className="mt-3 whitespace-pre-line text-stone-700" />
+        <WhatGuestsLove categoryAverages={ratingBreakdown.categoryAverages} reviewCount={reviewCount} />
+      </div>
+
+      {listing.amenities.length > 0 && (
+        <div className="mt-10 border-t border-border-subtle pt-8">
+          <SectionHeading icon={Sparkles}>What this place offers</SectionHeading>
+          <AmenitiesSection amenities={listing.amenities} />
+        </div>
+      )}
+
+      <div className="mt-10 border-t border-border-subtle pt-8">
+        <SectionHeading icon={MapPin}>Where you&apos;ll be</SectionHeading>
+        <p className="mt-3 text-stone-700">
+          {listing.city}, {listing.country}
+        </p>
+        {listing.latitude !== null && listing.longitude !== null && (
+          <div className="mt-4">
+            <ListingsMap
+              listings={[
+                {
+                  id: listing.id,
+                  title: listing.title,
+                  city: listing.city,
+                  photo: listing.photos[0] ?? null,
+                  pricePerNightCents: listing.pricePerNightCents,
+                  latitude: listing.latitude,
+                  longitude: listing.longitude,
+                },
+              ]}
+            />
+          </div>
+        )}
+        {localGuide?.insiderTip && (
+          <p className="mt-4 border-l-2 border-brand-200 pl-4 text-sm italic text-stone-600">
+            &ldquo;{localGuide.insiderTip}&rdquo;
+          </p>
+        )}
+        <NearbyAttractions latitude={listing.latitude} longitude={listing.longitude} />
+      </div>
+
+      {cityDestination && localGuide && (
+        <Link
+          href={`/destinations/${cityDestination.slug}?from=${listing.id}#local-guide`}
+          className="focus-ring mt-8 flex items-center justify-between gap-3 rounded-2xl border border-brand-100 bg-brand-50 px-5 py-4 text-sm font-medium text-brand-800 transition hover:bg-brand-100"
+        >
+          <span className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 shrink-0" aria-hidden />
+            Read the full {listing.city} Local Guide - things to do, eat and explore nearby
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+        </Link>
+      )}
+
+      <div className="mt-10 border-t border-border-subtle pt-8">
+        <SectionHeading icon={ClipboardList}>Good to know</SectionHeading>
+        <GoodToKnow rows={goodToKnowRows} />
+      </div>
+
+      <div className="mt-10 border-t border-border-subtle pt-8">
+        <SectionHeading icon={ListChecks}>House rules</SectionHeading>
+        <HouseRules listing={listing} />
+      </div>
+
+      <div className="mt-10 border-t border-border-subtle pt-8">
+        <SectionHeading icon={ShieldCheck} id="cancellation-policy">
+          Cancellation policy
+        </SectionHeading>
+        <p className="mt-3 text-stone-700">
+          <span className="font-medium text-foreground">{cancellationPolicy.label}.</span>{" "}
+          {cancellationPolicy.description}
+        </p>
+      </div>
+
+      <div className="border-t border-border-subtle pt-2">
+        <WhyBookWithFYStay />
+      </div>
+
+      <div className="mt-10 border-t border-border-subtle pt-8" id="reviews">
+        <SectionHeading icon={Star}>Guest reviews</SectionHeading>
+        {reviewCount > 0 ? (
+          <>
+            <div className="mt-4">
+              <ReviewSummary reviews={listing.reviews} />
+            </div>
+            <ReviewList
+              reviews={listing.reviews}
+              hostName={listing.host.name}
+              viewerId={session?.user?.id}
+              reportedReviewIds={reportedReviewIds}
+            />
+          </>
+        ) : (
+          <div className="mt-4 flex flex-col items-start gap-2">
+            <TrustLine rating={null} reviewCount={0} />
+            <p className="text-stone-700">
+              Be one of the first guests to stay here and leave a review - reviews only appear
+              once a guest has completed a real, paid booking.
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  const widgetPanel = (
+    <div id="booking-widget" inert={isPreview} className={isPreview ? "opacity-60" : undefined}>
+      {listing.propertyType === "HOTEL" ? (
+        <HotelBookingWidget
+          listingId={listing.id}
+          roomTypes={listing.roomTypes}
+          weeklyDiscountPercent={listing.weeklyDiscountPercent}
+          monthlyDiscountPercent={listing.monthlyDiscountPercent}
+          lastMinuteDiscountPercent={listing.lastMinuteDiscountPercent}
+          lastMinuteWindowDays={listing.lastMinuteWindowDays}
+          minNights={listing.minNights}
+          maxNights={listing.maxNights}
+          isLoggedIn={Boolean(session?.user)}
+          cancellationPolicy={cancellationPolicy}
+          instantBook={listing.instantBook}
+          initialSelection={staySelection}
+          acceptsPaidBookings={hostAcceptsPaidBookings(listing.host)}
+        />
+      ) : (
+        <BookingWidget
+          listingId={listing.id}
+          pricePerNightCents={listing.pricePerNightCents}
+          weekendPricePerNightCents={listing.weekendPricePerNightCents}
+          weeklyDiscountPercent={listing.weeklyDiscountPercent}
+          monthlyDiscountPercent={listing.monthlyDiscountPercent}
+          lastMinuteDiscountPercent={listing.lastMinuteDiscountPercent}
+          lastMinuteWindowDays={listing.lastMinuteWindowDays}
+          priceDropFromCents={activePriceDrop(listing)?.fromCents ?? null}
+          minNights={listing.minNights}
+          maxNights={listing.maxNights}
+          maxGuests={listing.maxGuests}
+          amenities={listing.amenities}
+          bookedRanges={blockingRanges(
+            // The viewer's own unpaid instant-book hold isn't shown as
+            // taken to them, so going back from checkout lets them pick
+            // the same stay again and carry on with that booking.
+            listing.bookings.filter(
+              (booking) =>
+                !(
+                  session?.user &&
+                  booking.guestId === session.user.id &&
+                  booking.status === "PENDING" &&
+                  booking.paymentStatus === "UNPAID" &&
+                  booking.approvalStatus === "NONE"
+                ),
+            ),
+            listing.availabilityBlocks,
+          ).map(
+            (r) => ({ checkIn: r.checkIn.toISOString(), checkOut: r.checkOut.toISOString() }),
+          )}
+          isLoggedIn={Boolean(session?.user)}
+          rating={rating}
+          reviewCount={reviewCount}
+          cancellationPolicy={cancellationPolicy}
+          securityDepositCents={listing.securityDepositCents}
+          instantBook={listing.instantBook}
+          initialSelection={staySelection}
+          acceptsPaidBookings={hostAcceptsPaidBookings(listing.host)}
+          serverPriced={guestsSeeSmartPrices(listing)}
+        />
+      )}
+
+      {featuredAddonOffering && <PropertyTransferPromo offering={featuredAddonOffering} />}
+    </div>
+  );
+
+  // A stay with photos (anything but a hotel, whose rooms have their own
+  // widget) gets the photo-first page: a big photo, the booking card over its
+  // foot, the gallery, the facts - then everything a guest needs to decide.
+  const useShowcase = listing.propertyType !== "HOTEL" && listing.photos.length > 0;
+  if (useShowcase) {
+    const content = showcaseFromListing(listing);
+    const heroWide = await isWidePhoto(listing.photos[0]);
+    const stayUrl = listingStayUrl(listing);
+    return (
+      <>
+        {previewBanner && <div className="mx-auto w-full max-w-6xl px-6 pt-6">{previewBanner}</div>}
+        {jsonLdScripts}
+        <ListingShowcase
+          content={content}
+          heroWide={heroWide}
+          stickyBar={false}
+          bookingOnPhone
+          bookTitle={`Book ${listing.title}`}
+          heroCard={
+            <LiveHeroCard
+              fromCents={listing.pricePerNightCents}
+              weekendCents={listing.weekendPricePerNightCents ?? undefined}
+              minNights={listing.minNights}
+              rating={rating}
+              reviewCount={reviewCount}
+            />
+          }
+          corner={
+            <>
+              <ShowcaseShareButton url={stayUrl} title={listing.title} />
+              {!isOwnListing && (
+                <SaveButton
+                  listingId={listing.id}
+                  initialSaved={isSaved}
+                  isLoggedIn={Boolean(session?.user)}
+                  className="h-10 w-10 bg-white/85 shadow-[var(--shadow-card)] backdrop-blur-sm hover:bg-white"
+                />
+              )}
+            </>
+          }
+          booking={widgetPanel}
+        >
+          <div className="mx-auto w-full max-w-4xl px-6 pb-4 pt-2">
+            {isOwnListing && listing.published && <HostPageLink url={stayUrl} />}
+            {hostCard}
+            {lowerSections}
+          </div>
+        </ListingShowcase>
+      </>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+      {previewBanner}
+      {jsonLdScripts}
 
       <PhotoGallery
         photos={listing.photos}
@@ -389,191 +650,12 @@ export default async function ListingDetailPage({
             </div>
           </div>
 
-          <div className="mt-8">
-            <HostCard
-              hostName={listing.host.name}
-              hostImage={listing.host.image}
-              hostingSinceYear={listing.host.createdAt.getFullYear()}
-              reviewCount={hostReviewCount}
-              responseRate={responseRate}
-              medianResponseMinutes={medianResponseMinutes}
-              isGreatHost={hostIsGreat}
-              isIdentityVerified={listing.host.identityVerificationStatus === "VERIFIED"}
-              listingId={listing.id}
-              isLoggedIn={Boolean(session?.user)}
-              isOwnListing={isOwnListing}
-            />
-          </div>
+          {hostCard}
 
-          <div className="mt-10 border-t border-border-subtle pt-8">
-            <SectionHeading icon={Home}>About this stay</SectionHeading>
-            <ReadMoreText text={listing.description} className="mt-3 whitespace-pre-line text-stone-700" />
-            <WhatGuestsLove categoryAverages={ratingBreakdown.categoryAverages} reviewCount={reviewCount} />
-          </div>
-
-          {listing.amenities.length > 0 && (
-            <div className="mt-10 border-t border-border-subtle pt-8">
-              <SectionHeading icon={Sparkles}>What this place offers</SectionHeading>
-              <AmenitiesSection amenities={listing.amenities} />
-            </div>
-          )}
-
-          <div className="mt-10 border-t border-border-subtle pt-8">
-            <SectionHeading icon={MapPin}>Where you&apos;ll be</SectionHeading>
-            <p className="mt-3 text-stone-700">
-              {listing.city}, {listing.country}
-            </p>
-            {listing.latitude !== null && listing.longitude !== null && (
-              <div className="mt-4">
-                <ListingsMap
-                  listings={[
-                    {
-                      id: listing.id,
-                      title: listing.title,
-                      city: listing.city,
-                      photo: listing.photos[0] ?? null,
-                      pricePerNightCents: listing.pricePerNightCents,
-                      latitude: listing.latitude,
-                      longitude: listing.longitude,
-                    },
-                  ]}
-                />
-              </div>
-            )}
-            {localGuide?.insiderTip && (
-              <p className="mt-4 border-l-2 border-brand-200 pl-4 text-sm italic text-stone-600">
-                &ldquo;{localGuide.insiderTip}&rdquo;
-              </p>
-            )}
-            <NearbyAttractions latitude={listing.latitude} longitude={listing.longitude} />
-          </div>
-
-          {cityDestination && localGuide && (
-            <Link
-              href={`/destinations/${cityDestination.slug}?from=${listing.id}#local-guide`}
-              className="focus-ring mt-8 flex items-center justify-between gap-3 rounded-2xl border border-brand-100 bg-brand-50 px-5 py-4 text-sm font-medium text-brand-800 transition hover:bg-brand-100"
-            >
-              <span className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 shrink-0" aria-hidden />
-                Read the full {listing.city} Local Guide - things to do, eat and explore nearby
-              </span>
-              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
-            </Link>
-          )}
-
-          <div className="mt-10 border-t border-border-subtle pt-8">
-            <SectionHeading icon={ClipboardList}>Good to know</SectionHeading>
-            <GoodToKnow rows={goodToKnowRows} />
-          </div>
-
-          <div className="mt-10 border-t border-border-subtle pt-8">
-            <SectionHeading icon={ListChecks}>House rules</SectionHeading>
-            <HouseRules listing={listing} />
-          </div>
-
-          <div className="mt-10 border-t border-border-subtle pt-8">
-            <SectionHeading icon={ShieldCheck} id="cancellation-policy">
-              Cancellation policy
-            </SectionHeading>
-            <p className="mt-3 text-stone-700">
-              <span className="font-medium text-foreground">{cancellationPolicy.label}.</span>{" "}
-              {cancellationPolicy.description}
-            </p>
-          </div>
-
-          <div className="border-t border-border-subtle pt-2">
-            <WhyBookWithFYStay />
-          </div>
-
-          <div className="mt-10 border-t border-border-subtle pt-8" id="reviews">
-            <SectionHeading icon={Star}>Guest reviews</SectionHeading>
-            {reviewCount > 0 ? (
-              <>
-                <div className="mt-4">
-                  <ReviewSummary reviews={listing.reviews} />
-                </div>
-                <ReviewList
-                  reviews={listing.reviews}
-                  hostName={listing.host.name}
-                  viewerId={session?.user?.id}
-                  reportedReviewIds={reportedReviewIds}
-                />
-              </>
-            ) : (
-              <div className="mt-4 flex flex-col items-start gap-2">
-                <TrustLine rating={null} reviewCount={0} />
-                <p className="text-stone-700">
-                  Be one of the first guests to stay here and leave a review - reviews only appear
-                  once a guest has completed a real, paid booking.
-                </p>
-              </div>
-            )}
-          </div>
+          {lowerSections}
         </div>
 
-        <div id="booking-widget" inert={isPreview} className={isPreview ? "opacity-60" : undefined}>
-          {listing.propertyType === "HOTEL" ? (
-            <HotelBookingWidget
-              listingId={listing.id}
-              roomTypes={listing.roomTypes}
-              weeklyDiscountPercent={listing.weeklyDiscountPercent}
-              monthlyDiscountPercent={listing.monthlyDiscountPercent}
-              lastMinuteDiscountPercent={listing.lastMinuteDiscountPercent}
-              lastMinuteWindowDays={listing.lastMinuteWindowDays}
-              minNights={listing.minNights}
-              maxNights={listing.maxNights}
-              isLoggedIn={Boolean(session?.user)}
-              cancellationPolicy={cancellationPolicy}
-              instantBook={listing.instantBook}
-              initialSelection={staySelection}
-              acceptsPaidBookings={hostAcceptsPaidBookings(listing.host)}
-            />
-          ) : (
-            <BookingWidget
-              listingId={listing.id}
-              pricePerNightCents={listing.pricePerNightCents}
-              weekendPricePerNightCents={listing.weekendPricePerNightCents}
-              weeklyDiscountPercent={listing.weeklyDiscountPercent}
-              monthlyDiscountPercent={listing.monthlyDiscountPercent}
-              lastMinuteDiscountPercent={listing.lastMinuteDiscountPercent}
-              lastMinuteWindowDays={listing.lastMinuteWindowDays}
-              priceDropFromCents={activePriceDrop(listing)?.fromCents ?? null}
-              minNights={listing.minNights}
-              maxNights={listing.maxNights}
-              maxGuests={listing.maxGuests}
-              amenities={listing.amenities}
-              bookedRanges={blockingRanges(
-                // The viewer's own unpaid instant-book hold isn't shown as
-                // taken to them, so going back from checkout lets them pick
-                // the same stay again and carry on with that booking.
-                listing.bookings.filter(
-                  (booking) =>
-                    !(
-                      session?.user &&
-                      booking.guestId === session.user.id &&
-                      booking.status === "PENDING" &&
-                      booking.paymentStatus === "UNPAID" &&
-                      booking.approvalStatus === "NONE"
-                    ),
-                ),
-                listing.availabilityBlocks,
-              ).map(
-                (r) => ({ checkIn: r.checkIn.toISOString(), checkOut: r.checkOut.toISOString() }),
-              )}
-              isLoggedIn={Boolean(session?.user)}
-              rating={rating}
-              reviewCount={reviewCount}
-              cancellationPolicy={cancellationPolicy}
-              securityDepositCents={listing.securityDepositCents}
-              instantBook={listing.instantBook}
-              initialSelection={staySelection}
-              acceptsPaidBookings={hostAcceptsPaidBookings(listing.host)}
-              serverPriced={guestsSeeSmartPrices(listing)}
-            />
-          )}
-
-          {featuredAddonOffering && <PropertyTransferPromo offering={featuredAddonOffering} />}
-        </div>
+        {widgetPanel}
       </div>
 
       {/* A non-hotel listing's widget renders its own bar, with the chosen dates' total. */}

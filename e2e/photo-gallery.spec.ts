@@ -52,28 +52,29 @@ test.describe("photo gallery lightbox", () => {
   }) => {
     await page.goto(`/listings/${listingId}`);
 
-    // Each gallery tile (hero and thumbnails alike) still opens the lightbox
-    // at its own photo, regardless of the gallery's own layout.
+    // The first photo is the page's hero; each tile under it opens the
+    // lightbox at its own photo (the second photo is the first tile).
     await page.locator('[data-testid="gallery-tile"]').first().click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator("span").first()).toHaveText("1 / 4");
-    await expect(page.getByRole("button", { name: "Previous photo" })).toHaveCount(0);
+    await expect(dialog.locator("span").first()).toHaveText("2 / 4");
 
     await page.getByRole("button", { name: "Next photo" }).click();
+    await expect(dialog.locator("span").first()).toHaveText("3 / 4");
+    await page.getByRole("button", { name: "Previous photo" }).click();
     await expect(dialog.locator("span").first()).toHaveText("2 / 4");
-    await expect(page.getByRole("button", { name: "Previous photo" })).toBeVisible();
 
-    // Navigating to the last photo hides the next arrow (no wrap-around).
+    // Past the last photo it comes round to the first.
     await page.getByRole("button", { name: "Next photo" }).click();
     await page.getByRole("button", { name: "Next photo" }).click();
     await expect(dialog.locator("span").first()).toHaveText("4 / 4");
-    await expect(page.getByRole("button", { name: "Next photo" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Next photo" }).click();
+    await expect(dialog.locator("span").first()).toHaveText("1 / 4");
 
     // Images render without distortion regardless of their own aspect ratio.
     const objectFit = await page.evaluate(() => {
-      const imgs = Array.from(document.querySelectorAll("dialog img"));
+      const imgs = Array.from(document.querySelectorAll('[role="dialog"] img'));
       const visible = imgs.find((img) => img.getBoundingClientRect().width > 0);
       return visible ? getComputedStyle(visible).objectFit : null;
     });
@@ -106,7 +107,7 @@ test.describe("photo gallery lightbox", () => {
 
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
-      await expect(dialog.locator("span").first()).toHaveText("1 / 4");
+      await expect(dialog.locator("span").first()).toHaveText("2 / 4");
 
       const swipeZone = dialog.locator(".touch-none");
       const box = (await swipeZone.boundingBox())!;
@@ -120,7 +121,7 @@ test.describe("photo gallery lightbox", () => {
       }
       await page.mouse.up();
 
-      await expect(dialog.locator("span").first()).toHaveText("2 / 4");
+      await expect(dialog.locator("span").first()).toHaveText("3 / 4");
     } finally {
       await context.close();
     }

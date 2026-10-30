@@ -69,8 +69,14 @@ async function readPhotoSize(url: string): Promise<{ width: number; height: numb
 // A photo's size doesn't change, so look once a day, not on every page view.
 const cachedPhotoSize = unstable_cache(readPhotoSize, ["hero-photo-size"], { revalidate: 24 * 60 * 60 });
 
+/** Whether a photo is big and wide enough to fill a wide hero (looked at once a day per photo). */
+export async function isWidePhoto(url: string): Promise<boolean> {
+  const size = await cachedPhotoSize(url);
+  return size !== null && isHeroPhoto(size);
+}
+
 /** The listing's first photo that is big and wide enough for the hero (only its first few are tried). */
-async function heroPhotoOf(photos: string[]): Promise<string | null> {
+export async function heroPhotoOf(photos: string[]): Promise<string | null> {
   for (const photo of photos.slice(0, 3)) {
     const size = await cachedPhotoSize(photo);
     if (size && isHeroPhoto(size)) return photo;

@@ -38,10 +38,10 @@ export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
   carousel: [ACROSS_WATER, DECK, LOUNGE, ISLAND, MAIN_BEDROOM, EVENING],
   gallery: [ACROSS_WATER, LOUNGE, ISLAND, MAIN_BEDROOM, EVENING, FIRE, KITCHEN, MAIN_ART, SECOND_BEDROOM, SECOND_BEDROOM_DETAIL, TWIN, BATHROOM, WARDROBE, UTILITY, NEIGHBOURS, GAZEBO],
   facts: [
-    { label: "Sleeps", value: "Up to 6" },
-    { label: "Bedrooms", value: "3" },
-    { label: "Bathrooms", value: "2" },
-    { label: "Outside", value: "Deck on the water" },
+    { label: "Sleeps", value: "Up to 6", icon: "users" },
+    { label: "Bedrooms", value: "3", icon: "door" },
+    { label: "Bathrooms", value: "2", icon: "bath" },
+    { label: "Outside", value: "Deck on the water", icon: "waves" },
   ],
   sleeping: {
     kicker: "Sleeping",

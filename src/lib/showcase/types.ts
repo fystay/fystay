@@ -26,10 +26,11 @@ export type ShowcaseContent = {
   carousel: ShowcasePhoto[];
   /** Every photo in display order; the first few sit under the hero, the rest open from "View all". */
   gallery: ShowcasePhoto[];
-  facts: { label: string; value: string }[];
+  facts: { label: string; value: string; icon?: "users" | "door" | "bath" | "bed" | "waves" }[];
     sleeping?: { kicker: string; title: string; rooms: { name: string; beds: string; photo: ShowcasePhoto }[] };
   afterDark?: { kicker: string; title: string; body: string; photos: ShowcasePhoto[] };
   setting?: { kicker: string; title: string; points: { title: string; body: string }[] };
+  /** Left empty when the page lists them elsewhere (a live listing). */
   amenities: string[];
   /** Plain-English terms a guest should see before choosing dates. */
   goodToKnow: string[];

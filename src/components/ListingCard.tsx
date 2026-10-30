@@ -289,7 +289,7 @@ export function ListingCard({
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-brand-300">
               <ImageOff className="h-6 w-6" />
-              <span className="text-xs font-medium text-brand-400">Photo coming soon</span>
+              <span className="text-xs font-medium text-brand-700">Photo coming soon</span>
             </div>
           )}
         </Link>

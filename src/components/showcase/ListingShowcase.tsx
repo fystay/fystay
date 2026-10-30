@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Bath, BedDouble, Check, DoorOpen, MessageCircle, ShieldCheck, Users, Waves } from "lucide-react";
+import { ArrowRight, Bath, BedDouble, DoorOpen, MessageCircle, ShieldCheck, Users, Waves } from "lucide-react";
 import { ScrollUnderline } from "@/components/ScrollUnderline";
 import { buttonVariants } from "@/components/ui/Button";
 import { ShowcaseGalleryStrip } from "@/components/showcase/ShowcaseGalleryStrip";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/format";
 import type { ShowcaseContent } from "@/lib/showcase/types";
 
-const FACT_ICONS = [Users, DoorOpen, Bath, Waves];
+const FACT_ICONS = { users: Users, door: DoorOpen, bath: Bath, bed: BedDouble, waves: Waves } as const;
 
 function SectionTitle({ kicker, title, light = false }: { kicker: string; title: string; light?: boolean }) {
   return (
@@ -47,12 +47,31 @@ export function ListingShowcase({
   booking,
   contactHref,
   previewNote,
+  heroWide = true,
+  corner,
+  stickyBar = true,
+  bookingOnPhone = false,
+  bookTitle,
+  children,
 }: {
   content: ShowcaseContent;
+  /** The card that rises over the phone photo. */
   heroCard: ReactNode;
+  /** The full booking panel at the foot of the page. */
   booking: ReactNode;
-  contactHref: string;
+  contactHref?: string;
   previewNote?: string;
+  /** False when the property's photos aren't big enough to fill a wide hero: bigger screens then keep the phone layout, centred. */
+  heroWide?: boolean;
+  /** Save and share buttons, over the photo. */
+  corner?: ReactNode;
+  /** The page's own price bar; a live listing's booking widget has its own. */
+  stickyBar?: boolean;
+  /** Show the booking panel on a phone too (a live listing's widget is the only place dates are chosen). */
+  bookingOnPhone?: boolean;
+  bookTitle?: string;
+  /** More of the page - description, host, map, reviews - between the facts and the booking panel. */
+  children?: ReactNode;
 }) {
   const { headline, price } = content;
   const priceLabel = `From ${formatPrice(price.fromCents)} a night`;
@@ -66,26 +85,30 @@ export function ListingShowcase({
       )}
 
       {/* A phone: the photo first, the booking card over its foot, then the name. */}
-      <section id="showcase-top" className="sm:hidden">
-        <ShowcaseMobileHero photos={content.carousel} title={{ name: content.title, place: content.place }} />
-        <div id="availability" className="relative z-10 -mt-14 scroll-mt-4 px-4">
+      <section id="showcase-top" className={cn(heroWide && "sm:hidden")}>
+        <ShowcaseMobileHero photos={content.carousel} title={{ name: content.title, place: content.place }} corner={corner} allSizes={!heroWide} />
+        <div id="availability" className={cn("relative z-10 -mt-14 scroll-mt-4 px-4", !heroWide && "sm:mx-auto sm:max-w-md")}>
           {heroCard}
         </div>
-        <div className="px-6 pb-6 pt-7">
+        <div className={cn("px-6 pb-6 pt-7", !heroWide && "sm:mx-auto sm:max-w-4xl")}>
           {/* The name, over the photo, is the page's h1; this line is its tagline. */}
           <h1 className="sr-only">{content.title}</h1>
-          <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] text-foreground">
-            {headline.before}
-            <span className="text-brand-600">{headline.accent}</span>
-            {headline.after}
-          </h2>
-          <p className="mt-3 text-stone-700">{content.intro}</p>
+          {(headline.before || headline.accent) && (
+            <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] text-foreground">
+              {headline.before}
+              <span className="text-brand-600">{headline.accent}</span>
+              {headline.after}
+            </h2>
+          )}
+          {content.intro && <p className="mt-3 text-stone-700">{content.intro}</p>}
         </div>
       </section>
 
       {/* A bigger screen: as on the homepage, the photo edge to edge behind the headline. */}
+      {heroWide && (
       <section id="showcase-top-wide" className="relative isolate hidden sm:block">
         <ShowcaseHeroImage photo={content.hero} />
+        {corner && <div className="absolute right-6 top-6 z-10 flex items-center gap-2">{corner}</div>}
         <div className="mx-auto w-full max-w-6xl px-6 pb-20 pt-16 lg:pb-28 lg:pt-20">
           <div className="max-w-xl lg:max-w-2xl">
             <h1 className="font-serif text-3xl font-bold leading-tight text-brand-800">{content.title}</h1>
@@ -93,12 +116,14 @@ export function ListingShowcase({
               <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
               {content.place}
             </p>
-            <h2 className="mt-5 font-serif text-[3rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground lg:text-[3.8rem]">
-              {headline.before}
-              <span className="text-brand-600">{headline.accent}</span>
-              {headline.after}
-            </h2>
-            <p className="mt-5 max-w-lg text-lg leading-relaxed text-stone-800">{content.intro}</p>
+            {(headline.before || headline.accent) && (
+              <h2 className="mt-5 font-serif text-[2.6rem] font-bold leading-[1.06] tracking-[-0.01em] text-foreground lg:text-[3.4rem]">
+                {headline.before}
+                <span className="text-brand-600">{headline.accent}</span>
+                {headline.after}
+              </h2>
+            )}
+            {content.intro && <p className="mt-5 max-w-lg text-lg leading-relaxed text-stone-800">{content.intro}</p>}
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <a href="#book" className={cn(buttonVariants({ size: "lg" }), "px-7")}>
                 Check availability
@@ -115,14 +140,15 @@ export function ListingShowcase({
           </div>
         </div>
       </section>
+      )}
 
-      <ShowcaseGalleryStrip photos={content.gallery} />
+      <ShowcaseGalleryStrip photos={content.gallery} startAt={content.hero && content.gallery[0]?.src === content.hero.src ? 1 : 0} />
 
       {/* The facts, at a glance. */}
       <section aria-label="At a glance" className="mt-4 border-y border-border-subtle bg-surface-muted">
         <dl className="mx-auto grid max-w-6xl grid-cols-4 gap-2 px-4 py-4 sm:px-6 sm:py-5">
-          {content.facts.map((fact, i) => {
-            const Icon = FACT_ICONS[i] ?? Check;
+          {content.facts.map((fact) => {
+            const Icon = FACT_ICONS[fact.icon ?? "door"];
             return (
               <div key={fact.label} className="flex flex-col items-center text-center">
                 <Icon className="h-5 w-5 text-brand-600" aria-hidden />
@@ -187,6 +213,9 @@ export function ListingShowcase({
         </section>
       )}
 
+      {children}
+
+      {(content.amenities.length > 0 || content.goodToKnow.length > 0 || content.price.cancellation) && (
       <section className="border-t border-border-subtle bg-surface-muted">
         <div className="mx-auto grid w-full max-w-6xl gap-6 px-6 py-8 sm:py-10 lg:grid-cols-2 lg:gap-16">
           <div>
@@ -212,34 +241,39 @@ export function ListingShowcase({
           </div>
         </div>
       </section>
+      )}
 
       {/* The way in. On a phone the card at the top is the booking; here, a bigger screen has the full panel. */}
       <section id="book" className="scroll-mt-20 bg-brand-900 text-white">
         <div className="mx-auto grid w-full max-w-6xl items-start gap-6 px-6 py-10 sm:py-14 lg:grid-cols-5 lg:gap-14">
           <div className="lg:col-span-2">
-            <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] sm:text-[2.2rem]">Book with the people who look after {content.title}</h2>
+            <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] sm:text-[2.2rem]">{bookTitle ?? `Book with the people who look after ${content.title}`}</h2>
             <p className="mt-3 text-white/80">See the full price before you pay anything. Questions first? Ask the owners directly.</p>
-            <Link
-              href={contactHref}
-              className="focus-ring mt-5 inline-flex h-12 items-center gap-2 rounded-xl border border-white/40 px-6 text-base font-semibold text-white hover:bg-white/10"
-            >
-              <MessageCircle className="h-4 w-4" aria-hidden />
-              Message the owners
-            </Link>
+            {contactHref && (
+              <Link
+                href={contactHref}
+                className="focus-ring mt-5 inline-flex h-12 items-center gap-2 rounded-xl border border-white/40 px-6 text-base font-semibold text-white hover:bg-white/10"
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden />
+                Message the owners
+              </Link>
+            )}
           </div>
-          <div className="hidden sm:block lg:col-span-3">{booking}</div>
+          <div className={cn("lg:col-span-3", !bookingOnPhone && "hidden sm:block")}>{booking}</div>
         </div>
       </section>
 
-      <ShowcaseStickyBar
-        watchId="showcase-top"
-        watchIdWide="showcase-top-wide"
-        title={content.title}
-        priceLabel={priceLabel}
-        ctaLabel="Check availability"
-        ctaHref="#book"
-        ctaHrefPhone="#availability"
-      />
+      {stickyBar && (
+        <ShowcaseStickyBar
+          watchId="showcase-top"
+          watchIdWide="showcase-top-wide"
+          title={content.title}
+          priceLabel={priceLabel}
+          ctaLabel="Check availability"
+          ctaHref="#book"
+          ctaHrefPhone="#availability"
+        />
+      )}
     </div>
   );
 }

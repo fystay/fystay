@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -12,8 +12,9 @@ import type { ShowcasePhoto } from "@/lib/showcase/types";
  * many more there are. Any of them opens the full gallery in a viewer with
  * the owner's description of each photo, arrows and the keyboard.
  */
-export function ShowcaseGalleryStrip({ photos }: { photos: ShowcasePhoto[] }) {
+export function ShowcaseGalleryStrip({ photos, startAt = 0 }: { photos: ShowcasePhoto[]; /** Photos before this index are already on show above (the hero). */ startAt?: number }) {
   const [open, setOpen] = useState<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
   const close = useCallback(() => setOpen(null), []);
   const step = useCallback((by: number) => setOpen((i) => (i === null ? i : (i + by + photos.length) % photos.length)), [photos.length]);
 
@@ -32,20 +33,23 @@ export function ShowcaseGalleryStrip({ photos }: { photos: ShowcasePhoto[] }) {
     };
   }, [open, close, step]);
 
-  // Four photos and a "view all" tile on a screen with room; three and the tile (a 2x2) on a phone.
-  const tiles = photos.slice(0, 5);
-  const hiddenOnPhone = 3;
+  // Up to five tiles; the last says how many more there are. On a phone a full row of five drops its fourth, so it's a 2x2.
+  const tiles = photos.slice(startAt, startAt + 5);
+  const hasMore = photos.length > startAt + tiles.length;
+  const hiddenOnPhone = tiles.length === 5 ? 3 : -1;
+  if (tiles.length === 0) return null;
 
   return (
     <section id="photos" aria-label="Photos" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 pt-2 sm:px-6 sm:pt-6">
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
         {tiles.map((p, i) => {
-          const last = i === tiles.length - 1;
+          const last = hasMore && i === tiles.length - 1;
           return (
             <li key={p.src} className={cn(i === hiddenOnPhone && "hidden sm:block")}>
               <button
                 type="button"
-                onClick={() => setOpen(i)}
+                onClick={() => setOpen(startAt + i)}
+                data-testid="gallery-tile"
                 aria-label={last ? `View all ${photos.length} photos` : `Open photo: ${p.alt}`}
                 className="focus-ring group relative block w-full overflow-hidden border-b-[3px] border-brand-500 bg-surface-muted shadow-[var(--shadow-card)] ring-1 ring-black/5"
               >
@@ -68,8 +72,30 @@ export function ShowcaseGalleryStrip({ photos }: { photos: ShowcasePhoto[] }) {
           <button type="button" onClick={close} aria-label="Close" className="focus-ring absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
             <X className="h-5 w-5" aria-hidden />
           </button>
-          <div className="relative h-[70svh] w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
-            <Image src={photos[open].src} alt={photos[open].alt} fill sizes="(min-width: 1024px) 896px, 100vw" className="object-contain" />
+          {/* Swipe along the photos on a touch screen. */}
+          <div
+            className="relative h-[70svh] w-full max-w-4xl touch-none"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => (touchStartX.current = e.touches[0].clientX)}
+            onTouchEnd={(e) => {
+              if (touchStartX.current === null) return;
+              const delta = e.changedTouches[0].clientX - touchStartX.current;
+              touchStartX.current = null;
+              if (delta <= -50) step(1);
+              else if (delta >= 50) step(-1);
+            }}
+            onPointerDown={(e) => {
+              if (e.pointerType === "mouse") touchStartX.current = e.clientX;
+            }}
+            onPointerUp={(e) => {
+              if (e.pointerType !== "mouse" || touchStartX.current === null) return;
+              const delta = e.clientX - touchStartX.current;
+              touchStartX.current = null;
+              if (delta <= -50) step(1);
+              else if (delta >= 50) step(-1);
+            }}
+          >
+            <Image src={photos[open].src} alt={photos[open].alt} fill draggable={false} sizes="(min-width: 1024px) 896px, 100vw" className="select-none object-contain" />
           </div>
           <p className="max-w-2xl text-center text-sm text-white/85" onClick={(e) => e.stopPropagation()}>
             {photos[open].alt}
