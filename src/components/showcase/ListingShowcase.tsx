@@ -41,19 +41,14 @@ function SectionTitle({ kicker, title, light = false }: { kicker: string; title:
  * `booking` is the full booking panel on a bigger screen. On a live listing
  * these are the real booking widget.
  */
-export type TitleStyle = "overlay" | "above" | "card";
-
 export function ListingShowcase({
   content,
   heroCard,
   booking,
   contactHref,
   previewNote,
-  titleStyle = "overlay",
 }: {
   content: ShowcaseContent;
-  /** Where a phone shows the property's name: over the photo, above it, or inside the booking card (which then shows it itself). */
-  titleStyle?: TitleStyle;
   heroCard: ReactNode;
   booking: ReactNode;
   contactHref: string;
@@ -72,23 +67,13 @@ export function ListingShowcase({
 
       {/* A phone: the photo first, the booking card over its foot, then the name. */}
       <section id="showcase-top" className="sm:hidden">
-        {titleStyle === "above" && (
-          <div className="bg-surface px-6 pb-4 pt-5">
-            <h1 className="font-serif text-[2rem] font-bold leading-[1.05] text-foreground">{content.title}</h1>
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">{content.place}</p>
-          </div>
-        )}
-        <ShowcaseMobileHero
-          photos={content.carousel}
-          title={titleStyle === "overlay" ? { name: content.title, place: content.place } : undefined}
-        />
+        <ShowcaseMobileHero photos={content.carousel} title={{ name: content.title, place: content.place }} />
         <div id="availability" className="relative z-10 -mt-14 scroll-mt-4 px-4">
           {heroCard}
         </div>
         <div className="px-6 pb-6 pt-7">
-          {/* The name is the page's h1 wherever it's shown; the line is its tagline. */}
-          {titleStyle === "overlay" && <h1 className="sr-only">{content.title}</h1>}
-          {titleStyle === "card" && <h1 className="sr-only">{content.title}</h1>}
+          {/* The name, over the photo, is the page's h1; this line is its tagline. */}
+          <h1 className="sr-only">{content.title}</h1>
           <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] text-foreground">
             {headline.before}
             <span className="text-brand-600">{headline.accent}</span>
