@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 /** Tells FYStay a placement was shown or clicked (src/app/api/spotlight/events) - fire and forget. */
-function reportSpotlightEvent(promotionId: string, type: "impression" | "click") {
+export function reportSpotlightEvent(promotionId: string, type: "impression" | "click") {
   const body = JSON.stringify({ promotionId, type });
   try {
     if (navigator.sendBeacon?.("/api/spotlight/events", body)) return;

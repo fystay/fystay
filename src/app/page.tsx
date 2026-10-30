@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { SearchBar } from "@/components/SearchBar";
 import { HeroSlides } from "@/components/HeroBanner";
+import { loadHeroStays } from "@/lib/heroStays";
 import { LargeCardRailSkeleton } from "@/components/LargeCard";
 import { HomeTowns } from "@/components/HomeTowns";
 import { HomeServices } from "@/components/HomeServices";
@@ -59,7 +60,7 @@ async function liveHeroSlideKeys(): Promise<HeroSlideKey[]> {
 }
 
 export default async function Home() {
-  const heroSlideKeys = await liveHeroSlideKeys();
+  const [heroSlideKeys, heroStays] = await Promise.all([liveHeroSlideKeys(), loadHeroStays()]);
   // WebSite + SearchAction tells Google this site has an internal search it
   // can offer directly in results (a "sitelinks search box"), targeting the
   // real /search?city= URL the homepage's own search bar already uses -
@@ -121,7 +122,7 @@ export default async function Home() {
           the hero. */}
       <div className="flex min-h-[calc(100svh-77px-var(--fixed-bottom-bar-height,0px))] flex-col lg:block lg:min-h-0">
         <section className="relative isolate flex min-h-[230px] w-full flex-1 flex-col lg:h-[64svh] lg:max-h-[660px] lg:min-h-[520px] lg:flex-none">
-          <HeroSlides slideKeys={heroSlideKeys} />
+          <HeroSlides slideKeys={heroSlideKeys} stays={heroStays} />
         </section>
 
         {/* The search card - the page's main control - rising a little into
