@@ -41,14 +41,19 @@ function SectionTitle({ kicker, title, light = false }: { kicker: string; title:
  * `booking` is the full booking panel on a bigger screen. On a live listing
  * these are the real booking widget.
  */
+export type TitleStyle = "overlay" | "above" | "card";
+
 export function ListingShowcase({
   content,
   heroCard,
   booking,
   contactHref,
   previewNote,
+  titleStyle = "overlay",
 }: {
   content: ShowcaseContent;
+  /** Where a phone shows the property's name: over the photo, above it, or inside the booking card (which then shows it itself). */
+  titleStyle?: TitleStyle;
   heroCard: ReactNode;
   booking: ReactNode;
   contactHref: string;
@@ -67,17 +72,28 @@ export function ListingShowcase({
 
       {/* A phone: the photo first, the booking card over its foot, then the name. */}
       <section id="showcase-top" className="sm:hidden">
-        <ShowcaseMobileHero photos={content.carousel} />
+        {titleStyle === "above" && (
+          <div className="bg-surface px-6 pb-4 pt-5">
+            <h1 className="font-serif text-[2rem] font-bold leading-[1.05] text-foreground">{content.title}</h1>
+            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">{content.place}</p>
+          </div>
+        )}
+        <ShowcaseMobileHero
+          photos={content.carousel}
+          title={titleStyle === "overlay" ? { name: content.title, place: content.place } : undefined}
+        />
         <div id="availability" className="relative z-10 -mt-14 scroll-mt-4 px-4">
           {heroCard}
         </div>
         <div className="px-6 pb-6 pt-7">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">{content.place}</p>
-          <h1 className="mt-2 font-serif text-[2rem] font-bold leading-[1.06] text-foreground">
+          {/* The name is the page's h1 wherever it's shown; the line is its tagline. */}
+          {titleStyle === "overlay" && <h1 className="sr-only">{content.title}</h1>}
+          {titleStyle === "card" && <h1 className="sr-only">{content.title}</h1>}
+          <h2 className="font-serif text-[1.7rem] font-bold leading-[1.1] text-foreground">
             {headline.before}
             <span className="text-brand-600">{headline.accent}</span>
             {headline.after}
-          </h1>
+          </h2>
           <p className="mt-3 text-stone-700">{content.intro}</p>
         </div>
       </section>
@@ -87,15 +103,16 @@ export function ListingShowcase({
         <ShowcaseHeroImage photo={content.hero} />
         <div className="mx-auto w-full max-w-6xl px-6 pb-20 pt-16 lg:pb-28 lg:pt-20">
           <div className="max-w-xl lg:max-w-2xl">
-            <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.22em] text-brand-700">
+            <h1 className="font-serif text-3xl font-bold leading-tight text-brand-800">{content.title}</h1>
+            <p className="mt-1 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.22em] text-brand-700">
               <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
               {content.place}
             </p>
-            <h1 className="mt-4 font-serif text-[3.2rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground lg:text-[4.1rem]">
+            <h2 className="mt-5 font-serif text-[3rem] font-bold leading-[1.04] tracking-[-0.01em] text-foreground lg:text-[3.8rem]">
               {headline.before}
               <span className="text-brand-600">{headline.accent}</span>
               {headline.after}
-            </h1>
+            </h2>
             <p className="mt-5 max-w-lg text-lg leading-relaxed text-stone-800">{content.intro}</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <a href="#book" className={cn(buttonVariants({ size: "lg" }), "px-7")}>

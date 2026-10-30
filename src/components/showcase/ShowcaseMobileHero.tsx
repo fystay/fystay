@@ -14,7 +14,14 @@ const SLIDE_MS = 5000;
  * on by itself (never under reduced motion, and a swipe or tap stops it).
  * The booking card rises over its foot (see ListingShowcase).
  */
-export function ShowcaseMobileHero({ photos }: { photos: ShowcasePhoto[] }) {
+export function ShowcaseMobileHero({
+  photos,
+  title,
+}: {
+  photos: ShowcasePhoto[];
+  /** Shown over the foot of the photo (above the booking card that rises over it). */
+  title?: { name: string; place: string };
+}) {
   const trackRef = useRef<HTMLUListElement>(null);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -60,6 +67,15 @@ export function ShowcaseMobileHero({ photos }: { photos: ShowcasePhoto[] }) {
         ))}
       </ul>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/30 to-transparent" aria-hidden />
+      {title && (
+        <>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/70 via-black/30 to-transparent" aria-hidden />
+          <div className="pointer-events-none absolute inset-x-5 bottom-[4.75rem] text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
+            <p className="font-serif text-[2.1rem] font-bold leading-[1.05]">{title.name}</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/85">{title.place}</p>
+          </div>
+        </>
+      )}
       <div className="pointer-events-none absolute inset-x-4 top-4 flex items-start justify-between gap-3">
         {current.label ? (
           <span className="rounded-full bg-surface/90 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-800 backdrop-blur">
