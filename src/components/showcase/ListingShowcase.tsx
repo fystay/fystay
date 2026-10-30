@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, BedDouble, Check, MessageCircle, ShieldCheck } from "lucide-react";
 import { ScrollUnderline } from "@/components/ScrollUnderline";
 import { buttonVariants } from "@/components/ui/Button";
-import { ShowcaseHeroImage } from "@/components/showcase/ShowcaseHeroImage";
+import { ShowcaseHeroImage, ShowcaseHeroPhotoMobile } from "@/components/showcase/ShowcaseHeroImage";
 import { ShowcaseGalleryStrip } from "@/components/showcase/ShowcaseGalleryStrip";
 import { ShowcaseStickyBar } from "@/components/showcase/ShowcaseStickyBar";
 import { cn } from "@/lib/cn";
@@ -60,7 +60,7 @@ export function ListingShowcase({
           to edge behind the headline, one way in. */}
       <section id="showcase-top" className="relative isolate">
         <ShowcaseHeroImage photo={content.hero} />
-        <div className="mx-auto w-full max-w-6xl px-6 pb-56 pt-10 sm:pb-20 sm:pt-16 lg:pb-28 lg:pt-20">
+        <div className="mx-auto w-full max-w-6xl px-6 pb-8 pt-10 sm:pb-20 sm:pt-16 lg:pb-28 lg:pt-20">
           <div className="max-w-xl lg:max-w-2xl">
             <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
               <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
@@ -96,6 +96,7 @@ export function ListingShowcase({
             </ul>
           </div>
         </div>
+        <ShowcaseHeroPhotoMobile photo={content.hero} />
       </section>
 
       {/* The rest of the photos, right under the hero. */}
