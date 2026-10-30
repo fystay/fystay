@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ArrowRight, BedDouble, Check, MessageCircle, ShieldCheck } from "lucide-react";
 import { ScrollUnderline } from "@/components/ScrollUnderline";
 import { buttonVariants } from "@/components/ui/Button";
-import { ShowcaseHeroBackdrop } from "@/components/showcase/ShowcaseHeroBackdrop";
-import { ShowcasePhotoGrid } from "@/components/showcase/ShowcasePhotoGrid";
+import { ShowcaseHeroImage } from "@/components/showcase/ShowcaseHeroImage";
+import { ShowcaseGalleryStrip } from "@/components/showcase/ShowcaseGalleryStrip";
 import { ShowcaseStickyBar } from "@/components/showcase/ShowcaseStickyBar";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/format";
@@ -59,8 +59,8 @@ export function ListingShowcase({
       {/* The first screen, as on the homepage: the property's own photo edge
           to edge behind the headline, one way in. */}
       <section id="showcase-top" className="relative isolate">
-        <ShowcaseHeroBackdrop photos={content.hero} />
-        <div className="mx-auto w-full max-w-6xl px-6 pb-60 pt-10 sm:pb-24 sm:pt-16 lg:pb-28 lg:pt-20">
+        <ShowcaseHeroImage photo={content.hero} />
+        <div className="mx-auto w-full max-w-6xl px-6 pb-56 pt-10 sm:pb-20 sm:pt-16 lg:pb-28 lg:pt-20">
           <div className="max-w-xl lg:max-w-2xl">
             <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700 sm:text-xs">
               <span aria-hidden className="h-[2px] w-8 rounded-full bg-brand-600" />
@@ -78,7 +78,7 @@ export function ListingShowcase({
                 Check availability
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </a>
-              <a href="#inside" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "hidden bg-surface/70 px-7 backdrop-blur sm:inline-flex")}>
+              <a href="#photos" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "hidden bg-surface/70 px-7 backdrop-blur sm:inline-flex")}>
                 Take a look inside
               </a>
             </div>
@@ -98,6 +98,9 @@ export function ListingShowcase({
         </div>
       </section>
 
+      {/* The rest of the photos, right under the hero. */}
+      <ShowcaseGalleryStrip photos={content.gallery} />
+
       {/* The facts, at a glance. */}
       <section aria-label="At a glance" className="border-y border-border-subtle bg-surface-muted">
         <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-y-4 px-6 py-5 sm:grid-cols-4">
@@ -114,7 +117,6 @@ export function ListingShowcase({
         <section id="inside" className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-10 sm:py-14">
           <SectionTitle kicker={content.inside.kicker} title={content.inside.title} />
           <p className="mt-3 max-w-2xl text-stone-700">{content.inside.body}</p>
-          <ShowcasePhotoGrid photos={content.inside.photos} more={content.inside.more} className="mt-6" />
         </section>
       )}
 

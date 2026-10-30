@@ -35,7 +35,8 @@ export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
   headline: { before: "Slow mornings, ", accent: "lake light", after: ", and room to breathe." },
   intro:
     "A three-bedroom lodge with its own deck right over the water, between the southern Lake District, the Yorkshire Dales and the Morecambe Bay coast. Coffee on the deck, evenings under the lights, and nowhere you need to be.",
-  hero: [DECK, ACROSS_WATER, LOUNGE, MAIN_BEDROOM],
+  hero: DECK,
+  gallery: [ACROSS_WATER, LOUNGE, ISLAND, MAIN_BEDROOM, EVENING, FIRE, KITCHEN, MAIN_ART, SECOND_BEDROOM, SECOND_BEDROOM_DETAIL, TWIN, BATHROOM, WARDROBE, UTILITY, NEIGHBOURS, GAZEBO],
   facts: [
     { label: "Sleeps", value: "Up to 6" },
     { label: "Bedrooms", value: "3" },
@@ -46,8 +47,6 @@ export const LODGE_ON_THE_LAKE_SHOWCASE: ShowcaseContent = {
     kicker: "Inside the lodge",
     title: "Light, warm and made for gathering",
     body: "An open-plan living and dining room arranged around an electric feature fire, a kitchen island for morning coffee, and patio doors that fill the room with light.",
-    photos: [LOUNGE, ISLAND, FIRE, KITCHEN, NEIGHBOURS],
-    more: [BATHROOM, UTILITY, WARDROBE, MAIN_ART, SECOND_BEDROOM_DETAIL, GAZEBO],
   },
   sleeping: {
     kicker: "Sleeping",

@@ -7,12 +7,12 @@ import { cn } from "@/lib/cn";
 import type { ShowcasePhoto } from "@/lib/showcase/types";
 
 /**
- * A grid of the property's photos in FYStay's editorial frame (square
- * corners, terracotta rule). Tapping one opens it large, with the owner's
- * description of it, arrows and the keyboard to move along.
+ * A row of the property's photos straight under the hero, in FYStay's
+ * editorial frame (square corners, terracotta rule); the last tile says how
+ * many more there are. Any of them opens the full gallery in a viewer with
+ * the owner's description of each photo, arrows and the keyboard.
  */
-export function ShowcasePhotoGrid({ photos: shown, more = [], className }: { photos: ShowcasePhoto[]; more?: ShowcasePhoto[]; className?: string }) {
-  const photos = [...shown, ...more];
+export function ShowcaseGalleryStrip({ photos }: { photos: ShowcasePhoto[] }) {
   const [open, setOpen] = useState<number | null>(null);
   const close = useCallback(() => setOpen(null), []);
   const step = useCallback((by: number) => setOpen((i) => (i === null ? i : (i + by + photos.length) % photos.length)), [photos.length]);
@@ -32,49 +32,39 @@ export function ShowcasePhotoGrid({ photos: shown, more = [], className }: { pho
     };
   }, [open, close, step]);
 
+  // Four photos and a "view all" tile on a screen with room; three and the tile on a phone.
+  const tiles = photos.slice(0, 5);
+  const hiddenOnPhone = 3;
+
   return (
-    <>
-      <ul className={cn("grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4", className)}>
-        {shown.map((p, i) => (
-          <li key={p.src} className={cn(i === 0 && "col-span-2 row-span-2")}>
-            <button
-              type="button"
-              onClick={() => setOpen(i)}
-              aria-label={`Open photo: ${p.alt}`}
-              className="focus-ring group relative block h-full w-full overflow-hidden border-b-[3px] border-brand-500 bg-surface-muted shadow-[var(--shadow-card)] ring-1 ring-black/5"
-            >
-              <div className={cn("relative w-full", i === 0 ? "aspect-[4/3] lg:aspect-auto lg:h-full lg:min-h-[22rem]" : "aspect-[4/3]")}>
-                <Image
-                  src={p.src}
-                  alt={p.alt}
-                  fill
-                  sizes={i === 0 ? "(min-width: 1024px) 560px, 100vw" : "(min-width: 1024px) 280px, 50vw"}
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-              </div>
-            </button>
-          </li>
-        ))}
+    <section id="photos" aria-label="Photos" className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 pb-2 pt-4 sm:pt-6">
+      <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3">
+        {tiles.map((p, i) => {
+          const last = i === tiles.length - 1;
+          return (
+            <li key={p.src} className={cn(i === hiddenOnPhone && "hidden sm:block")}>
+              <button
+                type="button"
+                onClick={() => setOpen(i)}
+                aria-label={last ? `View all ${photos.length} photos` : `Open photo: ${p.alt}`}
+                className="focus-ring group relative block w-full overflow-hidden border-b-[3px] border-brand-500 bg-surface-muted shadow-[var(--shadow-card)] ring-1 ring-black/5"
+              >
+                <div className="relative aspect-square w-full sm:aspect-[4/3]">
+                  <Image src={p.src} alt={last ? "" : p.alt} fill sizes="(min-width: 1024px) 220px, 25vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                  {last && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-ink/60 px-1 text-center text-xs font-semibold leading-tight text-white backdrop-blur-[1px] sm:text-sm">
+                      View all {photos.length} photos
+                    </span>
+                  )}
+                </div>
+              </button>
+            </li>
+          );
+        })}
       </ul>
 
-      {more.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setOpen(0)}
-          className="focus-ring mt-5 inline-flex h-11 items-center rounded-xl border border-border-subtle px-5 text-sm font-semibold text-foreground hover:bg-surface-muted"
-        >
-          View all {photos.length} photos
-        </button>
-      )}
-
       {open !== null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Photo viewer"
-          className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-4 bg-ink/95 p-4"
-          onClick={close}
-        >
+        <div role="dialog" aria-modal="true" aria-label="Photo viewer" className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-4 bg-ink/95 p-4" onClick={close}>
           <button type="button" onClick={close} aria-label="Close" className="focus-ring absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
             <X className="h-5 w-5" aria-hidden />
           </button>
@@ -97,6 +87,6 @@ export function ShowcasePhotoGrid({ photos: shown, more = [], className }: { pho
           </div>
         </div>
       )}
-    </>
+    </section>
   );
 }

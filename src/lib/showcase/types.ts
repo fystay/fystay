@@ -20,10 +20,12 @@ export type ShowcaseContent = {
   /** The page's headline: `accent` is picked out in the brand colour. */
   headline: { before: string; accent: string; after: string };
   intro: string;
-  /** The hero's rotating photos, best first. */
-  hero: ShowcasePhoto[];
+  /** The one photo behind the headline: the sharpest, widest the property has. */
+  hero: ShowcasePhoto;
+  /** Every photo in display order; the first few sit under the hero, the rest open from "View all". */
+  gallery: ShowcasePhoto[];
   facts: { label: string; value: string }[];
-  inside?: { kicker: string; title: string; body: string; photos: ShowcasePhoto[]; /** Opened by "View all photos", not shown on the page. */ more?: ShowcasePhoto[] };
+  inside?: { kicker: string; title: string; body: string };
   sleeping?: { kicker: string; title: string; rooms: { name: string; beds: string; photo: ShowcasePhoto }[] };
   afterDark?: { kicker: string; title: string; body: string; photos: ShowcasePhoto[] };
   setting?: { kicker: string; title: string; body: string; points: { title: string; body: string }[] };
