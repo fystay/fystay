@@ -320,7 +320,8 @@ async function settlePaidTripExtra(
         id: bookingExtraId,
         status: "PENDING_PAYMENT",
         priceCents: extra.priceCents,
-        booking: { status: "CONFIRMED" },
+        // A standalone purchase has no stay that could have been cancelled.
+        OR: [{ bookingId: null }, { booking: { status: "CONFIRMED" } }],
       },
       data: { status: "PAID", paidAt: new Date(), stripePaymentIntentId: paymentIntentId ?? undefined },
     });

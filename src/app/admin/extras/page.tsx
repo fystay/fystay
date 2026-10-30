@@ -121,8 +121,11 @@ export default async function AdminExtrasPage() {
                         <Badge variant={badge.variant}>{stuck ? "Stuck handing over" : badge.label}</Badge>
                       </div>
                       <p className="mt-1 text-sm text-stone-500">
-                        {extra.offering.provider.name} · {extra.booking.guestName ?? "Guest"} · check-in{" "}
-                        {formatStayDate(extra.booking.checkIn)} ·{" "}
+                        {extra.offering.provider.name} · {extra.booking?.guestName ?? extra.contactName ?? "Guest"} ·{" "}
+                        {extra.booking
+                          ? `check-in ${formatStayDate(extra.booking.checkIn)}`
+                          : `standalone, pickup ${extra.travelAt ? formatStayDate(extra.travelAt) : "not set"}`}{" "}
+                        ·{" "}
                         <span className="tabular-nums">{formatPrice(extra.priceCents)}</span> · attempts{" "}
                         <span className="tabular-nums">{extra.fulfillmentAttempts}</span>
                       </p>

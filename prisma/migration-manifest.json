@@ -374,6 +374,12 @@
       "files": {
         "migration.sql": "f10894c8e0eab51bf6c0fdfa45fce5a030e0a7ca2d5deb1dfb6de45c1e5b7f5d"
       }
+    },
+    {
+      "name": "20261029210000_standalone_trip_extras",
+      "files": {
+        "migration.sql": "263b85cbe691aa577c461d666da797e3cb9fc5b81698955000dc815e003bd28b"
+      }
     }
   ],
   "retired": [

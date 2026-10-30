@@ -45,8 +45,11 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
         // The claim's own booking-status condition, checked against the
         // booking as it is at the moment of the write.
-        const bookingWhere = where.booking as { status: { in: string[] } } | undefined;
-        if (bookingWhere && !bookingWhere.status.in.includes(state.bookingStatus)) return { count: 0 };
+        // (A standalone extra has no booking; these tests all use a stay's extra.)
+        const stayWhere = (where.AND as { OR: { booking?: { status: { in: string[] } } }[] }[])[0].OR.find(
+          (clause) => clause.booking,
+        )?.booking;
+        if (stayWhere && !stayWhere.status.in.includes(state.bookingStatus)) return { count: 0 };
         if (state.extra.status !== where.status) return { count: 0 };
         Object.assign(state.extra, {
           fulfillmentStatus: data.fulfillmentStatus,
