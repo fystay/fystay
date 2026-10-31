@@ -23,6 +23,8 @@ export type HeroStay = {
   city: string;
   priceFromCents: number;
   photo: string;
+  /** Where the hero links to, if not the listing page (a design preview). */
+  href?: string;
 };
 
 export function isHeroPhoto(size: { width: number; height: number }): boolean {

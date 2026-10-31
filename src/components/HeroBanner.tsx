@@ -11,6 +11,12 @@ import { reportSpotlightEvent } from "@/components/SpotlightTracker";
 
 const SLIDE_MS = 6500;
 
+/** Counts a Spotlight view or click for its host - never for a design preview (ids starting "preview-"). */
+function track(promotionId: string, type: "impression" | "click") {
+  if (promotionId.startsWith("preview-")) return;
+  reportSpotlightEvent(promotionId, type);
+}
+
 /**
  * The homepage hero: a slow crossfade through the places in slideKeys (those
  * with live stays - see src/lib/heroSlides.ts), the first slide alone if
@@ -152,12 +158,12 @@ function HeroStays({ stays }: { stays: HeroStay[] }) {
   const [seen, setSeen] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (seen.has(stay.promotionId)) return;
-    reportSpotlightEvent(stay.promotionId, "impression");
+    track(stay.promotionId, "impression");
     // eslint-disable-next-line react-hooks/set-state-in-effect -- remembers that this stay's view was reported
     setSeen((previous) => new Set(previous).add(stay.promotionId));
   }, [stay.promotionId, seen]);
 
-  const href = `/listings/${stay.listingId}`;
+  const href = stay.href ?? `/listings/${stay.listingId}`;
 
   return (
     <>
@@ -182,7 +188,7 @@ function HeroStays({ stays }: { stays: HeroStay[] }) {
           href={href}
           aria-hidden
           tabIndex={-1}
-          onClick={() => reportSpotlightEvent(stay.promotionId, "click")}
+          onClick={() => track(stay.promotionId, "click")}
           className="absolute inset-0"
         />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(240,238,230,0.85)_0%,rgba(240,238,230,0.72)_40%,rgba(240,238,230,0.35)_62%,rgba(240,238,230,0)_78%)] sm:bg-[linear-gradient(90deg,rgba(240,238,230,0.86)_0%,rgba(240,238,230,0.55)_38%,rgba(240,238,230,0)_62%)]" />
@@ -192,7 +198,7 @@ function HeroStays({ stays }: { stays: HeroStay[] }) {
         <Link
           key={stay.promotionId}
           href={href}
-          onClick={() => reportSpotlightEvent(stay.promotionId, "click")}
+          onClick={() => track(stay.promotionId, "click")}
           className="focus-ring pointer-events-auto block max-w-[18rem] rounded-lg animate-[hero-copy-in_700ms_ease-out] motion-reduce:animate-none min-[400px]:max-w-[19.5rem] sm:max-w-md lg:max-w-xl"
         >
           <h1>
