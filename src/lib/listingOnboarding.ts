@@ -4,6 +4,7 @@ import { EMAIL_FROM, getResendClient } from "@/lib/email";
 import { escapeHtml, renderEmail } from "@/lib/emailLayout";
 import { generateResetToken, hashResetToken } from "@/lib/passwordReset";
 import { payoutReadinessRequired } from "@/lib/stripeConnect";
+import { STANDARD_COMMISSION_RATE_TEXT } from "@/lib/pricingPolicy";
 import { type EnvSource, isProductionDeployment } from "@/lib/deploymentEnvironment";
 import {
   lifecycleStage,
@@ -165,16 +166,23 @@ export async function sendHostInvitation(
   const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: invitation.email,
-    subject: "Your FYStay listing is ready to review",
+    subject: "We've built your FYStay listing - ready for you to approve",
     html: renderEmail({
       audience: "host",
-      preheader: "Check the listing FYStay prepared, then approve it or ask for changes.",
-      heading: "Your listing is ready to review",
-      intro: `Hi ${escapeHtml(invitation.name)}, as agreed, FYStay has prepared a draft listing for ${what}. Nothing is public yet.`,
+      preheader: "Your photos, description and prices are already in. Check it, approve it, start taking bookings.",
+      heading: "Your listing is built and ready for you to approve",
+      intro: `Hi ${escapeHtml(invitation.name)}, thank you for agreeing to list ${what} on FYStay. To save you the effort, we've already built the listing from the details you gave us: your photos, description, prices and house rules. Nothing is public yet. You check it, and only you decide when it goes live.`,
       cta: { label: "Review my listing", url },
       paragraphs: [
-        `Sign in or create your FYStay account with this email address (${escapeHtml(invitation.email)}), confirm the address, and the draft becomes yours to check, correct and approve. It only goes live after you approve it and your payout details are set up.`,
-        "This link works for 14 days. If you weren't expecting it, you can ignore this email.",
+        "<strong>What's left (about 15 minutes):</strong>",
+        `<strong>1. Create your free account.</strong> Use the button above and sign in or sign up with this email address (${escapeHtml(invitation.email)}). Confirm the address and the draft becomes yours.`,
+        "<strong>2. Check and approve it.</strong> Look through every detail and photo, change anything you like, then approve it. We never publish anything you haven't approved.",
+        "<strong>3. Set up how you get paid.</strong> Add your bank details through Stripe, our payments partner. It's secure, and FYStay never sees your card or bank details.",
+        "<strong>4. Link your calendar</strong> (if you're listed elsewhere, such as Airbnb). Paste in your calendar link so your dates stay in step and you can't be double-booked.",
+        "<strong>5. Go live and start taking bookings.</strong> Once you're happy and your payout details are set up, it goes live. Guests find you, and you approve each stay before it's confirmed.",
+        `<strong>What it costs:</strong> nothing to list. FYStay takes a ${STANDARD_COMMISSION_RATE_TEXT} commission on each booking, with no subscription and no booking fees added for guests.`,
+        "Stuck on anything? Just reply to this email and we'll help, or talk you through it on the phone.",
+        "This link works for 14 days. If you weren't expecting this email, you can ignore it.",
       ],
     }),
   });

@@ -27,6 +27,7 @@ export default async function AdminPropertyPage({ params }: { params: Promise<{ 
     where: { id },
     select: {
       ...PUBLICATION_LISTING_SELECT,
+      hostId: true,
       approvedAt: true,
       approvedBy: { select: { name: true } },
       icalImportUrl: true,
@@ -161,6 +162,7 @@ export default async function AdminPropertyPage({ params }: { params: Promise<{ 
           listingId={id}
           stage={stage}
           canSendInvitation={Boolean(listing.hostInvitationId)}
+          canInviteNewOwner={!listing.hostInvitationId && listing.hostId === listing.preparedById && !listing.published}
           invitationSent={Boolean(invitation?.sentAt)}
           canSendForReview={listing.reviewStatus === "DRAFT" || listing.reviewStatus === "CHANGES_REQUESTED"}
           canApprove={stage === "awaiting_fystay_review"}

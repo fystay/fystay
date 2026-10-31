@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { Label } from "@/components/ui/Label";
+import { Input } from "@/components/ui/Input";
 import type { LifecycleStage } from "@/lib/listingReview";
 
 async function post(url: string, body: unknown, method = "POST") {
@@ -27,6 +28,7 @@ export function PropertyActions({
   listingId,
   stage,
   canSendInvitation,
+  canInviteNewOwner,
   invitationSent,
   canSendForReview,
   canApprove,
@@ -34,6 +36,8 @@ export function PropertyActions({
   listingId: string;
   stage: LifecycleStage;
   canSendInvitation: boolean;
+  /** A draft FYStay prepared with no owner attached yet: the owner's details are asked for here. */
+  canInviteNewOwner: boolean;
   invitationSent: boolean;
   canSendForReview: boolean;
   canApprove: boolean;
@@ -42,6 +46,7 @@ export function PropertyActions({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [devUrl, setDevUrl] = useState<string | null>(null);
+  const [owner, setOwner] = useState({ name: "", email: "", phone: "", consentNote: "" });
 
   async function run(key: string, action: () => Promise<{ ok: boolean; data: { error?: string; devUrl?: string; sent?: boolean } | null }>, success: string) {
     setBusy(key);
@@ -58,6 +63,58 @@ export function PropertyActions({
 
   return (
     <div className="flex flex-col gap-6">
+      {canInviteNewOwner && (
+        <div>
+          <h3 className="font-semibold text-foreground">Invite the owner</h3>
+          <p className="mt-1 text-sm text-stone-600">
+            This draft has no owner yet. Add their details and FYStay emails them the invitation: the listing is built, and they sign up,
+            approve it, set up payouts and start taking bookings. Only send it once you have their permission.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="owner-name">Owner&apos;s name</Label>
+              <Input id="owner-name" value={owner.name} onChange={(e) => setOwner({ ...owner, name: e.target.value })} autoComplete="off" />
+            </div>
+            <div>
+              <Label htmlFor="owner-email">Owner&apos;s email</Label>
+              <Input id="owner-email" type="email" value={owner.email} onChange={(e) => setOwner({ ...owner, email: e.target.value })} autoComplete="off" />
+            </div>
+            <div>
+              <Label htmlFor="owner-phone">Phone (optional)</Label>
+              <Input id="owner-phone" type="tel" value={owner.phone} onChange={(e) => setOwner({ ...owner, phone: e.target.value })} autoComplete="off" />
+            </div>
+            <div>
+              <Label htmlFor="owner-consent">How they agreed to be contacted</Label>
+              <Input
+                id="owner-consent"
+                value={owner.consentNote}
+                onChange={(e) => setOwner({ ...owner, consentNote: e.target.value })}
+                placeholder="e.g. Agreed by message, 30 Oct"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <Button
+            className="mt-3"
+            disabled={busy !== null}
+            onClick={() =>
+              run(
+                "invite-new",
+                () => post(`/api/admin/properties/${listingId}/invitation`, { ...owner, phone: owner.phone || undefined }),
+                "Invitation sent",
+              )
+            }
+          >
+            {busy === "invite-new" ? "Sending…" : "Send invitation"}
+          </Button>
+          {devUrl && (
+            <p className="mt-2 break-all rounded-lg bg-surface-muted p-3 text-xs text-stone-700">
+              Local development only (no email provider): {devUrl}
+            </p>
+          )}
+        </div>
+      )}
+
       {canSendInvitation && (
         <div>
           <h3 className="font-semibold text-foreground">Invitation</h3>
